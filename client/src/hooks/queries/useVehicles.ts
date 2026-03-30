@@ -70,3 +70,11 @@ export function useCheckinDriver() {
     onError: () => toast.error('Lỗi khi check-in'),
   });
 }
+
+export function useVehicleAssignments(id?: string) {
+  return useQuery({
+    queryKey: [...vehicleKeys.all, 'assignments', id],
+    queryFn: () => id ? vehiclesApi.getAssignments(id) : Promise.resolve([]),
+    enabled: !!id,
+  });
+}

@@ -93,4 +93,13 @@ export class VehicleController {
       return res.status(400).json(errorResponse(err.message));
     }
   }
+
+  static async getAssignments(req: Request, res: Response) {
+    try {
+      const data = await VehicleService.getAssignments(req.params.id as string);
+      return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
 }

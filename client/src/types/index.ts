@@ -205,6 +205,13 @@ export interface DeliveryVehicle {
   // Nested
   vehicles?: Vehicle;
   profiles?: { full_name: string };
+  delivery_orders?: DeliveryOrder & {
+    import_orders?: {
+      order_code: string;
+      receiver_name: string;
+      customers?: { name: string };
+    };
+  };
 }
 
 // --- Vehicle Checkins ---

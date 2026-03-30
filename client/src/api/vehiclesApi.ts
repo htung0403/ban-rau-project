@@ -1,5 +1,5 @@
 import axiosClient from './axiosClient';
-import type { Vehicle, VehicleCheckin, PaymentCollection } from '../types';
+import type { Vehicle, VehicleCheckin, PaymentCollection, DeliveryVehicle } from '../types';
 
 export const vehiclesApi = {
   getAll: async () => {
@@ -34,6 +34,11 @@ export const vehiclesApi = {
 
   getCollections: async () => {
     const { data } = await axiosClient.get<PaymentCollection[]>('/vehicles/collections');
+    return data;
+  },
+  
+  getAssignments: async (id: string) => {
+    const { data } = await axiosClient.get<DeliveryVehicle[]>(`/vehicles/${id}/assignments`);
     return data;
   },
 };

@@ -77,4 +77,17 @@ export class VehicleService {
     if (error) throw error;
     return data;
   }
+
+  static async getAssignments(vehicleId: string) {
+    const { data, error } = await supabaseService
+      .from('delivery_vehicles')
+      .select('*, delivery_orders(*, import_orders(order_code, receiver_name, customers(name)))')
+      .eq('vehicle_id', vehicleId)
+      // Filter for orders that are NOT completed
+      .not('delivery_orders.status', 'eq', 'completed')
+      .order('assigned_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
 }

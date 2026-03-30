@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import '../../types';
 import { HRService } from './hr.service';
 import { successResponse, errorResponse } from '../../utils/response';
 import { z } from 'zod';

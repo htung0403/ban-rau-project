@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ActionCard } from '../components/ui/ActionCard';
 import type { ActionCardProps } from '../components/ui/ActionCard';
-import { Box, Users, Wallet, Car, Bot, Copyright, Search } from 'lucide-react';
+import { Box, Users, Wallet, Car, Copyright, Search } from 'lucide-react';
 import { clsx } from 'clsx';
 import { moduleData } from '../data/moduleData';
 import { ModuleCard } from '../components/ui/ModuleCard';

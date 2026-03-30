@@ -4,7 +4,6 @@ import {
   Users,
   Wallet,
   Car,
-  Bot,
   Copyright
 } from 'lucide-react';
 import React from 'react';

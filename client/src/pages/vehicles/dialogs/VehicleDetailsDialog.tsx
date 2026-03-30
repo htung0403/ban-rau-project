@@ -1,8 +1,8 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X, Car, User, Package, MapPin } from 'lucide-react';
+import { X, Car, User, Package, MapPin, Navigation } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useVehicleAssignments } from '../../../hooks/queries/useVehicles';
+import { useVehicleAssignments, useVehicleCheckins } from '../../../hooks/queries/useVehicles';
 import type { Vehicle } from '../../../types';
 import LoadingSkeleton from '../../../components/shared/LoadingSkeleton';
 
@@ -14,7 +14,8 @@ interface Props {
 }
 
 const VehicleDetailsDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onClose }) => {
-  const { data: assignments, isLoading } = useVehicleAssignments(vehicle?.id);
+  const { data: assignments, isLoading: assignmentsLoading } = useVehicleAssignments(vehicle?.id);
+  const { data: checkins, isLoading: checkinsLoading } = useVehicleCheckins(vehicle?.id || '');
 
   if (!isOpen && !isClosing) return null;
 
@@ -94,7 +95,7 @@ const VehicleDetailsDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
               </span>
             </div>
 
-            {isLoading ? (
+            {assignmentsLoading ? (
               <LoadingSkeleton type="card" rows={2} />
             ) : !assignments?.length ? (
               <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-10 flex flex-col items-center justify-center text-center">
@@ -146,6 +147,56 @@ const VehicleDetailsDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
                         </div>
                       </div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Location History Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-2">
+                <MapPin size={18} className="text-primary" />
+                <h3 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-tight">Lịch sử di chuyển</h3>
+              </div>
+            </div>
+
+            {checkinsLoading ? (
+              <LoadingSkeleton type="card" rows={1} />
+            ) : !checkins?.length ? (
+              <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-8 flex flex-col items-center justify-center text-center">
+                <p className="text-[13px] text-slate-400 italic">Chưa có dữ liệu vị trí GPS</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {checkins.slice(0, 3).map((c: any) => (
+                  <div key={c.id} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={clsx(
+                        "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                        c.checkin_type === 'in' ? 'bg-blue-50 text-blue-500' : 'bg-orange-50 text-orange-500'
+                      )}>
+                        {c.checkin_type === 'in' ? <Car size={14} /> : <Navigation size={14} />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold text-slate-800 truncate">
+                          {c.checkin_type === 'in' ? 'Bắt đầu' : 'Kết thúc'} • {new Date(c.checkin_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                        <p className="text-[11px] text-slate-400 truncate">
+                          {new Date(c.checkin_time).toLocaleDateString('vi-VN')}
+                        </p>
+                      </div>
+                    </div>
+                    <a 
+                      href={`https://www.google.com/maps?q=${c.latitude},${c.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 bg-slate-50 hover:bg-primary/10 text-slate-400 hover:text-primary rounded-xl transition-all shrink-0"
+                      title="Xem trên bản đồ"
+                    >
+                      <MapPin size={16} />
+                    </a>
                   </div>
                 ))}
               </div>

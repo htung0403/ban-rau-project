@@ -49,7 +49,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
       section: 'Quản lý xe',
       items: [
         { icon: Car, title: 'Danh sách xe', description: 'Quản lý thông tin và lịch trình xe.', colorScheme: 'blue', path: '/quan-ly-xe/danh-sach' },
-        { icon: MapPin, title: 'Điểm danh tài xế', description: 'Tài xế điểm danh Geolocation.', colorScheme: 'orange', path: '/quan-ly-xe/diem-danh' },
+        { icon: MapPin, title: 'Điểm danh tài xế', description: 'Tài xế điểm danh Geolocation.', colorScheme: 'orange', path: '/quan-ly-xe/check-in' },
       ]
     }
   ],

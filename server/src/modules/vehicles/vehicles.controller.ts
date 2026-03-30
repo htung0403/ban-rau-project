@@ -10,10 +10,10 @@ const createVehicleSchema = z.object({
 });
 
 const checkinSchema = z.object({
-  type: z.enum(['in', 'out']),
+  checkin_type: z.enum(['in', 'out']),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
-  address: z.string().optional(),
+  address_snapshot: z.string().optional(),
 });
 
 const collectPaymentSchema = z.object({

@@ -25,10 +25,7 @@ export class VehicleService {
       .insert({
         vehicle_id: vehicleId,
         driver_id: driverId,
-        checkin_type: checkinData.type,
-        latitude: checkinData.latitude,
-        longitude: checkinData.longitude,
-        address_snapshot: checkinData.address,
+        ...checkinData,
       })
       .select()
       .single();
@@ -37,7 +34,7 @@ export class VehicleService {
 
     // Update vehicle status
     await supabaseService.from('vehicles').update({
-      status: checkinData.type === 'in' ? 'in_transit' : 'available'
+      status: checkinData.checkin_type === 'in' ? 'in_transit' : 'available'
     }).eq('id', vehicleId);
 
     return data;

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PageHeader from '../../components/shared/PageHeader';
 import { useDriverCheckins, useCheckinDriver, useVehicles } from '../../hooks/queries/useVehicles';
 import { useAuth } from '../../context/AuthContext';
+import { clsx } from 'clsx';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
@@ -65,7 +66,7 @@ const DriverCheckinPage: React.FC = () => {
     }
   }, [user]);
 
-  const handleCheckin = async () => {
+  const handleCheckinAction = async (type: 'in' | 'out') => {
     if (!selectedVehicleId) {
       toast.error('Vui lòng chọn xe để check-in');
       return;
@@ -74,13 +75,14 @@ const DriverCheckinPage: React.FC = () => {
       toast.error('Vui lòng đợi lấy vị trí hoặc làm mới vị trí');
       return;
     }
+    
     await checkinMutation.mutateAsync({
       vehicleId: selectedVehicleId,
       payload: {
-        checkin_type: 'in',
+        checkin_type: type, // Correct property name
         latitude: location.lat,
         longitude: location.lng,
-        address_snapshot: 'Đang lấy địa chỉ...',
+        address_snapshot: 'Tọa độ GPS',
       }
     });
     // Request refetch on success
@@ -106,7 +108,7 @@ const DriverCheckinPage: React.FC = () => {
               <Car size={20} className="text-blue-500" />
             </div>
             <div className="flex-1 w-full">
-              <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Chon xe dieu khien</label>
+              <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Chọn xe điều khiển</label>
               <select
                 value={selectedVehicleId}
                 onChange={e => setSelectedVehicleId(e.target.value)}
@@ -125,14 +127,14 @@ const DriverCheckinPage: React.FC = () => {
               <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
                 <Navigation size={24} className="text-blue-500" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h3 className="text-[15px] font-bold text-foreground">Trạng thái vị trí</h3>
                 {isLocating ? (
                   <p className="text-[13px] text-muted-foreground animate-pulse">Đang lấy vị trí hiện tại...</p>
                 ) : locationError ? (
                   <p className="text-[13px] text-red-500 font-medium">{locationError}</p>
                 ) : location ? (
-                  <p className="text-[13px] text-emerald-600 font-medium tracking-tight">
+                  <p className="text-[13px] text-emerald-600 font-medium tracking-tight truncate">
                     Đã lấy vị trí: {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
                   </p>
                 ) : (
@@ -150,12 +152,20 @@ const DriverCheckinPage: React.FC = () => {
                 Làm mới GPS
               </button>
               <button
-                onClick={handleCheckin}
+                onClick={() => handleCheckinAction('in')}
                 disabled={!location || checkinMutation.isPending || !selectedVehicleId}
                 className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-[13px] font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all disabled:opacity-50"
               >
                 <MapPin size={16} />
-                Check-in
+                Bắt đầu
+              </button>
+              <button
+                onClick={() => handleCheckinAction('out')}
+                disabled={!location || checkinMutation.isPending || !selectedVehicleId}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-orange-600 text-white text-[13px] font-bold hover:bg-orange-700 shadow-lg shadow-orange-500/20 transition-all disabled:opacity-50"
+              >
+                <Navigation size={16} />
+                Kết thúc
               </button>
             </div>
           </div>
@@ -170,18 +180,26 @@ const DriverCheckinPage: React.FC = () => {
         ) : isError ? (
           <ErrorState onRetry={() => refetch()} />
         ) : !checkins?.length ? (
-          <EmptyState title="Chua co lich su check-in" />
+          <EmptyState title="Chưa có lịch sử check-in" />
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar p-4">
             <div className="relative border-l-2 border-muted ml-3 space-y-6 pb-4">
               {checkins.map((c: any) => (
                 <div key={c.id} className="relative pl-6">
-                  <div className="absolute w-3 h-3 bg-blue-500 rounded-full -left-[7px] top-1.5 ring-4 ring-white" />
-                  <div className="bg-muted/10 rounded-xl p-4 border border-border">
+                  <div className={clsx(
+                    "absolute w-3 h-3 rounded-full -left-[7px] top-1.5 ring-4 ring-white",
+                    c.checkin_type === 'in' ? 'bg-blue-500' : 'bg-orange-500'
+                  )} />
+                  <div className="bg-muted/10 rounded-xl p-4 border border-border group hover:border-primary/30 transition-all">
                     <div className="flex justify-between items-start mb-2">
                       <span className="text-[13px] font-bold text-foreground">{new Date(c.checkin_time).toLocaleString('vi-VN')}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 border border-blue-100 text-blue-600 uppercase">
-                        {c.checkin_type}
+                      <span className={clsx(
+                        "px-2 py-0.5 rounded text-[10px] font-bold border uppercase",
+                        c.checkin_type === 'in' 
+                          ? "bg-blue-50 border-blue-100 text-blue-600" 
+                          : "bg-orange-50 border-orange-100 text-orange-600"
+                      )}>
+                        {c.checkin_type === 'in' ? 'Bắt đầu' : 'Kết thúc'}
                       </span>
                     </div>
                     {(user?.role === 'admin' || user?.role === 'manager') && c.profiles && (
@@ -189,9 +207,20 @@ const DriverCheckinPage: React.FC = () => {
                         Tài xế: <span className="font-bold">{c.profiles.full_name}</span>
                       </p>
                     )}
-                    <div className="flex items-center gap-1.5 text-muted-foreground text-[12px]">
-                      <MapPin size={14} className="shrink-0" />
-                      <span>{c.address_snapshot || `${c.latitude}, ${c.longitude}`}</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-1.5 text-muted-foreground text-[12px]">
+                        <MapPin size={14} className="shrink-0" />
+                        <span className="truncate">{c.address_snapshot || `Tọa độ: ${c.latitude}, ${c.longitude}`}</span>
+                      </div>
+                      <a 
+                        href={`https://www.google.com/maps?q=${c.latitude},${c.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 shrink-0"
+                      >
+                        Xem bản đồ
+                        <Navigation size={10} />
+                      </a>
                     </div>
                   </div>
                 </div>

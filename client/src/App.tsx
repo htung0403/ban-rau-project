@@ -102,7 +102,7 @@ function AppRoutes() {
 
         {/* Quan ly xe module */}
         <Route path="/quan-ly-xe">
-          <Route index element={<Navigate to="danh-sach" replace />} />
+          <Route index element={<ModulePage />} />
           <Route path="danh-sach" element={<VehiclesPage />} />
           <Route path="check-in" element={<DriverCheckinPage />} />
         </Route>

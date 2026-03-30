@@ -29,7 +29,7 @@ export class VehicleService {
       })
       .select()
       .single();
-    
+
     if (error) throw error;
 
     // Update vehicle status
@@ -59,14 +59,14 @@ export class VehicleService {
       })
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   }
 
   static async getCollections(filters: any) {
     let query = supabaseService.from('payment_collections').select('*, profiles!payment_collections_driver_id_fkey(full_name), vehicles(license_plate)');
-    
+
     if (filters.date) query = query.eq('collected_date', filters.date);
     if (filters.vehicle_id) query = query.eq('vehicle_id', filters.vehicle_id);
 

@@ -73,7 +73,7 @@ const ExportOrdersPage: React.FC = () => {
                 {orders.map((o) => (
                   <tr key={o.id} className="hover:bg-muted/20 transition-colors">
                     <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{o.export_date}</td>
-                    <td className="px-4 py-3 text-[13px] font-bold text-foreground">{o.item_name}</td>
+                    <td className="px-4 py-3 text-[13px] font-bold text-foreground">{o.products?.name}</td>
                     <td className="px-4 py-3 text-[13px] font-bold text-foreground text-right tabular-nums">{o.quantity}</td>
                     <td className="px-4 py-3 text-[13px] font-bold text-red-600 text-right tabular-nums">{formatCurrency(o.debt_amount)}</td>
                     <td className="px-4 py-3 text-[13px] font-bold text-emerald-600 text-right tabular-nums">{formatCurrency(o.paid_amount)}</td>

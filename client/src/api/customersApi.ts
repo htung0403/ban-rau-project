@@ -1,0 +1,49 @@
+import axiosClient from './axiosClient';
+import type { Customer } from '../types';
+
+export const customersApi = {
+  getAll: async () => {
+    const { data } = await axiosClient.get<Customer[]>('/customers');
+    return data;
+  },
+
+  create: async (payload: { name: string; phone?: string; address?: string }) => {
+    const { data } = await axiosClient.post<Customer>('/customers', payload);
+    return data;
+  },
+
+  getById: async (id: string) => {
+    const { data } = await axiosClient.get<Customer>(`/customers/${id}`);
+    return data;
+  },
+
+  getOrders: async (id: string) => {
+    const { data } = await axiosClient.get(`/customers/${id}/orders`);
+    return data;
+  },
+
+  getExportOrders: async (id: string) => {
+    const { data } = await axiosClient.get(`/customers/${id}/export-orders`);
+    return data;
+  },
+
+  getReceipts: async (id: string) => {
+    const { data } = await axiosClient.get(`/customers/${id}/receipts`);
+    return data;
+  },
+
+  getDebt: async (id: string) => {
+    const { data } = await axiosClient.get(`/customers/${id}/debt`);
+    return data;
+  },
+
+  updatePayment: async (id: string, payload: { amount: number, payment_date?: string, notes?: string }) => {
+    const { data } = await axiosClient.put(`/customers/${id}/payment`, payload);
+    return data;
+  },
+
+  createAccount: async (payload: { customer_id: string; email: string; password: string }) => {
+    const { data } = await axiosClient.post('/customers/create-account', payload);
+    return data;
+  },
+};

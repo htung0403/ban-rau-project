@@ -19,6 +19,7 @@ const deliverySchema = z.object({
   delivery_date: z.string().min(1, 'Vui lòng chọn ngày giao'),
   unit_price: z.coerce.number().optional(),
   import_cost: z.coerce.number().optional(),
+  payment_method: z.string().optional(),
   vehicles: z.array(z.object({
     vehicle_id: z.string().min(1, 'Vui lòng chọn xe'),
     driver_id: z.string().min(1),
@@ -50,6 +51,7 @@ interface DeliveryFormData {
   delivery_date: string;
   unit_price?: number;
   import_cost?: number;
+  payment_method?: string;
   vehicles?: DeliveryVehicleRow[];
 }
 
@@ -94,6 +96,7 @@ const CreateDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, importOrder,
         delivery_date: format(new Date(), 'yyyy-MM-dd'),
         import_cost: firstItem?.unit_price || importOrder.unit_price || 0,
         unit_price: firstItem?.unit_price || importOrder.unit_price || 0,
+        payment_method: 'Tiền mặt',
         vehicles: []
       });
     }
@@ -274,23 +277,27 @@ const CreateDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, importOrder,
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Giá nhập (Dự kiến)</label>
+                <label className="text-[13px] font-bold text-foreground">Loại thanh toán</label>
                 <Controller
-                  name="import_cost"
+                  name="payment_method"
                   control={control}
                   render={({ field }) => (
-                    <CurrencyInput
+                    <select
                       {...field}
-                      value={field.value}
+                      value={field.value || ''}
                       onChange={field.onChange}
-                      placeholder="0"
-                      className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all tabular-nums"
-                    />
+                      className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                    >
+                      <option value="">-- Chọn loại --</option>
+                      <option value="Tiền mặt">Tiền mặt</option>
+                      <option value="Chuyển khoản">Chuyển khoản</option>
+                      <option value="Thanh toán sau">Thanh toán sau (Nợ)</option>
+                    </select>
                   )}
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Giá bán (Dự kiến)</label>
+                <label className="text-[13px] font-bold text-foreground">Số tiền thanh toán</label>
                 <Controller
                   name="unit_price"
                   control={control}

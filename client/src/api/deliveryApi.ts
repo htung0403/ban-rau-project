@@ -18,6 +18,7 @@ export const deliveryApi = {
     total_quantity: number; 
     unit_price?: number; 
     import_cost?: number; 
+    payment_method?: string;
     delivery_date?: string;
     vehicles?: Array<{
       vehicle_id: string;

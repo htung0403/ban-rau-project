@@ -8,9 +8,10 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import { useCreateExportOrder } from '../../../hooks/queries/useExportOrders';
 import { useCustomers } from '../../../hooks/queries/useCustomers';
-import { useProducts } from '../../../hooks/queries/useProducts';
+import { useCreateProduct, useProducts } from '../../../hooks/queries/useProducts';
 import { useWarehouses } from '../../../hooks/queries/useWarehouses';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { CreatableSearchableSelect } from '../../../components/ui/CreatableSearchableSelect';
 import CurrencyInput from '../../../components/shared/CurrencyInput';
 
 const exportOrderSchema = z.object({
@@ -32,6 +33,7 @@ interface Props {
 
 const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose }) => {
   const createMutation = useCreateExportOrder();
+  const createProductMutation = useCreateProduct();
   const { data: customers } = useCustomers();
   const { data: products } = useProducts();
   const { data: warehouses } = useWarehouses();
@@ -57,6 +59,8 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
   });
 
   const customerId = watch('customer_id');
+  const productId = watch('product_id');
+  const warehouseId = watch('warehouse_id');
 
   useEffect(() => {
     if (isOpen) {
@@ -70,6 +74,32 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
       });
     }
   }, [isOpen, reset]);
+
+  // Auto-select first warehouse when list is available and none is selected
+  useEffect(() => {
+    if (isOpen && warehouses && warehouses.length > 0 && !warehouseId) {
+      setValue('warehouse_id', warehouses[0].id, { shouldValidate: true });
+    }
+  }, [isOpen, warehouses, warehouseId, setValue]);
+
+  const handleCreateProduct = async (name: string) => {
+    try {
+      const resp = await createProductMutation.mutateAsync({
+        name,
+        sku: `P-${Date.now().toString().slice(-6)}`,
+        unit: 'kg', // Default unit for quick create
+      });
+      
+      // Axios returns response with 'data'
+      // If server returns {success:true, data: {id:...}}
+      const newId = resp.data?.id || (resp as any).id;
+      if (newId) {
+        setValue('product_id', newId, { shouldValidate: true });
+      }
+    } catch (error) {
+      // Handled by mutation toast
+    }
+  };
 
   const onSubmit = async (data: ExportOrderFormData) => {
     try {
@@ -148,15 +178,22 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
               </div>
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-[13px] font-bold text-foreground">Hàng xuất <span className="text-red-500">*</span></label>
-                <select {...register('product_id')} className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold">
-                  <option value="">Chọn hàng hóa...</option>
-                  {(products || []).map((p: any) => (
-                    <option key={p.id} value={p.id}>[{p.sku}] {p.name} ({p.unit})</option>
-                  ))}
-                </select>
+                <CreatableSearchableSelect
+                  options={(products || []).map((p: any) => ({ 
+                    value: p.id, 
+                    label: `[${p.sku}] ${p.name} (${p.unit})` 
+                  }))}
+                  value={productId}
+                  onValueChange={(val) => setValue('product_id', val, { shouldValidate: true })}
+                  onCreate={handleCreateProduct}
+                  placeholder="Chọn hoặc nhập tên hàng mới..."
+                  searchPlaceholder="Tìm kiếm hoặc gõ tên món hàng..."
+                />
                 {errors.product_id && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.product_id.message}</p>}
               </div>
 
+              {/* Tạm ẩn phần kho xuất */}
+              {/* 
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-[13px] font-bold text-foreground">Kho xuất <span className="text-red-500">*</span></label>
                 <select {...register('warehouse_id')} className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all">
@@ -167,6 +204,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                 </select>
                 {errors.warehouse_id && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.warehouse_id.message}</p>}
               </div>
+              */}
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-[13px] font-bold text-foreground">Số lượng <span className="text-red-500">*</span></label>
                 <div className="relative">

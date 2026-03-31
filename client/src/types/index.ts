@@ -182,6 +182,7 @@ export interface DeliveryOrder {
   remaining_quantity: number; // GENERATED
   unit_price?: number;
   import_cost?: number;
+  payment_method?: string;
   status: DeliveryStatus;
   delivery_date?: string;
   created_at: string;

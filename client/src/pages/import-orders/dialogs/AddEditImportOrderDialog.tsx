@@ -9,10 +9,12 @@ import { format } from 'date-fns';
 import { useCreateImportOrder, useUpdateImportOrder } from '../../../hooks/queries/useImportOrders';
 import { useWarehouses } from '../../../hooks/queries/useWarehouses';
 import { useCustomers } from '../../../hooks/queries/useCustomers';
-import { useProducts } from '../../../hooks/queries/useProducts';
+import { useCreateProduct, useProducts } from '../../../hooks/queries/useProducts';
 import { useEmployees } from '../../../hooks/queries/useHR';
 import type { ImportOrder, ImportOrderItem } from '../../../types';
 import CurrencyInput from '../../../components/shared/CurrencyInput';
+import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { CreatableSearchableSelect } from '../../../components/ui/CreatableSearchableSelect';
 import axiosClient from '../../../api/axiosClient';
 import toast from 'react-hot-toast';
 
@@ -23,7 +25,6 @@ const importOrderItemSchema = z.object({
   quantity: z.coerce.number().min(1, 'Số lượng tối thiểu là 1'),
   unit_price: z.coerce.number().min(0).optional(),
   image_url: z.string().optional(),
-  payment_status: z.enum(['paid', 'unpaid']).default('unpaid'),
 });
 
 const importOrderSchema = z.object({
@@ -35,9 +36,9 @@ const importOrderSchema = z.object({
   warehouse_id: z.string().optional(),
   customer_id: z.string().min(1, 'Vui lòng chọn khách hàng'),
   notes: z.string().optional(),
+  payment_status: z.enum(['paid', 'unpaid']).default('unpaid'),
   items: z.array(importOrderItemSchema).min(1, 'Vui lòng thêm ít nhất 1 mặt hàng'),
 });
-
 
 interface Props {
   isOpen: boolean;
@@ -50,6 +51,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
   const isEditMode = !!editingOrder;
   const createMutation = useCreateImportOrder();
   const updateMutation = useUpdateImportOrder();
+  const createProductMutation = useCreateProduct();
   const { data: warehouses } = useWarehouses();
   const { data: products } = useProducts();
   const { data: customers } = useCustomers();
@@ -68,7 +70,8 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
     defaultValues: {
       order_date: format(new Date(), 'yyyy-MM-dd'),
       order_time: new Date().toTimeString().slice(0, 5),
-      items: [{ quantity: 1, payment_status: 'unpaid' }],
+      items: [{ quantity: 1 }],
+      payment_status: 'unpaid',
       status: 'pending',
     } as any,
   });
@@ -79,6 +82,8 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
   });
 
   const watchCustomerId = watch('customer_id');
+  const watchReceivedBy = watch('received_by');
+  const watchPaymentStatus = watch('payment_status');
   const selectedCustomer = customers?.find(c => c.id === watchCustomerId);
 
   useEffect(() => {
@@ -99,14 +104,15 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
           quantity: item.quantity,
           unit_price: item.unit_price,
           image_url: item.image_url,
-          payment_status: item.payment_status,
         })) || [],
+        payment_status: editingOrder.import_order_items?.[0]?.payment_status || 'unpaid',
       });
     } else {
       reset({
         order_date: format(new Date(), 'yyyy-MM-dd'),
         order_time: new Date().toTimeString().slice(0, 5),
-        items: [{ quantity: 1, payment_status: 'unpaid' }],
+        items: [{ quantity: 1 }],
+        payment_status: 'unpaid',
         status: 'pending',
         warehouse_id: warehouses?.[0]?.id || '',
       });
@@ -115,7 +121,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
 
   const watchItems = watch('items');
   const totalAmount = (watchItems || []).reduce((sum: number, item: any) => {
-    return sum + (Number(item.quantity || 0) * Number(item.weight_kg || 0) * Number(item.unit_price || 0));
+    return sum + (Number(item.quantity || 0) * Number(item.unit_price || 0));
   }, 0);
 
   const handleFileUpload = async (index: number, file: File) => {
@@ -142,14 +148,48 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
     }
   };
 
+  const handleCreateProduct = async (index: number, name: string) => {
+    // Hiển thị tạm thời tên sản phẩm trong input (Cập nhật lạc quan)
+    setValue(`items.${index}.product_id`, name);
+
+    try {
+      const resp = await createProductMutation.mutateAsync({
+        name,
+        sku: `P-${Date.now().toString().slice(-6)}`,
+        unit: 'kg', // Mặc định cho tạo nhanh
+      });
+
+      const newId = resp.data?.id || (resp as any).id;
+      if (newId) {
+        // Cập nhật lại bằng ID thật sau khi tạo xong
+        setValue(`items.${index}.product_id`, newId, { shouldValidate: true });
+        toast.success(`Đã tạo nhanh sản phẩm: ${name}`);
+      }
+    } catch (error) {
+      // Hoàn tác nếu lỗi
+      setValue(`items.${index}.product_id`, '', { shouldValidate: true });
+      toast.error(`Không thể tạo sản phẩm: ${name}`);
+    }
+  };
+
   const onSubmit = async (data: Record<string, any>) => {
     try {
       const payload = { ...data };
+
+      // Update items with the global payment status before sending
+      if (payload.items) {
+        payload.items = payload.items.map((item: any) => ({
+          ...item,
+          payment_status: payload.payment_status || 'unpaid',
+        }));
+      }
+
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') {
           delete payload[key];
         }
       });
+
       if (isEditMode && editingOrder) {
         await updateMutation.mutateAsync({ id: editingOrder.id, payload: payload as any });
       } else {
@@ -179,7 +219,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
       {/* Panel */}
       <div
         className={clsx(
-          'relative w-full max-w-[750px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
+          'relative w-full max-w-[900px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
           isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
         )}
       >
@@ -220,23 +260,23 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
 
               <div className="space-y-1.5">
                 <label className="text-[13px] font-bold text-foreground">Người nhận (Khách hàng) <span className="text-red-500">*</span></label>
-                <select {...register('customer_id')} className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold">
-                  <option value="">Chọn khách hàng...</option>
-                  {(customers || []).map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  options={(customers || []).map(c => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}` }))}
+                  value={watchCustomerId}
+                  onValueChange={(val) => setValue('customer_id', val, { shouldValidate: true })}
+                  placeholder="Chọn khách hàng..."
+                />
                 {errors.customer_id && <p className="text-red-500 text-[11px] font-medium">{errors.customer_id.message as string}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[13px] font-bold text-foreground">Nhân viên nhận <span className="text-red-500">*</span></label>
-                <select {...register('received_by')} className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold">
-                  <option value="">Chọn nhân viên...</option>
-                  {(employees || []).map((e: any) => (
-                    <option key={e.id} value={e.id}>{e.full_name}</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  options={(employees || []).map(e => ({ value: e.id, label: e.full_name }))}
+                  value={watchReceivedBy}
+                  onValueChange={(val) => setValue('received_by', val, { shouldValidate: true })}
+                  placeholder="Chọn nhân viên..."
+                />
                 {errors.received_by && <p className="text-red-500 text-[11px] font-medium">{errors.received_by.message as string}</p>}
               </div>
 
@@ -271,6 +311,34 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                 <label className="text-[13px] font-bold text-foreground">Ghi chú</label>
                 <input type="text" placeholder="Ghi chú thêm..." {...register('notes')} className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium" />
               </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-bold text-foreground">Trạng thái thanh toán</label>
+                <div className="flex bg-muted/10 p-1 rounded-xl border border-border/50 h-[38px]">
+                  <button
+                    type="button"
+                    onClick={() => setValue('payment_status', 'unpaid', { shouldValidate: true })}
+                    className={clsx(
+                      'flex-1 flex items-center justify-center gap-1.5 px-2 rounded-lg text-[11px] font-bold transition-all',
+                      watchPaymentStatus === 'unpaid' ? 'bg-white shadow-sm text-red-500' : 'text-muted-foreground hover:bg-white/50'
+                    )}
+                  >
+                    <Circle size={14} />
+                    Chưa trả
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setValue('payment_status', 'paid', { shouldValidate: true })}
+                    className={clsx(
+                      'flex-1 flex items-center justify-center gap-1.5 px-2 rounded-lg text-[11px] font-bold transition-all',
+                      watchPaymentStatus === 'paid' ? 'bg-white shadow-sm text-green-600' : 'text-muted-foreground hover:bg-white/50'
+                    )}
+                  >
+                    <CheckCircle2 size={14} />
+                    Đã trả
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -283,7 +351,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
               </div>
               <button
                 type="button"
-                onClick={() => append({ quantity: 1, payment_status: 'unpaid' })}
+                onClick={() => append({ quantity: 1 })}
                 className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary text-white text-[11px] font-bold hover:bg-primary/90 transition-all active:scale-95"
               >
                 <Plus size={14} />
@@ -295,11 +363,10 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                 <thead>
                   <tr className="bg-muted/10 border-b border-border">
                     <th className="px-4 py-2 text-left text-[11px] font-bold text-muted-foreground uppercase">Hàng hóa</th>
-                    <th className="px-4 py-2 text-left text-[11px] font-bold text-muted-foreground uppercase w-24">Số lượng</th>
-                    <th className="px-4 py-2 text-left text-[11px] font-bold text-muted-foreground uppercase w-24">Kg</th>
-                    <th className="px-4 py-2 text-left text-[11px] font-bold text-muted-foreground uppercase w-32">Đơn giá</th>
+                    <th className="px-4 py-2 text-left text-[11px] font-bold text-muted-foreground uppercase w-28">Số lượng</th>
+                    <th className="px-4 py-2 text-left text-[11px] font-bold text-muted-foreground uppercase w-32">Đơn vị</th>
+                    <th className="px-4 py-2 text-left text-[11px] font-bold text-muted-foreground uppercase w-40">Đơn giá</th>
                     <th className="px-4 py-2 text-left text-[11px] font-bold text-muted-foreground uppercase w-20">Ảnh</th>
-                    <th className="px-4 py-2 text-center text-[11px] font-bold text-muted-foreground uppercase w-24">Thanh toán</th>
                     <th className="px-4 py-2 text-center text-[11px] font-bold text-muted-foreground uppercase w-12"></th>
                   </tr>
                 </thead>
@@ -307,29 +374,41 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                   {fields.map((field, index) => (
                     <tr key={field.id} className="hover:bg-muted/5 transition-colors">
                       <td className="px-4 py-3">
-                        <select
-                          {...register(`items.${index}.product_id` as const)}
-                          className="w-full px-2 py-1.5 bg-muted/20 border border-transparent rounded-lg text-[12px] focus:border-primary/30 focus:outline-none transition-all font-bold"
-                        >
-                          <option value="">Chọn...</option>
-                          {(products || []).map((p: any) => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          type="number"
-                          {...register(`items.${index}.quantity` as const)}
-                          className="w-full px-2 py-1.5 bg-muted/20 border border-transparent rounded-lg text-[12px] text-center focus:border-primary/30 focus:outline-none font-bold tabular-nums"
+                        <CreatableSearchableSelect
+                          options={(products || []).map((p: any) => ({
+                            value: p.id,
+                            label: `[${p.sku}] ${p.name} (${p.unit})`
+                          }))}
+                          value={watch(`items.${index}.product_id` as const)}
+                          onValueChange={(val) => setValue(`items.${index}.product_id`, val, { shouldValidate: true })}
+                          onCreate={(name) => handleCreateProduct(index, name)}
+                          placeholder="Chọn hàng..."
+                          className="h-8 py-1 border-border/80 bg-white"
                         />
                       </td>
                       <td className="px-4 py-3">
                         <input
                           type="number"
-                          step="0.01"
-                          {...register(`items.${index}.weight_kg` as const)}
-                          className="w-full px-2 py-1.5 bg-muted/20 border border-transparent rounded-lg text-[12px] text-center focus:border-primary/30 focus:outline-none font-bold tabular-nums"
+                          {...register(`items.${index}.quantity` as const)}
+                          className="w-full px-2 py-1 bg-white border border-border rounded-lg text-[12px] text-center focus:border-primary/30 focus:outline-none font-bold tabular-nums"
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <CreatableSearchableSelect
+                          options={[
+                            { value: 'Kg', label: 'Kg' },
+                            { value: 'Bao', label: 'Bao' },
+                            { value: 'Túi', label: 'Túi' },
+                            { value: 'Thùng', label: 'Thùng' },
+                            { value: 'Hộp', label: 'Hộp' },
+                            { value: 'Bó', label: 'Bó' },
+                            { value: 'Cái', label: 'Cái' },
+                          ]}
+                          value={watch(`items.${index}.package_type` as const)}
+                          onValueChange={(val) => setValue(`items.${index}.package_type`, val, { shouldValidate: true })}
+                          onCreate={(val) => setValue(`items.${index}.package_type`, val, { shouldValidate: true })}
+                          placeholder="Đơn vị..."
+                          className="h-8 py-1 border-border/80 bg-white"
                         />
                       </td>
                       <td className="px-4 py-3">
@@ -341,7 +420,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                               {...field}
                               value={field.value as number}
                               onChange={field.onChange}
-                              className="w-full px-2 py-1.5 bg-muted/20 border border-transparent rounded-lg text-[12px] text-right focus:border-primary/30 focus:outline-none font-bold tabular-nums"
+                              className="w-full px-2 py-1 bg-white border border-border rounded-lg text-[12px] text-right focus:border-primary/30 focus:outline-none font-bold tabular-nums"
                               placeholder="0"
                             />
                           )}
@@ -372,29 +451,6 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <div className="flex justify-center">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const current = watch(`items.${index}.payment_status`);
-                              setValue(`items.${index}.payment_status`, current === 'paid' ? 'unpaid' : 'paid');
-                            }}
-                            className={clsx(
-                              'p-1.5 rounded-lg transition-all active:scale-90',
-                              watch(`items.${index}.payment_status`) === 'paid'
-                                ? 'bg-green-100 text-green-600'
-                                : 'bg-slate-100 text-slate-400'
-                            )}
-                          >
-                            {watch(`items.${index}.payment_status`) === 'paid' ? (
-                              <CheckCircle2 size={16} />
-                            ) : (
-                              <Circle size={16} />
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center">
                         <button
                           type="button"
                           onClick={() => remove(index)}
@@ -412,7 +468,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
               <div className="p-5 bg-gradient-to-r from-primary/5 to-transparent flex items-center justify-between border-t border-border">
                 <div className="flex flex-col">
                   <span className="text-[11px] font-black text-primary uppercase tracking-widest">Tổng thành tiền</span>
-                  <span className="text-[13px] text-muted-foreground font-medium">Dự kiến dựa trên SL x KG x Đơn giá</span>
+                  <span className="text-[13px] text-muted-foreground font-medium">Dự kiến dựa trên SL x Đơn giá</span>
                 </div>
                 <div className="text-2xl font-black text-primary tabular-nums">
                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}

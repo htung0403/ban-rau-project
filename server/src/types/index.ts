@@ -7,15 +7,7 @@ export interface UserPayload {
   full_name: string;
 }
 
-// Extend Express Request
-declare global {
-  namespace Express {
-    interface Request {
-      user?: UserPayload;
-      token?: string;
-    }
-  }
-}
+
 
 export interface PaginationMeta {
   total: number;

@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import './types';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -64,7 +64,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/upload', uploadRoutes);
 
 // 5. Health Check
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (req: express.Request, res: express.Response) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 

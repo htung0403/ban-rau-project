@@ -125,7 +125,7 @@ export class CustomerService {
 
   static async createCustomerAccount(email: string, fullName: string, customerId: string) {
     // 1. Create Auth User
-    const { data: authUser, error: authError } = await supabaseService.auth.admin.createUser({
+    const { data: authUser, error: authError } = await (supabaseService.auth as any).admin.createUser({
       email,
       password: 'ResetPassword123', // Default password
       email_confirm: true,

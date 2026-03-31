@@ -5,7 +5,7 @@ export class AuthService {
   static async login(email: string, password: string) {
     console.log(`DEBUG: Target login: ${email}`);
     
-    const { data, error } = await supabaseAnon.auth.signInWithPassword({
+    const { data, error } = await (supabaseAnon.auth as any).signInWithPassword({
       email,
       password,
     });
@@ -43,13 +43,13 @@ export class AuthService {
   static async logout(token: string) {
     // Note: client side usually handles token deletion, 
     // but we can call supabase signout if needed.
-    const { error } = await supabaseAnon.auth.signOut();
+    const { error } = await (supabaseAnon.auth as any).signOut();
     if (error) throw error;
   }
 
   static async updatePassword(userId: string, newPassword: string) {
     // Manager or User themselves can update password via service role for administrative ease
-    const { error } = await supabaseService.auth.admin.updateUserById(userId, {
+    const { error } = await (supabaseService.auth as any).admin.updateUserById(userId, {
       password: newPassword,
     });
     if (error) throw error;

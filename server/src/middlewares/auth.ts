@@ -13,7 +13,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
   const token = authHeader.split(' ')[1];
 
   try {
-    const { data: { user }, error } = await supabaseService.auth.getUser(token);
+    const { data: { user }, error } = await (supabaseService.auth as any).getUser(token);
 
     if (error || !user) {
       return res.status(401).json(errorResponse('Invalid or expired token', 'UNAUTHORIZED'));

@@ -42,10 +42,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 4. DEMO ACCOUNTS (Password: password123)
-SELECT public.create_demo_user('00000000-0000-0000-0000-000000000001', 'admin@example.com', 'password123', 'Super Admin', 'admin');
-SELECT public.create_demo_user('00000000-0000-0000-0000-000000000002', 'staff1@example.com', 'password123', 'Nguyễn Văn Kho', 'staff');
-SELECT public.create_demo_user('00000000-0000-0000-0000-000000000005', 'driver1@example.com', 'password123', 'Trần Tài Xế', 'driver');
-SELECT public.create_demo_user('00000000-0000-0000-0000-000000000007', 'customer1@example.com', 'password123', 'Khách Hàng A', 'customer');
+SELECT public.create_demo_user('00000000-0000-0000-0000-000000000001', 'admin@vuarau.com', 'password123', 'Super Admin', 'admin');
+SELECT public.create_demo_user('00000000-0000-0000-0000-000000000002', 'staff1@vuarau.com', 'password123', 'Nguyễn Văn Kho', 'staff');
+SELECT public.create_demo_user('00000000-0000-0000-0000-000000000005', 'driver1@vuarau.com', 'password123', 'Trần Tài Xế', 'driver');
+SELECT public.create_demo_user('00000000-0000-0000-0000-000000000007', 'customer1@vuarau.com', 'password123', 'Khách Hàng A', 'customer');
 
 -- 5. BUSINESS DATA
 INSERT INTO public.warehouses (name, address, capacity, manager_id)

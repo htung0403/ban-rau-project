@@ -93,7 +93,7 @@ const LoginPage: React.FC = () => {
               <label className="text-[13px] font-bold text-blue-100/80">Email</label>
               <input
                 type="email"
-                placeholder="admin@logistics.vn"
+                placeholder="admin@vuarau.com"
                 autoComplete="email"
                 {...register('email')}
                 className={clsx(
@@ -168,10 +168,10 @@ const LoginPage: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: 'Admin', email: 'admin_demo@banrau.com', role: 'Quản trị' },
-                { label: 'Kho', email: 'staff1@banrau.com', role: 'Quản lý kho' },
-                { label: 'Tài xế', email: 'driver1@banrau.com', role: 'Tài xế' },
-                { label: 'Khách', email: 'customer1@banrau.com', role: 'Khách hàng' },
+                { label: 'Admin', email: 'admin_demo@vuarau.com', role: 'Quản trị' },
+                { label: 'Kho', email: 'kho1@vuarau.com', role: 'Quản lý kho' },
+                { label: 'Tài xế', email: 'xe1@vuarau.com', role: 'Tài xế' },
+                { label: 'Khách', email: 'khach1@vuarau.com', role: 'Khách hàng' },
               ].map((account) => (
                 <button
                   key={account.email}

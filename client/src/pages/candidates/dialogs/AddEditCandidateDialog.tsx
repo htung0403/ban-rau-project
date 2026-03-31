@@ -106,7 +106,7 @@ const AddEditCandidateDialog: React.FC<Props> = ({
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
                   <input
                     type="email"
-                    placeholder="email@example.com"
+                    placeholder="email@vuarau.com"
                     value={formEmail}
                     onChange={e => setFormField('formEmail', e.target.value)}
                     className="w-full pl-10 pr-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"

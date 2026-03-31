@@ -55,13 +55,13 @@ async function seed() {
   const customerUserIds: string[] = [];
 
   const roles = [
-    { email: 'admin_demo@banrau.com', name: 'Admin Demo', role: 'admin' },
-    { email: 'kho1@banrau.com', name: 'Nguyễn Kho 1', role: 'staff' },
-    { email: 'kho2@banrau.com', name: 'Trần Kho 2', role: 'staff' },
-    { email: 'xe1@banrau.com', name: 'Tài Xế 1', role: 'driver' },
-    { email: 'xe2@banrau.com', name: 'Tài Xế 2', role: 'driver' },
-    { email: 'khach1@banrau.com', name: 'Khách A', role: 'customer' },
-    { email: 'khach2@banrau.com', name: 'Khách B', role: 'customer' },
+    { email: 'admin_demo@vuarau.com', name: 'Admin Demo', role: 'admin' },
+    { email: 'kho1@vuarau.com', name: 'Nguyễn Kho 1', role: 'staff' },
+    { email: 'kho2@vuarau.com', name: 'Trần Kho 2', role: 'staff' },
+    { email: 'xe1@vuarau.com', name: 'Tài Xế 1', role: 'driver' },
+    { email: 'xe2@vuarau.com', name: 'Tài Xế 2', role: 'driver' },
+    { email: 'khach1@vuarau.com', name: 'Khách A', role: 'customer' },
+    { email: 'khach2@vuarau.com', name: 'Khách B', role: 'customer' },
   ];
 
   for (const r of roles) {

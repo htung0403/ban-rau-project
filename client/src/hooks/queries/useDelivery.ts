@@ -8,10 +8,10 @@ export const deliveryKeys = {
   inventory: () => [...deliveryKeys.all, 'inventory'] as const,
 };
 
-export function useDeliveryOrders() {
+export function useDeliveryOrders(startDate?: string, endDate?: string) {
   return useQuery({
-    queryKey: deliveryKeys.today(),
-    queryFn: () => deliveryApi.getAllToday(),
+    queryKey: [...deliveryKeys.all, 'filter', startDate, endDate],
+    queryFn: () => deliveryApi.getAllToday(startDate, endDate),
   });
 }
 

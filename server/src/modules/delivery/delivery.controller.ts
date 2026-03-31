@@ -26,7 +26,8 @@ const assignVehicleSchema = z.array(z.object({
 export class DeliveryController {
   static async getAllToday(req: Request, res: Response) {
     try {
-      const data = await DeliveryService.getAllToday();
+      const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+      const data = await DeliveryService.getAllToday(startDate, endDate);
       return res.status(200).json(successResponse(data));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));

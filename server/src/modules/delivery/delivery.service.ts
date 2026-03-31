@@ -2,12 +2,22 @@ import { supabaseService } from '../../config/supabase';
 import { format } from 'date-fns';
 
 export class DeliveryService {
-  static async getAllToday() {
+  static async getAllToday(startDate?: string, endDate?: string) {
     const today = format(new Date(), 'yyyy-MM-dd');
-    const { data, error } = await supabaseService
+    let query = supabaseService
       .from('delivery_orders')
       .select('*, import_orders(order_code, receiver_name, customers(name)), delivery_vehicles(*, vehicles(license_plate))')
-      .eq('delivery_date', today);
+      .order('delivery_date', { ascending: false });
+
+    if (startDate && endDate) {
+      query = query.gte('delivery_date', startDate).lte('delivery_date', endDate);
+    } else if (startDate) {
+      query = query.eq('delivery_date', startDate);
+    } else {
+      query = query.eq('delivery_date', today);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     return data;
   }

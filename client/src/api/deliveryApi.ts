@@ -2,8 +2,10 @@ import axiosClient from './axiosClient';
 import type { DeliveryOrder } from '../types';
 
 export const deliveryApi = {
-  getAllToday: async () => {
-    const { data } = await axiosClient.get<DeliveryOrder[]>('/delivery');
+  getAllToday: async (startDate?: string, endDate?: string) => {
+    const { data } = await axiosClient.get<DeliveryOrder[]>('/delivery', {
+      params: { startDate, endDate },
+    });
     return data;
   },
 

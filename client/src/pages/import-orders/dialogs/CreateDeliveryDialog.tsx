@@ -64,7 +64,7 @@ interface Props {
 
 const CreateDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, importOrder, onClose }) => {
   const createMutation = useCreateDelivery();
-  const { data: vehiclesData } = useVehicles();
+  const { data: vehiclesData } = useVehicles(isOpen);
   const navigate = useNavigate();
 
   const {

@@ -2,13 +2,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productsApi } from '../../api/productsApi';
 import toast from 'react-hot-toast';
 
-export const useProducts = () => {
+export const useProducts = (enabled = true) => {
   return useQuery({
     queryKey: ['products'],
     queryFn: async () => {
       const response = await productsApi.getAll();
       return response.data;
     },
+    enabled,
   });
 };
 

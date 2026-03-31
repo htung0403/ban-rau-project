@@ -8,10 +8,11 @@ export const warehouseKeys = {
   detail: (id: string) => [...warehouseKeys.all, 'detail', id] as const,
 };
 
-export function useWarehouses() {
+export function useWarehouses(enabled = true) {
   return useQuery({
     queryKey: warehouseKeys.list(),
     queryFn: () => warehouseApi.getAll(),
+    enabled,
   });
 }
 

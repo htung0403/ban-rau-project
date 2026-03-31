@@ -11,10 +11,11 @@ export const customerKeys = {
   receipts: (id: string) => [...customerKeys.all, 'receipts', id] as const,
 };
 
-export function useCustomers() {
+export function useCustomers(enabled = true) {
   return useQuery({
     queryKey: customerKeys.list(),
     queryFn: () => customersApi.getAll(),
+    enabled,
   });
 }
 

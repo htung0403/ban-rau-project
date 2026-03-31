@@ -52,10 +52,10 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
   const createMutation = useCreateImportOrder();
   const updateMutation = useUpdateImportOrder();
   const createProductMutation = useCreateProduct();
-  const { data: warehouses } = useWarehouses();
-  const { data: products } = useProducts();
-  const { data: customers } = useCustomers();
-  const { data: employees } = useEmployees();
+  const { data: warehouses } = useWarehouses(isOpen);
+  const { data: products } = useProducts(isOpen);
+  const { data: customers } = useCustomers(isOpen);
+  const { data: employees } = useEmployees(isOpen);
 
   const {
     register,

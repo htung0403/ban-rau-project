@@ -10,10 +10,11 @@ export const hrKeys = {
   attendance: (employeeId: string, weekStart: string) => [...hrKeys.all, 'attendance', employeeId, weekStart] as const,
 };
 
-export function useEmployees() {
+export function useEmployees(enabled = true) {
   return useQuery({
     queryKey: hrKeys.employees(),
     queryFn: () => hrApi.getEmployees(),
+    enabled,
   });
 }
 

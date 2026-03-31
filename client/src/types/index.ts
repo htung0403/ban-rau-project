@@ -103,7 +103,7 @@ export interface ImportOrder {
   weight_kg?: number;
   quantity: number;
   unit_price?: number;
-  total_amount?: number; // GENERATED ALWAYS AS (quantity * weight_kg * unit_price)
+  total_amount?: number; 
   received_by?: string;
   warehouse_id?: string;
   product_id?: string;
@@ -113,27 +113,40 @@ export interface ImportOrder {
   created_at: string;
   updated_at: string;
   // Nested relations from API
+  import_order_items?: ImportOrderItem[];
   profiles?: { full_name: string };
   warehouses?: { name: string };
-  customers?: { name: string };
+  customers?: { name: string; phone?: string; address?: string };
+  products?: Product;
+}
+
+export interface ImportOrderItem {
+  id: string;
+  import_order_id: string;
+  product_id?: string;
+  package_type?: string;
+  weight_kg?: number;
+  quantity: number;
+  unit_price?: number;
+  total_amount?: number;
+  image_url?: string;
+  payment_status: 'paid' | 'unpaid';
+  created_at: string;
+  // Nested
   products?: Product;
 }
 
 export interface ImportOrderCreatePayload {
   order_date: string;
   order_time: string;
-  sender_name: string;
-  receiver_name: string;
+  received_by?: string;
   receiver_phone?: string;
   receiver_address?: string;
-  package_type?: PackageType;
-  weight_kg?: number;
-  quantity: number;
-  unit_price?: number;
   warehouse_id?: string;
   status?: OrderStatus;
   customer_id?: string;
   notes?: string;
+  items: Omit<ImportOrderItem, 'id' | 'import_order_id' | 'created_at' | 'total_amount'>[];
 }
 
 // --- Export Orders ---

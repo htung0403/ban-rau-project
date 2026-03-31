@@ -86,13 +86,14 @@ const CreateDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, importOrder,
 
   useEffect(() => {
     if (importOrder) {
+      const firstItem = importOrder.import_order_items?.[0];
       reset({
         import_order_id: importOrder.id,
-        product_name: `${importOrder.sender_name} - ${importOrder.package_type || 'Kiện'}`,
-        total_quantity: importOrder.quantity,
+        product_name: `${importOrder.customers?.name || importOrder.sender_name || 'Đơn hàng'} - ${(firstItem?.products?.name || firstItem?.package_type) || importOrder.package_type || 'Kiện'}`,
+        total_quantity: firstItem?.quantity || importOrder.quantity || 0,
         delivery_date: format(new Date(), 'yyyy-MM-dd'),
-        import_cost: importOrder.unit_price || 0,
-        unit_price: importOrder.unit_price || 0,
+        import_cost: firstItem?.unit_price || importOrder.unit_price || 0,
+        unit_price: firstItem?.unit_price || importOrder.unit_price || 0,
         vehicles: []
       });
     }

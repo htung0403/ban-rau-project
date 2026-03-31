@@ -3,21 +3,27 @@ import { ImportOrderService } from './import-orders.service';
 import { successResponse, errorResponse } from '../../utils/response';
 import { z } from 'zod';
 
+const importOrderItemSchema = z.object({
+  product_id: z.string().uuid(),
+  package_type: z.string().optional(),
+  weight_kg: z.number().optional(),
+  quantity: z.number().int().positive(),
+  unit_price: z.number().optional(),
+  image_url: z.string().optional(),
+  payment_status: z.enum(['paid', 'unpaid']).default('unpaid'),
+});
+
 const importOrderSchema = z.object({
   order_date: z.string().optional(),
   order_time: z.string().optional(),
-  sender_name: z.string().min(1),
-  receiver_name: z.string().min(1),
+  sender_name: z.string().optional(),
+  receiver_name: z.string().optional(),
   receiver_phone: z.string().optional(),
   receiver_address: z.string().optional(),
-  package_type: z.string().optional(),
-  weight_kg: z.number().optional(),
-  quantity: z.number().int().positive().optional(),
-  unit_price: z.number().optional(),
-  warehouse_id: z.string().uuid().optional(),
+  warehouse_id: z.string().uuid(),
   customer_id: z.string().uuid().optional(),
-  product_id: z.string().uuid().optional(),
   notes: z.string().optional(),
+  items: z.array(importOrderItemSchema),
 });
 
 export class ImportOrderController {
@@ -43,7 +49,7 @@ export class ImportOrderController {
     try {
       const validated = importOrderSchema.parse(req.body);
       const data = await ImportOrderService.create(validated, req.user!.id);
-      return res.status(201).json(successResponse(data, 'Import order created'));
+      return res.status(201).json(successResponse(data, 'Đã tạo đơn nhập hàng'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
     }
@@ -53,7 +59,7 @@ export class ImportOrderController {
     try {
       const validated = importOrderSchema.partial().parse(req.body);
       const data = await ImportOrderService.update(req.params.id as string, validated);
-      return res.status(200).json(successResponse(data, 'Import order updated'));
+      return res.status(200).json(successResponse(data, 'Đã cập nhật đơn nhập hàng'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
     }

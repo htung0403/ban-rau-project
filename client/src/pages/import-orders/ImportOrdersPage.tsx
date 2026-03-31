@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, X, ChevronLeft, ChevronRight, Edit, Trash2, Calendar, Truck } from 'lucide-react';
+import { Plus, Search, X, ChevronLeft, ChevronRight, Edit, Trash2, Calendar, Truck, Package } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useImportOrders, useDeleteImportOrder } from '../../hooks/queries/useImportOrders';
 import type { ImportOrder, ImportOrderFilters, OrderStatus } from '../../types';
@@ -60,8 +60,8 @@ const ImportOrdersPage: React.FC = () => {
     const q = searchText.toLowerCase();
     return (
       o.order_code?.toLowerCase().includes(q) ||
-      o.sender_name?.toLowerCase().includes(q) ||
-      o.receiver_name?.toLowerCase().includes(q) ||
+      o.customers?.name?.toLowerCase().includes(q) ||
+      (o as any).profiles?.full_name?.toLowerCase().includes(q) ||
       o.receiver_phone?.includes(q)
     );
   });
@@ -220,21 +220,25 @@ const ImportOrdersPage: React.FC = () => {
               <table className="w-full border-collapse min-w-[900px]">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-muted/30 border-b border-border">
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-36">Mã đơn</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-32">Ngày</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Người gửi</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-34">Mã đơn</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-28">Ngày</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-20">Giờ</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Người nhận</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-20">Loại</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-20">SL</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-20">Kg</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-28">Thành tiền</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-24">Trạng thái</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left min-w-[150px]">Địa chỉ</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-32">SĐT</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-24">Hình ảnh</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Nhân viên nhận</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-28">Trạng thái</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-24">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
                   {paginatedOrders.map((order) => (
-                    <tr key={order.id} className="hover:bg-muted/20 transition-colors">
+                    <tr
+                      key={order.id}
+                      onClick={() => openEditDialog(order)}
+                      className="hover:bg-muted/20 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-3">
                         <span className="text-[13px] font-bold text-primary">{order.order_code}</span>
                       </td>
@@ -242,34 +246,39 @@ const ImportOrdersPage: React.FC = () => {
                         <span className="text-[12px] text-muted-foreground font-medium tabular-nums">{order.order_date}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-[13px] font-bold text-foreground">{order.sender_name}</span>
+                        <span className="text-[12px] text-muted-foreground font-medium tabular-nums">{order.order_time || '-'}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-col">
-                          <span className="text-[13px] font-bold text-foreground">{order.receiver_name}</span>
-                          {order.receiver_phone && (
-                            <span className="text-[11px] text-muted-foreground">{order.receiver_phone}</span>
-                          )}
-                        </div>
+                        <span className="text-[13px] font-bold text-foreground">{order.customers?.name || order.sender_name || '-'}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-[12px] text-muted-foreground font-medium">{order.package_type || '-'}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-[13px] font-bold text-foreground tabular-nums">{order.quantity}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-[12px] text-muted-foreground font-medium tabular-nums">{order.weight_kg ?? '-'}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-[13px] font-bold text-foreground tabular-nums">
-                          {order.total_amount != null
-                            ? formatCurrency(order.total_amount)
-                            : order.quantity && order.weight_kg && order.unit_price
-                              ? formatCurrency(order.quantity * order.weight_kg * order.unit_price)
-                              : '-'
-                          }
+                        <span className="text-[12px] font-medium text-muted-foreground line-clamp-1" title={order.customers?.address || order.receiver_address || ''}>
+                          {order.customers?.address || order.receiver_address || '-'}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-[12px] font-medium text-foreground tabular-nums">{order.customers?.phone || order.receiver_phone || '-'}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {order.import_order_items && order.import_order_items.some(i => i.image_url) ? (
+                          <div className="flex -space-x-2 overflow-hidden items-center justify-center group">
+                            {order.import_order_items.filter(i => i.image_url).slice(0, 3).map((item, idx) => (
+                              <img key={idx} src={item.image_url} alt="SP" className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover group-hover:-translate-y-1 transition-transform" />
+                            ))}
+                            {order.import_order_items.filter(i => i.image_url).length > 3 && (
+                              <div className="flex bg-muted z-10 items-center justify-center h-8 w-8 rounded-full ring-2 ring-white text-[10px] font-bold text-muted-foreground">
+                                +{order.import_order_items.filter(i => i.image_url).length - 3}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center text-muted-foreground/50 mx-auto">
+                            <Package size={14} />
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-[13px] font-medium text-foreground">{(order as any).profiles?.full_name || order.receiver_name || '-'}</span>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <StatusBadge status={order.status} label={statusLabels[order.status]} />
@@ -277,21 +286,21 @@ const ImportOrdersPage: React.FC = () => {
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
                           <button
-                            onClick={() => openDeliveryDialog(order)}
+                            onClick={(e) => { e.stopPropagation(); openDeliveryDialog(order); }}
                             className="p-1.5 rounded-lg text-orange-500 hover:bg-orange-50 transition-colors"
                             title="Giao hàng"
                           >
                             <Truck size={14} />
                           </button>
                           <button
-                            onClick={() => openEditDialog(order)}
+                            onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
                             className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
                             title="Sửa"
                           >
                             <Edit size={14} />
                           </button>
                           <button
-                            onClick={() => setDeleteId(order.id)}
+                            onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
                             className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
                             title="Xóa"
                           >
@@ -310,6 +319,7 @@ const ImportOrdersPage: React.FC = () => {
               {paginatedOrders.map((order) => (
                 <div
                   key={order.id}
+                  onClick={() => openEditDialog(order)}
                   className="bg-white rounded-2xl border border-border shadow-sm p-4 cursor-pointer hover:shadow-md active:bg-muted/10 transition-all"
                 >
                   <div className="flex items-start justify-between mb-2">
@@ -321,37 +331,36 @@ const ImportOrdersPage: React.FC = () => {
                   </div>
                   <div className="space-y-1.5 mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase w-14 shrink-0">Gửi</span>
-                      <span className="text-[13px] font-bold text-foreground">{order.sender_name}</span>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase w-14 shrink-0">Khách</span>
+                      <span className="text-[13px] font-bold text-foreground">{order.customers?.name || order.sender_name}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase w-14 shrink-0">Nhận</span>
-                      <span className="text-[13px] font-bold text-foreground">{order.receiver_name}</span>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase w-14 shrink-0">NV</span>
+                      <span className="text-[13px] font-medium text-foreground">{(order as any).profiles?.full_name || order.receiver_name}</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <div className="text-[12px] text-muted-foreground">
-                      <span className="font-bold">{order.quantity}</span> {order.package_type || 'kiện'}
-                      {order.weight_kg && <span> / <span className="font-bold">{order.weight_kg}</span>kg</span>}
+                      <span className="font-bold">{order.import_order_items?.length || 1}</span> mặt hàng
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="text-[13px] font-bold text-foreground tabular-nums mr-2">
-                        {order.total_amount != null ? formatCurrency(order.total_amount) : '-'}
+                      <span className="text-[13px] font-bold text-primary tabular-nums mr-2">
+                        {formatCurrency(order.import_order_items?.reduce((sum, item) => sum + (item.total_amount || 0), 0) || order.total_amount || 0)}
                       </span>
                       <button
-                        onClick={() => openDeliveryDialog(order)}
+                        onClick={(e) => { e.stopPropagation(); openDeliveryDialog(order); }}
                         className="p-1.5 rounded-lg text-orange-500 hover:bg-orange-50 transition-colors"
                       >
                         <Truck size={14} />
                       </button>
                       <button
-                        onClick={() => openEditDialog(order)}
+                        onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
                         className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
                       >
                         <Edit size={14} />
                       </button>
                       <button
-                        onClick={() => setDeleteId(order.id)}
+                        onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
                         className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
                       >
                         <Trash2 size={14} />

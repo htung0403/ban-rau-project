@@ -20,6 +20,7 @@ import hrRoutes from './modules/hr/hr.routes';
 import payrollRoutes from './modules/payroll/payroll.routes';
 import accountingRoutes from './modules/accounting/accounting.routes';
 import productRoutes from './modules/products/products.routes';
+import uploadRoutes from './modules/upload/upload.routes';
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use('/api/hr', hrRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/accounting', accountingRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // 5. Health Check
 app.get('/health', (req, res) => {

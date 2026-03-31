@@ -42,7 +42,7 @@ export class ExportOrderController {
   static async updatePayment(req: Request, res: Response) {
     try {
       const validated = paymentUpdateSchema.parse(req.body);
-      const data = await ExportOrderService.updatePayment(req.params.id as string, validated);
+      const data = await ExportOrderService.updatePayment(req.params.id as string, validated as any);
       return res.status(200).json(successResponse(data, 'Payment updated'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));

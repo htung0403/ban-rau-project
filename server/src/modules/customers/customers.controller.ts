@@ -91,7 +91,7 @@ export class CustomerController {
     try {
       const validated = debtPaymentSchema.parse(req.body);
       const userId = req.user?.id; // Assuming authentication middleware attaches user
-      await CustomerService.updateDebtPayment(req.params.id as string, validated, userId);
+      await CustomerService.updateDebtPayment(req.params.id as string, validated as any, userId);
       return res.status(200).json(successResponse(null, 'Payment recorded'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));

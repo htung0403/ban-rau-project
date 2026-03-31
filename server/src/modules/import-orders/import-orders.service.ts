@@ -65,7 +65,7 @@ export class ImportOrderService {
     if (items && items.length > 0) {
       const itemsToInsert = items.map((item: any) => ({
         ...item,
-        import_order_id: order.id,
+        import_order_id: (order as any).id,
       }));
 
       const { error: itemsError } = await supabaseService
@@ -140,7 +140,7 @@ export class ImportOrderService {
         return {
           ...cleanItem,
           import_order_id: id,
-        };
+        } as any;
       });
 
       const { error: itemsError } = await supabaseService

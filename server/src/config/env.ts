@@ -16,8 +16,15 @@ const envSchema = z.object({
 const _env = envSchema.safeParse(process.env);
 
 if (!_env.success) {
-  console.error('❌ Invalid environment variables:', _env.error.format());
-  process.exit(1);
+  const missingVars = _env.error.issues.map(i => i.path.join('.')).join(', ');
+  console.error(`❌ Missing or invalid environment variables: ${missingVars}`);
+  console.error('Please ensure all required environment variables are set in your .env file or Vercel project settings.');
+  // In production (Vercel), we shouldn't exit as it kills the function, but instead return an error or handle it
+  if (process.env.NODE_ENV === 'production') {
+    console.error('SERVER STARTUP FAILED DUE TO MISSING ENV VARS');
+  } else {
+    process.exit(1);
+  }
 }
 
 export const env = _env.data;

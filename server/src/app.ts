@@ -25,8 +25,17 @@ import uploadRoutes from './modules/upload/upload.routes';
 const app = express();
 
 // 1. Security Middlewares
-app.use(helmet());
-app.use(cors());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+app.use(cors({
+  origin: true, // Allow all origins for now (or specify: ['https://ban-rau-lake.vercel.app', 'http://localhost:5173'])
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+}));
 app.use(express.json());
 
 // 2. Logging

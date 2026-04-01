@@ -13,6 +13,12 @@ export class CustomerService {
     return data;
   }
 
+  static async getByUserId(userId: string) {
+    const { data, error } = await supabaseService.from('customers').select('*').eq('user_id', userId).single();
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is no rows returned, which is fine
+    return data;
+  }
+
   static async getOrders(id: string) {
      const { data, error } = await supabaseService
       .from('import_orders')
@@ -51,76 +57,19 @@ export class CustomerService {
   }
 
   static async updateDebtPayment(id: string, payload: { amount: number, payment_date?: string, notes?: string }, userId?: string) {
-    // 1. Fetch all unpaid/partially paid export orders for this customer, ordered by oldest
-    const { data: unpaidOrders, error: fetchError } = await supabaseService
-      .from('export_orders')
-      .select('*')
-      .eq('customer_id', id)
-      .neq('payment_status', 'paid')
-      .order('export_date', { ascending: true })
-      .order('created_at', { ascending: true });
-      
-    if (fetchError) throw fetchError;
-
-    let remainingAmount = payload.amount;
-    
-    // 2. Distribute payment to old orders (FIFO)
-    if (unpaidOrders && unpaidOrders.length > 0) {
-      for (const order of unpaidOrders) {
-        if (remainingAmount <= 0) break;
-        
-        const orderDebt = order.debt_amount || 0;
-        const currentPaid = order.paid_amount || 0;
-        const unpaidForOrder = orderDebt - currentPaid;
-        
-        if (unpaidForOrder <= 0) continue;
-        
-        const paymentForThisOrder = Math.min(unpaidForOrder, remainingAmount);
-        const newPaidAmount = currentPaid + paymentForThisOrder;
-        
-        let newStatus = 'unpaid';
-        if (newPaidAmount >= orderDebt) {
-          newStatus = 'paid';
-        } else if (newPaidAmount > 0) {
-          newStatus = 'partial';
-        }
-        
-        // Update this order
-        await supabaseService
-          .from('export_orders')
-          .update({
-            paid_amount: newPaidAmount,
-            payment_status: newStatus
-          })
-          .eq('id', order.id);
-          
-        remainingAmount -= paymentForThisOrder;
-      }
-    }
-
-    // 3. Decrease customer debt
-    const { data, error } = await supabaseService.rpc('increment_customer_debt', {
-      cust_id: id,
-      amount: -payload.amount
-    });
-    // Fallback if RPC not exists:
-    if (error) {
-       const { data: customer } = await supabaseService.from('customers').select('debt').eq('id', id).single();
-       const newDebt = (customer?.debt || 0) - payload.amount;
-       await supabaseService.from('customers').update({ debt: newDebt }).eq('id', id);
-    }
-
-    // 4. Record to receipts table
     const paymentDate = payload.payment_date || new Date().toISOString().split('T')[0];
-    await supabaseService.from('receipts').insert({
-      customer_id: id,
-      amount: payload.amount,
-      payment_date: paymentDate,
-      notes: payload.notes || '',
-      created_by: userId
+    
+    // Call the atomic RPC function that handles receipt creation, ledger, and FIFO distribution
+    const { data, error } = await supabaseService.rpc('handle_customer_payment_fifo_atomic', {
+      p_customer_id: id,
+      p_amount: payload.amount,
+      p_payment_date: paymentDate,
+      p_notes: payload.notes || '',
+      p_created_by: userId
     });
 
-    return { success: true };
+    if (error) throw error;
+    return { success: true, data };
   }
 
   static async createCustomerAccount(email: string, fullName: string, customerId: string) {

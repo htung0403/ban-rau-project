@@ -7,7 +7,7 @@ export const hrKeys = {
   employees: () => [...hrKeys.all, 'employees'] as const,
   employee: (id: string) => [...hrKeys.all, 'employee', id] as const,
   leaveRequests: () => [...hrKeys.all, 'leave-requests'] as const,
-  attendance: (employeeId: string, weekStart: string) => [...hrKeys.all, 'attendance', employeeId, weekStart] as const,
+  attendance: (date: string) => [...hrKeys.all, 'attendance', date] as const,
 };
 
 export function useEmployees(enabled = true) {
@@ -58,11 +58,11 @@ export function useReviewLeaveRequest() {
   });
 }
 
-export function useAttendance(employeeId: string, weekStart: string) {
+export function useAttendance(date: string, startDate?: string, endDate?: string) {
   return useQuery({
-    queryKey: hrKeys.attendance(employeeId, weekStart),
-    queryFn: () => hrApi.getAttendance(employeeId, weekStart),
-    enabled: !!employeeId && !!weekStart,
+    queryKey: startDate && endDate ? [...hrKeys.attendance(date), startDate, endDate] : hrKeys.attendance(date),
+    queryFn: () => hrApi.getAttendanceByDate(date, startDate, endDate),
+    enabled: !!date,
   });
 }
 
@@ -74,6 +74,6 @@ export function useMarkAttendance() {
       queryClient.invalidateQueries({ queryKey: hrKeys.all });
       toast.success('Chấm công thành công');
     },
-    onError: () => toast.error('Lỗi khi chấm công'),
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Lỗi khi chấm công'),
   });
 }

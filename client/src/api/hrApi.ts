@@ -41,12 +41,25 @@ export const hrApi = {
   },
 
   // Attendance
-  getAttendance: async (employeeId: string, weekStart: string) => {
-    const { data } = await axiosClient.get<Attendance[]>('/hr/attendance', { params: { employee_id: employeeId, week_start: weekStart } });
+  getAttendanceByDate: async (date: string, startDate?: string, endDate?: string) => {
+    const { data } = await axiosClient.get<Attendance[]>('/hr/attendance', { 
+      params: { 
+        date, 
+        startDate, 
+        endDate 
+      } 
+    });
     return data;
   },
 
-  markAttendance: async (payload: { employee_id: string; work_date: string; is_present: boolean; note?: string }) => {
+  markAttendance: async (payload: { 
+    employee_id: string; 
+    work_date: string; 
+    is_present?: boolean; 
+    check_in_time?: string | null; 
+    check_out_time?: string | null; 
+    note?: string 
+  }) => {
     const { data } = await axiosClient.post<Attendance>('/hr/attendance', payload);
     return data;
   },

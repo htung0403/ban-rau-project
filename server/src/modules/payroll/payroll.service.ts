@@ -49,7 +49,7 @@ export class PayrollService {
           created_by: createdBy,
           status: 'draft',
         }, {
-          onConflict: 'employee_id, week_start'
+          onConflict: 'employee_id,week_start'
         })
         .select()
         .single();

@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import PageHeader from '../../components/shared/PageHeader';
-import { useCustomers, useUpdateCustomerPayment } from '../../hooks/queries/useCustomers';
+import { useExportOrders } from '../../hooks/queries/useExportOrders';
+import { useUpdateCustomerPayment } from '../../hooks/queries/useCustomers';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Banknote } from 'lucide-react';
+import { Banknote, Calendar, Info, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import CurrencyInput from '../../components/shared/CurrencyInput';
+import { format } from 'date-fns';
 
 const formatCurrency = (value?: number | null) => {
   if (value == null) return '-';
@@ -20,23 +21,44 @@ const formatCurrency = (value?: number | null) => {
 
 const paymentSchema = z.object({
   amount: z.coerce.number().min(1, 'Số tiền thanh toán phải lớn hơn 0'),
+  notes: z.string().optional(),
 });
 
 type PaymentFormData = z.infer<typeof paymentSchema>;
 
 const CustomerDebtPage: React.FC = () => {
-  const { data: customers, isLoading, isError, refetch } = useCustomers();
+  const { data: orders, isLoading, isError, refetch } = useExportOrders();
   const updatePayment = useUpdateCustomerPayment();
-  
+
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [selectedCustomerName, setSelectedCustomerName] = useState('');
   const [isCollectOpen, setIsCollectOpen] = useState(false);
   const [isCollectClosing, setIsCollectClosing] = useState(false);
+  const [currentCustomerDebt, setCurrentCustomerDebt] = useState<number>(0);
 
-  // Lọc chỉ những KH có nợ
-  const debtors = customers?.filter(c => (c.debt || 0) > 0) || [];
+  // Lọc chỉ những đơn chưa thanh toán
+  const unpaidOrders = (orders || []).filter(o => o.payment_status !== 'paid');
 
-  const handleCollect = (id: string) => {
-    setSelectedCustomerId(id);
+  // Nhóm theo ngày
+  const groupedOrders = unpaidOrders.reduce((acc: Record<string, any[]>, order: any) => {
+    const date = order.export_date || 'N/A';
+    if (!acc[date]) acc[date] = [];
+    acc[date].push(order);
+    return acc;
+  }, {});
+
+  const sortedDates = Object.keys(groupedOrders).sort((a, b) => b.localeCompare(a));
+
+  const handleCollect = (customer: any) => {
+    setSelectedCustomerId(customer.id);
+    setSelectedCustomerName(customer.name);
+    
+    // Tính toán nợ thực tế từ các đơn hàng để đảm bảo khớp với bảng
+    const realDebt = unpaidOrders
+      .filter(o => o.customer_id === customer.id)
+      .reduce((sum, o) => sum + ((o.debt_amount || 0) - (o.paid_amount || 0)), 0);
+      
+    setCurrentCustomerDebt(realDebt);
     setIsCollectOpen(true);
   };
 
@@ -51,13 +73,16 @@ const CustomerDebtPage: React.FC = () => {
 
   const { handleSubmit, control, reset, formState: { errors } } = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema) as any,
-    defaultValues: { amount: 0 },
+    defaultValues: { amount: 0, notes: '' },
   });
 
   const onSubmitPayment = async (data: PaymentFormData) => {
     if (!selectedCustomerId) return;
     try {
-      await updatePayment.mutateAsync({ id: selectedCustomerId, payload: { amount: data.amount } });
+      await updatePayment.mutateAsync({
+        id: selectedCustomerId,
+        payload: { amount: data.amount, notes: data.notes }
+      });
       reset();
       closeCollectDialog();
     } catch (e) {
@@ -65,53 +90,107 @@ const CustomerDebtPage: React.FC = () => {
     }
   };
 
-  const selectedCustomer = debtors.find(c => c.id === selectedCustomerId);
-
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
-      <PageHeader
-        title="Công nợ khách hàng"
-        description="Theo dõi và thu nợ khách hàng"
-        backPath="/ke-toan"
-      />
-      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+        <PageHeader
+          title="Chi tiết Công nợ"
+          description="Theo dõi danh sách các đơn hàng chưa thanh toán"
+          backPath="/ke-toan"
+        />
+
+        {/* Quick summary if any */}
+        <div className="flex items-center gap-4 bg-white p-2 px-4 rounded-2xl border border-border shadow-sm">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase opacity-70">Tổng nợ chưa thu</span>
+            <span className="text-[16px] font-black text-red-600 tabular-nums">
+              {formatCurrency(unpaidOrders.reduce((sum, o) => sum + ((o.debt_amount || 0) - (o.paid_amount || 0)), 0))}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
         {isLoading ? (
-          <div className="p-4"><LoadingSkeleton rows={6} columns={4} /></div>
+          <div className="p-4"><LoadingSkeleton rows={10} columns={6} /></div>
         ) : isError ? (
           <ErrorState onRetry={() => refetch()} />
-        ) : debtors.length === 0 ? (
-          <EmptyState title="Tất cả khách hàng đã thanh toán đủ" />
+        ) : unpaidOrders.length === 0 ? (
+          <EmptyState title="Không có công nợ tồn đọng" description="Tất cả các đơn hàng đã được thanh toán đầy đủ." />
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar">
-            <table className="w-full border-collapse">
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-muted/30 border-b border-border">
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Tên KH</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Tổng Đơn</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Công nợ hiện tại</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Thao tác</th>
+            <table className="w-full border-separate border-spacing-0">
+              <thead className="sticky top-0 z-20">
+                <tr className="bg-slate-50/80 backdrop-blur-md border-b border-border">
+                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-left min-w-[120px] border-b border-border">Mã đơn</th>
+                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-left border-b border-border">Khách hàng</th>
+                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-left min-w-[200px] border-b border-border">Nội dung hàng</th>
+                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-right border-b border-border">Giá trị nợ</th>
+                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-right border-b border-border">Đang nợ</th>
+                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-center border-b border-border w-48">Trạng thái thanh toán</th>
+                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-center border-b border-border">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/50">
-                {debtors.map((c) => (
-                  <tr key={c.id} className="hover:bg-muted/20 transition-colors">
-                    <td className="px-4 py-3">
-                      <div>
-                        <span className="text-[13px] font-bold text-foreground">{c.name}</span>
-                        {c.phone && <p className="text-[11px] text-muted-foreground truncate">{c.phone}</p>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-[13px] font-bold text-foreground text-right tabular-nums">{c.total_orders}</td>
-                    <td className="px-4 py-3 text-[14px] font-bold text-red-600 text-right tabular-nums">{formatCurrency(c.debt)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <button 
-                        onClick={() => handleCollect(c.id)}
-                        className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-bold rounded-lg transition-colors shadow-sm"
-                      >
-                        Thu tiền
-                      </button>
-                    </td>
-                  </tr>
+              <tbody className="divide-y divide-slate-100">
+                {sortedDates.map((date) => (
+                  <React.Fragment key={date}>
+                    {/* Date group separator */}
+                    <tr className="bg-slate-50/50">
+                      <td colSpan={7} className="px-4 py-2 border-y border-slate-100/10">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-red-500/10 flex items-center justify-center text-red-600">
+                            <Calendar size={13} />
+                          </div>
+                          <span className="text-[12px] font-black text-slate-700 uppercase tracking-wider">
+                            Ngày xuất: {format(new Date(date), 'dd/MM/yyyy')}
+                          </span>
+                          <div className="h-[1px] flex-1 bg-slate-100 ml-2" />
+                        </div>
+                      </td>
+                    </tr>
+
+                    {groupedOrders[date].map((order) => {
+                      const remaining = (order.debt_amount || 0) - (order.paid_amount || 0);
+                      return (
+                        <tr key={order.id} className="hover:bg-muted/10 transition-colors group">
+                          <td className="px-4 py-3 align-top">
+                            <span className="text-[13px] font-bold text-primary tabular-nums">#{order.id.slice(0, 8).toUpperCase()}</span>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <div className="flex flex-col">
+                              <span className="text-[13px] font-bold text-foreground line-clamp-1">{order.customers?.name || 'Vãng lai'}</span>
+                              {order.customers?.phone && <span className="text-[11px] text-muted-foreground">{order.customers.phone}</span>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top max-w-[250px]">
+                            <span className="text-[13px] font-medium text-slate-600 line-clamp-1">{order.item_name}</span>
+                          </td>
+                          <td className="px-4 py-3 text-right align-top">
+                            <span className="text-[13px] font-medium text-slate-500 tabular-nums">{formatCurrency(order.debt_amount)}</span>
+                          </td>
+                          <td className="px-4 py-3 text-right align-top">
+                            <span className="text-[14px] font-black text-red-600 tabular-nums">{formatCurrency(remaining)}</span>
+                          </td>
+                          <td className="px-4 py-3 text-center align-top">
+                            <div className={clsx(
+                              "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                              order.payment_status === 'partial' ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+                            )}>
+                              {order.payment_status === 'partial' ? 'Mới trả 1 phần' : 'Chưa trả'}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center align-top">
+                            <button
+                              onClick={() => handleCollect(order.customers)}
+                              className="px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold rounded-lg transition-all shadow-sm active:scale-95"
+                            >
+                              Thu tiền
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
@@ -141,48 +220,79 @@ const CustomerDebtPage: React.FC = () => {
                 </div>
                 <h2 className="text-lg font-bold text-foreground">Thu tiền nợ</h2>
               </div>
-              <button onClick={closeCollectDialog} className="p-2 hover:bg-muted rounded-full">
+              <button onClick={closeCollectDialog} className="p-2 hover:bg-muted rounded-full transition-colors">
                 <X size={20} />
               </button>
             </div>
-            <form id="pay-form" onSubmit={handleSubmit(onSubmitPayment)} className="flex-1 overflow-y-auto p-6 space-y-4">
-              <div className="bg-white rounded-2xl border border-border shadow-sm p-5 space-y-4">
+
+            <form id="pay-form" onSubmit={handleSubmit(onSubmitPayment)} className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="bg-white rounded-2xl border border-border shadow-sm p-5 space-y-5">
                 <div>
-                  <label className="text-[12px] font-bold text-muted-foreground uppercase">Khách hàng</label>
-                  <p className="text-[15px] font-bold mt-1 text-foreground">{selectedCustomer?.name}</p>
+                  <label className="text-[11px] font-black text-muted-foreground uppercase opacity-60 tracking-wider">Khách hàng</label>
+                  <p className="text-[16px] font-black mt-1 text-foreground">{selectedCustomerName}</p>
                 </div>
-                <div>
-                   <label className="text-[12px] font-bold text-muted-foreground uppercase">Công nợ hiện hành</label>
-                   <p className="text-[20px] font-bold mt-1 text-red-600">{formatCurrency(selectedCustomer?.debt)}</p>
-                </div>
-                
-                <div className="space-y-1.5 pt-4 border-t border-border">
-                  <label className="text-[13px] font-bold text-foreground">Số tiền khách thanh toán <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <Controller
-                      name="amount"
-                      control={control}
-                      render={({ field }) => (
-                        <CurrencyInput
-                          {...field}
-                          value={field.value as number | undefined}
-                          onChange={field.onChange}
-                          className="w-full px-4 py-3 bg-muted/10 border border-border rounded-xl text-[16px] font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all text-emerald-600"
-                        />
-                      )}
-                    />
+
+                <div className="p-4 bg-red-50 rounded-xl border border-red-100 flex items-start gap-3">
+                  <Info size={16} className="text-red-500 mt-0.5 shrink-0" />
+                  <div>
+                    <label className="text-[11px] font-bold text-red-600/70 uppercase tracking-wider">Tổng công nợ hiện tại</label>
+                    <p className="text-[24px] font-black text-red-600 leading-tight tabular-nums">{formatCurrency(currentCustomerDebt)}</p>
                   </div>
-                  {errors.amount && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.amount.message as string}</p>}
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <label className="text-[13px] font-bold text-foreground flex items-center justify-between">
+                    Số tiền khách thanh toán
+                    <span className="text-red-500 text-[10px] uppercase">* Bắt buộc</span>
+                  </label>
+                  <Controller
+                    name="amount"
+                    control={control}
+                    render={({ field }) => (
+                      <CurrencyInput
+                        {...field}
+                        value={field.value as number | undefined}
+                        onChange={field.onChange}
+                        className="w-full px-4 py-4 bg-slate-50 border-2 border-border rounded-xl text-[20px] font-black focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all text-emerald-600 tabular-nums"
+                      />
+                    )}
+                  />
+                  {errors.amount && <p className="text-red-500 text-[11px] font-bold mt-1 px-1">{errors.amount.message as string}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[13px] font-bold text-foreground">Ghi chú (nếu có)</label>
+                  <Controller
+                    name="notes"
+                    control={control}
+                    render={({ field }) => (
+                      <textarea
+                        {...field}
+                        rows={3}
+                        placeholder="Nhập ghi chú thanh toán..."
+                        className="w-full px-4 py-3 bg-slate-50 border border-border rounded-xl text-[14px] focus:outline-none focus:border-primary/50 transition-all resize-none"
+                      />
+                    )}
+                  />
                 </div>
               </div>
             </form>
-            <div className="bg-white border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
-              <button type="button" onClick={closeCollectDialog} className="px-6 py-2 rounded-xl border border-border">Hủy</button>
-              <button 
-                type="submit" form="pay-form" disabled={updatePayment.isPending}
-                className="flex items-center gap-2 px-8 py-2 rounded-xl text-[13px] font-bold shadow-lg transition-all group bg-emerald-500 hover:bg-emerald-600 text-white"
+
+            <div className="bg-white border-t border-border px-6 py-4 flex items-center justify-between shrink-0 gap-3">
+              <button
+                type="button"
+                onClick={closeCollectDialog}
+                className="flex-1 py-3 rounded-xl border border-border text-[13px] font-bold hover:bg-slate-50 transition-colors"
               >
-                {updatePayment.isPending ? 'Đang xử lý...' : 'Xác nhận thu'}
+                Hủy bỏ
+              </button>
+              <button
+                type="submit"
+                form="pay-form"
+                disabled={updatePayment.isPending}
+                className="flex-[2] flex items-center justify-center gap-2 py-3 rounded-xl text-[14px] font-black shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:grayscale"
+              >
+                {updatePayment.isPending ? 'Đang xử lý...' : 'Xác nhận thu tiền'}
               </button>
             </div>
           </div>

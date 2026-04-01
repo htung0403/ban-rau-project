@@ -24,7 +24,9 @@ const createSalaryAdvanceSchema = z.object({
 const markAttendanceSchema = z.object({
   employee_id: z.string().uuid(),
   work_date: z.string(),
-  is_present: z.boolean(),
+  is_present: z.boolean().optional(),
+  check_in_time: z.string().nullable().optional(),
+  check_out_time: z.string().nullable().optional(),
   note: z.string().optional(),
 });
 
@@ -98,24 +100,35 @@ export class HRController {
 
   static async markAttendance(req: Request, res: Response) {
     try {
-      const validated = markAttendanceSchema.parse(req.body);
-      const data = await HRService.markAttendance(
-        validated.employee_id,
-        validated.work_date,
-        validated.is_present,
-        validated.note
-      );
+      const validated = markAttendanceSchema.parse(req.body) as any;
+      
+      // Permission check: regular staff/driver can only mark for themselves
+      if (req.user!.role !== 'admin' && req.user!.role !== 'manager') {
+        if (validated.employee_id !== req.user!.id) {
+          return res.status(403).json(errorResponse('You can only mark attendance for yourself', 'FORBIDDEN'));
+        }
+      }
+
+      const data = await HRService.markAttendance(validated);
       return res.status(201).json(successResponse(data, 'Attendance marked'));
     } catch (err: any) {
-      return res.status(400).json(errorResponse(err.message));
+      console.error('Attendance Error:', err);
+      return res.status(400).json(errorResponse(err.message || String(err)));
     }
   }
 
   static async getAttendance(req: Request, res: Response) {
     try {
-      const employeeId = (req.query.employee_id as string) || req.user!.id;
-      const weekStart = req.query.week_start as string;
-      const data = await HRService.getAttendance(employeeId, weekStart);
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+      const date = (req.query.date as string) || new Date().toISOString().split('T')[0];
+
+      if (startDate && endDate) {
+        const data = await HRService.getAttendanceByRange(startDate, endDate);
+        return res.status(200).json(successResponse(data));
+      }
+
+      const data = await HRService.getAllAttendanceForDate(date);
       return res.status(200).json(successResponse(data));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));

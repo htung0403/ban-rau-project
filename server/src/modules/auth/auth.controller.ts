@@ -53,4 +53,15 @@ export class AuthController {
       return res.status(400).json(errorResponse(err.message));
     }
   }
+
+  static async updateProfile(req: Request, res: Response) {
+    try {
+      if (!req.user) throw new Error('Not authenticated');
+      const payload = req.body;
+      await AuthService.updateProfile(req.user.id, payload);
+      return res.status(200).json(successResponse(null, 'Profile updated successfully'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
 }

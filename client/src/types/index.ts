@@ -12,6 +12,7 @@ export interface User {
   email?: string;
   role: Role;
   is_active: boolean;
+  avatar_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -27,6 +28,7 @@ export interface AuthResponse {
     email: string;
     role: Role;
     full_name: string;
+    avatar_url?: string;
   };
   session: {
     access_token: string;
@@ -165,7 +167,7 @@ export interface ExportOrder {
   created_by?: string;
   created_at: string;
   // Nested
-  customers?: { name: string };
+  customers?: { id: string; name: string; debt: number; phone?: string; address?: string };
   products?: Product;
   warehouses?: { name: string };
 }
@@ -189,6 +191,12 @@ export interface DeliveryOrder {
   updated_at: string;
   // Nested
   delivery_vehicles?: DeliveryVehicle[];
+  import_orders?: {
+    order_code: string;
+    sender_name: string;
+    receiver_name: string;
+    customers?: { name: string };
+  };
 }
 
 // --- Vehicles ---
@@ -311,6 +319,8 @@ export interface Attendance {
   employee_id: string;
   work_date: string;
   is_present: boolean;
+  check_in_time?: string | null;
+  check_out_time?: string | null;
   note?: string;
 }
 

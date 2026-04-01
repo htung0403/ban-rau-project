@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import PageHeader from '../../components/shared/PageHeader';
 import { useVehicles } from '../../hooks/queries/useVehicles';
-import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import { Plus, Car } from 'lucide-react';
@@ -65,7 +64,38 @@ const VehiclesPage: React.FC = () => {
       />
 
       {isLoading ? (
-        <LoadingSkeleton type="card" rows={4} />
+        <div className="flex-1 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
+          <div className="flex gap-6 min-h-full min-w-max lg:min-w-0 lg:grid lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="w-[320px] lg:w-full flex flex-col bg-slate-100/50 border border-slate-200 rounded-[24px] p-4 min-h-[500px]">
+                {/* Column Header Skeleton */}
+                <div className="flex items-center gap-2.5 mb-5 px-1">
+                  <div className="w-2.5 h-2.5 rounded-full bg-slate-200 animate-pulse" />
+                  <div className="h-4 bg-slate-200 rounded-lg w-24 animate-pulse" />
+                </div>
+
+                {/* Column Content Skeleton */}
+                <div className="flex flex-col gap-3 flex-1">
+                  {[1, 2].map((j) => (
+                    <div key={j} className="bg-white rounded-2xl border border-slate-100 p-4 space-y-4 animate-pulse">
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-slate-50" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 bg-slate-100 rounded-lg w-3/4" />
+                          <div className="h-3 bg-slate-100 rounded-lg w-1/2" />
+                        </div>
+                      </div>
+                      <div className="pt-3.5 border-t border-slate-50 flex items-center gap-2">
+                         <div className="w-6 h-6 rounded-full bg-slate-50" />
+                         <div className="h-3 bg-slate-50 rounded-lg w-20" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       ) : isError ? (
         <ErrorState onRetry={() => refetch()} />
       ) : !vehicles?.length ? (

@@ -5,6 +5,7 @@ export interface UserPayload {
   email: string;
   role: Role;
   full_name: string;
+  avatar_url?: string;
 }
 
 

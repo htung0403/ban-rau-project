@@ -94,28 +94,38 @@ export class HRService {
     return advance;
   }
 
-  static async markAttendance(employeeId: string, date: string, isPresent: boolean, note?: string) {
+  static async markAttendance(payload: { 
+    employee_id: string; 
+    work_date: string; 
+    is_present?: boolean; 
+    check_in_time?: string | null; 
+    check_out_time?: string | null; 
+    note?: string 
+  }) {
     const { data, error } = await supabaseService
       .from('attendance')
-      .upsert({
-        employee_id: employeeId,
-        work_date: date,
-        is_present: isPresent,
-        note: note,
-      })
+      .upsert(payload, { onConflict: 'employee_id,work_date' })
       .select()
       .single();
     if (error) throw error;
     return data;
   }
 
-  static async getAttendance(employeeId: string, weekStart: string) {
-    // Basic implementation: get attendance for a period
+  static async getAttendanceByRange(startDate: string, endDate: string) {
     const { data, error } = await supabaseService
       .from('attendance')
       .select('*')
-      .eq('employee_id', employeeId)
-      .gte('work_date', weekStart);
+      .gte('work_date', startDate)
+      .lte('work_date', endDate);
+    if (error) throw error;
+    return data;
+  }
+
+  static async getAllAttendanceForDate(date: string) {
+    const { data, error } = await supabaseService
+      .from('attendance')
+      .select('*')
+      .eq('work_date', date);
     if (error) throw error;
     return data;
   }

@@ -18,6 +18,6 @@ router.post('/salary-advances', HRController.createSalaryAdvance);
 router.put('/salary-advances/:id/approve', requireRole('manager'), HRController.approveSalaryAdvance);
 
 router.get('/attendance', HRController.getAttendance);
-router.post('/attendance', requireRole('manager'), HRController.markAttendance);
+router.post('/attendance', requireRole('manager', 'staff', 'driver'), HRController.markAttendance);
 
 export default router;

@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { clsx } from 'clsx';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
-import { Calendar, ChevronDown, Filter } from 'lucide-react';
+import { Calendar, ChevronDown, Filter, PlusCircle } from 'lucide-react';
 import PageHeader from '../../components/shared/PageHeader';
-import { useDeliveryOrders } from '../../hooks/queries/useDelivery';
+import { useDeliveryOrders, useAssignVehicle } from '../../hooks/queries/useDelivery';
+import { useVehicles } from '../../hooks/queries/useVehicles';
+import { useAuth } from '../../context/AuthContext';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
+import AssignVehicleDialog from './dialogs/AssignVehicleDialog';
+import toast from 'react-hot-toast';
 
 const formatNumber = (val?: number) => {
   if (val == null) return '0.00';
@@ -26,7 +30,40 @@ const DeliveryPage: React.FC = () => {
   const [endDate, setEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [showQuickPick, setShowQuickPick] = useState(false);
 
-  const { data: orders, isLoading, isError, refetch } = useDeliveryOrders(startDate, endDate);
+  const { user } = useAuth();
+  const { data: orders, isLoading: ordersLoading, isError, refetch } = useDeliveryOrders(startDate, endDate);
+  const { data: vehicles } = useVehicles();
+
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [isAssignClosing, setIsAssignClosing] = useState(false);
+
+  // Inline editing state
+  const [editingCell, setEditingCell] = useState<{ orderId: string, vehicleId: string } | null>(null);
+  const [editValue, setEditValue] = useState<string>('');
+
+  const { mutate: assignMutation, isPending: isAssigning } = useAssignVehicle();
+
+  const isLoading = ordersLoading;
+  const isAdmin = user?.role === 'admin' || user?.role === 'manager';
+  const myVehicle = vehicles?.find(v => v.driver_id === user?.id);
+
+  const openAssign = (order: any, vehicleId?: string) => {
+    setSelectedOrder(order);
+    setSelectedVehicleId(vehicleId || null);
+    setIsAssignOpen(true);
+  };
+
+  const closeAssign = () => {
+    setIsAssignClosing(true);
+    setTimeout(() => {
+      setIsAssignOpen(false);
+      setIsAssignClosing(false);
+      setSelectedOrder(null);
+      setSelectedVehicleId(null);
+    }, 350);
+  };
 
   const handleQuickPick = (range: typeof quickRanges[0]) => {
     const { start, end } = range.getValue();
@@ -35,13 +72,59 @@ const DeliveryPage: React.FC = () => {
     setShowQuickPick(false);
   };
 
-  // Grouping logic
+  const handleCellClick = (order: any, vehicle: any) => {
+    const qty = (order.delivery_vehicles || []).find((dv: any) => dv.vehicle_id === vehicle.id)?.assigned_quantity || 0;
+    setEditingCell({ orderId: order.id, vehicleId: vehicle.id });
+    setEditValue(qty > 0 ? qty.toString() : '');
+  };
+
+  const handleInlineSave = (orderId: string, vehicle: any) => {
+    if (!editingCell) return;
+    
+    // Find the current order once to get its total quantity
+    const order = (orders || []).find(o => o.id === orderId);
+    if (!order) return;
+
+    const quantity = parseFloat(editValue) || 0;
+    
+    // Calculate total assigned to OTHER vehicles
+    const otherVehiclesTotal = (order.delivery_vehicles || [])
+      .filter((dv: any) => dv.vehicle_id !== vehicle.id)
+      .reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
+    
+    const maxAllowed = order.total_quantity - otherVehiclesTotal;
+
+    if (quantity > maxAllowed) {
+      toast.error(`Số lượng không được vượt quá số lượng còn lại (${formatNumber(maxAllowed)})`);
+      return;
+    }
+
+    if (quantity < 0) {
+      toast.error('Số lượng không được nhỏ hơn 0');
+      return;
+    }
+
+    assignMutation({
+      id: orderId,
+      payload: {
+        vehicle_id: vehicle.id,
+        driver_id: vehicle.driver_id,
+        quantity: quantity
+      }
+    }, {
+      onSuccess: () => setEditingCell(null)
+    });
+  };
+
+  // Grouping logic: Date -> [Orders]
   const groupedOrders = (orders || []).reduce((acc: Record<string, any[]>, order: any) => {
-    const customerName = order.import_orders?.customers?.name || order.import_orders?.receiver_name || 'Khách lẻ/Khác';
-    if (!acc[customerName]) acc[customerName] = [];
-    acc[customerName].push(order);
+    const date = order.delivery_date || 'N/A';
+    if (!acc[date]) acc[date] = [];
+    acc[date].push(order);
     return acc;
   }, {});
+
+  const sortedDates = Object.keys(groupedOrders).sort((a, b) => b.localeCompare(a)); // Newest first
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
@@ -130,26 +213,21 @@ const DeliveryPage: React.FC = () => {
           <div className="flex-1 overflow-auto custom-scrollbar">
             <table className="w-full border-collapse">
               <thead className="sticky top-0 z-20">
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
-                  <th colSpan={3} className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider border-r border-slate-200 text-center group">
-                    <div className="flex items-center justify-center gap-2">
-                       <span className="text-primary italic">Ngày:</span>
-                       <span>
-                         {startDate === endDate 
-                           ? new Date(startDate).toLocaleDateString('vi-VN') 
-                           : `${new Date(startDate).toLocaleDateString('vi-VN')} - ${new Date(endDate).toLocaleDateString('vi-VN')}`}
-                       </span>
-                    </div>
-                  </th>
-                  <th colSpan={10} className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-center">
-                    Tờ: 1
-                  </th>
-                </tr>
                 <tr className="bg-white border-b border-slate-200 text-slate-600">
-                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left min-w-[200px] border-r border-slate-100">Tên khách</th>
-                  <th className="px-3 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-24 border-r border-slate-100">Số lượng</th>
-                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left border-r border-slate-200">Hàng</th>
-                  {['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => (
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left w-48 border-r border-slate-100">Mã đơn</th>
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left min-w-[80px] border-r border-slate-100">Người nhận</th>
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left border-r border-slate-100">Hàng</th>
+                  <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-100">SL Tổng</th>
+                  <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-200">Còn lại</th>
+                  {vehicles?.map(v => (
+                    <th key={v.id} className={clsx(
+                      "px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-28 border-r border-slate-100 last:border-r-0",
+                      v.id === myVehicle?.id && "bg-primary/5 text-primary"
+                    )}>
+                      {v.license_plate}
+                    </th>
+                  ))}
+                  {(!vehicles || vehicles.length === 0) && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => (
                     <th key={col} className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-12 border-r border-slate-100 last:border-r-0">
                       {col}
                     </th>
@@ -157,60 +235,137 @@ const DeliveryPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {Object.entries(groupedOrders).map(([customerName, items]) => (
-                  <React.Fragment key={customerName}>
-                    {items.map((o, index) => {
-                      const getQtyForCol = (col: string) => {
-                        const matches = (o.delivery_vehicles || []).filter((dv: any) => {
-                          const plate = (dv.vehicles?.license_plate || '').toLowerCase();
-                          if (col === 'ba') return plate.includes('ba');
-                          if (col === 'kho') return plate.includes('kho');
-                          // Simple match for vehicle numbers
-                          return plate.includes(col);
-                        });
-                        return matches.reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
-                      };
+                {sortedDates.map((date) => (
+                  <React.Fragment key={date}>
+                    {/* Date separator row */}
+                    <tr className="bg-slate-100/80 border-y border-slate-200 shadow-sm overflow-hidden">
+                      <td colSpan={5 + (vehicles?.length || 10)} className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 text-primary">
+                            <Calendar size={14} />
+                          </div>
+                          <span className="text-[13px] font-black text-slate-800 uppercase tracking-wider">Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}</span>
+                        </div>
+                      </td>
+                    </tr>
+                    {/* Items for this date */}
+                    {groupedOrders[date].map((o: any) => {
+                      const totalAssigned = (o.delivery_vehicles || []).reduce(
+                        (sum: number, dv: any) => sum + (dv.assigned_quantity || 0),
+                        0
+                      );
+                      const remainingQty = o.total_quantity - totalAssigned;
 
                       return (
                         <tr key={o.id} className="hover:bg-blue-50/30 transition-colors group">
-                          {index === 0 ? (
-                            <td 
-                              rowSpan={items.length} 
-                              className="px-4 py-3 text-[13px] font-bold text-slate-800 align-top border-r border-slate-100 bg-white"
-                            >
-                              {customerName}
-                            </td>
-                          ) : null}
-                          <td className="px-3 py-3 text-[13px] font-bold text-slate-700 text-center tabular-nums border-r border-slate-100">
-                            {formatNumber(o.total_quantity)}
+                          <td className="px-4 py-3 border-r border-slate-100">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[13px] font-bold text-primary">{o.import_orders?.order_code || 'N/A'}</span>
+                              {isAdmin && remainingQty > 0 && (
+                                <button 
+                                  onClick={() => openAssign(o)}
+                                  className="p-1 rounded-md bg-primary/10 text-primary transition-colors hover:bg-primary/20"
+                                  title="Phân xe"
+                                >
+                                  <PlusCircle size={14} />
+                                </button>
+                              )}
+                            </div>
                           </td>
-                          <td className="px-4 py-3 text-[13px] font-medium text-slate-600 border-r border-slate-200">
+                          <td className="px-4 py-3 text-[12px] font-bold text-slate-700 border-r border-slate-100">
+                            {o.import_orders?.customers?.name || o.import_orders?.receiver_name || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-[13px] font-medium text-slate-600 border-r border-slate-100">
                             {o.product_name.includes(' - ') ? o.product_name.split(' - ').slice(1).join(' - ') : o.product_name}
                           </td>
-                          {['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => {
-                            const qty = getQtyForCol(col);
-                            return (
-                              <td 
-                                key={col} 
-                                className={clsx(
-                                  "px-2 py-3 text-[13px] text-center tabular-nums border-r border-slate-100 last:border-r-0",
-                                  qty > 0 ? "font-bold text-orange-600 bg-orange-50/30" : "text-slate-300"
-                                )}
-                              >
-                                {qty > 0 ? formatNumber(qty) : '-'}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
+                          <td className="px-2 py-3 text-[13px] font-bold text-slate-500 text-center tabular-nums border-r border-slate-100">
+                            {formatNumber(o.total_quantity)}
+                          </td>
+                          <td className="px-2 py-3 text-[13px] font-black text-orange-600 text-center tabular-nums border-r border-slate-200">
+                            {formatNumber(remainingQty)}
+                          </td>
+                        {vehicles?.map(v => {
+                          const dv = (o.delivery_vehicles || []).find((dv: any) => dv.vehicle_id === v.id);
+                          const qty = dv?.assigned_quantity || 0;
+                          const isEditableByMe = v.id === myVehicle?.id;
+                          const isEditing = editingCell?.orderId === o.id && editingCell?.vehicleId === v.id;
+                          const canEdit = isEditableByMe || isAdmin;
+
+                          return (
+                            <td 
+                              key={v.id} 
+                              onClick={() => canEdit && !isEditing && (qty > 0 || remainingQty > 0) && handleCellClick(o, v)}
+                              className={clsx(
+                                "px-1 py-1 text-[13px] text-center tabular-nums border-r border-slate-100 last:border-r-0 transition-all",
+                                !isEditing && qty > 0 ? "font-bold text-blue-600 bg-blue-50/10" : "text-slate-300",
+                                !isEditing && canEdit && (qty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95",
+                                isEditing && "bg-white ring-2 ring-primary/20 z-10"
+                              )}
+                            >
+                              {isEditing ? (
+                                <input
+                                  autoFocus
+                                  type="number"
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleInlineSave(o.id, v);
+                                    if (e.key === 'Escape') setEditingCell(null);
+                                  }}
+                                  onBlur={() => handleInlineSave(o.id, v)}
+                                  className="w-full h-full min-h-[36px] bg-transparent text-center font-bold text-primary focus:outline-none p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                              ) : isAssigning && editingCell?.orderId === o.id && editingCell?.vehicleId === v.id ? (
+                                <div className="animate-pulse text-primary/50 font-bold">{editValue || '0.00'}</div>
+                              ) : (
+                                <span>
+                                  {qty > 0 ? formatNumber(qty) : (canEdit && remainingQty > 0 ? <PlusCircle size={14} className="mx-auto opacity-10 group-hover:opacity-40" /> : '-')}
+                                </span>
+                              )}
+                            </td>
+                          );
+                        })}
+                        {(!vehicles || vehicles.length === 0) && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => {
+                          const getQtyForCol = (col: string) => {
+                            const matches = (o.delivery_vehicles || []).filter((dv: any) => {
+                              const plate = (dv.vehicles?.license_plate || '').toLowerCase();
+                              if (col === 'ba') return plate.includes('ba');
+                              if (col === 'kho') return plate.includes('kho');
+                              return plate.includes(col);
+                            });
+                            return matches.reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
+                          };
+                          const qty = getQtyForCol(col);
+                          return (
+                            <td 
+                              key={col} 
+                              className={clsx(
+                                "px-2 py-3 text-[13px] text-center tabular-nums border-r border-slate-100 last:border-r-0",
+                                qty > 0 ? "font-bold text-orange-600 bg-orange-50/30" : "text-slate-300"
+                              )}
+                            >
+                              {qty > 0 ? formatNumber(qty) : '-'}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
               </tbody>
             </table>
           </div>
         )}
       </div>
+
+      <AssignVehicleDialog
+        isOpen={isAssignOpen}
+        isClosing={isAssignClosing}
+        order={selectedOrder}
+        initialVehicleId={selectedVehicleId}
+        onClose={closeAssign}
+      />
     </div>
   );
 };

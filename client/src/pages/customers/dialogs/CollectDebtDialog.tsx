@@ -21,9 +21,10 @@ interface Props {
   isClosing: boolean;
   onClose: () => void;
   customer: Customer;
+  debtAmount?: number;
 }
 
-const CollectDebtDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, customer }) => {
+const CollectDebtDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, customer, debtAmount }) => {
   const [formattedAmount, setFormattedAmount] = useState<string>('');
   const paymentMutation = useUpdateCustomerPayment();
 
@@ -115,7 +116,7 @@ const CollectDebtDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, custom
              <div className="flex flex-col gap-1 text-center">
                  <span className="text-[12px] font-bold text-emerald-700/70 uppercase tracking-widest">Dư Nợ Hiện Tại</span>
                  <span className="text-3xl font-black text-emerald-700 tabular-nums">
-                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer.debt || 0)}
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(debtAmount ?? customer.debt ?? 0)}
                  </span>
              </div>
           </div>

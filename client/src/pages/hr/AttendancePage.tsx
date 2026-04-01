@@ -1,102 +1,401 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import PageHeader from '../../components/shared/PageHeader';
-import { useEmployees, useMarkAttendance } from '../../hooks/queries/useHR';
+import { useEmployees, useMarkAttendance, useAttendance } from '../../hooks/queries/useHR';
+import { useAuth } from '../../context/AuthContext';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
 import EmptyState from '../../components/shared/EmptyState';
-import { Check, X, Save } from 'lucide-react';
+import { Check, X, User as UserIcon, Clock, Plus, Camera, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, subDays } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { translateRole } from '../../lib/utils';
+import type { Attendance } from '../../types';
 
 const AttendancePage: React.FC = () => {
-  const { data: employees, isLoading, isError, refetch } = useEmployees();
-  const markAttendance = useMarkAttendance();
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [attendance, setAttendance] = useState<Record<string, boolean>>({});
+  
+  // Calculate week range (Monday to Sunday)
+  const weekStart = startOfWeek(new Date(selectedDate), { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(new Date(selectedDate), { weekStartsOn: 1 });
+  const daysInWeek = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
-  const toggleAttendance = (employeeId: string) => {
-    setAttendance(prev => ({ ...prev, [employeeId]: !prev[employeeId] }));
-  };
+  const { data: employees, isLoading: loadingEmployees, isError: errorEmployees, refetch: refetchEmployees } = useEmployees();
+  const { data: attendanceData, isLoading: loadingAttendance, refetch: refetchAttendance } = useAttendance(
+    selectedDate, 
+    format(weekStart, 'yyyy-MM-dd'), 
+    format(weekEnd, 'yyyy-MM-dd')
+  );
+  const markAttendance = useMarkAttendance();
 
-  const handleSaveAll = async () => {
-    for (const [employeeId, isPresent] of Object.entries(attendance)) {
-      await markAttendance.mutateAsync({
-        employee_id: employeeId,
-        work_date: selectedDate,
-        is_present: isPresent,
+  // Dialog state
+  const [isOpen, setIsOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [attType, setAttType] = useState<'in' | 'out'>('in');
+  const [attTime, setAttTime] = useState(format(new Date(), 'HH:mm'));
+  const [attEmployee, setAttEmployee] = useState<any>(null);
+
+  // Local state for view only - Map by employee_id AND date
+  const [localAttendance, setLocalAttendance] = useState<Record<string, Record<string, Partial<Attendance>>>>({});
+  const [dialogDate, setDialogDate] = useState(selectedDate);
+
+  useEffect(() => {
+    if (attendanceData) {
+      const mapping: Record<string, Record<string, Partial<Attendance>>> = {};
+      attendanceData.forEach(item => {
+        if (!mapping[item.employee_id]) mapping[item.employee_id] = {};
+        mapping[item.employee_id][item.work_date] = item;
       });
+      setLocalAttendance(mapping);
     }
+  }, [attendanceData]);
+
+  const handleOpen = (emp?: any, date?: string) => {
+    setAttTime(format(new Date(), 'HH:mm'));
+    setAttEmployee(emp || user);
+    setDialogDate(date || selectedDate);
+    setIsOpen(true);
+    setIsClosing(false);
   };
+
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsOpen(false);
+      setIsClosing(false);
+      setAttEmployee(null);
+    }, 300);
+  };
+
+  const handleSaveAttendance = async () => {
+    if (!attEmployee) return;
+    const existing = (localAttendance[attEmployee.id] || {})[dialogDate] || {};
+    const ensureSeconds = (t: string | null | undefined) => {
+      if (!t) return null;
+      if (t.split(':').length === 2) return `${t}:00`;
+      return t;
+    };
+
+    await markAttendance.mutateAsync({
+      employee_id: attEmployee.id,
+      work_date: dialogDate,
+      is_present: true,
+      check_in_time: attType === 'in' ? ensureSeconds(attTime) : (existing.check_in_time || null),
+      check_out_time: attType === 'out' ? ensureSeconds(attTime) : (existing.check_out_time || null),
+    });
+    handleClose();
+    refetchAttendance();
+  };
+
+  const isLoading = loadingEmployees || loadingAttendance;
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
       <PageHeader
         title="Chấm công"
-        description="Bảng chấm công nhân viên"
+        description="Quản lý lịch làm việc và giờ giấc nhân viên"
         backPath="/hanh-chinh-nhan-su"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-white border border-border/80 rounded-xl overflow-hidden shadow-sm">
+              <button 
+                onClick={() => setSelectedDate(format(subDays(new Date(selectedDate), 7), 'yyyy-MM-dd'))}
+                className="p-2 hover:bg-muted text-muted-foreground transition-colors border-r border-border/50"
+              >
+                <ChevronRight className="rotate-180" size={16} />
+              </button>
+              <div className="px-4 py-2 text-[13px] font-bold text-foreground">
+                Tuần {format(weekStart, 'dd/MM')} - {format(weekEnd, 'dd/MM')}
+              </div>
+              <button 
+                onClick={() => setSelectedDate(format(addDays(new Date(selectedDate), 7), 'yyyy-MM-dd'))}
+                className="p-2 hover:bg-muted text-muted-foreground transition-colors border-l border-border/50"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-2 bg-muted/20 border border-border/80 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+              className="px-4 py-2 bg-white border border-border/80 rounded-xl text-[13px] font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
             />
             <button
-              onClick={handleSaveAll}
-              disabled={markAttendance.isPending || Object.keys(attendance).length === 0}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
+              onClick={() => handleOpen()}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
-              <Save size={16} />
-              Lưu chấm công
+              <Plus size={16} />
+              Chấm công nhanh
             </button>
           </div>
         }
       />
-      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0">
+
+      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
         {isLoading ? (
-          <div className="p-4"><LoadingSkeleton rows={6} columns={3} /></div>
-        ) : isError ? (
-          <ErrorState onRetry={() => refetch()} />
+          <div className="p-4"><LoadingSkeleton rows={6} columns={5} /></div>
+        ) : errorEmployees ? (
+          <ErrorState onRetry={() => { refetchEmployees(); refetchAttendance(); }} />
         ) : !employees?.length ? (
           <EmptyState title="Chưa có nhân viên" />
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar">
             <table className="w-full border-collapse">
               <thead className="sticky top-0 z-10">
-                <tr className="bg-muted/30 border-b border-border">
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Nhân viên</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Vai trò</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-32">Có mặt</th>
+                <tr className="bg-muted/50 border-b border-border backdrop-blur-md text-left">
+                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider min-w-[200px]">Nhân sự</th>
+                  {daysInWeek.map((day) => (
+                    <th key={day.toString()} className="px-3 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center border-l border-border/10">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[9px] opacity-70">{format(day, 'EEEE', { locale: vi })}</span>
+                        <span>{format(day, 'dd/MM')}</span>
+                      </div>
+                    </th>
+                  ))}
+                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-right">Tổng</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {employees.filter(e => ['staff', 'driver', 'manager'].includes(e.role)).map((e) => {
-                  const isPresent = attendance[e.id] ?? false;
-                  return (
-                    <tr key={e.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-4 py-3 text-[13px] font-bold text-foreground">{e.full_name}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">{e.role}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => toggleAttendance(e.id)}
-                          className={clsx(
-                            'w-10 h-10 rounded-xl flex items-center justify-center transition-all mx-auto',
-                            isPresent ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-muted text-muted-foreground hover:bg-red-50 hover:text-red-500',
-                          )}
-                        >
-                          {isPresent ? <Check size={20} /> : <X size={20} />}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {employees
+                  .filter((e) => {
+                    if (!['staff', 'driver', 'manager'].includes(e.role)) return false;
+                    if (user?.role === 'admin') return true;
+                    return e.id === user?.id;
+                  })
+                  .map((e) => {
+                    const empAtt = localAttendance[e.id] || {};
+                    let totalPresent = 0;
+
+                    return (
+                      <tr key={e.id} className="hover:bg-muted/30 transition-all duration-200 group border-b border-border/50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            {e.avatar_url ? (
+                              <img src={e.avatar_url} alt={e.full_name} className="w-8 h-8 rounded-full object-cover ring-2 ring-muted group-hover:ring-primary/20 transition-all" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary border border-primary/20 group-hover:bg-primary group-hover:text-white transition-all shadow-sm">
+                                <UserIcon size={14} />
+                              </div>
+                            )}
+                            <div className="flex flex-col">
+                              <span className="text-[13px] font-bold text-foreground group-hover:text-primary transition-colors">{e.full_name}</span>
+                              <span className="text-[10px] font-medium text-muted-foreground">{translateRole(e.role)}</span>
+                            </div>
+                          </div>
+                        </td>
+                        {daysInWeek.map((day) => {
+                          const dateStr = format(day, 'yyyy-MM-dd');
+                          const att = empAtt[dateStr];
+                          const isPresent = att?.is_present ?? false;
+                          if (isPresent) totalPresent++;
+
+                          return (
+                            <td 
+                              key={dateStr} 
+                              className="px-2 py-4 text-center border-l border-border/10 h-full"
+                            >
+                              <button
+                                onClick={() => handleOpen(e, dateStr)}
+                                className={clsx(
+                                  "w-full py-2 rounded-xl flex flex-col items-center gap-0.5 transition-all group/cell",
+                                  isPresent ? "bg-emerald-50 text-emerald-700 border border-emerald-100/50" : "hover:bg-muted text-muted-foreground/40 border border-transparent"
+                                )}
+                              >
+                                {isPresent ? (
+                                  <>
+                                    <span className="text-[11px] font-bold">{att?.check_in_time?.substring(0, 5) || '--:--'}</span>
+                                    <div className="w-full h-[1px] bg-emerald-200/50 my-0.5 mx-2"></div>
+                                    <span className="text-[11px] font-bold">{att?.check_out_time?.substring(0, 5) || '--:--'}</span>
+                                  </>
+                                ) : (
+                                  <div className="py-2 opacity-0 group-hover/cell:opacity-100 transition-opacity">
+                                    <Plus size={14} className="text-primary/50" />
+                                  </div>
+                                )}
+                              </button>
+                            </td>
+                          );
+                        })}
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <span className={clsx(
+                            'px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ring-1 ring-inset',
+                            totalPresent > 0 ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-muted text-muted-foreground ring-border'
+                          )}>
+                            {totalPresent} buổi
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
         )}
+      </div>
+
+      {(isOpen || isClosing) && createPortal(
+        <div className="fixed inset-0 z-[9999] flex justify-end">
+          {/* Backdrop */}
+          <div
+            className={clsx(
+              'fixed inset-0 bg-black/40 backdrop-blur-md transition-all duration-300 ease-out',
+              isClosing ? 'opacity-0' : 'animate-in fade-in duration-300',
+            )}
+            onClick={handleClose}
+          />
+
+          {/* Panel */}
+          <div
+            className={clsx(
+              'relative w-full max-w-[500px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
+              isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
+            )}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <Clock size={20} />
+                </div>
+                <h3 className="text-lg font-bold text-foreground tracking-tight">Thêm bản ghi chấm công</h3>
+              </div>
+              <button
+                onClick={handleClose}
+                className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+              {/* Profile Image Section */}
+              <div className="bg-white rounded-3xl border border-border shadow-sm p-8 flex flex-col items-center gap-4">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-3xl bg-muted/30 flex items-center justify-center border border-border/50 overflow-hidden ring-4 ring-muted shadow-inner">
+                    {attEmployee?.avatar_url ? (
+                      <img src={attEmployee.avatar_url} alt={attEmployee.full_name} className="w-full h-full object-cover" />
+                    ) : (
+                      <UserIcon size={40} className="text-muted-foreground/50" />
+                    )}
+                  </div>
+                  <div className="absolute -bottom-2 -right-2 p-2 bg-primary rounded-xl shadow-lg border-2 border-white text-white">
+                    <Camera size={16} />
+                  </div>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <p className="text-[12px] font-bold text-primary uppercase tracking-widest bg-primary/5 px-4 py-1.5 rounded-full border border-primary/10">Thông tin cá nhân</p>
+                </div>
+              </div>
+
+              {/* Form Fields Section */}
+              <div className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden pb-6">
+                <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
+                  <UserIcon size={14} className="text-primary" />
+                  <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Thông tin chấm công</span>
+                </div>
+
+                <div className="p-6 space-y-5">
+                  {/* Nhân sự */}
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-foreground flex items-center gap-2">Nhân sự <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      value={attEmployee?.full_name || ''}
+                      readOnly
+                      className="w-full px-4 py-2.5 bg-muted/10 border border-border rounded-xl text-[13px] font-bold text-muted-foreground cursor-not-allowed focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Ngày */}
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-foreground flex items-center gap-2">Ngày <span className="text-red-500">*</span></label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={format(new Date(dialogDate), 'dd/MM/yyyy')}
+                        readOnly
+                        className="w-full px-4 py-2.5 bg-muted/10 border border-border rounded-xl text-[13px] font-bold text-muted-foreground cursor-not-allowed focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Loại & Giờ */}
+                  <div className="grid grid-cols-1 gap-5 pt-4 border-t border-border/50">
+                    <div className="space-y-1.5">
+                      <label className="text-[13px] font-bold text-foreground flex items-center gap-2">Loại chấm công</label>
+                      <select
+                        value={attType}
+                        onChange={(e) => setAttType(e.target.value as any)}
+                        className="w-full px-4 py-2.5 bg-white border border-border rounded-xl text-[13px] font-bold text-foreground focus:ring-2 focus:ring-primary/10 transition-all outline-none"
+                      >
+                        <option value="in">Giờ vào làm</option>
+                        <option value="out">Giờ tan làm</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[13px] font-bold text-foreground flex items-center gap-2">Giờ hiện tại <span className="text-red-500">*</span></label>
+                      <div className="relative">
+                        <input
+                          type="time"
+                          value={attTime}
+                          onChange={(e) => setAttTime(e.target.value)}
+                          className="w-full px-4 py-2.5 bg-white border border-border rounded-xl text-[13px] font-bold text-foreground focus:ring-2 focus:ring-primary/10 transition-all outline-none hide-icon"
+                        />
+                        <button
+                          onClick={() => setAttTime(format(new Date(), 'HH:mm'))}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary hover:text-white transition-all shadow-sm"
+                        >
+                          Giờ hiện tại
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 bg-white border-t border-border flex items-center gap-3 shrink-0">
+              <button
+                onClick={handleClose}
+                className="flex-1 py-3 border border-border bg-white text-foreground rounded-2xl text-[13px] font-bold hover:bg-muted transition-all active:scale-95"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={handleSaveAttendance}
+                disabled={markAttendance.isPending}
+                className="flex-[2] py-3 bg-primary text-white rounded-2xl text-[13px] font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+              >
+                {markAttendance.isPending ? 'Đang lưu...' : (
+                  <>
+                    <Check size={18} />
+                    LƯU CHẤM CÔNG
+                    <ChevronRight size={16} />
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      <div className="mt-4 bg-muted/30 border border-border rounded-2xl p-4 flex items-center justify-between backdrop-blur-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/20"></div>
+            <span className="text-[12px] font-bold text-muted-foreground">Có mặt</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-muted shadow-sm"></div>
+            <span className="text-[12px] font-bold text-muted-foreground">Chưa chấm/Vắng</span>
+          </div>
+        </div>
       </div>
     </div>
   );

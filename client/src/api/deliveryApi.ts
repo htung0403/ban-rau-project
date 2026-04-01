@@ -32,7 +32,7 @@ export const deliveryApi = {
     return data;
   },
 
-  assignVehicle: async (id: string, payload: { vehicle_id: string; driver_id: string; assigned_quantity: number }) => {
+  assignVehicle: async (id: string, payload: { vehicle_id: string; driver_id: string; quantity: number }) => {
     const { data } = await axiosClient.put(`/delivery/${id}/assign-vehicle`, payload);
     return data;
   },

@@ -41,6 +41,15 @@ export class CustomerController {
     }
   }
 
+  static async getByUserId(req: Request, res: Response) {
+    try {
+      const data = await CustomerService.getByUserId(req.params.userId as string);
+      return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
   static async getOrders(req: Request, res: Response) {
     try {
       const data = await CustomerService.getOrders(req.params.id as string);

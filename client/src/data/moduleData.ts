@@ -1,7 +1,7 @@
 import {
   Users,
   Warehouse, Download, Upload, Truck as DeliveryIcon, Box,
-  Banknote, Car, CalendarDays, ClipboardList, DollarSign, FileText, MapPin
+  Banknote, Car, CalendarDays, ClipboardList, DollarSign, FileText
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
 
@@ -16,7 +16,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
       section: 'Hàng hóa',
       items: [
         { icon: Box, title: 'Danh mục hàng hóa', description: 'Quản lý danh sách các mặt hàng.', colorScheme: 'blue', path: '/hang-hoa/danh-muc' },
-        { icon: Warehouse, title: 'Danh sách kho', description: 'Quản lý danh sách các kho hàng.', colorScheme: 'teal', path: '/hang-hoa/kho' },
+        { icon: Warehouse, title: 'Tồn kho thực tế', description: 'Quản lý sản phẩm còn tồn kho chờ giao.', colorScheme: 'teal', path: '/hang-hoa/kho' },
         { icon: Upload, title: 'Xuất hàng', description: 'Quản lý phiếu xuất kho.', colorScheme: 'red', path: '/hang-hoa/xuat-hang' },
         { icon: Download, title: 'Nhập hàng', description: 'Quản lý phiếu nhập kho.', colorScheme: 'green', path: '/hang-hoa/nhap-hang' },
         { icon: DeliveryIcon, title: 'Hàng cần giao', description: 'Danh sách các đơn hàng cần giao.', colorScheme: 'orange', path: '/hang-hoa/giao-hang' },
@@ -49,7 +49,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
       section: 'Quản lý xe',
       items: [
         { icon: Car, title: 'Danh sách xe', description: 'Quản lý thông tin và lịch trình xe.', colorScheme: 'blue', path: '/quan-ly-xe/danh-sach' },
-        { icon: MapPin, title: 'Điểm danh tài xế', description: 'Tài xế điểm danh Geolocation.', colorScheme: 'orange', path: '/quan-ly-xe/check-in' },
+        // { icon: MapPin, title: 'Điểm danh tài xế', description: 'Tài xế điểm danh Geolocation.', colorScheme: 'orange', path: '/quan-ly-xe/check-in' },
       ]
     }
   ],

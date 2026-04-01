@@ -27,6 +27,14 @@ export function useCustomer(id: string) {
   });
 }
 
+export function useCustomerByUserId(userId: string) {
+  return useQuery({
+    queryKey: [...customerKeys.all, 'user', userId],
+    queryFn: () => customersApi.getByUserId(userId),
+    enabled: !!userId,
+  });
+}
+
 export function useCustomerOrders(id: string) {
   return useQuery({
     queryKey: customerKeys.orders(id),

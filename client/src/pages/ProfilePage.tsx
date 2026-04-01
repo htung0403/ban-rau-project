@@ -1,25 +1,48 @@
 import React from 'react';
-import { 
-  User, Mail, Phone, MapPin, Briefcase, Calendar, 
-  ShieldCheck, Camera, Key, Fingerprint, Globe, 
+import {
+  User, Mail, Phone, MapPin, Briefcase, Calendar,
+  ShieldCheck, Camera, Key, Fingerprint,
   Heart, GraduationCap, Landmark, Shield, Info,
   IdCard, UserCircle, BriefcaseIcon, MapPinIcon,
   HeartIcon, GraduationCapIcon, WalletIcon, ShieldCheckIcon,
-  ClockIcon, Users, X, Edit, Trash2, Save
+  Users, X, Edit, Trash2, Save
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+import { useEmployee } from '../hooks/queries/useHR';
+import { useCustomerByUserId } from '../hooks/queries/useCustomers';
+import LoadingSkeleton from '../components/shared/LoadingSkeleton';
+import { translateRole } from '../lib/utils';
+import { uploadApi } from '../api/uploadApi';
+import { authApi } from '../api/authApi';
+import toast from 'react-hot-toast';
 
 const ProfilePage: React.FC = () => {
-  const { avatar, setAvatar } = useTheme();
+  const { user, updateUser } = useAuth();
+  const { avatar } = useTheme();
+
+  const isCustomer = user?.role === 'customer';
+
+  // Fetch employee data if not customer
+  const { data: employeeData, isLoading: loadingEmployee } = useEmployee(user?.id || '');
+
+  // Fetch customer data if customer
+  const { data: customerData, isLoading: loadingCustomer } = useCustomerByUserId(user?.id || '');
+
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const defaultAvatar = "https://ui-avatars.com/api/?name=Le+Minh+Cong&background=random&color=random&size=128";
-  const displayAvatar = avatar || defaultAvatar;
+  const isLoading = isCustomer ? loadingCustomer : loadingEmployee;
+  const profileData = isCustomer ? customerData : employeeData;
+
+  const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.full_name || 'User')}&background=random&color=random&size=128`;
+  const displayAvatar = user?.avatar_url || avatar || defaultAvatar;
 
   // Initialize preview avatar when modal opens
   useEffect(() => {
@@ -37,6 +60,8 @@ const ProfilePage: React.FC = () => {
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
 
+  if (isLoading) return <div className="p-8"><LoadingSkeleton rows={10} /></div>;
+
   // Close modal when clicking outside
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
@@ -47,6 +72,7 @@ const ProfilePage: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewAvatar(reader.result as string);
@@ -55,13 +81,26 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleSaveAvatar = () => {
-    if (previewAvatar !== null) {
-      setAvatar(previewAvatar);
-    } else {
-      setAvatar(''); // If cleared
+  const handleSaveAvatar = async () => {
+    if (!selectedFile) {
+      setIsAvatarModalOpen(false);
+      return;
     }
-    setIsAvatarModalOpen(false);
+
+    try {
+      setIsUploading(true);
+      const res = await uploadApi.uploadFile(selectedFile, 'avatars', 'profiles');
+      if (res?.url) {
+        await authApi.updateProfile({ avatar_url: res.url });
+        updateUser({ avatar_url: res.url });
+        toast.success('Cập nhật ảnh đại diện thành công');
+        setIsAvatarModalOpen(false);
+      }
+    } catch (err: any) {
+      toast.error('Lỗi khi tải ảnh: ' + (err.message || 'Không xác định'));
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleRemoveAvatar = () => {
@@ -91,8 +130,8 @@ const ProfilePage: React.FC = () => {
                 <div className="px-6 pb-6 -mt-10 flex flex-col items-center">
                   <div className="relative group">
                     <div className="w-24 h-24 rounded-full border-4 border-card bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary overflow-hidden shadow-md">
-                      <img 
-                        src={displayAvatar} 
+                      <img
+                        src={displayAvatar}
                         alt="Avatar"
                         className="w-full h-full object-cover"
                       />
@@ -101,32 +140,36 @@ const ProfilePage: React.FC = () => {
                   </div>
 
                   <div className="mt-4 text-center">
-                    <h2 className="text-xl font-bold text-foreground">Lê Minh Công</h2>
+                    <h2 className="text-xl font-bold text-foreground">{user?.full_name}</h2>
                     <div className="inline-flex items-center px-2.5 py-0.5 mt-1 rounded-full text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">
-                      Admin
+                      {translateRole(user?.role)}
                     </div>
                   </div>
 
                   <div className="w-full mt-8 space-y-4">
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
                       <Mail size={16} className="text-primary/60 shrink-0" />
-                      <span className="truncate">admin@5fedu.com</span>
+                      <span className="truncate">{user?.email || 'N/A'}</span>
                     </div>
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
                       <Phone size={16} className="text-primary/60 shrink-0" />
-                      <span>0900000000</span>
+                      <span>{profileData?.phone || 'Chưa cập nhật'}</span>
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      <Briefcase size={16} className="text-primary/60 shrink-0" />
-                      <span>Phòng Hành chính</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      <User size={16} className="text-primary/60 shrink-0" />
-                      <span>Giám đốc</span>
-                    </div>
+                    {!isCustomer && (
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <User size={16} className="text-primary/60 shrink-0" />
+                        <span>{translateRole(user?.role)}</span>
+                      </div>
+                    )}
+                    {isCustomer && (
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <MapPin size={16} className="text-primary/60 shrink-0" />
+                        <span className="truncate">{(profileData as any)?.address || 'Chưa cập nhật'}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
                       <Calendar size={16} className="text-primary/60 shrink-0" />
-                      <span>Tham gia 10/01/2019</span>
+                      <span>Tham gia {user ? new Date((user as any).created_at).toLocaleDateString() : '--/--/----'}</span>
                     </div>
                     <div className="flex items-center gap-3 text-sm text-emerald-500 font-medium">
                       <ShieldCheck size={16} className="shrink-0" />
@@ -135,7 +178,7 @@ const ProfilePage: React.FC = () => {
                   </div>
 
                   <div className="w-full grid grid-cols-2 gap-3 mt-8">
-                    <button 
+                    <button
                       onClick={() => setIsAvatarModalOpen(true)}
                       className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-muted/50 border border-border hover:bg-muted transition-colors group"
                     >
@@ -161,32 +204,42 @@ const ProfilePage: React.FC = () => {
             {/* Section 1: Thông tin cá nhân */}
             <SectionContainer icon={UserCircle} title="THÔNG TIN CÁ NHÂN">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <InfoItem icon={User} label="Họ tên" value="Lê Minh Công" />
-                <InfoItem icon={Calendar} label="Ngày sinh" value="Chưa cập nhật" />
-                <InfoItem icon={Fingerprint} label="Giới tính" value="Nam" badge="Nam" />
-                <InfoItem icon={IdCard} label="CMND/CCCD" value="Chưa cập nhật" />
-                <InfoItem icon={Calendar} label="Ngày cấp" value="Chưa cập nhật" />
-                <InfoItem icon={MapPin} label="Nơi cấp" value="Chưa cập nhật" />
-                <InfoItem icon={Globe} label="Quốc tịch" value="Chưa cập nhật" />
-                <InfoItem icon={User} label="Dân tộc" value="Chưa cập nhật" />
-                <InfoItem icon={Info} label="Tôn giáo" value="Chưa cập nhật" />
+                <InfoItem icon={User} label="Họ tên" value={user?.full_name || '---'} />
+                <InfoItem icon={Mail} label="Email" value={user?.email || '---'} />
+                <InfoItem icon={Phone} label="Điện thoại" value={profileData?.phone || 'Chưa cập nhật'} />
+                {isCustomer && (
+                  <InfoItem icon={MapPin} label="Địa chỉ" value={(profileData as any)?.address || 'Chưa cập nhật'} cols={2} />
+                )}
+                {!isCustomer && (
+                  <>
+                    <InfoItem icon={Calendar} label="Ngày sinh" value="Chưa cập nhật" />
+                    <InfoItem icon={Fingerprint} label="Giới tính" value="Nam" badge="Nam" />
+                    <InfoItem icon={IdCard} label="CMND/CCCD" value="Chưa cập nhật" />
+                  </>
+                )}
               </div>
             </SectionContainer>
 
             {/* Section 2: Thông tin công việc */}
-            <SectionContainer icon={BriefcaseIcon} title="THÔNG TIN CÔNG VIỆC">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <InfoItem icon={Fingerprint} label="Mã nhân viên" value="NV000" highlight />
-                <InfoItem icon={Briefcase} label="Chức vụ" value="Giám đốc" highlight />
-                <InfoItem icon={Briefcase} label="Phòng ban" value="Phòng Hành chính" highlight />
-                <InfoItem icon={User} label="Cấp bậc" value="Chưa cập nhật" />
-                <InfoItem icon={Calendar} label="Ngày vào làm" value="10/01/2019" />
-                <InfoItem icon={ClockIcon} label="Thâm niên" value="7 năm 2 tháng" />
-                <InfoItem icon={FileText} label="Loại hợp đồng" value="Chưa cập nhật" />
-                <InfoItem icon={Calendar} label="Ngày hết hạn HĐ" value="Chưa cập nhật" />
-                <InfoItem icon={MapPin} label="Nơi làm việc" value="Chưa cập nhật" />
-              </div>
-            </SectionContainer>
+            {isCustomer ? (
+              <SectionContainer icon={WalletIcon} title="THÔNG TIN CHI TIÊU">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <InfoItem icon={WalletIcon} label="Tổng đơn hàng" value={((profileData as any)?.total_orders || 0).toString()} highlight />
+                  <InfoItem icon={Landmark} label="Tổng doanh thu" value={((profileData as any)?.total_revenue || 0).toLocaleString() + ' đ'} highlight />
+                  <InfoItem icon={Shield} label="Công nợ hiện tại" value={((profileData as any)?.debt || 0).toLocaleString() + ' đ'} highlight />
+                </div>
+              </SectionContainer>
+            ) : (
+              <SectionContainer icon={BriefcaseIcon} title="THÔNG TIN CÔNG VIỆC">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <InfoItem icon={Fingerprint} label="Mã nhân viên" value={user?.id.substring(0, 5).toUpperCase() || '---'} highlight />
+                  <InfoItem icon={Briefcase} label="Chức vụ" value={translateRole(user?.role)} highlight />
+                  <InfoItem icon={Briefcase} label="Phòng ban" value="Phòng Hành chính" highlight />
+                  <InfoItem icon={User} label="Cấp bậc" value="Chưa cập nhật" />
+                  <InfoItem icon={Calendar} label="Ngày vào làm" value={user ? new Date((user as any).created_at).toLocaleDateString() : '--/--/----'} />
+                </div>
+              </SectionContainer>
+            )}
 
             {/* Section 3: Thông tin liên hệ */}
             <SectionContainer icon={Mail} title="THÔNG TIN LIÊN HỆ">
@@ -198,7 +251,7 @@ const ProfilePage: React.FC = () => {
                 <InfoItem icon={Phone} label="SĐT khẩn cấp" value="Chưa cập nhật" />
                 <InfoItem icon={Heart} label="Quan hệ" value="Chưa cập nhật" />
               </div>
-              
+
               <div className="mt-8 pt-8 border-t border-border/50">
                 <div className="flex items-center gap-2 mb-6">
                   <MapPinIcon size={16} className="text-primary" />
@@ -214,7 +267,7 @@ const ProfilePage: React.FC = () => {
               </div>
             </SectionContainer>
 
-            {/* Section 4: Hôn nhân & Học vấn */}
+            {/* Section 4: Hôn nhân & Học vấn
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <SectionContainer icon={HeartIcon} title="HÔN NHÂN & GIA ĐÌNH">
                 <div className="grid grid-cols-1 gap-6">
@@ -232,9 +285,9 @@ const ProfilePage: React.FC = () => {
                   <InfoItem icon={Shield} label="Chứng chỉ bổ sung" value="Chưa cập nhật" />
                 </div>
               </SectionContainer>
-            </div>
+            </div> */}
 
-            {/* Section 5: Tài chính & Bảo hiểm */}
+            {/* Section 5: Tài chính & Bảo hiểm
             <SectionContainer icon={WalletIcon} title="TÀI CHÍNH & NGÂN HÀNG">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <InfoItem icon={Landmark} label="Số tài khoản" value="Chưa cập nhật" />
@@ -255,15 +308,14 @@ const ProfilePage: React.FC = () => {
                   <InfoItem icon={MapPin} label="Nơi đăng ký KCB" value="Chưa cập nhật" />
                 </div>
               </div>
-            </SectionContainer>
+            </SectionContainer> */}
 
             {/* Section 6: Thông tin hệ thống */}
             <SectionContainer icon={Info} title="THÔNG TIN HỆ THỐNG">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <InfoItem icon={Calendar} label="Ngày tạo" value="10/01/2019" />
+                <InfoItem icon={Calendar} label="Ngày tạo" value={user ? new Date((user as any).created_at).toLocaleDateString() : '---'} />
                 <InfoItem icon={User} label="Người tạo" value="system" />
-                <InfoItem icon={Calendar} label="Cập nhật lần cuối" value="15/01/2025" />
-                <InfoItem icon={User} label="Người cập nhật" value="system" />
+                <InfoItem icon={Calendar} label="Cập nhật lần cuối" value={user ? new Date((user as any).updated_at || (user as any).created_at).toLocaleDateString() : '---'} />
               </div>
             </SectionContainer>
           </div>
@@ -272,18 +324,18 @@ const ProfilePage: React.FC = () => {
 
       {/* Change Avatar Modal - Moved outside to ensure fixed positioning relative to viewport */}
       {isAvatarModalOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={handleBackdropClick}
         >
-          <div 
+          <div
             ref={modalRef}
             className="bg-card w-full max-w-md rounded-3xl border border-border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
           >
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted/30">
               <h3 className="text-base font-bold text-foreground">Đổi ảnh đại diện</h3>
-              <button 
+              <button
                 onClick={() => setIsAvatarModalOpen(false)}
                 className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground"
               >
@@ -293,17 +345,17 @@ const ProfilePage: React.FC = () => {
 
             {/* Modal Body */}
             <div className="p-8 flex flex-col items-center space-y-8">
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                className="hidden" 
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
                 accept="image/*"
               />
               <div className="relative">
                 <div className="w-48 h-48 rounded-full border-4 border-card bg-primary/10 flex items-center justify-center text-6xl font-bold text-primary overflow-hidden shadow-inner">
-                  <img 
-                    src={previewAvatar || defaultAvatar} 
+                  <img
+                    src={previewAvatar || defaultAvatar}
                     alt="Preview"
                     className="w-full h-full object-cover"
                   />
@@ -312,7 +364,7 @@ const ProfilePage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-6">
-                <button 
+                <button
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-2 text-primary hover:underline transition-all text-sm font-bold"
                 >
@@ -320,7 +372,7 @@ const ProfilePage: React.FC = () => {
                   <span>Đổi ảnh</span>
                 </button>
                 <div className="w-[1px] h-4 bg-border" />
-                <button 
+                <button
                   onClick={handleRemoveAvatar}
                   className="flex items-center gap-2 text-red-500 hover:underline transition-all text-sm font-bold"
                 >
@@ -332,18 +384,23 @@ const ProfilePage: React.FC = () => {
 
             {/* Modal Footer */}
             <div className="px-6 py-4 border-t border-border bg-muted/30 flex items-center justify-end gap-3">
-              <button 
+              <button
                 onClick={() => setIsAvatarModalOpen(false)}
                 className="px-6 py-2 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border transition-all"
               >
                 Hủy
               </button>
-              <button 
+              <button
                 onClick={handleSaveAvatar}
-                className="px-8 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2"
+                disabled={isUploading}
+                className="px-8 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 disabled:opacity-50"
               >
-                <Save size={16} />
-                <span>Lưu</span>
+                {isUploading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Save size={16} />
+                )}
+                <span>{isUploading ? 'Đang tải...' : 'Lưu'}</span>
               </button>
             </div>
           </div>
@@ -368,10 +425,10 @@ const SectionContainer: React.FC<{ icon: React.ElementType, title: string, child
   </div>
 );
 
-const InfoItem: React.FC<{ 
-  icon: React.ElementType, 
-  label: string, 
-  value: string, 
+const InfoItem: React.FC<{
+  icon: React.ElementType,
+  label: string,
+  value: string,
   highlight?: boolean,
   badge?: string,
   cols?: number
@@ -395,26 +452,6 @@ const InfoItem: React.FC<{
       )}
     </div>
   </div>
-);
-
-const FileText = ({ size, className }: { size?: number, className?: string }) => (
-  <svg 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
-    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-    <polyline points="14 2 14 8 20 8" />
-    <line x1="16" y1="13" x2="8" y2="13" />
-    <line x1="16" y1="17" x2="8" y2="17" />
-    <line x1="10" y1="9" x2="8" y2="9" />
-  </svg>
 );
 
 export default ProfilePage;

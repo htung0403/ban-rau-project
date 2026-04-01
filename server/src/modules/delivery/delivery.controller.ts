@@ -46,10 +46,33 @@ export class DeliveryController {
 
   static async assignVehicle(req: Request, res: Response) {
     try {
-      const validated = assignVehicleSchema.parse(req.body);
-      const data = await DeliveryService.assignVehicles(req.params.id as string, validated);
+      const singleSchema = z.object({
+        vehicle_id: z.string().uuid(),
+        driver_id: z.string().uuid(),
+        assigned_quantity: z.number().positive().optional(),
+        quantity: z.number().positive().optional(),
+      });
+
+      const body = req.body;
+      let assignments: any[] = [];
+
+      if (Array.isArray(body)) {
+        assignments = z.array(singleSchema).parse(body);
+      } else {
+        assignments = [singleSchema.parse(body)];
+      }
+
+      // Normalize fields for service (use quantity)
+      const normalized = assignments.map(a => ({
+        vehicle_id: a.vehicle_id,
+        driver_id: a.driver_id,
+        quantity: a.quantity || a.assigned_quantity,
+      }));
+
+      const data = await DeliveryService.assignVehicles(req.params.id as string, normalized);
       return res.status(200).json(successResponse(data, 'Vehicles assigned'));
     } catch (err: any) {
+      console.error('Assign vehicle error:', err);
       return res.status(400).json(errorResponse(err.message));
     }
   }

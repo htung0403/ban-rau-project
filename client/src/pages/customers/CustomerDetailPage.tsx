@@ -50,6 +50,12 @@ const CustomerDetailPage: React.FC = () => {
   const { setDynamicLabel } = useBreadcrumbs();
   const location = useLocation();
 
+  // Tính toán nợ thực tế từ danh sách đơn hàng xuất
+  const calculatedDebt = React.useMemo(() => {
+    if (!exportOrders) return 0;
+    return exportOrders.reduce((sum: number, o: ExportOrder) => sum + ((o.debt_amount || 0) - (o.paid_amount || 0)), 0);
+  }, [exportOrders]);
+
   // Update breadcrumb label when customer data is available
   React.useEffect(() => {
     if (customer?.name) {
@@ -153,10 +159,10 @@ const CustomerDetailPage: React.FC = () => {
                   <div className="w-12 h-12 bg-white rounded-xl shadow-sm text-emerald-600 flex items-center justify-center shrink-0">
                     <Receipt size={24} />
                   </div>
-                  <div>
-                     <p className="text-[12px] font-bold text-emerald-800/60 uppercase tracking-widest mb-1">Dư nợ hiện tại</p>
-                     <p className="text-2xl font-black text-emerald-700 tabular-nums">{formatCurrency(customer.debt)}</p>
-                  </div>
+                   <div>
+                      <p className="text-[12px] font-bold text-emerald-800/60 uppercase tracking-widest mb-1">Dư nợ hiện tại</p>
+                      <p className="text-2xl font-black text-emerald-700 tabular-nums">{formatCurrency(calculatedDebt)}</p>
+                   </div>
                </div>
 
                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 flex items-center gap-4">
@@ -286,6 +292,7 @@ const CustomerDetailPage: React.FC = () => {
          isClosing={isCollectDebtClosing}
          onClose={closeCollectDebtDialog}
          customer={customer}
+         debtAmount={calculatedDebt}
       />
     </div>
   );

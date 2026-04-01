@@ -10,6 +10,7 @@ router.use(authMiddleware);
 router.get('/', CustomerController.getAll);
 router.post('/', requireRole('manager', 'staff'), CustomerController.create);
 router.get('/:id', CustomerController.getById);
+router.get('/user/:userId', CustomerController.getByUserId);
 router.get('/:id/orders', CustomerController.getOrders);
 router.get('/:id/export-orders', CustomerController.getExportOrders);
 router.get('/:id/receipts', CustomerController.getReceipts);

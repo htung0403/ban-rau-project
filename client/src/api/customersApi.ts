@@ -16,6 +16,11 @@ export const customersApi = {
     const { data } = await axiosClient.get<Customer>(`/customers/${id}`);
     return data;
   },
+  
+  getByUserId: async (userId: string) => {
+    const { data } = await axiosClient.get<Customer>(`/customers/user/${userId}`);
+    return data;
+  },
 
   getOrders: async (id: string) => {
     const { data } = await axiosClient.get(`/customers/${id}/orders`);

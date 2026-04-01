@@ -3,17 +3,19 @@ import { format } from 'date-fns';
 
 export class DeliveryService {
   static async getAllToday(startDate?: string, endDate?: string) {
-    const today = format(new Date(), 'yyyy-MM-dd');
     let query = supabaseService
       .from('delivery_orders')
-      .select('*, import_orders(order_code, receiver_name, customers(name)), delivery_vehicles(*, vehicles(license_plate))')
+      .select('*, import_orders(order_code, sender_name, receiver_name, customers(name)), delivery_vehicles(*, vehicles(license_plate))')
       .order('delivery_date', { ascending: false });
 
     if (startDate && endDate) {
       query = query.gte('delivery_date', startDate).lte('delivery_date', endDate);
     } else if (startDate) {
       query = query.eq('delivery_date', startDate);
+    } else if (startDate === undefined && endDate === undefined) {
+      // Fetch all if no dates provided (used for inventory)
     } else {
+      const today = format(new Date(), 'yyyy-MM-dd');
       query = query.eq('delivery_date', today);
     }
 

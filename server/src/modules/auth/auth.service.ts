@@ -20,7 +20,7 @@ export class AuthService {
     // Fetch profile to return role
     const { data: profile, error: profileError } = await supabaseService
       .from('profiles')
-      .select('role, full_name')
+      .select('role, full_name, avatar_url')
       .eq('id', data.user?.id)
       .single();
 
@@ -35,6 +35,7 @@ export class AuthService {
         email: data.user?.email,
         role: profile?.role as Role,
         full_name: profile?.full_name,
+        avatar_url: (profile as any)?.avatar_url,
       },
       session: data.session,
     };
@@ -53,5 +54,15 @@ export class AuthService {
       password: newPassword,
     });
     if (error) throw error;
+  }
+
+  static async updateProfile(userId: string, payload: { full_name?: string; avatar_url?: string }) {
+    const { error } = await supabaseService
+      .from('profiles')
+      .update(payload)
+      .eq('id', userId);
+
+    if (error) throw error;
+    return { success: true };
   }
 }

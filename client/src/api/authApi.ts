@@ -21,4 +21,9 @@ export const authApi = {
     const { data } = await axiosClient.put<void>('/auth/change-password', { newPassword });
     return data;
   },
+
+  updateProfile: async (payload: { full_name?: string; avatar_url?: string }) => {
+    const { data } = await axiosClient.put<void>('/auth/profile', payload);
+    return data;
+  },
 };

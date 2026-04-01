@@ -22,6 +22,13 @@ export function useDeliveryInventory() {
   });
 }
 
+export function useAllPendingDeliveries() {
+  return useQuery({
+    queryKey: [...deliveryKeys.all, 'all-pending'],
+    queryFn: () => deliveryApi.getAllToday(), // No params means all (based on service change)
+  });
+}
+
 export function useCreateDelivery() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -37,7 +44,7 @@ export function useCreateDelivery() {
 export function useAssignVehicle() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: { vehicle_id: string; driver_id: string; assigned_quantity: number } }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: { vehicle_id: string; driver_id: string; quantity: number } }) =>
       deliveryApi.assignVehicle(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: deliveryKeys.all });

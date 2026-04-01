@@ -3,7 +3,7 @@ import { InventoryService } from '../inventory/inventory.service';
 
 export class ExportOrderService {
   static async getAll(filters: any) {
-    let query = supabaseService.from('export_orders').select('*, profiles(full_name), customers(name), products(name)');
+    let query = supabaseService.from('export_orders').select('*, profiles(full_name), customers(id, name, debt), products(name)');
     
     if (filters.date) query = query.eq('export_date', filters.date);
     if (filters.customer_id) query = query.eq('customer_id', filters.customer_id);
@@ -34,19 +34,7 @@ export class ExportOrderService {
       }
     }
 
-    // Business Logic: Update customer debt
-    if (data.customer_id && data.debt_amount > 0) {
-      const { error: debtError } = await supabaseService.rpc('increment_customer_debt', {
-        cust_id: data.customer_id,
-        amount: data.debt_amount
-      });
-      // Fallback if RPC not exists:
-      if (debtError) {
-        const { data: customer } = await supabaseService.from('customers').select('debt').eq('id', data.customer_id).single();
-        const newDebt = (customer?.debt || 0) + data.debt_amount;
-        await supabaseService.from('customers').update({ debt: newDebt }).eq('id', data.customer_id);
-      }
-    }
+    // Business Logic: Update customer debt is now handled by DB triggers on export_orders -> ledger -> customers
 
     return data;
   }
@@ -75,16 +63,14 @@ export class ExportOrderService {
     // Business Logic: Adjust customer debt if paid amount changed
     const diff = paymentData.paid_amount - (oldOrder.paid_amount || 0);
     if (diff !== 0 && data.customer_id) {
-       const { error: debtError } = await supabaseService.rpc('increment_customer_debt', {
-        cust_id: data.customer_id,
-        amount: -diff // decrement debt by paid amount
-      });
-      // Fallback if RPC not exists:
-      if (debtError) {
-        const { data: customer } = await supabaseService.from('customers').select('debt').eq('id', data.customer_id).single();
-        const newDebt = (customer?.debt || 0) - diff;
-        await supabaseService.from('customers').update({ debt: newDebt }).eq('id', data.customer_id);
-      }
+       // Create a receipt to track this payment/adjustment.
+       // This will trigger the ledger and update the customer's total debt.
+       await supabaseService.from('receipts').insert({
+         customer_id: data.customer_id,
+         amount: diff,
+         payment_date: new Date().toISOString().split('T')[0],
+         notes: `Cập nhật thanh toán đơn xuất: ${data.item_name}`,
+       });
     }
 
     return data;

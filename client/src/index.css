@@ -135,3 +135,9 @@
 .slide-in-from-bottom-2 {
   animation-name: slide-in-from-bottom-2;
 }
+
+/* Hide default icons in date and time inputs */
+.hide-icon::-webkit-calendar-picker-indicator {
+  display: none !important;
+  -webkit-appearance: none;
+}

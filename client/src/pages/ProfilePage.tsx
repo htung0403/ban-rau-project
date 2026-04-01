@@ -2,10 +2,10 @@ import React from 'react';
 import {
   User, Mail, Phone, MapPin, Briefcase, Calendar,
   ShieldCheck, Camera, Key, Fingerprint,
-  Heart, GraduationCap, Landmark, Shield, Info,
+  Heart, Landmark, Shield, Info,
   IdCard, UserCircle, BriefcaseIcon, MapPinIcon,
-  HeartIcon, GraduationCapIcon, WalletIcon, ShieldCheckIcon,
-  Users, X, Edit, Trash2, Save
+  WalletIcon,
+  X, Edit, Trash2, Save
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useState, useRef, useEffect } from 'react';

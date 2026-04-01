@@ -3,13 +3,12 @@ import PageHeader from '../../components/shared/PageHeader';
 import { useExportOrders } from '../../hooks/queries/useExportOrders';
 import { useImportOrders } from '../../hooks/queries/useImportOrders';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
-import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import { 
   TrendingUp, Banknote, PackageOpen, FileText, Calendar, User, Tag
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import type { ExportOrder, ImportOrder } from '../../types';
+import type { ExportOrder } from '../../types';
 
 const formatCurrency = (value?: number | null) => {
   if (value == null) return '-';

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, X, ChevronLeft, ChevronRight, Edit, Trash2, Calendar } from 'lucide-react';
+import { Plus, Search, X, ChevronLeft, ChevronRight, Edit, Trash2, Calendar, Truck, Package } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useImportOrders, useDeleteImportOrder } from '../../hooks/queries/useImportOrders';
 import type { ImportOrder, ImportOrderFilters, OrderStatus } from '../../types';
@@ -10,6 +10,7 @@ import ErrorState from '../../components/shared/ErrorState';
 import PageHeader from '../../components/shared/PageHeader';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import AddEditImportOrderDialog from './dialogs/AddEditImportOrderDialog';
+import CreateDeliveryDialog from './dialogs/CreateDeliveryDialog';
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'Chờ xử lý',
@@ -37,6 +38,10 @@ const ImportOrdersPage: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDialogClosing, setIsDialogClosing] = useState(false);
   const [editingOrder, setEditingOrder] = useState<ImportOrder | null>(null);
+
+  const [isDeliveryOpen, setIsDeliveryOpen] = useState(false);
+  const [isDeliveryClosing, setIsDeliveryClosing] = useState(false);
+  const [selectedForDelivery, setSelectedForDelivery] = useState<ImportOrder | null>(null);
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -82,6 +87,20 @@ const ImportOrdersPage: React.FC = () => {
       setIsDialogOpen(false);
       setIsDialogClosing(false);
       setEditingOrder(null);
+    }, 350);
+  };
+
+  const openDeliveryDialog = (order: ImportOrder) => {
+    setSelectedForDelivery(order);
+    setIsDeliveryOpen(true);
+  };
+
+  const closeDeliveryDialog = () => {
+    setIsDeliveryClosing(true);
+    setTimeout(() => {
+      setIsDeliveryOpen(false);
+      setIsDeliveryClosing(false);
+      setSelectedForDelivery(null);
     }, 350);
   };
 
@@ -204,11 +223,10 @@ const ImportOrdersPage: React.FC = () => {
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-34">Mã đơn</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-28">Ngày</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-20">Giờ</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left min-w-[100px]">Chủ hàng</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-36">Biển số xe / Tài xế</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-24">Số tờ</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-24">Tình trạng</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-36">Tổng tiền</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Người nhận</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left min-w-[150px]">Địa chỉ</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-32">SĐT</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-24">Hình ảnh</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Nhân viên nhận</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-28">Trạng thái</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-24">Thao tác</th>
@@ -234,25 +252,30 @@ const ImportOrdersPage: React.FC = () => {
                         <span className="text-[13px] font-bold text-foreground">{order.customers?.name || order.sender_name || '-'}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-[12px] font-medium text-foreground tabular-nums">
-                          {order.license_plate ? <span className="font-bold text-amber-700 block">{order.license_plate}</span> : '-'}
-                          {order.driver_name ? <span className="text-muted-foreground block">{order.driver_name}</span> : null}
+                        <span className="text-[12px] font-medium text-muted-foreground line-clamp-1" title={order.customers?.address || order.receiver_address || ''}>
+                          {order.customers?.address || order.receiver_address || '-'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-[13px] font-bold text-muted-foreground">{order.sheet_number || '-'}</span>
+                        <span className="text-[12px] font-medium text-foreground tabular-nums">{order.customers?.phone || order.receiver_phone || '-'}</span>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        {order.payment_status === 'paid' ? (
-                          <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Đã trả</span>
-                        ) : order.payment_status === 'partial' ? (
-                          <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">1 phần</span>
+                      <td className="px-4 py-3 text-center">
+                        {order.import_order_items && order.import_order_items.some(i => i.image_url) ? (
+                          <div className="flex -space-x-2 overflow-hidden items-center justify-center group">
+                            {order.import_order_items.filter(i => i.image_url).slice(0, 3).map((item, idx) => (
+                              <img key={idx} src={item.image_url} alt="SP" className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover group-hover:-translate-y-1 transition-transform" />
+                            ))}
+                            {order.import_order_items.filter(i => i.image_url).length > 3 && (
+                              <div className="flex bg-muted z-10 items-center justify-center h-8 w-8 rounded-full ring-2 ring-white text-[10px] font-bold text-muted-foreground">
+                                +{order.import_order_items.filter(i => i.image_url).length - 3}
+                              </div>
+                            )}
+                          </div>
                         ) : (
-                          <span className="text-[11px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md">Chưa trả</span>
+                          <div className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center text-muted-foreground/50 mx-auto">
+                            <Package size={14} />
+                          </div>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-right text-[13px] font-black text-primary tabular-nums">
-                        {formatCurrency(order.total_order_amount)}
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-[13px] font-medium text-foreground">{(order as any).profiles?.full_name || order.receiver_name || '-'}</span>
@@ -260,21 +283,30 @@ const ImportOrdersPage: React.FC = () => {
                       <td className="px-4 py-3 text-center">
                         <StatusBadge status={order.status} label={statusLabels[order.status]} />
                       </td>
-                      <td className="px-4 py-3 flex items-center justify-center gap-1">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
-                          className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
-                          title="Sửa"
-                        >
-                          <Edit size={14} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
-                          className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
-                          title="Xóa"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openDeliveryDialog(order); }}
+                            className="p-1.5 rounded-lg text-orange-500 hover:bg-orange-50 transition-colors"
+                            title="Giao hàng"
+                          >
+                            <Truck size={14} />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
+                            className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
+                            title="Sửa"
+                          >
+                            <Edit size={14} />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
+                            className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
+                            title="Xóa"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -312,16 +344,15 @@ const ImportOrdersPage: React.FC = () => {
                       <span className="font-bold">{order.import_order_items?.length || 1}</span> mặt hàng
                     </div>
                     <div className="flex items-center gap-1">
-                      {order.payment_status === 'paid' ? (
-                        <span className="text-[10px] font-bold text-emerald-600 mr-2 bg-emerald-50 px-1.5 py-0.5 rounded">Đã trả</span>
-                      ) : order.payment_status === 'partial' ? (
-                        <span className="text-[10px] font-bold text-amber-600 mr-2 bg-amber-50 px-1.5 py-0.5 rounded">1 phần</span>
-                      ) : (
-                        <span className="text-[10px] font-bold text-red-500 mr-2 bg-red-50 px-1.5 py-0.5 rounded">Chưa trả</span>
-                      )}
-                      <span className="text-[14px] font-black text-primary tabular-nums mr-2">
-                        {formatCurrency(order.total_order_amount)}
+                      <span className="text-[13px] font-bold text-primary tabular-nums mr-2">
+                        {formatCurrency(order.import_order_items?.reduce((sum, item) => sum + (item.total_amount || 0), 0) || order.total_amount || 0)}
                       </span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openDeliveryDialog(order); }}
+                        className="p-1.5 rounded-lg text-orange-500 hover:bg-orange-50 transition-colors"
+                      >
+                        <Truck size={14} />
+                      </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
                         className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
@@ -387,6 +418,14 @@ const ImportOrdersPage: React.FC = () => {
         isClosing={isDialogClosing}
         editingOrder={editingOrder}
         onClose={closeDialog}
+      />
+
+      {/* Delivery Dialog */}
+      <CreateDeliveryDialog
+        isOpen={isDeliveryOpen}
+        isClosing={isDeliveryClosing}
+        importOrder={selectedForDelivery}
+        onClose={closeDeliveryDialog}
       />
 
       {/* Delete Confirm */}

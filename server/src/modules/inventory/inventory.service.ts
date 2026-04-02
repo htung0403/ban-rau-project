@@ -5,14 +5,21 @@ export class InventoryService {
    * Adjusts the stock level of a product in a warehouse.
    * If the record doesn't exist, it creates one (for increments).
    */
-  static async adjustStock(warehouseId: string, productId: string, amount: number) {
+  static async adjustStock(warehouseId: string, productId: string, importOrderId: string | null = null, amount: number) {
     // 1. Try to get existing inventory record
-    const { data: existing, error: fetchError } = await supabaseService
+    let query = supabaseService
       .from('inventory')
       .select('*')
       .eq('warehouse_id', warehouseId)
-      .eq('product_id', productId)
-      .maybeSingle();
+      .eq('product_id', productId);
+      
+    if (importOrderId) {
+       query = query.eq('import_order_id', importOrderId);
+    } else {
+       query = query.is('import_order_id', null);
+    }
+    
+    const { data: existing, error: fetchError } = await query.maybeSingle();
 
     if (fetchError) throw fetchError;
 
@@ -35,6 +42,7 @@ export class InventoryService {
         .insert({
           warehouse_id: warehouseId,
           product_id: productId,
+          import_order_id: importOrderId,
           quantity: amount,
           last_updated_at: new Date().toISOString()
         });
@@ -66,8 +74,20 @@ export class InventoryService {
   static async getWarehouseInventory(warehouseId: string) {
     const { data, error } = await supabaseService
       .from('inventory')
-      .select('*, products(*)')
+      .select('*, products(*), import_orders(license_plate, sheet_number, order_date, supplier_name)')
       .eq('warehouse_id', warehouseId);
+
+    if (error) throw error;
+    return data;
+  }
+
+  static async getBatchesForProduct(productId: string) {
+    const { data, error } = await supabaseService
+      .from('inventory')
+      .select('*, import_orders(license_plate, sheet_number, order_date, supplier_name)')
+      .eq('product_id', productId)
+      .gt('quantity', 0)
+      .order('last_updated_at', { ascending: true });
 
     if (error) throw error;
     return data;

@@ -5,7 +5,7 @@ export class DeliveryService {
   static async getAllToday(startDate?: string, endDate?: string) {
     let query = supabaseService
       .from('delivery_orders')
-      .select('*, import_orders(order_code, sender_name, receiver_name, customers(name)), delivery_vehicles(*, vehicles(license_plate))')
+      .select('*, import_orders(order_code, sender_name, receiver_name, customers(name), total_amount), delivery_vehicles(*, vehicles(license_plate))')
       .order('delivery_date', { ascending: false });
 
     if (startDate && endDate) {
@@ -70,6 +70,7 @@ export class DeliveryService {
       vehicle_id: a.vehicle_id,
       driver_id: a.driver_id,
       assigned_quantity: a.quantity,
+      expected_amount: a.expected_amount || 0,
     }));
 
     const { data, error } = await supabaseService

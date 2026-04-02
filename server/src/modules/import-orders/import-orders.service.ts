@@ -1,31 +1,38 @@
 import { supabaseService } from '../../config/supabase';
 import { format } from 'date-fns';
-import { InventoryService } from '../inventory/inventory.service';
 
 export class ImportOrderService {
   static async getAll(filters: any) {
     let query = supabaseService
       .from('import_orders')
-      .select('*, profiles(full_name), warehouses(name), customers(name, phone, address), import_order_items(*, products(*))')
+      .select('*, profiles(full_name), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*))')
       .order('created_at', { ascending: false });
 
     if (filters.date) query = query.eq('order_date', filters.date);
     if (filters.status) query = query.eq('status', filters.status);
-    if (filters.customer_id) query = query.eq('customer_id', filters.customer_id);
+    
+    // Support filtering by supplier or license plate if needed
+    if (filters.supplier_name) query = query.ilike('supplier_name', `%${filters.supplier_name}%`);
+    if (filters.license_plate) query = query.ilike('license_plate', `%${filters.license_plate}%`);
 
     const { data, error } = await query;
     if (error) throw error;
-    return data;
+    
+    // total_amount is now computed by DB triggers
+    return data.map((order: any) => {
+      return { ...order, total_order_amount: Number(order.total_amount) || 0 };
+    });
   }
 
   static async getById(id: string) {
     const { data, error } = await supabaseService
       .from('import_orders')
-      .select('*, profiles(full_name), warehouses(name), customers(name, phone, address), import_order_items(*, products(*))')
+      .select('*, profiles(full_name), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*))')
       .eq('id', id)
       .single();
     if (error) throw error;
-    return data;
+    
+    return { ...data, total_order_amount: Number(data.total_amount) || 0 };
   }
 
   static async generateOrderCode(date: string) {
@@ -52,85 +59,105 @@ export class ImportOrderService {
     const { data: order, error: orderError } = await supabaseService
       .from('import_orders')
       .insert({
-        ...mainData,
+        order_date: orderDate,
+        order_time: mainData.order_time || format(new Date(), 'HH:mm'),
         order_code: orderCode,
         received_by: userId,
+        warehouse_id: mainData.warehouse_id,
+        status: mainData.status || 'pending',
+        notes: mainData.notes,
+        license_plate: mainData.license_plate,
+        driver_name: mainData.driver_name,
+        supplier_name: mainData.supplier_name,
+        sheet_number: mainData.sheet_number,
+        customer_id: mainData.customer_id
       })
       .select()
       .single();
 
     if (orderError) throw orderError;
 
-    // 2. Create items & Adjust Inventory
+    // 2. Create items
     if (items && items.length > 0) {
       const itemsToInsert = items.map((item: any) => ({
-        ...item,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        weight_kg: item.weight_kg,
+        package_type: item.package_type,
+        payment_status: item.payment_status || 'unpaid',
         import_order_id: (order as any).id,
       }));
 
-      const { error: itemsError } = await supabaseService
+      const { error: itemsError, data: insertedItems } = await supabaseService
         .from('import_order_items')
-        .insert(itemsToInsert);
+        .insert(itemsToInsert)
+        .select('*, products(name)');
 
       if (itemsError) throw itemsError;
 
-      // Adjust inventory for each product
-      for (const item of items) {
-        if (item.product_id && mainData.warehouse_id && item.quantity > 0) {
-          await InventoryService.adjustStock(mainData.warehouse_id, item.product_id, item.quantity);
+      // Auto-create delivery orders
+      if (insertedItems && insertedItems.length > 0) {
+        const doInsert = insertedItems.map(item => ({
+          import_order_id: (order as any).id,
+          product_id: item.product_id,
+          product_name: item.products?.name || item.package_type || 'Hàng hóa',
+          total_quantity: item.quantity || 1,
+          unit_price: item.unit_price,
+          import_cost: item.unit_price,
+          delivery_date: orderDate,
+          status: 'pending'
+        }));
+        const { error: doError } = await supabaseService.from('delivery_orders').insert(doInsert);
+        if (doError) console.error("Failed to auto-create delivery orders:", doError);
+      }
+
+      // Handle "paid" status directly from form
+      const formPaymentStatus = items[0]?.payment_status === 'paid';
+      if (formPaymentStatus) {
+        const { data: currentOrder } = await supabaseService
+          .from('import_orders')
+          .select('total_amount')
+          .eq('id', (order as any).id)
+          .single();
+        if (currentOrder && Number(currentOrder.total_amount) > 0) {
+          await supabaseService
+            .from('import_orders')
+            .update({ paid_amount: currentOrder.total_amount })
+            .eq('id', (order as any).id);
         }
       }
-    }
-
-    try {
-      await this.syncDeliveryOrders(order.id, mainData.order_date, items, mainData);
-    } catch (e) {
-      console.warn('Failed to auto-create delivery orders:', e);
     }
 
     return order;
   }
 
   static async update(id: string, orderData: any) {
+    console.log('--- BACKEND UPDATE IMPORT ORDER --- ID:', id, 'DATA:', orderData);
     const { items, ...mainData } = orderData;
 
-    // 1. Get old items to revert inventory
-    const { data: oldItems, error: fetchOldError } = await supabaseService
-      .from('import_order_items')
-      .select('*')
-      .eq('import_order_id', id);
-    
-    if (fetchOldError) throw fetchOldError;
-
-    // Get old warehouse_id
-    const { data: oldOrder, error: fetchOldOrderError } = await supabaseService
-      .from('import_orders')
-      .select('warehouse_id')
-      .eq('id', id)
-      .single();
-    
-    if (fetchOldOrderError) throw fetchOldOrderError;
-
-    // 2. Update main order
+    // 1. Update main order
     const { data: order, error: orderError } = await supabaseService
       .from('import_orders')
-      .update(mainData)
+      .update({
+        order_date: mainData.order_date,
+        order_time: mainData.order_time,
+        warehouse_id: mainData.warehouse_id,
+        status: mainData.status,
+        notes: mainData.notes,
+        license_plate: mainData.license_plate,
+        driver_name: mainData.driver_name,
+        supplier_name: mainData.supplier_name,
+        sheet_number: mainData.sheet_number,
+        customer_id: mainData.customer_id
+      })
       .eq('id', id)
       .select()
       .single();
 
     if (orderError) throw orderError;
 
-    // 3. Revert old inventory
-    if (oldItems && oldItems.length > 0 && oldOrder.warehouse_id) {
-      for (const item of oldItems) {
-        if (item.product_id && item.quantity > 0) {
-          await InventoryService.adjustStock(oldOrder.warehouse_id, item.product_id, -item.quantity);
-        }
-      }
-    }
-
-    // 4. Delete old items
+    // 2. Delete old items
     const { error: deleteError } = await supabaseService
       .from('import_order_items')
       .delete()
@@ -138,137 +165,78 @@ export class ImportOrderService {
     
     if (deleteError) throw deleteError;
 
-    // 5. Insert new items & Apply new inventory
+    // 3. Insert new items 
     if (items && items.length > 0) {
       const itemsToInsert = items.map((item: any) => {
-        // Remove nested objects if any
-        const { products, ...cleanItem } = item;
         return {
-          ...cleanItem,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          weight_kg: item.weight_kg,
+          package_type: item.package_type,
+          payment_status: item.payment_status || 'unpaid',
           import_order_id: id,
-        } as any;
+        };
       });
 
-      const { error: itemsError } = await supabaseService
+      const { error: insertError, data: insertedItems } = await supabaseService
         .from('import_order_items')
-        .insert(itemsToInsert);
+        .insert(itemsToInsert)
+        .select('*, products(name)');
 
-      if (itemsError) throw itemsError;
+      if (insertError) throw insertError;
 
-      // Adjust inventory for each product
-      for (const item of items) {
-        if (item.product_id && mainData.warehouse_id && item.quantity > 0) {
-          await InventoryService.adjustStock(mainData.warehouse_id, item.product_id, item.quantity);
+      // Handle delivery_orders sync on update (only for pending without vehicles)
+      const { data: existingDO } = await supabaseService
+        .from('delivery_orders')
+        .select('id, delivery_vehicles(id)')
+        .eq('import_order_id', id);
+
+      const deletableIds = existingDO?.filter(d => !d.delivery_vehicles || d.delivery_vehicles.length === 0).map(d => d.id) || [];
+      
+      if (deletableIds.length > 0) {
+        await supabaseService.from('delivery_orders').delete().in('id', deletableIds);
+      }
+
+      // Re-create delivery orders for deletable or new ones
+      if (insertedItems && insertedItems.length > 0) {
+        const newDoInsert = insertedItems.map(item => ({
+          import_order_id: id,
+          product_id: item.product_id,
+          product_name: item.products?.name || item.package_type || 'Hàng hóa',
+          total_quantity: item.quantity || 1,
+          unit_price: item.unit_price,
+          import_cost: item.unit_price,
+          delivery_date: mainData.order_date || format(new Date(), 'yyyy-MM-dd'),
+          status: 'pending'
+        }));
+        const { error: doError } = await supabaseService.from('delivery_orders').insert(newDoInsert);
+        if (doError) console.error("Failed to sync delivery orders on update:", doError);
+      }
+
+      // Handle "paid" status directly from form
+      const formPaymentStatus = items[0]?.payment_status === 'paid';
+      if (formPaymentStatus) {
+        const { data: currentOrder } = await supabaseService
+          .from('import_orders')
+          .select('total_amount')
+          .eq('id', id)
+          .single();
+        if (currentOrder && Number(currentOrder.total_amount) > 0) {
+          await supabaseService
+            .from('import_orders')
+            .update({ paid_amount: currentOrder.total_amount })
+            .eq('id', id);
         }
       }
-    }
-
-    try {
-      await this.syncDeliveryOrders(order.id, mainData.order_date, items, mainData);
-    } catch (e) {
-      console.warn('Failed to auto-update delivery orders:', e);
     }
 
     return order;
   }
 
   static async delete(id: string) {
-    // 1. Revert inventory before deleting
-    const { data: items, error: fetchError } = await supabaseService
-      .from('import_order_items')
-      .select('*')
-      .eq('import_order_id', id);
-    
-    const { data: order, error: fetchOrderError } = await supabaseService
-      .from('import_orders')
-      .select('warehouse_id')
-      .eq('id', id)
-      .single();
-
-    if (!fetchError && !fetchOrderError && items && order.warehouse_id) {
-      for (const item of items) {
-        if (item.product_id && item.quantity > 0) {
-          await InventoryService.adjustStock(order.warehouse_id, item.product_id, -item.quantity);
-        }
-      }
-    }
-
-    // 2. Delete order (cascade will delete items)
+    // Delete order (cascade will delete items)
     const { error } = await supabaseService.from('import_orders').delete().eq('id', id);
     if (error) throw error;
   }
-
-  private static async syncDeliveryOrders(orderId: string, orderDate: string, items: any[], mainData: any) {
-    const normalizedItems = (items && items.length > 0) ? items : [{ package_type: mainData.package_type, quantity: mainData.quantity }];
-    
-    // Resolve products
-    const productIds = normalizedItems.map((i: any) => i.product_id).filter(Boolean);
-    let productsMap = new Map();
-    if (productIds.length > 0) {
-      const { data: productsData } = await supabaseService.from('products').select('id, name').in('id', productIds);
-      if (productsData) {
-        productsData.forEach(p => productsMap.set(p.id, p.name));
-      }
-    }
-
-    const desiredDeliveries = normalizedItems.map((item: any) => {
-      let name = item.package_type || 'Kiện';
-      if (item.product_id && productsMap.has(item.product_id)) {
-         name = productsMap.get(item.product_id);
-      }
-      let cost = 0;
-      if (item.payment_status === 'unpaid') {
-        cost = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
-      }
-      return {
-         product_name: name,
-         total_quantity: Number(item.quantity) || 0,
-         import_cost: cost
-      };
-    });
-
-    // Fetch existing
-    const { data: existingDeliveries } = await supabaseService
-      .from('delivery_orders')
-      .select('id, product_name')
-      .eq('import_order_id', orderId);
-
-    const existingList = existingDeliveries || [];
-    const usedIds = new Set();
-
-    for (const desired of desiredDeliveries) {
-      let match = existingList.find(e => e.product_name === desired.product_name && !usedIds.has(e.id));
-      if (!match) {
-        match = existingList.find(e => !usedIds.has(e.id));
-      }
-
-      if (match) {
-        usedIds.add(match.id);
-        await supabaseService.from('delivery_orders')
-          .update({
-            product_name: desired.product_name,
-            total_quantity: desired.total_quantity,
-            import_cost: desired.import_cost,
-            delivery_date: orderDate || format(new Date(), 'yyyy-MM-dd')
-          })
-          .eq('id', match.id);
-      } else {
-        await supabaseService.from('delivery_orders').insert({
-          import_order_id: orderId,
-          product_name: desired.product_name,
-          total_quantity: desired.total_quantity,
-          import_cost: desired.import_cost,
-          delivery_date: orderDate || format(new Date(), 'yyyy-MM-dd'),
-          status: 'pending'
-        });
-      }
-    }
-
-    // Delete unused
-    const toDelete = existingList.filter(e => !usedIds.has(e.id)).map(e => e.id);
-    if (toDelete.length > 0) {
-      await supabaseService.from('delivery_orders').delete().in('id', toDelete);
-    }
-  }
 }
-

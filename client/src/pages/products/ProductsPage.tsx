@@ -7,10 +7,6 @@ import ErrorState from '../../components/shared/ErrorState';
 import { Plus, Search, Edit2, Trash2 } from 'lucide-react';
 import AddEditProductDialog from './dialogs/AddEditProductDialog';
 
-const formatCurrency = (value?: number | null) => {
-  if (value == null) return '-';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
-};
 
 const ProductsPage: React.FC = () => {
   const { data: products, isLoading, isError, refetch } = useProducts();
@@ -53,8 +49,8 @@ const ProductsPage: React.FC = () => {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
       <PageHeader
-        title="Danh mục hàng hóa"
-        description="Quản lý danh sách các mặt hàng trong hệ thống"
+        title="Từ điển hàng hóa"
+        description="Quản lý danh sách tên gọi tiêu chuẩn và quy cách đóng gói mặt hàng"
         backPath="/hang-hoa"
         actions={
           <button 
@@ -101,7 +97,6 @@ const ProductsPage: React.FC = () => {
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest text-left">Tên hàng hóa</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest text-left w-24">Đơn vị</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest text-left">Phân loại</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest text-right">Giá cơ sở</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest text-center w-28">Thao tác</th>
                 </tr>
               </thead>
@@ -122,11 +117,6 @@ const ProductsPage: React.FC = () => {
                     <td className="px-6 py-4 text-[13px] text-muted-foreground">
                       <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-medium border border-slate-200/50">
                         {p.category || 'N/A'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span className="text-[14px] font-black text-primary tabular-nums">
-                        {formatCurrency(p.base_price)}
                       </span>
                     </td>
                     <td className="px-6 py-4">

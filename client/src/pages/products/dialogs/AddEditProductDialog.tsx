@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Box, Tag, Layers, BarChart, Plus, ChevronRight, Save } from 'lucide-react';
+import { X, Box, Tag, Layers, Plus, ChevronRight, Save } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,7 +12,6 @@ const productSchema = z.object({
   name: z.string().min(2, 'Tên hàng phải từ 2 ký tự'),
   unit: z.string().min(1, 'Vui lòng nhập đơn vị tính'),
   category: z.string().optional(),
-  base_price: z.coerce.number().min(0, 'Giá không được âm').optional(),
   description: z.string().optional(),
 });
 
@@ -42,7 +41,6 @@ const AddEditProductDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, pro
       name: '',
       unit: '',
       category: '',
-      base_price: 0,
       description: '',
     },
   });
@@ -55,7 +53,6 @@ const AddEditProductDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, pro
           name: product.name || '',
           unit: product.unit || '',
           category: product.category || '',
-          base_price: product.base_price || 0,
           description: product.description || '',
         });
       } else {
@@ -64,7 +61,6 @@ const AddEditProductDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, pro
           name: '',
           unit: '',
           category: '',
-          base_price: 0,
           description: '',
         });
       }
@@ -178,18 +174,7 @@ const AddEditProductDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, pro
                 </div>
               </div>
 
-              <div className="space-y-1.5 md:col-span-1">
-                <label className="text-[13px] font-bold text-foreground">Giá cơ sở</label>
-                <div className="relative">
-                  <BarChart className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
-                  <input
-                    type="number"
-                    {...register('base_price')}
-                    placeholder="VD: 25000"
-                    className="w-full pl-10 pr-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
-                  />
-                </div>
-              </div>
+
 
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-[13px] font-bold text-foreground">Ghi chú / Mô tả</label>

@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
 import { clsx } from 'clsx';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
-import { Calendar, ChevronDown, Filter, PlusCircle } from 'lucide-react';
+import { Calendar, ChevronDown, Filter, PlusCircle, Truck } from 'lucide-react';
 import PageHeader from '../../components/shared/PageHeader';
-import { useDeliveryOrders, useAssignVehicle } from '../../hooks/queries/useDelivery';
+import { useDeliveryOrders } from '../../hooks/queries/useDelivery';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import AssignVehicleDialog from './dialogs/AssignVehicleDialog';
-import toast from 'react-hot-toast';
 
 const formatNumber = (val?: number) => {
   if (val == null) return '0.00';
@@ -39,11 +38,7 @@ const DeliveryPage: React.FC = () => {
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isAssignClosing, setIsAssignClosing] = useState(false);
 
-  // Inline editing state
-  const [editingCell, setEditingCell] = useState<{ orderId: string, vehicleId: string } | null>(null);
-  const [editValue, setEditValue] = useState<string>('');
 
-  const { mutate: assignMutation, isPending: isAssigning } = useAssignVehicle();
 
   const isLoading = ordersLoading;
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
@@ -72,49 +67,7 @@ const DeliveryPage: React.FC = () => {
     setShowQuickPick(false);
   };
 
-  const handleCellClick = (order: any, vehicle: any) => {
-    const qty = (order.delivery_vehicles || []).find((dv: any) => dv.vehicle_id === vehicle.id)?.assigned_quantity || 0;
-    setEditingCell({ orderId: order.id, vehicleId: vehicle.id });
-    setEditValue(qty > 0 ? qty.toString() : '');
-  };
 
-  const handleInlineSave = (orderId: string, vehicle: any) => {
-    if (!editingCell) return;
-    
-    // Find the current order once to get its total quantity
-    const order = (orders || []).find(o => o.id === orderId);
-    if (!order) return;
-
-    const quantity = parseFloat(editValue) || 0;
-    
-    // Calculate total assigned to OTHER vehicles
-    const otherVehiclesTotal = (order.delivery_vehicles || [])
-      .filter((dv: any) => dv.vehicle_id !== vehicle.id)
-      .reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
-    
-    const maxAllowed = order.total_quantity - otherVehiclesTotal;
-
-    if (quantity > maxAllowed) {
-      toast.error(`Số lượng không được vượt quá số lượng còn lại (${formatNumber(maxAllowed)})`);
-      return;
-    }
-
-    if (quantity < 0) {
-      toast.error('Số lượng không được nhỏ hơn 0');
-      return;
-    }
-
-    assignMutation({
-      id: orderId,
-      payload: {
-        vehicle_id: vehicle.id,
-        driver_id: vehicle.driver_id,
-        quantity: quantity
-      }
-    }, {
-      onSuccess: () => setEditingCell(null)
-    });
-  };
 
   // Grouping logic: Date -> [Orders]
   const groupedOrders = (orders || []).reduce((acc: Record<string, any[]>, order: any) => {
@@ -264,10 +217,10 @@ const DeliveryPage: React.FC = () => {
                               {isAdmin && remainingQty > 0 && (
                                 <button 
                                   onClick={() => openAssign(o)}
-                                  className="p-1 rounded-md bg-primary/10 text-primary transition-colors hover:bg-primary/20"
+                                  className="p-1.5 rounded-md bg-orange-100 text-orange-600 transition-colors hover:bg-orange-200"
                                   title="Phân xe"
                                 >
-                                  <PlusCircle size={14} />
+                                  <Truck size={14} strokeWidth={2.5} />
                                 </button>
                               )}
                             </div>
@@ -288,40 +241,25 @@ const DeliveryPage: React.FC = () => {
                           const dv = (o.delivery_vehicles || []).find((dv: any) => dv.vehicle_id === v.id);
                           const qty = dv?.assigned_quantity || 0;
                           const isEditableByMe = v.id === myVehicle?.id;
-                          const isEditing = editingCell?.orderId === o.id && editingCell?.vehicleId === v.id;
                           const canEdit = isEditableByMe || isAdmin;
 
                           return (
                             <td 
                               key={v.id} 
-                              onClick={() => canEdit && !isEditing && (qty > 0 || remainingQty > 0) && handleCellClick(o, v)}
+                              onClick={() => {
+                                if (canEdit && (qty > 0 || remainingQty > 0)) {
+                                  openAssign(o, v.id);
+                                }
+                              }}
                               className={clsx(
                                 "px-1 py-1 text-[13px] text-center tabular-nums border-r border-slate-100 last:border-r-0 transition-all",
-                                !isEditing && qty > 0 ? "font-bold text-blue-600 bg-blue-50/10" : "text-slate-300",
-                                !isEditing && canEdit && (qty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95",
-                                isEditing && "bg-white ring-2 ring-primary/20 z-10"
+                                qty > 0 ? "font-bold text-blue-600 bg-blue-50/10" : "text-slate-300",
+                                canEdit && (qty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95"
                               )}
                             >
-                              {isEditing ? (
-                                <input
-                                  autoFocus
-                                  type="number"
-                                  value={editValue}
-                                  onChange={(e) => setEditValue(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleInlineSave(o.id, v);
-                                    if (e.key === 'Escape') setEditingCell(null);
-                                  }}
-                                  onBlur={() => handleInlineSave(o.id, v)}
-                                  className="w-full h-full min-h-[36px] bg-transparent text-center font-bold text-primary focus:outline-none p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                />
-                              ) : isAssigning && editingCell?.orderId === o.id && editingCell?.vehicleId === v.id ? (
-                                <div className="animate-pulse text-primary/50 font-bold">{editValue || '0.00'}</div>
-                              ) : (
-                                <span>
-                                  {qty > 0 ? formatNumber(qty) : (canEdit && remainingQty > 0 ? <PlusCircle size={14} className="mx-auto opacity-10 group-hover:opacity-40" /> : '-')}
-                                </span>
-                              )}
+                              <span>
+                                {qty > 0 ? formatNumber(qty) : (canEdit && remainingQty > 0 ? <PlusCircle size={14} className="mx-auto opacity-10 group-hover:opacity-40" /> : '-')}
+                              </span>
                             </td>
                           );
                         })}

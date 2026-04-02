@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Truck, Package, User, AlertCircle } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAssignVehicle } from '../../../hooks/queries/useDelivery';
@@ -10,11 +10,13 @@ import { useVehicles } from '../../../hooks/queries/useVehicles';
 import { useEmployees } from '../../../hooks/queries/useHR';
 import type { DeliveryOrder } from '../../../types';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import CurrencyInput from '../../../components/shared/CurrencyInput';
 
 const schema = z.object({
   vehicle_id: z.string().min(1, 'Vui lòng chọn xe'),
   driver_id: z.string().min(1, 'Vui lòng chọn tài xế'),
   quantity: z.coerce.number().min(0.01, 'Số lượng phải lớn hơn 0'),
+  expected_amount: z.coerce.number().min(0).optional().default(0),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -38,6 +40,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
     setValue,
     watch,
     reset,
+    control,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema) as any,
@@ -45,11 +48,13 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       vehicle_id: '',
       driver_id: '',
       quantity: 0,
+      expected_amount: 0,
     },
   });
 
   const watchVehicleId = watch('vehicle_id');
   const watchDriverId = watch('driver_id');
+  const watchQuantity = watch('quantity');
 
   // Auto-fill driver when vehicle is selected
   useEffect(() => {
@@ -60,6 +65,15 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       }
     }
   }, [watchVehicleId, vehicles, setValue]);
+
+  // Auto-calculate expected_amount based on assigned quantity and unit price
+  useEffect(() => {
+    if (watchQuantity && order?.unit_price) {
+      setValue('expected_amount', watchQuantity * order.unit_price, { shouldValidate: true });
+    } else if (watchQuantity === 0 || !watchQuantity) {
+      setValue('expected_amount', 0, { shouldValidate: true });
+    }
+  }, [watchQuantity, order?.unit_price, setValue]);
 
   useEffect(() => {
     if (order) {
@@ -72,7 +86,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       reset({
         vehicle_id: initialVehicleId || '',
         driver_id: '',
-        quantity: remaining > 0 ? remaining : 0,
+        quantity: Math.max(0, remaining),
+        expected_amount: Math.max(0, remaining) * (order.unit_price || 0),
       });
     }
   }, [order, initialVehicleId, reset]);
@@ -139,20 +154,31 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         {/* Content */}
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
           {/* Order Info Summary */}
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tổng cần giao</span>
-              <span className="text-lg font-black text-slate-800 tabular-nums">
-                {order?.total_quantity.toLocaleString()}
-              </span>
+          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tổng cần giao</span>
+                <span className="text-lg font-black text-slate-800 tabular-nums">
+                  {order?.total_quantity.toLocaleString()}
+                </span>
+              </div>
+              <div className="w-[1px] h-8 bg-slate-200" />
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">Còn lại</span>
+                <span className="text-lg font-black text-orange-600 tabular-nums">
+                  {(remaining ?? 0).toLocaleString()}
+                </span>
+              </div>
             </div>
-            <div className="w-[1px] h-8 bg-slate-200" />
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">Còn lại</span>
-              <span className="text-lg font-black text-orange-600 tabular-nums">
-                {(remaining ?? 0).toLocaleString()}
-              </span>
-            </div>
+            
+            {order?.import_orders?.total_amount != null && (
+               <div className="flex items-center justify-between pt-3 border-t border-slate-200/50">
+                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Tổng tiền đơn hàng</span>
+                 <span className="text-[15px] font-black text-emerald-600 tabular-nums">
+                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(order.import_orders.total_amount))}
+                 </span>
+               </div>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -189,20 +215,42 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               {errors.driver_id && <p className="text-red-500 text-[11px] font-medium">{errors.driver_id.message as string}</p>}
             </div>
 
-            {/* Quantity */}
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-bold text-foreground flex items-center gap-2">
-                <Package size={14} className="text-primary" />
-                Số lượng giao <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                step="any"
-                {...register('quantity')}
-                placeholder="Nhập số lượng..."
-                className="w-full px-4 py-2.5 bg-muted/20 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums"
-              />
-              {errors.quantity && <p className="text-red-500 text-[11px] font-medium">{errors.quantity.message as string}</p>}
+            {/* Quantity and Expected Amount Row */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                  <Package size={14} className="text-primary" />
+                  Số lượng giao <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  {...register('quantity')}
+                  placeholder="Nhập số lượng..."
+                  className="w-full px-4 py-2.5 bg-muted/20 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums"
+                />
+                {errors.quantity && <p className="text-red-500 text-[11px] font-medium">{errors.quantity.message as string}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                  <span className="text-emerald-500 opacity-80">₫</span>
+                  Tiền cần thu
+                </label>
+                <Controller
+                  name="expected_amount"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      {...field}
+                      value={field.value as number}
+                      placeholder="0đ"
+                      className="w-full px-4 py-2.5 bg-muted/20 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-bold tabular-nums text-emerald-600"
+                    />
+                  )}
+                />
+                {errors.expected_amount && <p className="text-red-500 text-[11px] font-medium">{errors.expected_amount.message as string}</p>}
+              </div>
             </div>
 
             {(order?.remaining_quantity ?? order?.total_quantity ?? 0) < Number(watch('quantity')) && (

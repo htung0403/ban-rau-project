@@ -32,14 +32,17 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
         d.status !== 'completed' && 
         d.delivery_vehicles?.some(v => v.driver_id === user?.id)
       )
-      .map(d => ({
-        id: d.id,
-        code: d.import_orders?.order_code || 'N/A',
-        customer: d.import_orders?.customers?.name || 'Vô Danh',
-        productName: d.product_name,
-        quantity: d.total_quantity,
-        amount: d.import_cost || 0
-      }));
+      .map(d => {
+        const myAssignment = d.delivery_vehicles?.find(v => v.driver_id === user?.id);
+        return {
+          id: d.id,
+          code: d.import_orders?.order_code || 'N/A',
+          customer: d.import_orders?.customers?.name || 'Vô Danh',
+          productName: d.product_name,
+          quantity: myAssignment?.assigned_quantity || d.total_quantity,
+          amount: myAssignment?.expected_amount || d.import_orders?.total_amount || 0
+        };
+      });
   }, [deliveries, user?.id]);
 
   const [deliveryOrderId, setDeliveryOrderId] = useState('');

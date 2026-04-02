@@ -54,10 +54,10 @@ export class PaymentCollectionsService {
 
     if (doError || !doData) throw new Error('Không tìm thấy đơn giao hàng');
 
-    // 2. Get vehicle_id from delivery_vehicles where assigned to this driver
+    // 2. Get vehicle_id and expected_amount from delivery_vehicles where assigned to this driver
     const { data: dvData, error: dvError } = await supabaseService
       .from('delivery_vehicles')
-      .select('vehicle_id')
+      .select('vehicle_id, expected_amount')
       .eq('delivery_order_id', data.deliveryOrderId)
       .eq('driver_id', driverId)
       .limit(1)
@@ -66,7 +66,8 @@ export class PaymentCollectionsService {
     if (dvError || !dvData) throw new Error('Bạn không được giao đơn hàng này');
 
     const importOrder: any = Array.isArray(doData.import_orders) ? doData.import_orders[0] : doData.import_orders;
-    const expectedAmount = importOrder?.total_amount || 0;
+    // Prefer the explicitly assigned expected_amount from delivery_vehicles. Fallback to import order total if missing.
+    const expectedAmount = Number(dvData.expected_amount) || Number(importOrder?.total_amount) || 0;
 
     if (data.collectedAmount < expectedAmount && (!data.notes || data.notes.trim() === '')) {
       throw new Error('Vui lòng ghi chú lý do thu thiếu tiền');
@@ -167,8 +168,8 @@ export class PaymentCollectionsService {
     if (error) throw error;
 
     // update debt
-    await this.updateCustomerDebt(pc.customer_id, pc.collected_amount);
-    await this.markImportItemAsPaid(pc.delivery_order_id);
+    await this.updateCustomerDebt(pc.customer_id, pc.collected_amount, pc.id);
+    await this.updateImportOrderPaidAmount(pc.delivery_order_id, pc.collected_amount);
 
     return this.getPaymentCollectionById(id);
   }
@@ -193,8 +194,8 @@ export class PaymentCollectionsService {
     if (error) throw error;
 
     // update debt
-    await this.updateCustomerDebt(pc.customer_id, pc.collected_amount);
-    await this.markImportItemAsPaid(pc.delivery_order_id);
+    await this.updateCustomerDebt(pc.customer_id, pc.collected_amount, pc.id);
+    await this.updateImportOrderPaidAmount(pc.delivery_order_id, pc.collected_amount);
 
     return this.getPaymentCollectionById(id);
   }
@@ -249,53 +250,47 @@ export class PaymentCollectionsService {
     return data;
   }
 
-  private static async updateCustomerDebt(customerId: string, collectedAmount: number) {
+  private static async updateCustomerDebt(customerId: string, collectedAmount: number, pcId: string, vehiclePlate?: string) {
     if (!customerId) return;
-    // We fetch current debt and deduct
-    // Note: To make this robust it should be an RPC or a trigger, but implementing in app level as requested:
-    const { data: customer, error: fetchError } = await supabaseService
-      .from('customers')
-      .select('debt')
-      .eq('id', customerId)
-      .single();
+    // We insert into receipts. The DB trigger `trg_receipt_to_ledger`
+    // will log this into `customer_debt_ledger` and subtract from `customers.debt` automatically.
+    const { error: insertError } = await supabaseService
+      .from('receipts')
+      .insert({
+        customer_id: customerId,
+        amount: collectedAmount,
+        payment_date: new Date().toISOString().split('T')[0],
+        notes: `Thu tiền từ tài xế - CX${vehiclePlate || 'N/A'} - Phiếu thu #${pcId.split('-')[0]}`,
+        // created_by should ideally be passed, omitting if trigger handles it or allows null
+      });
 
-    if (fetchError || !customer) return;
-
-    const newDebt = Number(customer.debt || 0) - Number(collectedAmount);
-
-    const { error: updateError } = await supabaseService
-      .from('customers')
-      .update({ debt: newDebt })
-      .eq('id', customerId);
-
-    if (updateError) {
-      console.error('Failed to update customer debt', updateError);
+    if (insertError) {
+      console.error('Failed to log receipt for payment collection', insertError);
     }
   }
 
-  private static async markImportItemAsPaid(deliveryOrderId: string) {
-    if (!deliveryOrderId) return;
-    const { data: doData } = await supabaseService.from('delivery_orders').select('import_order_id, product_name').eq('id', deliveryOrderId).single();
+  private static async updateImportOrderPaidAmount(deliveryOrderId: string, collectedAmount: number) {
+    if (!deliveryOrderId || !collectedAmount) return;
+    
+    // 1. Get import_order_id
+    const { data: doData } = await supabaseService.from('delivery_orders')
+      .select('import_order_id')
+      .eq('id', deliveryOrderId)
+      .single();
+      
     if (!doData || !doData.import_order_id) return;
 
-    const { data: items } = await supabaseService.from('import_order_items').select('id, product_id, package_type').eq('import_order_id', doData.import_order_id);
-    if (!items || items.length === 0) return;
-
-    const productIds = items.map(i => i.product_id).filter(Boolean);
-    let productsMap = new Map();
-    if (productIds.length > 0) {
-      const { data: pData } = await supabaseService.from('products').select('id, name').in('id', productIds);
-      if (pData) pData.forEach(p => productsMap.set(p.id, p.name));
-    }
-
-    const matchedItem = items.find(i => {
-      let name = i.package_type || 'Kiện';
-      if (i.product_id && productsMap.has(i.product_id)) name = productsMap.get(i.product_id);
-      return name === doData.product_name;
-    });
-
-    if (matchedItem) {
-      await supabaseService.from('import_order_items').update({ payment_status: 'paid' }).eq('id', matchedItem.id);
+    // 2. Get current paid_amount
+    const { data: ioData } = await supabaseService.from('import_orders')
+      .select('paid_amount')
+      .eq('id', doData.import_order_id)
+      .single();
+      
+    if (ioData) {
+      // 3. Increment paid_amount
+      await supabaseService.from('import_orders')
+        .update({ paid_amount: Number(ioData.paid_amount || 0) + collectedAmount })
+        .eq('id', doData.import_order_id);
     }
   }
 

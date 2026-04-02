@@ -1,0 +1,1 @@
+const { supabaseService } = require('./src/config/supabase'); supabaseService.rpc('exec_sql', { query: "SELECT column_name, data_type, is_generated FROM information_schema.columns WHERE table_name = 'payroll'" }).then(r => console.log(r.data));

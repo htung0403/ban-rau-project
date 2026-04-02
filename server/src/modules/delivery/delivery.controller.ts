@@ -51,6 +51,7 @@ export class DeliveryController {
         driver_id: z.string().uuid(),
         assigned_quantity: z.number().positive().optional(),
         quantity: z.number().positive().optional(),
+        expected_amount: z.number().nonnegative().optional(),
       });
 
       const body = req.body;
@@ -67,6 +68,7 @@ export class DeliveryController {
         vehicle_id: a.vehicle_id,
         driver_id: a.driver_id,
         quantity: a.quantity || a.assigned_quantity,
+        expected_amount: a.expected_amount || 0,
       }));
 
       const data = await DeliveryService.assignVehicles(req.params.id as string, normalized);

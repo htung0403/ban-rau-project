@@ -112,11 +112,14 @@ export interface ImportOrder {
   receiver_name: string;
   receiver_phone?: string;
   receiver_address?: string;
-  package_type?: PackageType;
-  weight_kg?: number;
-  quantity: number;
+  license_plate?: string;
+  driver_name?: string;
+  supplier_name?: string;
+  sheet_number?: string;
+  quantity?: number;
   unit_price?: number;
-  total_amount?: number; 
+  total_order_amount?: number; 
+  payment_status?: 'paid' | 'unpaid' | 'partial';
   received_by?: string;
   warehouse_id?: string;
   product_id?: string;
@@ -129,7 +132,7 @@ export interface ImportOrder {
   import_order_items?: ImportOrderItem[];
   profiles?: { full_name: string };
   warehouses?: { name: string };
-  customers?: { name: string; phone?: string; address?: string };
+  customers?: { id: string; name: string; phone?: string; address?: string };
   products?: Product;
 }
 
@@ -207,6 +210,7 @@ export interface DeliveryOrder {
     sender_name: string;
     receiver_name: string;
     customers?: { name: string };
+    total_amount?: number;
   };
 }
 
@@ -233,6 +237,7 @@ export interface DeliveryVehicle {
   vehicle_id?: string;
   driver_id?: string;
   assigned_quantity?: number;
+  expected_amount?: number;
   status: DeliveryVehicleStatus;
   assigned_at: string;
   // Nested
@@ -243,6 +248,7 @@ export interface DeliveryVehicle {
       order_code: string;
       receiver_name: string;
       customers?: { name: string };
+      total_amount?: number;
     };
   };
 }

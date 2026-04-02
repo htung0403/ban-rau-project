@@ -1,6 +1,4 @@
 import { supabaseService } from '../../config/supabase';
-import { InventoryService } from '../inventory/inventory.service';
-
 export class ExportOrderService {
   static async getAll(filters: any) {
     let query = supabaseService.from('export_orders').select('*, profiles(full_name), customers(id, name, debt), products(name)');
@@ -25,14 +23,6 @@ export class ExportOrderService {
     
     if (error) throw error;
 
-    // Adjust inventory (decrease) if product_id and warehouse_id are provided
-    if (data.product_id && data.warehouse_id && data.quantity > 0) {
-      try {
-        await InventoryService.adjustStock(data.warehouse_id, data.product_id, -data.quantity);
-      } catch (inventoryError) {
-        console.error('Failed to adjust inventory for export order:', inventoryError);
-      }
-    }
 
     // Business Logic: Update customer debt is now handled by DB triggers on export_orders -> ledger -> customers
 

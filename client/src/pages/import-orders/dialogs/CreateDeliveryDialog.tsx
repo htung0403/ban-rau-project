@@ -91,7 +91,7 @@ const CreateDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, importOrder,
       const firstItem = importOrder.import_order_items?.[0];
       reset({
         import_order_id: importOrder.id,
-        product_name: (firstItem?.products?.name || firstItem?.package_type) || importOrder.package_type || 'Kiện',
+        product_name: (firstItem?.products?.name || firstItem?.package_type) || 'Kiện',
         total_quantity: firstItem?.quantity || importOrder.quantity || 0,
         delivery_date: format(new Date(), 'yyyy-MM-dd'),
         import_cost: firstItem?.unit_price || importOrder.unit_price || 0,

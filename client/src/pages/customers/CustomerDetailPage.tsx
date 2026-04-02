@@ -209,8 +209,8 @@ const CustomerDetailPage: React.FC = () => {
                       <td className="px-4 py-3 text-[13px] font-bold text-foreground">{o.order_code}</td>
                       <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{formatDate(o.order_date)}</td>
                       <td className="px-4 py-3 text-[13px] text-foreground">{o.receiver_name}</td>
-                      <td className="px-4 py-3 text-[13px] font-bold text-right tabular-nums">{o.quantity} {o.package_type}</td>
-                      <td className="px-4 py-3 text-[13px] font-bold text-emerald-600 text-right tabular-nums">{formatCurrency(o.total_amount)}</td>
+                      <td className="px-4 py-3 text-[13px] font-bold text-right tabular-nums">{o.quantity} {o.import_order_items?.[0]?.package_type || ''}</td>
+                      <td className="px-4 py-3 text-[13px] font-bold text-emerald-600 text-right tabular-nums">{formatCurrency(o.total_order_amount)}</td>
                       <td className="px-4 py-3 text-center"><StatusBadge status={o.status} /></td>
                     </tr>
                   ))}

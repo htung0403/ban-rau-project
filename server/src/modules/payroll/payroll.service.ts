@@ -8,16 +8,12 @@ export class PayrollService {
     // 1. Get all employees
     const { data: employees } = await supabaseService.from('profiles').select('id, role').in('role', ['staff', 'driver', 'manager', 'admin']);
     
-    // 2. Get price settings
-    const { data: settings } = await supabaseService.from('price_settings').select('setting_key, value');
-    const staffWage = settings?.find(s => s.setting_key === 'daily_wage_staff')?.value || 0;
-    const driverWage = settings?.find(s => s.setting_key === 'daily_wage_driver')?.value || 0;
+    // 2. Get role salaries
+    const { data: roleSalaries } = await supabaseService.from('role_salaries').select('role_key, daily_wage');
 
-    const results = [];
-
-    for (const emp of employees || []) {
+    const promises = (employees || []).map(async (emp) => {
       // 3. Count work days
-      const { count } = await supabaseService
+      const countPromise = supabaseService
         .from('attendance')
         .select('*', { count: 'exact', head: true })
         .eq('employee_id', emp.id)
@@ -26,38 +22,72 @@ export class PayrollService {
         .lte('work_date', weekEnd);
 
       // 4. Sum advances
-      const { data: advances } = await supabaseService
+      const advancesPromise = supabaseService
         .from('salary_advances')
         .select('amount')
         .eq('employee_id', emp.id)
         .eq('status', 'approved')
         .eq('week_start', weekStart);
       
-      const totalAdvances = advances?.reduce((sum, a) => sum + Number(a.amount), 0) || 0;
-      const dailyWage = emp.role === 'driver' ? driverWage : staffWage;
-
-      // 5. Upsert payroll
-      const { data, error } = await supabaseService
+      // 5. Find existing
+      const existingPromise = supabaseService
         .from('payroll')
-        .upsert({
-          employee_id: emp.id,
-          week_start: weekStart,
-          week_end: weekEnd,
-          days_worked: count || 0,
-          daily_wage: dailyWage,
-          total_advances: totalAdvances,
-          created_by: createdBy,
-          status: 'draft',
-        }, {
-          onConflict: 'employee_id,week_start'
-        })
-        .select()
+        .select('id, status')
+        .eq('employee_id', emp.id)
+        .eq('week_start', weekStart)
         .single();
-      
-      if (!error) results.push(data);
-    }
 
-    return results;
+      const [countRes, advancesRes, existingRes] = await Promise.all([countPromise, advancesPromise, existingPromise]);
+
+      const totalAdvances = advancesRes.data?.reduce((sum, a) => sum + Number(a.amount), 0) || 0;
+      const dailyWage = roleSalaries?.find(rs => rs.role_key === emp.role)?.daily_wage || 0;
+
+      let dbResult;
+      
+      if (existingRes.data) {
+        dbResult = await supabaseService
+          .from('payroll')
+          .update({
+            days_worked: countRes.count || 0,
+            daily_wage: dailyWage,
+            total_advances: totalAdvances,
+            created_by: createdBy,
+            status: existingRes.data.status === 'paid' ? 'paid' : 'confirmed',
+            approved_by: createdBy,
+            approved_at: new Date(),
+          })
+          .eq('id', existingRes.data.id)
+          .select()
+          .single();
+      } else {
+        dbResult = await supabaseService
+          .from('payroll')
+          .insert({
+            employee_id: emp.id,
+            week_start: weekStart,
+            week_end: weekEnd,
+            days_worked: countRes.count || 0,
+            daily_wage: dailyWage,
+            total_advances: totalAdvances,
+            created_by: createdBy,
+            status: 'confirmed',
+            approved_by: createdBy,
+            approved_at: new Date(),
+          })
+          .select()
+          .single();
+      }
+      
+      if (dbResult && !dbResult.error) {
+        return dbResult.data;
+      } else {
+         console.error("Payroll generate error:", dbResult?.error);
+         return null;
+      }
+    });
+
+    const results = await Promise.all(promises);
+    return results.filter(Boolean);
   }
 
   static async getAll() {
@@ -72,9 +102,38 @@ export class PayrollService {
     return data;
   }
 
-  static async confirm(id: string) {
-    const { data, error } = await supabaseService.from('payroll').update({ status: 'confirmed' }).eq('id', id).select().single();
+  static async confirm(id: string, approvedBy: string) {
+    const { data, error } = await supabaseService
+      .from('payroll')
+      .update({ 
+        status: 'confirmed', 
+        approved_by: approvedBy, 
+        approved_at: new Date() 
+      })
+      .eq('id', id)
+      .select()
+      .single();
     if (error) throw error;
     return data;
+  }
+
+  static async updateStatuses(updates: { id: string, status: string }[], updatedBy: string) {
+    const promises = updates.map(async (update) => {
+      const { data, error } = await supabaseService
+        .from('payroll')
+        .update({ 
+          status: update.status,
+          ...(update.status === 'confirmed' || update.status === 'paid' ? { approved_by: updatedBy, approved_at: new Date() } : {})
+        })
+        .eq('id', update.id)
+        .select()
+        .single();
+      
+      if (error) console.error("Payroll status update error:", error);
+      return error ? null : data;
+    });
+
+    const results = await Promise.all(promises);
+    return results.filter(Boolean);
   }
 }

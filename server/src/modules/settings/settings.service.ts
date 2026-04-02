@@ -23,4 +23,35 @@ export class PriceSettingsService {
     if (error || !data) return null;
     return data;
   }
+
+  // Role Salaries
+  static async getRoleSalaries() {
+    const { data, error } = await supabaseService.from('role_salaries').select('*').order('created_at', { ascending: true });
+    if (error) throw error;
+    return data;
+  }
+
+  static async upsertRoleSalary(key: string, name: string, dailyWage: number, description?: string) {
+    const { data, error } = await supabaseService
+      .from('role_salaries')
+      .upsert({ 
+        role_key: key, 
+        role_name: name, 
+        daily_wage: dailyWage, 
+        description,
+        updated_at: new Date() 
+      }, {
+        onConflict: 'role_key'
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  static async deleteRoleSalary(key: string) {
+    const { error } = await supabaseService.from('role_salaries').delete().eq('role_key', key);
+    if (error) throw error;
+    return true;
+  }
 }

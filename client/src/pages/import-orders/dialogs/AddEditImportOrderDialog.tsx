@@ -19,12 +19,12 @@ import axiosClient from '../../../api/axiosClient';
 import toast from 'react-hot-toast';
 
 const importOrderItemSchema = z.object({
-  product_id: z.string().min(1, 'Vui lòng chọn hàng hóa'),
-  package_type: z.string().optional(),
-  weight_kg: z.coerce.number().min(0).optional(),
-  quantity: z.coerce.number().min(1, 'Số lượng tối thiểu là 1'),
-  unit_price: z.coerce.number().min(0).optional(),
-  image_url: z.string().optional(),
+  product_id: z.string().optional().nullable().catch(null),
+  package_type: z.string().optional().nullable().catch(null),
+  weight_kg: z.coerce.number().optional().nullable().catch(null),
+  quantity: z.coerce.number().min(1, 'Số lượng tối thiểu là 1').catch(1),
+  unit_price: z.coerce.number().optional().nullable().catch(null),
+  image_url: z.string().optional().nullable().catch(null),
 });
 
 const importOrderSchema = z.object({
@@ -488,7 +488,10 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
             Hủy
           </button>
           <button
-            onClick={handleSubmit(onSubmit)}
+            onClick={handleSubmit(onSubmit, (err) => {
+              console.error('Validation Error', err);
+              toast.error('Vui lòng kiểm tra lại thông tin bắt buộc (chữ màu đỏ sẽ hiện ra) hoặc thông tin hàng hóa.');
+            })}
             disabled={isSubmitting}
             className={clsx(
               'flex items-center gap-2 px-8 py-2 rounded-xl text-[13px] font-bold shadow-lg transition-all group',

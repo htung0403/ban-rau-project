@@ -7,6 +7,13 @@ const generatePayrollSchema = z.object({
   week_start: z.string(), // e.g. '2024-03-18' (Monday)
 });
 
+const updateStatusesSchema = z.object({
+  updates: z.array(z.object({
+    id: z.string(),
+    status: z.enum(['draft', 'confirmed', 'paid'])
+  }))
+});
+
 export class PayrollController {
   static async generate(req: Request, res: Response) {
     try {
@@ -38,8 +45,18 @@ export class PayrollController {
 
   static async confirm(req: Request, res: Response) {
     try {
-      const data = await PayrollService.confirm(req.params.id as string);
+      const data = await PayrollService.confirm(req.params.id as string, req.user!.id);
       return res.status(200).json(successResponse(data, 'Payroll confirmed'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async updateStatuses(req: Request, res: Response) {
+    try {
+      const validated = updateStatusesSchema.parse(req.body);
+      const data = await PayrollService.updateStatuses(validated.updates as {id: string, status: string}[], req.user!.id);
+      return res.status(200).json(successResponse(data, 'Statuses updated'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
     }

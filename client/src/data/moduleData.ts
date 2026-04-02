@@ -1,7 +1,7 @@
 import {
   Users,
   Warehouse, Download, Upload, Truck as DeliveryIcon, Box,
-  Banknote, Car, CalendarDays, ClipboardList, DollarSign, FileText
+  Banknote, Car, CalendarDays, ClipboardList, ClipboardCheck, DollarSign, FileText, Settings2
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
 
@@ -30,7 +30,10 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
         { icon: Users, title: 'Nhân sự', description: 'Quản lý danh sách nhân sự.', colorScheme: 'emerald', path: '/hanh-chinh-nhan-su/nhan-su' },
         { icon: CalendarDays, title: 'Nghỉ phép', description: 'Quản lý đơn nghỉ phép.', colorScheme: 'blue', path: '/hanh-chinh-nhan-su/nghi-phep' },
         { icon: ClipboardList, title: 'Chấm công', description: 'Bảng chấm công nhân viên.', colorScheme: 'purple', path: '/hanh-chinh-nhan-su/cham-cong' },
+        { icon: ClipboardCheck, title: 'Duyệt đơn', description: 'Duyệt phiếu lương, ứng lương, chấm công bù.', colorScheme: 'cyan', path: '/hanh-chinh-nhan-su/duyet-don' },
+        { icon: Banknote, title: 'Ứng lương', description: 'Tạo đơn ứng lương.', colorScheme: 'red', path: '/hanh-chinh-nhan-su/ung-luong' },
         { icon: DollarSign, title: 'Bảng lương', description: 'Tính lương và chốt lương.', colorScheme: 'green', path: '/hanh-chinh-nhan-su/luong' },
+        { icon: Settings2, title: 'Cài đặt lương', description: 'Cấu hình mức lương cơ bản.', colorScheme: 'orange', path: '/hanh-chinh-nhan-su/cai-dat-luong' },
       ]
     }
   ],
@@ -49,6 +52,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
       section: 'Quản lý xe',
       items: [
         { icon: Car, title: 'Danh sách xe', description: 'Quản lý thông tin và lịch trình xe.', colorScheme: 'blue', path: '/quan-ly-xe/danh-sach' },
+        { icon: Banknote, title: 'Thu tiền hàng', description: 'Quản lý thu nộp tiền giao hàng.', colorScheme: 'green', path: '/quan-ly-xe/thu-tien' },
         // { icon: MapPin, title: 'Điểm danh tài xế', description: 'Tài xế điểm danh Geolocation.', colorScheme: 'orange', path: '/quan-ly-xe/check-in' },
       ]
     }

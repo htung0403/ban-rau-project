@@ -30,6 +30,25 @@ const markAttendanceSchema = z.object({
   note: z.string().optional(),
 });
 
+const createCompensatorySchema = z.object({
+  work_date: z.string(),
+  check_in_time: z.string().nullable().optional(),
+  check_out_time: z.string().nullable().optional(),
+  reason: z.string().min(1, 'Reason is required'),
+});
+
+const reviewCompensatorySchema = z.object({
+  status: z.enum(['approved', 'rejected'])
+});
+
+const createEmployeeSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  full_name: z.string().min(2),
+  phone: z.string().optional(),
+  role: z.string().min(1, 'Role is required'),
+});
+
 export class HRController {
   static async getEmployees(req: Request, res: Response) {
     try {
@@ -44,6 +63,32 @@ export class HRController {
     try {
       const data = await HRService.getEmployeeById(req.params.id as string);
       return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async createEmployee(req: Request, res: Response) {
+    try {
+      if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
+        throw new Error('Unauthorized to create employee');
+      }
+      const validated = createEmployeeSchema.parse(req.body);
+      const data = await HRService.createEmployee(validated);
+      return res.status(201).json(successResponse(data, 'Employee created successfully'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async updateEmployeeStatus(req: Request, res: Response) {
+    try {
+      if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
+        throw new Error('Unauthorized to update employee status');
+      }
+      const { is_active } = req.body;
+      const data = await HRService.updateEmployeeStatus(req.params.id as string, is_active);
+      return res.status(200).json(successResponse(data, 'Employee status updated'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
     }
@@ -72,7 +117,7 @@ export class HRController {
   static async reviewLeaveRequest(req: Request, res: Response) {
     try {
       const validated = reviewLeaveRequestSchema.parse(req.body);
-      const data = await HRService.reviewLeaveRequest(req.params.id as string, validated, req.user!.id);
+      const data = await HRService.reviewLeaveRequest(req.params.id as string, validated, req.user!);
       return res.status(200).json(successResponse(data, 'Leave request reviewed'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
@@ -130,6 +175,44 @@ export class HRController {
 
       const data = await HRService.getAllAttendanceForDate(date);
       return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async getSalaryAdvances(req: Request, res: Response) {
+    try {
+      const data = await HRService.getSalaryAdvances(req.user!.id, req.user!.role);
+      return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async createCompensatoryAttendance(req: Request, res: Response) {
+    try {
+      const validated = createCompensatorySchema.parse(req.body);
+      const data = await HRService.createCompensatoryAttendance(req.user!.id, validated);
+      return res.status(201).json(successResponse(data, 'Compensatory attendance created'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async getCompensatoryAttendances(req: Request, res: Response) {
+    try {
+      const data = await HRService.getCompensatoryAttendances();
+      return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async reviewCompensatoryAttendance(req: Request, res: Response) {
+    try {
+      const validated = reviewCompensatorySchema.parse(req.body);
+      const data = await HRService.reviewCompensatoryAttendance(req.params.id as string, validated.status, req.user!.id);
+      return res.status(200).json(successResponse(data, 'Compensatory attendance reviewed'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
     }

@@ -54,6 +54,17 @@ export class DeliveryService {
 
   static async assignVehicles(deliveryId: string, assignments: any[]) {
     // assignments: [{vehicle_id, driver_id, quantity}]
+    
+    // Remote old assignments for these vehicles to prevent duplicates
+    const vIds = assignments.map(a => a.vehicle_id).filter(Boolean);
+    if (vIds.length > 0) {
+      await supabaseService
+        .from('delivery_vehicles')
+        .delete()
+        .eq('delivery_order_id', deliveryId)
+        .in('vehicle_id', vIds);
+    }
+
     const insertData = assignments.map(a => ({
       delivery_order_id: deliveryId,
       vehicle_id: a.vehicle_id,

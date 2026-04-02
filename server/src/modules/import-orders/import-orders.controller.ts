@@ -4,12 +4,12 @@ import { successResponse, errorResponse } from '../../utils/response';
 import { z } from 'zod';
 
 const importOrderItemSchema = z.object({
-  product_id: z.string().uuid(),
-  package_type: z.string().optional(),
-  weight_kg: z.number().optional(),
+  product_id: z.string().uuid().optional().nullable(),
+  package_type: z.string().optional().nullable(),
+  weight_kg: z.number().optional().nullable(),
   quantity: z.number().int().positive(),
-  unit_price: z.number().optional(),
-  image_url: z.string().optional(),
+  unit_price: z.number().optional().nullable(),
+  image_url: z.string().optional().nullable(),
   payment_status: z.enum(['paid', 'unpaid']).default('unpaid'),
 });
 
@@ -20,9 +20,9 @@ const importOrderSchema = z.object({
   receiver_name: z.string().optional(),
   receiver_phone: z.string().optional(),
   receiver_address: z.string().optional(),
-  warehouse_id: z.string().uuid(),
-  customer_id: z.string().uuid().optional(),
-  notes: z.string().optional(),
+  warehouse_id: z.string().uuid().optional().nullable(),
+  customer_id: z.string().uuid().optional().nullable(),
+  notes: z.string().optional().nullable(),
   items: z.array(importOrderItemSchema),
 });
 

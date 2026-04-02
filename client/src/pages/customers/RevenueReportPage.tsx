@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import PageHeader from '../../components/shared/PageHeader';
 import { useExportOrders } from '../../hooks/queries/useExportOrders';
 import { useImportOrders } from '../../hooks/queries/useImportOrders';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
 import { 
-  TrendingUp, Banknote, PackageOpen, FileText, Calendar, User, Tag
+  TrendingUp, Banknote, PackageOpen, FileText, Calendar, User, Tag, ArrowUpRight
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import type { ExportOrder } from '../../types';
@@ -73,48 +74,120 @@ const RevenueReportPage: React.FC = () => {
     return Object.values(grouped).slice(0, 7); // Last 7 days
   }, [exportOrders]);
 
-  const activities = useMemo(() => {
-    const combined: any[] = [];
-    
-    if (exportOrders && Array.isArray(exportOrders)) {
-      exportOrders.forEach((o: ExportOrder) => {
-        combined.push({
-          id: `export-${o.id}`,
-          date: String(o.export_date || ''),
-          type: 'export',
-          entity: getSafeName(o.customers, 'Khách lẻ'),
-          product: getSafeName(o.products),
-          quantity: Number(o.quantity || 0),
-          totalAmount: Number((o.debt_amount || 0) + (o.paid_amount || 0)),
-          status: String(o.payment_status || 'unpaid')
-        });
-      });
-    }
-
-    if (importOrders && Array.isArray(importOrders)) {
-      importOrders.forEach((o: any) => {
-        // For ImportOrders, product info is often inside import_order_items
-        const firstProduct = o.import_order_items?.[0]?.products || o.products;
-        
-        combined.push({
-          id: `import-${o.id}`,
-          date: String(o.order_date || ''),
-          type: 'import',
-          entity: getSafeName(o.customers, o.sender_name || 'N/A'),
-          product: getSafeName(firstProduct),
-          quantity: Number(o.quantity || 0),
-          totalAmount: Number(o.total_amount || 0),
-          status: String(o.status || 'pending')
-        });
-      });
-    }
-
-    return combined.sort((a, b) => {
+  const exportActivities = useMemo(() => {
+    if (!exportOrders || !Array.isArray(exportOrders)) return [];
+    return exportOrders.map((o: ExportOrder) => ({
+      id: `export-${o.id}`,
+      date: String(o.export_date || ''),
+      type: 'export',
+      entity: getSafeName(o.customers, 'Khách lẻ'),
+      product: getSafeName(o.products),
+      quantity: Number(o.quantity || 0),
+      totalAmount: Number((o.debt_amount || 0) + (o.paid_amount || 0)),
+      status: String(o.payment_status || 'unpaid')
+    })).sort((a, b) => {
       const timeA = a.date ? new Date(a.date).getTime() : 0;
       const timeB = b.date ? new Date(b.date).getTime() : 0;
       return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
-    }).slice(0, 20);
-  }, [exportOrders, importOrders]);
+    }).slice(0, 10);
+  }, [exportOrders]);
+
+  const importActivities = useMemo(() => {
+    if (!importOrders || !Array.isArray(importOrders)) return [];
+    return importOrders.map((o: any) => {
+      const firstProduct = o.import_order_items?.[0]?.products || o.products;
+      return {
+        id: `import-${o.id}`,
+        date: String(o.order_date || ''),
+        type: 'import',
+        entity: getSafeName(o.customers, o.sender_name || 'N/A'),
+        product: getSafeName(firstProduct),
+        quantity: Number(o.quantity || 0),
+        totalAmount: Number(o.total_amount || 0),
+        status: String(o.status || 'pending')
+      };
+    }).sort((a, b) => {
+      const timeA = a.date ? new Date(a.date).getTime() : 0;
+      const timeB = b.date ? new Date(b.date).getTime() : 0;
+      return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
+    }).slice(0, 10);
+  }, [importOrders]);
+
+  const ActivityTable = ({ title, icon: Icon, activities, accentColor, viewPath }: { title: string, icon: any, activities: any[], accentColor: string, viewPath: string }) => (
+    <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden flex-1">
+      <div className="p-4 border-b border-border flex items-center justify-between bg-slate-50/50">
+        <div className="flex items-center gap-2">
+          <Icon size={16} className={accentColor} />
+          <h3 className="text-[14px] font-bold">{title}</h3>
+          <span className="text-[10px] font-bold px-2 py-0.5 bg-white border border-border rounded-full shadow-sm text-muted-foreground uppercase">
+            {activities.length} bản ghi
+          </span>
+        </div>
+        <Link 
+          to={viewPath}
+          className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-all group"
+          title="Xem tất cả"
+        >
+          <ArrowUpRight size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+        </Link>
+      </div>
+
+      <div className="divide-y divide-border">
+        {/* Header Row */}
+        <div className="grid grid-cols-6 gap-4 px-5 py-2.5 bg-slate-50/30 text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden lg:grid">
+          <div className="col-span-1">Ngày</div>
+          <div className="col-span-1">Đối tác</div>
+          <div className="col-span-1">Sản phẩm</div>
+          <div className="col-span-1 text-center">SL</div>
+          <div className="col-span-1 text-right">Giá trị</div>
+          <div className="col-span-1 text-center">Trạng thái</div>
+        </div>
+
+        {/* Data Rows */}
+        {activities.map((act) => (
+          <div key={act.id} className="grid grid-cols-1 lg:grid-cols-6 gap-2 lg:gap-4 px-5 py-3 hover:bg-slate-50 transition-colors items-center">
+            <div className="flex items-center gap-2 lg:col-span-1">
+              <Calendar size={13} className="text-muted-foreground lg:hidden" />
+              <span className="text-[12px] text-muted-foreground tabular-nums font-medium">{act.date || '---'}</span>
+            </div>
+            
+            <div className="flex items-center gap-2 lg:col-span-1">
+              <User size={13} className="text-muted-foreground lg:hidden" />
+              <span className="text-[12px] font-semibold truncate text-foreground">{act.entity}</span>
+            </div>
+
+            <div className="flex items-center gap-2 lg:col-span-1 text-slate-500">
+              <Tag size={13} className="lg:hidden" />
+              <span className="text-[12px] truncate">{act.product}</span>
+            </div>
+
+            <div className="flex lg:block justify-between items-center lg:col-span-1 lg:text-center text-[12px] font-bold">
+              <span className="text-slate-400 lg:hidden uppercase text-[9px]">Số lượng:</span>
+              <span className="text-foreground">{act.quantity}</span>
+            </div>
+
+            <div className="flex lg:block justify-between items-center lg:col-span-1 lg:text-right text-[12px] font-bold">
+              <span className="text-slate-400 lg:hidden uppercase text-[9px]">Giá trị:</span>
+              <span className={act.type === 'export' ? 'text-blue-600' : 'text-orange-600'}>{formatCurrency(act.totalAmount)}</span>
+            </div>
+
+            <div className="flex lg:block justify-between items-center lg:col-span-1 lg:text-center">
+              <span className="text-slate-400 lg:hidden uppercase text-[9px]">Trạng thái:</span>
+              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border whitespace-nowrap ${statusColors[act.status.toLowerCase()] || 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+                {statusLabels[act.status.toLowerCase()] || act.status}
+              </span>
+            </div>
+          </div>
+        ))}
+
+        {activities.length === 0 && (
+          <div className="p-8 text-center text-muted-foreground italic text-xs">
+            Chưa có ghi nhận.
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col w-full min-h-0 h-full">
@@ -179,82 +252,26 @@ const RevenueReportPage: React.FC = () => {
              </div>
           </div>
 
-          {/* Activities List */}
-          <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden min-h-[400px]">
-            <div className="p-5 border-b border-border flex items-center justify-between bg-slate-50/50">
-              <h3 className="text-[15px] font-bold flex items-center gap-2">
-                <FileText size={18} className="text-primary" />
-                Hoạt động gần đây
-              </h3>
-              <span className="text-xs font-bold px-2.5 py-1 bg-white border border-border rounded-full shadow-sm">
-                {activities.length} bản ghi
-              </span>
-            </div>
-
-            <div className="divide-y divide-border">
-              {/* Header Row */}
-              <div className="grid grid-cols-7 gap-4 px-6 py-3 bg-slate-50/30 text-[11px] font-bold text-muted-foreground uppercase tracking-widest hidden md:grid">
-                <div className="col-span-1">Ngày</div>
-                <div className="col-span-1">Loại</div>
-                <div className="col-span-1">Đối tác</div>
-                <div className="col-span-1">Sản phẩm</div>
-                <div className="col-span-1 text-center">SL</div>
-                <div className="col-span-1 text-right">Giá trị</div>
-                <div className="col-span-1 text-center">Trạng thái</div>
-              </div>
-
-              {/* Data Rows */}
-              {activities.map((act) => (
-                <div key={act.id} className="grid grid-cols-1 md:grid-cols-7 gap-2 md:gap-4 px-6 py-4 hover:bg-slate-50 transition-colors items-center border-b border-border last:border-0">
-                  <div className="flex items-center gap-2 md:col-span-1">
-                    <Calendar size={14} className="text-muted-foreground md:hidden" />
-                    <span className="text-[13px] text-muted-foreground tabular-nums font-medium">{act.date || '---'}</span>
-                  </div>
-                  
-                  <div className="md:col-span-1">
-                    <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase ${act.type === 'export' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
-                      {act.type === 'export' ? 'Xuất' : 'Nhập'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 md:col-span-1">
-                    <User size={14} className="text-muted-foreground md:hidden" />
-                    <span className="text-[13px] font-semibold truncate text-foreground">{act.entity}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 md:col-span-1 text-slate-500">
-                    <Tag size={14} className="md:hidden" />
-                    <span className="text-[13px] truncate">{act.product}</span>
-                  </div>
-
-                  <div className="flex md:block justify-between items-center md:col-span-1 md:text-center text-[13px] font-bold">
-                    <span className="text-slate-400 md:hidden uppercase text-[10px]">Số lượng:</span>
-                    <span className="text-foreground">{act.quantity}</span>
-                  </div>
-
-                  <div className="flex md:block justify-between items-center md:col-span-1 md:text-right text-[13px] font-bold">
-                    <span className="text-slate-400 md:hidden uppercase text-[10px]">Giá trị:</span>
-                    <span className={act.type === 'export' ? 'text-blue-600' : 'text-orange-600'}>{formatCurrency(act.totalAmount)}</span>
-                  </div>
-
-                  <div className="flex md:block justify-between items-center md:col-span-1 md:text-center">
-                    <span className="text-slate-400 md:hidden uppercase text-[10px]">Trạng thái:</span>
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border whitespace-nowrap ${statusColors[act.status.toLowerCase()] || 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                      {statusLabels[act.status.toLowerCase()] || act.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-
-              {activities.length === 0 && (
-                <div className="p-10 text-center text-muted-foreground italic">
-                  Chưa có hoạt động nào được ghi nhận.
-                </div>
-              )}
-            </div>
+          {/* Tables Section */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <ActivityTable 
+              title="Phiếu xuất gần đây" 
+              icon={FileText} 
+              activities={exportActivities} 
+              accentColor="text-blue-500" 
+              viewPath="/hang-hoa/xuat-hang"
+            />
+            <ActivityTable 
+              title="Phiếu nhập gần đây" 
+              icon={FileText} 
+              activities={importActivities} 
+              accentColor="text-orange-500" 
+              viewPath="/hang-hoa/nhap-hang"
+            />
           </div>
         </div>
-      )}
+      )
+    }
     </div>
   );
 };

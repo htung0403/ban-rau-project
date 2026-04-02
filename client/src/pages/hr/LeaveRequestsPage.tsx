@@ -5,7 +5,7 @@ import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import StatusBadge from '../../components/shared/StatusBadge';
-import { Plus, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import AddLeaveRequestDialog from './dialogs/AddLeaveRequestDialog';
@@ -72,9 +72,7 @@ const LeaveRequestsPage: React.FC = () => {
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Đến ngày</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Lý do</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Trạng thái</th>
-                  {['admin', 'manager'].includes(user?.role || '') && (
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Thao tác</th>
-                  )}
+                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
@@ -85,32 +83,20 @@ const LeaveRequestsPage: React.FC = () => {
                     <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{r.to_date}</td>
                     <td className="px-4 py-3 text-[12px] text-muted-foreground">{r.reason || '-'}</td>
                     <td className="px-4 py-3 text-center"><StatusBadge status={r.status} label={statusLabels[r.status]} /></td>
-                    {['admin', 'manager'].includes(user?.role || '') && (
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-1">
-                          {r.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => handleReview(r.id, 'approved')}
-                                disabled={reviewMutation.isPending}
-                                className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 disabled:opacity-50 transition-colors"
-                                title="Duyệt"
-                              >
-                                <CheckCircle size={16} />
-                              </button>
-                              <button
-                                onClick={() => handleReview(r.id, 'rejected')}
-                                disabled={reviewMutation.isPending}
-                                className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50 transition-colors"
-                                title="Từ chối"
-                              >
-                                <XCircle size={16} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    )}
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        {r.status === 'pending' && (
+                          <button
+                            onClick={() => handleReview(r.id, 'rejected')}
+                            disabled={reviewMutation.isPending}
+                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-1 "
+                            title="Hủy đơn"
+                          >
+                            <XCircle size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

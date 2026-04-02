@@ -18,10 +18,14 @@ import EmployeesPage from './pages/hr/EmployeesPage';
 import LeaveRequestsPage from './pages/hr/LeaveRequestsPage';
 import AttendancePage from './pages/hr/AttendancePage';
 import PayrollPage from './pages/payroll/PayrollPage';
+import ApprovalsPage from './pages/hr/ApprovalsPage';
+import SalaryAdvancesPage from './pages/hr/SalaryAdvancesPage';
 import VehiclesPage from './pages/vehicles/VehiclesPage';
 import DriverCheckinPage from './pages/vehicles/DriverCheckinPage';
+import PaymentCollectionsPage from './pages/vehicles/payment-collections/PaymentCollectionsPage';
 import CustomersPage from './pages/customers/CustomersPage';
 import ProductsPage from './pages/products/ProductsPage';
+import SalarySettingsPage from './pages/hr/SalarySettingsPage';
 import CustomerDetailPage from './pages/customers/CustomerDetailPage';
 import CustomerDebtPage from './pages/customers/CustomerDebtPage';
 import RevenueReportPage from './pages/customers/RevenueReportPage';
@@ -84,12 +88,14 @@ function AppRoutes() {
         <Route path="/hang-hoa/giao-hang" element={<DeliveryPage />} />
         <Route path="/hang-hoa/kho" element={<WarehousesPage />} />
 
-        {/* Hanh chinh nhan su module */}
         <Route path="/hanh-chinh-nhan-su" element={<ModulePage />} />
         <Route path="/hanh-chinh-nhan-su/nhan-su" element={<EmployeesPage />} />
         <Route path="/hanh-chinh-nhan-su/nghi-phep" element={<LeaveRequestsPage />} />
         <Route path="/hanh-chinh-nhan-su/cham-cong" element={<AttendancePage />} />
         <Route path="/hanh-chinh-nhan-su/luong" element={<PayrollPage />} />
+        <Route path="/hanh-chinh-nhan-su/cai-dat-luong" element={<SalarySettingsPage />} />
+        <Route path="/hanh-chinh-nhan-su/ung-luong" element={<SalaryAdvancesPage />} />
+        <Route path="/hanh-chinh-nhan-su/duyet-don" element={<ApprovalsPage />} />
 
         {/* Ke toan module */}
         <Route path="/ke-toan">
@@ -105,6 +111,7 @@ function AppRoutes() {
           <Route index element={<ModulePage />} />
           <Route path="danh-sach" element={<VehiclesPage />} />
           <Route path="check-in" element={<DriverCheckinPage />} />
+          <Route path="thu-tien" element={<PaymentCollectionsPage />} />
         </Route>
 
         {/* Utility */}

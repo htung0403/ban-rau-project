@@ -1,11 +1,81 @@
 import { supabaseService } from '../../config/supabase';
+import { format, startOfWeek } from 'date-fns';
 
 export class HRService {
   static async getEmployees() {
     const { data, error } = await supabaseService
       .from('profiles')
       .select('*')
-      .in('role', ['admin', 'staff', 'driver', 'manager']);
+      .neq('role', 'customer');
+    if (error) throw error;
+    return data;
+  }
+
+  static async createEmployee(payload: any) {
+    const { email, password, full_name, phone, role } = payload;
+
+    // 1. Check if user already exists in auth to avoid duplicate errors
+    const { data: existingUser } = await (supabaseService.auth as any).admin.listUsers();
+    const userAlreadyExists = existingUser?.users?.find((u: any) => u.email === email);
+    
+    let userId: string;
+
+    if (userAlreadyExists) {
+      userId = userAlreadyExists.id;
+      console.log('User already exists in Auth, attempting to fix profile...');
+    } else {
+      // Create new auth user
+      const { data: authData, error: authError } = await (supabaseService.auth as any).admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name, role }
+      });
+
+      if (authError) throw authError;
+      userId = authData.user.id;
+    }
+
+    // 2. Profile record: Use upsert with retry or separate error handling
+    try {
+      // Small delay to allow potential DB triggers to finish
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const { data: profile, error: profileError } = await supabaseService
+        .from('profiles')
+        .upsert({
+          id: userId,
+          email,
+          full_name,
+          phone,
+          role,
+          is_active: true
+        }, { onConflict: 'id' })
+        .select()
+        .single();
+
+      if (profileError) {
+        // If we just created the user but profile failed, we might want to cleanup auth
+        if (!userAlreadyExists) {
+          await (supabaseService.auth as any).admin.deleteUser(userId);
+        }
+        throw profileError;
+      }
+
+      return profile;
+    } catch (error) {
+      console.error('Profile creation failed:', error);
+      throw error;
+    }
+  }
+
+  static async updateEmployeeStatus(id: string, is_active: boolean) {
+    const { data, error } = await supabaseService
+      .from('profiles')
+      .update({ is_active })
+      .eq('id', id)
+      .select()
+      .single();
     if (error) throw error;
     return data;
   }
@@ -34,12 +104,22 @@ export class HRService {
     return data;
   }
 
-  static async reviewLeaveRequest(id: string, reviewData: any, reviewedBy: string) {
+  static async reviewLeaveRequest(id: string, reviewData: any, user: any) {
+    if (user.role !== 'admin' && user.role !== 'manager') {
+      if (reviewData.status !== 'rejected') {
+         throw new Error('Unauthorized');
+      }
+      const { data: req } = await supabaseService.from('leave_requests').select('employee_id').eq('id', id).single();
+      if (req?.employee_id !== user.id) {
+         throw new Error('Unauthorized');
+      }
+    }
+
     const { data, error } = await supabaseService
       .from('leave_requests')
       .update({
         ...reviewData,
-        reviewed_by: reviewedBy,
+        reviewed_by: user.id,
         reviewed_at: new Date(),
       })
       .eq('id', id)
@@ -60,13 +140,17 @@ export class HRService {
   }
 
   static async approveSalaryAdvance(id: string, approvedBy: string) {
-    // 1. Mark as approved
+    const dt = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const weekStartStr = format(dt, 'yyyy-MM-dd');
+
+    // 1. Mark as approved AND set week_start to current week so it deducts automatically
     const { data: advance, error: approveError } = await supabaseService
       .from('salary_advances')
       .update({
         status: 'approved',
         approved_by: approvedBy,
         approved_at: new Date(),
+        week_start: weekStartStr
       })
       .eq('id', id)
       .select()
@@ -86,7 +170,7 @@ export class HRService {
       if (payroll) {
         await supabaseService
           .from('payroll')
-          .update({ total_advances: (payroll.total_advances || 0) + advance.amount })
+          .update({ total_advances: Number(payroll.total_advances || 0) + Number(advance.amount) })
           .eq('id', payroll.id);
       }
     }
@@ -128,5 +212,67 @@ export class HRService {
       .eq('work_date', date);
     if (error) throw error;
     return data;
+  }
+
+  static async getSalaryAdvances(userId: string, role: string) {
+    let query = supabaseService
+      .from('salary_advances')
+      .select('*, profiles!salary_advances_employee_id_fkey(full_name)')
+      .order('created_at', { ascending: false });
+
+    if (role !== 'manager' && role !== 'admin') {
+      query = query.eq('employee_id', userId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data;
+  }
+
+  static async createCompensatoryAttendance(employeeId: string, payload: any) {
+    const { data, error } = await supabaseService
+      .from('compensatory_attendances')
+      .insert({ ...payload, employee_id: employeeId })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  static async getCompensatoryAttendances() {
+    const { data, error } = await supabaseService
+      .from('compensatory_attendances')
+      .select('*, profiles!compensatory_attendances_employee_id_fkey(full_name)')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  }
+
+  static async reviewCompensatoryAttendance(id: string, status: string, approvedBy: string) {
+    const { data: request, error } = await supabaseService
+      .from('compensatory_attendances')
+      .update({
+        status,
+        approved_by: approvedBy,
+        approved_at: new Date(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+
+    if (status === 'approved') {
+      await supabaseService.from('attendance').upsert({
+        employee_id: request.employee_id,
+        work_date: request.work_date,
+        is_present: true,
+        check_in_time: request.check_in_time,
+        check_out_time: request.check_out_time,
+        note: request.reason,
+      }, { onConflict: 'employee_id,work_date' });
+    }
+
+    return request;
   }
 }

@@ -82,6 +82,12 @@ export class ImportOrderService {
       }
     }
 
+    try {
+      await this.syncDeliveryOrders(order.id, mainData.order_date, items, mainData);
+    } catch (e) {
+      console.warn('Failed to auto-create delivery orders:', e);
+    }
+
     return order;
   }
 
@@ -157,6 +163,12 @@ export class ImportOrderService {
       }
     }
 
+    try {
+      await this.syncDeliveryOrders(order.id, mainData.order_date, items, mainData);
+    } catch (e) {
+      console.warn('Failed to auto-update delivery orders:', e);
+    }
+
     return order;
   }
 
@@ -184,6 +196,79 @@ export class ImportOrderService {
     // 2. Delete order (cascade will delete items)
     const { error } = await supabaseService.from('import_orders').delete().eq('id', id);
     if (error) throw error;
+  }
+
+  private static async syncDeliveryOrders(orderId: string, orderDate: string, items: any[], mainData: any) {
+    const normalizedItems = (items && items.length > 0) ? items : [{ package_type: mainData.package_type, quantity: mainData.quantity }];
+    
+    // Resolve products
+    const productIds = normalizedItems.map((i: any) => i.product_id).filter(Boolean);
+    let productsMap = new Map();
+    if (productIds.length > 0) {
+      const { data: productsData } = await supabaseService.from('products').select('id, name').in('id', productIds);
+      if (productsData) {
+        productsData.forEach(p => productsMap.set(p.id, p.name));
+      }
+    }
+
+    const desiredDeliveries = normalizedItems.map((item: any) => {
+      let name = item.package_type || 'Kiện';
+      if (item.product_id && productsMap.has(item.product_id)) {
+         name = productsMap.get(item.product_id);
+      }
+      let cost = 0;
+      if (item.payment_status === 'unpaid') {
+        cost = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
+      }
+      return {
+         product_name: name,
+         total_quantity: Number(item.quantity) || 0,
+         import_cost: cost
+      };
+    });
+
+    // Fetch existing
+    const { data: existingDeliveries } = await supabaseService
+      .from('delivery_orders')
+      .select('id, product_name')
+      .eq('import_order_id', orderId);
+
+    const existingList = existingDeliveries || [];
+    const usedIds = new Set();
+
+    for (const desired of desiredDeliveries) {
+      let match = existingList.find(e => e.product_name === desired.product_name && !usedIds.has(e.id));
+      if (!match) {
+        match = existingList.find(e => !usedIds.has(e.id));
+      }
+
+      if (match) {
+        usedIds.add(match.id);
+        await supabaseService.from('delivery_orders')
+          .update({
+            product_name: desired.product_name,
+            total_quantity: desired.total_quantity,
+            import_cost: desired.import_cost,
+            delivery_date: orderDate || format(new Date(), 'yyyy-MM-dd')
+          })
+          .eq('id', match.id);
+      } else {
+        await supabaseService.from('delivery_orders').insert({
+          import_order_id: orderId,
+          product_name: desired.product_name,
+          total_quantity: desired.total_quantity,
+          import_cost: desired.import_cost,
+          delivery_date: orderDate || format(new Date(), 'yyyy-MM-dd'),
+          status: 'pending'
+        });
+      }
+    }
+
+    // Delete unused
+    const toDelete = existingList.filter(e => !usedIds.has(e.id)).map(e => e.id);
+    if (toDelete.length > 0) {
+      await supabaseService.from('delivery_orders').delete().in('id', toDelete);
+    }
   }
 }
 

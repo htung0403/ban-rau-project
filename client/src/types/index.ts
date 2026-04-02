@@ -60,6 +60,17 @@ export interface PriceSetting {
   profiles?: { full_name: string };
 }
 
+// --- Role Salaries ---
+export interface RoleSalary {
+  id: string;
+  role_key: string;
+  role_name: string;
+  daily_wage: number;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // --- Products ---
 export interface Product {
   id: string;
@@ -251,17 +262,56 @@ export interface VehicleCheckin {
 }
 
 // --- Payment Collections ---
+export type PaymentCollectionStatus = 'draft' | 'submitted' | 'confirmed' | 'self_confirmed';
+export type PaymentReceiverType = 'staff' | 'manager';
+
 export interface PaymentCollection {
   id: string;
-  vehicle_id?: string;
-  driver_id?: string;
-  amount: number;
-  collected_date: string;
-  collected_time: string;
-  received_by?: string;
-  delivery_order_id?: string;
+  deliveryOrderId: string;
+  deliveryOrderCode: string;
+  customerId: string;
+  customerName: string;
+  driverId: string;
+  driverName: string;
+  vehicleId: string;
+  licensePlate: string;
+  expectedAmount: number;
+  collectedAmount: number;
+  difference: number;                  // collectedAmount - expectedAmount
+  collectedAt: string;
+  status: PaymentCollectionStatus;
+  submittedAt?: string;
+  receiverId?: string;
+  receiverName?: string;
+  receiverType?: PaymentReceiverType;
+  confirmedAt?: string;
+  selfConfirmReason?: string;
   notes?: string;
-  confirmed_at: string;
+}
+
+export interface CreatePaymentCollectionDto {
+  deliveryOrderId: string;
+  collectedAmount: number;
+  collectedAt: string;
+  notes?: string;
+}
+
+export interface UpdatePaymentCollectionDto {
+  collectedAmount?: number;
+  collectedAt?: string;
+  notes?: string;
+}
+
+export interface SubmitPaymentDto {
+  receiverId: string;
+  receiverType: PaymentReceiverType;
+  submittedAt: string;
+  notes?: string;
+}
+
+export interface ConfirmPaymentDto {
+  confirmedAt: string;
+  notes?: string;
 }
 
 // --- Receipts ---
@@ -324,6 +374,23 @@ export interface Attendance {
   note?: string;
 }
 
+// --- Compensatory Attendances ---
+export type CompensatoryStatus = 'pending' | 'approved' | 'rejected';
+
+export interface CompensatoryAttendance {
+  id: string;
+  employee_id: string;
+  work_date: string;
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+  reason: string;
+  status: CompensatoryStatus;
+  approved_by?: string;
+  approved_at?: string;
+  created_at: string;
+  profiles?: { full_name: string };
+}
+
 // --- Payroll ---
 export type PayrollStatus = 'draft' | 'confirmed' | 'paid';
 
@@ -339,6 +406,8 @@ export interface Payroll {
   net_salary: number;   // GENERATED
   status: PayrollStatus;
   created_by?: string;
+  approved_by?: string;
+  approved_at?: string;
   created_at: string;
   // Nested
   profiles?: { full_name: string };

@@ -50,30 +50,6 @@ export class VehicleService {
     return data;
   }
 
-  static async collectPayment(paymentData: any, receivedBy: string) {
-    const { data, error } = await supabaseService
-      .from('payment_collections')
-      .insert({
-        ...paymentData,
-        received_by: receivedBy,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  }
-
-  static async getCollections(filters: any) {
-    let query = supabaseService.from('payment_collections').select('*, profiles!payment_collections_driver_id_fkey(full_name), vehicles(license_plate)');
-
-    if (filters.date) query = query.eq('collected_date', filters.date);
-    if (filters.vehicle_id) query = query.eq('vehicle_id', filters.vehicle_id);
-
-    const { data, error } = await query;
-    if (error) throw error;
-    return data;
-  }
 
   static async getAssignments(vehicleId: string) {
     const { data, error } = await supabaseService

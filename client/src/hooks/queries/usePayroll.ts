@@ -46,3 +46,15 @@ export function useConfirmPayroll() {
     onError: () => toast.error('Lỗi khi chốt lương'),
   });
 }
+
+export function useUpdatePayrollStatuses() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (updates: { id: string, status: string }[]) => payrollApi.updateStatuses(updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: payrollKeys.all });
+      toast.success('Cập nhật trạng thái thành công');
+    },
+    onError: () => toast.error('Lỗi cập nhật trạng thái'),
+  });
+}

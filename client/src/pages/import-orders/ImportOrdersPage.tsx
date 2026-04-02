@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, X, ChevronLeft, ChevronRight, Edit, Trash2, Calendar, Truck, Package } from 'lucide-react';
+import { Plus, Search, X, ChevronLeft, ChevronRight, Edit, Trash2, Calendar, Package } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useImportOrders, useDeleteImportOrder } from '../../hooks/queries/useImportOrders';
 import type { ImportOrder, ImportOrderFilters, OrderStatus } from '../../types';
@@ -10,7 +10,6 @@ import ErrorState from '../../components/shared/ErrorState';
 import PageHeader from '../../components/shared/PageHeader';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import AddEditImportOrderDialog from './dialogs/AddEditImportOrderDialog';
-import CreateDeliveryDialog from './dialogs/CreateDeliveryDialog';
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'Chờ xử lý',
@@ -38,10 +37,6 @@ const ImportOrdersPage: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDialogClosing, setIsDialogClosing] = useState(false);
   const [editingOrder, setEditingOrder] = useState<ImportOrder | null>(null);
-
-  const [isDeliveryOpen, setIsDeliveryOpen] = useState(false);
-  const [isDeliveryClosing, setIsDeliveryClosing] = useState(false);
-  const [selectedForDelivery, setSelectedForDelivery] = useState<ImportOrder | null>(null);
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -87,20 +82,6 @@ const ImportOrdersPage: React.FC = () => {
       setIsDialogOpen(false);
       setIsDialogClosing(false);
       setEditingOrder(null);
-    }, 350);
-  };
-
-  const openDeliveryDialog = (order: ImportOrder) => {
-    setSelectedForDelivery(order);
-    setIsDeliveryOpen(true);
-  };
-
-  const closeDeliveryDialog = () => {
-    setIsDeliveryClosing(true);
-    setTimeout(() => {
-      setIsDeliveryOpen(false);
-      setIsDeliveryClosing(false);
-      setSelectedForDelivery(null);
     }, 350);
   };
 
@@ -286,13 +267,6 @@ const ImportOrdersPage: React.FC = () => {
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1">
                           <button
-                            onClick={(e) => { e.stopPropagation(); openDeliveryDialog(order); }}
-                            className="p-1.5 rounded-lg text-orange-500 hover:bg-orange-50 transition-colors"
-                            title="Giao hàng"
-                          >
-                            <Truck size={14} />
-                          </button>
-                          <button
                             onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
                             className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
                             title="Sửa"
@@ -347,12 +321,6 @@ const ImportOrdersPage: React.FC = () => {
                       <span className="text-[13px] font-bold text-primary tabular-nums mr-2">
                         {formatCurrency(order.import_order_items?.reduce((sum, item) => sum + (item.total_amount || 0), 0) || order.total_amount || 0)}
                       </span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openDeliveryDialog(order); }}
-                        className="p-1.5 rounded-lg text-orange-500 hover:bg-orange-50 transition-colors"
-                      >
-                        <Truck size={14} />
-                      </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
                         className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
@@ -418,14 +386,6 @@ const ImportOrdersPage: React.FC = () => {
         isClosing={isDialogClosing}
         editingOrder={editingOrder}
         onClose={closeDialog}
-      />
-
-      {/* Delivery Dialog */}
-      <CreateDeliveryDialog
-        isOpen={isDeliveryOpen}
-        isClosing={isDeliveryClosing}
-        importOrder={selectedForDelivery}
-        onClose={closeDeliveryDialog}
       />
 
       {/* Delete Confirm */}

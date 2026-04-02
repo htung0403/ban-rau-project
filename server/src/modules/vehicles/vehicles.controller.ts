@@ -16,15 +16,6 @@ const checkinSchema = z.object({
   address_snapshot: z.string().optional(),
 });
 
-const collectPaymentSchema = z.object({
-  vehicle_id: z.string().uuid(),
-  driver_id: z.string().uuid(),
-  amount: z.number().positive(),
-  collected_date: z.string(),
-  collected_time: z.string(),
-  delivery_order_id: z.string().uuid().optional(),
-  notes: z.string().optional(),
-});
 
 export class VehicleController {
   static async getAll(req: Request, res: Response) {
@@ -75,24 +66,6 @@ export class VehicleController {
     }
   }
 
-  static async collectPayment(req: Request, res: Response) {
-    try {
-      const validated = collectPaymentSchema.parse(req.body);
-      const data = await VehicleService.collectPayment(validated, req.user!.id);
-      return res.status(201).json(successResponse(data, 'Payment collection recorded'));
-    } catch (err: any) {
-      return res.status(400).json(errorResponse(err.message));
-    }
-  }
-
-  static async getCollections(req: Request, res: Response) {
-    try {
-      const data = await VehicleService.getCollections(req.query);
-      return res.status(200).json(successResponse(data));
-    } catch (err: any) {
-      return res.status(400).json(errorResponse(err.message));
-    }
-  }
 
   static async getAssignments(req: Request, res: Response) {
     try {

@@ -5,6 +5,7 @@ CREATE TABLE public.profiles (
   phone VARCHAR(20),
   role VARCHAR(20) NOT NULL CHECK (role IN ('admin','manager','staff','driver','customer')),
   is_active BOOLEAN DEFAULT true,
+  avatar_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -133,16 +134,36 @@ CREATE TABLE public.vehicle_checkins (
 -- 11. PAYMENT COLLECTIONS
 CREATE TABLE public.payment_collections (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  vehicle_id UUID REFERENCES public.vehicles(id),
-  driver_id UUID REFERENCES public.profiles(id),
-  amount NUMERIC(15,2) NOT NULL,
-  collected_date DATE NOT NULL,
-  collected_time TIME NOT NULL,
-  received_by UUID REFERENCES public.profiles(id),
-  delivery_order_id UUID REFERENCES public.delivery_orders(id),
+  delivery_order_id UUID NOT NULL REFERENCES public.delivery_orders(id),
+  customer_id UUID REFERENCES public.customers(id),
+  driver_id UUID NOT NULL REFERENCES public.profiles(id),
+  vehicle_id UUID NOT NULL REFERENCES public.vehicles(id),
+  expected_amount NUMERIC(15,2) NOT NULL,
+  collected_amount NUMERIC(15,2) NOT NULL,
+  difference NUMERIC(15,2) GENERATED ALWAYS AS (collected_amount - expected_amount) STORED,
+  collected_at TIMESTAMPTZ NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft','submitted','confirmed','self_confirmed')),
+  submitted_at TIMESTAMPTZ,
+  receiver_id UUID REFERENCES public.profiles(id),
+  receiver_type VARCHAR(10) CHECK (receiver_type IN ('staff','manager')),
+  confirmed_at TIMESTAMPTZ,
+  self_confirm_reason TEXT,
   notes TEXT,
-  confirmed_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Indexes
+CREATE INDEX idx_pc_driver_id ON public.payment_collections(driver_id);
+CREATE INDEX idx_pc_status ON public.payment_collections(status);
+CREATE INDEX idx_pc_collected_at ON public.payment_collections(collected_at);
+CREATE INDEX idx_pc_vehicle_id ON public.payment_collections(vehicle_id);
+
+-- Constraint for uniqueness
+CREATE UNIQUE INDEX unique_active_collection 
+  ON public.payment_collections(delivery_order_id) 
+  WHERE status IN ('submitted','confirmed','self_confirmed');
 
 -- 12. LEAVE REQUESTS
 CREATE TABLE public.leave_requests (
@@ -177,11 +198,28 @@ CREATE TABLE public.attendance (
   employee_id UUID REFERENCES public.profiles(id),
   work_date DATE NOT NULL,
   is_present BOOLEAN DEFAULT false,
+  check_in_time TIME,
+  check_out_time TIME,
   note TEXT,
   UNIQUE(employee_id, work_date)
 );
 
--- 15. PAYROLL
+-- 15. COMPENSATORY ATTENDANCES
+CREATE TABLE public.compensatory_attendances (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  work_date DATE NOT NULL,
+  check_in_time TIME,
+  check_out_time TIME,
+  reason TEXT,
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+  approved_by UUID REFERENCES public.profiles(id),
+  approved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(employee_id, work_date)
+);
+
+-- 16. PAYROLL
 CREATE TABLE public.payroll (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_id UUID REFERENCES public.profiles(id),
@@ -194,5 +232,7 @@ CREATE TABLE public.payroll (
   net_salary NUMERIC(15,2) GENERATED ALWAYS AS (days_worked * daily_wage - total_advances) STORED,
   status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft','confirmed','paid')),
   created_by UUID REFERENCES public.profiles(id),
+  approved_by UUID REFERENCES public.profiles(id),
+  approved_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );

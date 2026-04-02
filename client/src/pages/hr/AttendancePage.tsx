@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import PageHeader from '../../components/shared/PageHeader';
-import { useEmployees, useMarkAttendance, useAttendance } from '../../hooks/queries/useHR';
+import { useEmployees, useMarkAttendance, useAttendance, useCreateCompensatoryAttendance } from '../../hooks/queries/useHR';
+import { useRoleSalaries } from '../../hooks/queries/usePriceSettings';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
 import EmptyState from '../../components/shared/EmptyState';
-import { Check, X, User as UserIcon, Clock, Plus, Camera, ChevronRight } from 'lucide-react';
+import { Check, X, User as UserIcon, Clock, Plus, Camera, ChevronRight, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, subDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -23,6 +25,7 @@ const AttendancePage: React.FC = () => {
   const daysInWeek = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
   const { data: employees, isLoading: loadingEmployees, isError: errorEmployees, refetch: refetchEmployees } = useEmployees();
+  const { data: roles } = useRoleSalaries();
   const { data: attendanceData, isLoading: loadingAttendance, refetch: refetchAttendance } = useAttendance(
     selectedDate, 
     format(weekStart, 'yyyy-MM-dd'), 
@@ -36,10 +39,16 @@ const AttendancePage: React.FC = () => {
   const [attType, setAttType] = useState<'in' | 'out'>('in');
   const [attTime, setAttTime] = useState(format(new Date(), 'HH:mm'));
   const [attEmployee, setAttEmployee] = useState<any>(null);
+  const [reason, setReason] = useState('');
 
   // Local state for view only - Map by employee_id AND date
   const [localAttendance, setLocalAttendance] = useState<Record<string, Record<string, Partial<Attendance>>>>({});
   const [dialogDate, setDialogDate] = useState(selectedDate);
+  const createCompensatory = useCreateCompensatoryAttendance();
+
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const isPastDate = dialogDate < todayStr;
+  const isFutureDate = dialogDate > todayStr;
 
   useEffect(() => {
     if (attendanceData) {
@@ -53,9 +62,15 @@ const AttendancePage: React.FC = () => {
   }, [attendanceData]);
 
   const handleOpen = (emp?: any, date?: string) => {
+    const d = date || selectedDate;
+    if (d > todayStr) {
+      toast.error('Không được chấm công cho ngày trong tương lai');
+      return;
+    }
     setAttTime(format(new Date(), 'HH:mm'));
     setAttEmployee(emp || user);
-    setDialogDate(date || selectedDate);
+    setDialogDate(d);
+    setReason('');
     setIsOpen(true);
     setIsClosing(false);
   };
@@ -71,6 +86,32 @@ const AttendancePage: React.FC = () => {
 
   const handleSaveAttendance = async () => {
     if (!attEmployee) return;
+
+    if (isFutureDate) {
+      toast.error('Không được chấm công cho ngày trong tương lai');
+      return;
+    }
+
+    if (dialogDate === todayStr) {
+      const currentTime = format(new Date(), 'HH:mm');
+      if (attTime > currentTime && attType !== 'out') {
+        // Technically can check out later today, but usually shouldn't check in/out in the future.
+        // The prompt says "chỉ cho phép giờ <= giờ hiện tại đối với chấm công"
+        if (attTime > currentTime) {
+          toast.error('Giờ chấm công không được lớn hơn giờ hiện tại');
+          return;
+        }
+      } else if (attTime > currentTime) {
+        toast.error('Giờ chấm công không được lớn hơn giờ hiện tại');
+        return;
+      }
+    }
+
+    if (isPastDate && !reason.trim()) {
+      toast.error('Vui lòng nhập lý do chấm công bù');
+      return;
+    }
+
     const existing = (localAttendance[attEmployee.id] || {})[dialogDate] || {};
     const ensureSeconds = (t: string | null | undefined) => {
       if (!t) return null;
@@ -78,13 +119,23 @@ const AttendancePage: React.FC = () => {
       return t;
     };
 
-    await markAttendance.mutateAsync({
-      employee_id: attEmployee.id,
-      work_date: dialogDate,
-      is_present: true,
-      check_in_time: attType === 'in' ? ensureSeconds(attTime) : (existing.check_in_time || null),
-      check_out_time: attType === 'out' ? ensureSeconds(attTime) : (existing.check_out_time || null),
-    });
+    if (isPastDate) {
+      await createCompensatory.mutateAsync({
+        work_date: dialogDate,
+        check_in_time: attType === 'in' ? ensureSeconds(attTime) : (existing.check_in_time || null),
+        check_out_time: attType === 'out' ? ensureSeconds(attTime) : (existing.check_out_time || null),
+        reason: reason.trim(),
+      });
+    } else {
+      await markAttendance.mutateAsync({
+        employee_id: attEmployee.id,
+        work_date: dialogDate,
+        is_present: true,
+        check_in_time: attType === 'in' ? ensureSeconds(attTime) : (existing.check_in_time || null),
+        check_out_time: attType === 'out' ? ensureSeconds(attTime) : (existing.check_out_time || null),
+      });
+    }
+
     handleClose();
     refetchAttendance();
   };
@@ -160,8 +211,8 @@ const AttendancePage: React.FC = () => {
               <tbody className="divide-y divide-border/50">
                 {employees
                   .filter((e) => {
-                    if (!['staff', 'driver', 'manager'].includes(e.role)) return false;
-                    if (user?.role === 'admin') return true;
+                    if (e.role === 'admin') return false;
+                    if (user?.role === 'admin' || user?.role === 'manager') return true;
                     return e.id === user?.id;
                   })
                   .map((e) => {
@@ -181,7 +232,7 @@ const AttendancePage: React.FC = () => {
                             )}
                             <div className="flex flex-col">
                               <span className="text-[13px] font-bold text-foreground group-hover:text-primary transition-colors">{e.full_name}</span>
-                              <span className="text-[10px] font-medium text-muted-foreground">{translateRole(e.role)}</span>
+                              <span className="text-[10px] font-medium text-muted-foreground">{roles?.find(r => r.role_key === e.role)?.role_name || translateRole(e.role)}</span>
                             </div>
                           </div>
                         </td>
@@ -256,10 +307,12 @@ const AttendancePage: React.FC = () => {
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  <Clock size={20} />
+                <div className={clsx("w-10 h-10 rounded-full flex items-center justify-center", isPastDate ? "bg-amber-500/10 text-amber-500" : "bg-primary/10 text-primary")}>
+                  {isPastDate ? <Clock size={20} /> : <Clock size={20} />}
                 </div>
-                <h3 className="text-lg font-bold text-foreground tracking-tight">Thêm bản ghi chấm công</h3>
+                <h3 className="text-lg font-bold text-foreground tracking-tight">
+                  {isPastDate ? 'Tạo phiếu chấm công bù' : 'Thêm bản ghi chấm công'}
+                </h3>
               </div>
               <button
                 onClick={handleClose}
@@ -292,9 +345,11 @@ const AttendancePage: React.FC = () => {
 
               {/* Form Fields Section */}
               <div className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden pb-6">
-                <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
-                  <UserIcon size={14} className="text-primary" />
-                  <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Thông tin chấm công</span>
+                <div className={clsx("px-5 py-3 border-b border-border flex items-center gap-2", isPastDate ? "bg-amber-500/5 text-amber-600 border-amber-500/20" : "bg-muted/5")}>
+                  {isPastDate ? <AlertCircle size={14} className="text-amber-500" /> : <UserIcon size={14} className="text-primary" />}
+                  <span className={clsx("text-[12px] font-bold uppercase tracking-wider", isPastDate ? "text-amber-600" : "text-primary")}>
+                    {isPastDate ? 'Tạo yêu cầu do chọn ngày đã qua' : 'Thông tin chấm công'}
+                  </span>
                 </div>
 
                 <div className="p-6 space-y-5">
@@ -354,6 +409,18 @@ const AttendancePage: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {isPastDate && (
+                    <div className="space-y-1.5 pt-4 border-t border-border/50">
+                      <label className="text-[13px] font-bold text-foreground flex items-center gap-2">Lý do chấm công bù <span className="text-red-500">*</span></label>
+                      <textarea
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        placeholder="Nhập lý do gửi quản lý duyệt..."
+                        className="w-full px-4 py-2.5 bg-white border border-border rounded-xl text-[13px] font-medium text-foreground focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/30 transition-all outline-none resize-none h-24"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -368,13 +435,16 @@ const AttendancePage: React.FC = () => {
               </button>
               <button
                 onClick={handleSaveAttendance}
-                disabled={markAttendance.isPending}
-                className="flex-[2] py-3 bg-primary text-white rounded-2xl text-[13px] font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                disabled={markAttendance.isPending || createCompensatory.isPending}
+                className={clsx(
+                  "flex-[2] py-3 text-white rounded-2xl text-[13px] font-bold transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50",
+                  isPastDate ? "bg-amber-500 hover:bg-amber-600 shadow-amber-500/20" : "bg-primary hover:bg-primary/90 shadow-primary/20"
+                )}
               >
-                {markAttendance.isPending ? 'Đang lưu...' : (
+                {markAttendance.isPending || createCompensatory.isPending ? 'Đang lưu...' : (
                   <>
                     <Check size={18} />
-                    LƯU CHẤM CÔNG
+                    {isPastDate ? 'GỬI YÊU CẦU' : 'LƯU CHẤM CÔNG'}
                     <ChevronRight size={16} />
                   </>
                 )}

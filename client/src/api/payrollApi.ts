@@ -21,4 +21,9 @@ export const payrollApi = {
     const { data } = await axiosClient.put<Payroll>(`/payroll/${id}/confirm`);
     return data;
   },
+
+  updateStatuses: async (updates: { id: string, status: string }[]) => {
+    const { data } = await axiosClient.put('/payroll/update-statuses', { updates });
+    return data;
+  },
 };

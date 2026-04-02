@@ -8,6 +8,13 @@ const updatePriceSchema = z.object({
   description: z.string().optional(),
 });
 
+const upsertRoleSalarySchema = z.object({
+  role_key: z.string().min(1),
+  role_name: z.string().min(1),
+  daily_wage: z.number().min(0),
+  description: z.string().optional(),
+});
+
 export class PriceSettingsController {
   static async getAll(req: Request, res: Response) {
     try {
@@ -28,6 +35,39 @@ export class PriceSettingsController {
         req.user!.id
       );
       return res.status(200).json(successResponse(data, 'Price setting updated'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async getRoleSalaries(req: Request, res: Response) {
+    try {
+      const data = await PriceSettingsService.getRoleSalaries();
+      return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async upsertRoleSalary(req: Request, res: Response) {
+    try {
+      const validated = upsertRoleSalarySchema.parse(req.body);
+      const data = await PriceSettingsService.upsertRoleSalary(
+        validated.role_key,
+        validated.role_name,
+        validated.daily_wage,
+        validated.description
+      );
+      return res.status(201).json(successResponse(data, 'Role salary updated'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async deleteRoleSalary(req: Request, res: Response) {
+    try {
+      await PriceSettingsService.deleteRoleSalary(req.params.key);
+      return res.status(200).json(successResponse(null, 'Role salary deleted'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
     }

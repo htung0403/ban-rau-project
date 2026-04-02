@@ -5,8 +5,10 @@ import { ModuleCard } from '../components/ui/ModuleCard';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { moduleData } from '../data/moduleData';
 import { sidebarMenu } from '../data/sidebarMenu';
+import { useAuth } from '../context/AuthContext';
 
 const ModulePage: React.FC = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'tat-ca' | 'danh-dau'>('tat-ca');
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
@@ -84,11 +86,15 @@ const ModulePage: React.FC = () => {
       ) : data.length > 0 ? (
         <div className="space-y-8">
           {data.map((section, idx) => {
-            // Filter items by search query
-            const filteredItems = section.items.filter(item => 
-              item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-              item.description.toLowerCase().includes(searchQuery.toLowerCase())
-            );
+            // Filter items by search query and user role
+            const filteredItems = section.items.filter(item => {
+              // Only admin/manager can see Duyet don
+              if (item.path === '/hanh-chinh-nhan-su/duyet-don' && user?.role !== 'admin' && user?.role !== 'manager') {
+                return false;
+              }
+              return item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                     item.description.toLowerCase().includes(searchQuery.toLowerCase());
+            });
 
             if (filteredItems.length === 0) return null;
 

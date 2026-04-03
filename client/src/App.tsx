@@ -14,6 +14,7 @@ import ImportOrdersPage from './pages/import-orders/ImportOrdersPage';
 import ExportOrdersPage from './pages/export-orders/ExportOrdersPage';
 import DeliveryPage from './pages/delivery/DeliveryPage';
 import WarehousesPage from './pages/warehouse/WarehousesPage';
+import VegetablesPage from './pages/import-orders/VegetablesPage';
 import EmployeesPage from './pages/hr/EmployeesPage';
 import LeaveRequestsPage from './pages/hr/LeaveRequestsPage';
 import AttendancePage from './pages/hr/AttendancePage';
@@ -84,6 +85,7 @@ function AppRoutes() {
         <Route path="/hang-hoa" element={<ModulePage />} />
         <Route path="/hang-hoa/danh-muc" element={<ProductsPage />} />
         <Route path="/hang-hoa/nhap-hang" element={<ImportOrdersPage />} />
+        <Route path="/hang-hoa/hang-rau" element={<VegetablesPage />} />
         <Route path="/hang-hoa/xuat-hang" element={<ExportOrdersPage />} />
         <Route path="/hang-hoa/giao-hang" element={<DeliveryPage />} />
         <Route path="/hang-hoa/kho" element={<WarehousesPage />} />

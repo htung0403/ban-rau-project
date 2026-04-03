@@ -19,6 +19,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
         { icon: Warehouse, title: 'Tồn kho thực tế', description: 'Quản lý sản phẩm còn tồn kho chờ giao.', colorScheme: 'teal', path: '/hang-hoa/kho' },
         { icon: Upload, title: 'Xuất hàng', description: 'Quản lý phiếu xuất kho.', colorScheme: 'red', path: '/hang-hoa/xuat-hang' },
         { icon: Download, title: 'Nhập hàng', description: 'Quản lý phiếu nhập kho.', colorScheme: 'green', path: '/hang-hoa/nhap-hang' },
+        { icon: ClipboardList, title: 'Bảng Hàng Rau', description: 'Bảng xem chi tiết các mặt hàng rau nhập.', colorScheme: 'purple', path: '/hang-hoa/hang-rau' },
         { icon: DeliveryIcon, title: 'Hàng cần giao', description: 'Danh sách các đơn hàng cần giao.', colorScheme: 'orange', path: '/hang-hoa/giao-hang' },
       ]
     }

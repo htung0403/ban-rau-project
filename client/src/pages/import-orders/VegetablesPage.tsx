@@ -100,8 +100,8 @@ const VegetablesPage: React.FC = () => {
         />
       ) : (
         <div className="flex-1 bg-white rounded-2xl border border-border shadow-sm flex flex-col min-h-0 overflow-hidden">
-          <div className="flex-1 overflow-auto custom-scrollbar p-1">
-            <table className="w-full border-collapse border border-border min-w-[800px]">
+          <div className="flex-1 overflow-auto custom-scrollbar">
+            <table className="w-full border-collapse min-w-[800px] border-hidden">
               <thead className="sticky top-0 z-10 bg-muted/60">
                 <tr>
                   <th className="px-4 py-3 border border-border text-[12px] font-bold text-muted-foreground/80 uppercase tracking-widest text-left">Tên Vựa</th>

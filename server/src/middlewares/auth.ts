@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { supabaseService } from '../config/supabase';
 import { errorResponse } from '../utils/response';
 import { UserPayload, Role } from '../types';
+import jwt from 'jsonwebtoken';
+import { env } from '../config/env';
 
 // Simple in-memory cache for profiles to reduce DB round-trips
 // Key: userId, Value: { profile: any, timestamp: number }
@@ -19,18 +21,27 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
   const start = Date.now();
 
   try {
-    // 1. Verify token & get user - This is a round-trip to Supabase Auth
+    // 1. Verify token locally (Offline) using JWT_SECRET
+    // This avoids a 300ms network roundtrip to Supabase Auth
     const authStart = Date.now();
-    const { data: { user }, error } = await (supabaseService.auth as any).getUser(token);
-    const authEnd = Date.now();
-
-    if (error || !user) {
+    let decoded;
+    try {
+      decoded = jwt.verify(token, env.JWT_SECRET) as any;
+    } catch (jwtErr) {
       return res.status(401).json(errorResponse('Invalid or expired token', 'UNAUTHORIZED'));
+    }
+    const authEnd = Date.now();
+    
+    const userId = decoded.sub; // Supabase stores user ID in 'sub' claim
+    const email = decoded.email;
+
+    if (!userId) {
+      return res.status(401).json(errorResponse('Invalid token payload', 'UNAUTHORIZED'));
     }
 
     // 2. Get profile - Check cache first to save a DB round-trip
     let profile: any = null;
-    const cached = profileCache.get(user.id);
+    const cached = profileCache.get(userId);
     const now = Date.now();
 
     if (cached && (now - cached.timestamp < CACHE_TTL)) {
@@ -40,7 +51,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       const { data, error: profileError } = await supabaseService
         .from('profiles')
         .select('role, full_name')
-        .eq('id', user.id)
+        .eq('id', userId)
         .single();
       const profileEnd = Date.now();
       
@@ -49,7 +60,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       }
       
       profile = data;
-      profileCache.set(user.id, { profile: data, timestamp: now });
+      profileCache.set(userId, { profile: data, timestamp: now });
       
       const dbTime = profileEnd - profileStart;
       if (dbTime > 500) {
@@ -58,16 +69,16 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     }
 
     req.user = {
-      id: user.id,
-      email: user.email!,
+      id: userId,
+      email: email || '',
       role: profile.role as Role,
       full_name: profile.full_name,
     };
     req.token = token;
 
     const totalTime = Date.now() - start;
-    if (totalTime > 600) {
-      console.warn(`[PERF WARNING] authMiddleware took ${totalTime}ms (auth: ${authEnd - authStart}ms, profile: ${cached ? 'CACHED' : 'FETCHED'})`);
+    if (totalTime > 200) {
+      console.warn(`[PERF WARNING] authMiddleware took ${totalTime}ms (auth local: ${authEnd - authStart}ms, profile: ${cached ? 'CACHED' : 'FETCHED'})`);
     }
 
     next();

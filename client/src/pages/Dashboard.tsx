@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { ActionCard } from '../components/ui/ActionCard';
 import type { ActionCardProps } from '../components/ui/ActionCard';
 import { Box, Users, Wallet, Car, Copyright, Search } from 'lucide-react';
@@ -45,7 +46,16 @@ const dashboardModules: ActionCardProps[] = [
 ];
 
 const Dashboard: React.FC = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'chuc-nang' | 'danh-dau' | 'tat-ca'>('chuc-nang');
+  const [greeting, setGreeting] = useState('Chào bạn');
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) setGreeting('Chào buổi sáng');
+    else if (hour < 18) setGreeting('Chào buổi chiều');
+    else setGreeting('Chào buổi tối');
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
 
   const allSections = Object.values(moduleData).flat();
@@ -54,7 +64,7 @@ const Dashboard: React.FC = () => {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="mb-6 lg:mb-8">
         <h1 className="text-xl lg:text-2xl font-bold flex items-center gap-2 text-foreground">
-          Chào buổi tối, <span className="text-primary">Lê Minh Công</span> 👋
+          {greeting}, <span className="text-primary">{user?.full_name || 'Người dùng'}</span> 👋
         </h1>
       </div>
 

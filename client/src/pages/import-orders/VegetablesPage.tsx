@@ -4,8 +4,10 @@ import { useImportOrders } from '../../hooks/queries/useImportOrders';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Search, Calendar } from 'lucide-react';
+import { Search, Calendar, Filter, X } from 'lucide-react';
 import { format } from 'date-fns';
+
+import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 
 const formatCurrency = (value?: number | null) => {
   if (value == null) return '-';
@@ -39,6 +41,18 @@ const getAssignedVehicles = (item: any) => {
 const VegetablesPage: React.FC = () => {
   const [filterDate, setFilterDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isFilterClosing, setIsFilterClosing] = useState(false);
+
+  const openFilter = () => setIsFilterOpen(true);
+  const closeFilter = () => {
+    setIsFilterClosing(true);
+    setTimeout(() => {
+      setIsFilterOpen(false);
+      setIsFilterClosing(false);
+    }, 300);
+  };
 
   const filters: any = {};
   if (filterDate) filters.date = filterDate;
@@ -81,27 +95,43 @@ const VegetablesPage: React.FC = () => {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
-      <PageHeader
-        title="Bảng Hàng Rau"
-        description="Xem danh sách chi tiết các mặt hàng rau nhập trong ngày"
-        backPath="/hang-hoa"
-      />
+      <div className="hidden md:block">
+        <PageHeader
+          title="Bảng Hàng Rau"
+          description="Xem danh sách chi tiết các mặt hàng rau nhập trong ngày"
+          backPath="/hang-hoa"
+        />
+      </div>
 
-      <div className="bg-card flex flex-wrap sm:flex-nowrap gap-2 items-center rounded-xl shadow-sm border border-border p-2 mb-6">
-        <div className="relative w-full max-w-sm">
-          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
-            <Search size={16} />
+      <div className="bg-card flex flex-col md:flex-row md:flex-nowrap gap-2 items-center rounded-xl shadow-sm border border-border p-2 md:mb-6 mb-3">
+        <div className="flex w-full md:w-auto flex-1 gap-2 relative">
+          <div className="relative w-full flex-1 md:max-w-sm">
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
+              <Search size={16} />
+            </div>
+            <input
+              type="text"
+              className="w-full text-[13px] bg-transparent border border-border rounded-lg pl-9 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/60"
+              placeholder="Tìm kiếm theo tên vựa hoặc tên hàng..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <X size={14} />
+              </button>
+            )}
           </div>
-          <input
-            type="text"
-            className="w-full text-[13px] bg-transparent border border-border rounded-lg pl-9 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/60"
-            placeholder="Tìm kiếm theo tên vựa hoặc tên hàng..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          
+          <button
+            onClick={openFilter}
+            className="md:hidden flex items-center justify-center w-[38px] shrink-0 border border-border/80 rounded-xl transition-all bg-muted/20 text-muted-foreground hover:bg-muted"
+          >
+             <Filter size={18} />
+          </button>
         </div>
 
-        <div className="relative w-full max-w-[200px]">
+        <div className="hidden md:block relative w-full md:max-w-[200px]">
           <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
             <Calendar size={16} />
           </div>
@@ -124,10 +154,12 @@ const VegetablesPage: React.FC = () => {
           description={filterDate ? `Không có mặt hàng nào được nhập vào ngày ${format(new Date(filterDate), 'dd/MM/yyyy')}` : "Chưa có mặt hàng nào."}
         />
       ) : (
-        <div className="flex-1 bg-white rounded-2xl border border-border shadow-sm flex flex-col min-h-0 overflow-hidden">
-          <div className="flex-1 overflow-auto custom-scrollbar">
-            <table className="w-full border-collapse min-w-[800px] border-hidden">
-              <thead className="sticky top-0 z-10 bg-muted/60">
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Desktop Table View */}
+          <div className="hidden md:flex flex-1 bg-white rounded-2xl border border-border shadow-sm flex-col min-h-0 overflow-hidden">
+            <div className="flex-1 overflow-auto custom-scrollbar">
+              <table className="w-full border-collapse min-w-[800px] border-hidden">
+                <thead className="sticky top-0 z-10 bg-muted/60">
                 <tr>
                   <th className="px-4 py-3 border border-border text-[12px] font-bold text-muted-foreground/80 uppercase tracking-widest text-left">Tên Vựa</th>
                   <th className="px-4 py-3 border border-border text-[12px] font-bold text-muted-foreground/80 uppercase tracking-widest text-center w-36">Tài</th>
@@ -186,7 +218,62 @@ const VegetablesPage: React.FC = () => {
             </table>
           </div>
         </div>
+
+        {/* Mobile Card View */}
+        <div className="md:hidden flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto flex flex-col gap-3 pb-2 mt-1">
+            {filteredItems.map((item, idx) => (
+              <div key={item.id || idx} className="bg-white rounded-2xl border border-border shadow-sm p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 pr-2 min-w-0">
+                    <div className="text-[14px] font-bold text-foreground mb-2 whitespace-normal leading-snug">
+                      {item.order?.sender_name || item.order?.customers?.name || '-'}
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[12px] text-muted-foreground flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase w-8 shrink-0">Tài</span>
+                        <span className="font-medium text-foreground truncate">{getAssignedVehicles(item)}</span>
+                      </div>
+                      <div className="text-[12px] text-muted-foreground flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase w-8 shrink-0">Hàng</span>
+                        <span className="font-medium text-foreground truncate">{item.products?.name || '-'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-right shrink-0">
+                    <div className="text-[14px] font-black text-primary tabular-nums mb-1">
+                       {item.total_amount ? formatCurrency(item.total_amount) : '-'}
+                    </div>
+                    <div className="text-[12px] text-muted-foreground">
+                       <span className="font-bold text-foreground">{item.quantity}</span> x {item.unit_price ? formatCurrency(item.unit_price) : '-'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Mobile Total Bar */}
+          <div className="shrink-0 bg-white border border-border p-4 shadow-sm rounded-xl mt-2 flex items-center justify-between">
+            <span className="text-[14px] font-black uppercase text-foreground">Tổng cộng</span>
+            <span className="text-[16px] font-black text-primary tabular-nums">{formatCurrency(totalAmount)}</span>
+          </div>
+        </div>
+      </div>
       )}
+
+      <MobileFilterSheet
+        isOpen={isFilterOpen}
+        isClosing={isFilterClosing}
+        onClose={closeFilter}
+        onApply={(filters) => {
+          setFilterDate(filters.dateFrom || '');
+        }}
+        initialDateFrom={filterDate}
+        initialDateTo={filterDate}
+        dateLabel="Chọn ngày"
+      />
     </div>
   );
 };

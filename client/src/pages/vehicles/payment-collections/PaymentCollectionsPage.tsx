@@ -30,36 +30,45 @@ const PaymentCollectionsPage: React.FC = () => {
   }
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
-      <PageHeader
-        title="Quản lý thu tiền hàng"
-        description="Quản lý phiếu thu tiền, nộp tiền, và xác nhận công nợ"
-        backPath="/quan-ly-xe"
-      />
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col min-h-0">
+      <div className="hidden md:block">
+        <PageHeader
+          title="Quản lý thu tiền hàng"
+          description="Quản lý phiếu thu tiền, nộp tiền, và xác nhận công nợ"
+          backPath="/quan-ly-xe"
+        />
+      </div>
 
-      <div className="bg-card rounded-xl shadow-sm border border-border p-2 mb-6 flex bg-muted/30">
-        <div className="flex bg-muted rounded-lg p-1 w-full overflow-x-auto scrollbar-hide">
+      <div className="sticky top-[-16px] lg:top-[-24px] z-20 pt-4 lg:pt-6 -mt-4 lg:-mt-6 mb-4 md:mb-6 bg-background -mx-4 md:mx-0 border-b md:border-none border-border shadow-sm md:shadow-none">
+        <div className="md:bg-card md:rounded-xl md:shadow-sm md:border border-border md:p-2 flex md:bg-muted/30">
+          <div className="flex bg-muted/50 md:bg-muted md:rounded-lg p-1 w-full">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={clsx(
-                "flex-1 sm:flex-none px-4 py-2 rounded-md text-[13px] font-bold transition-all duration-200 whitespace-nowrap",
+                "flex-1 px-2 py-2 rounded-md text-[12px] sm:text-[13px] font-bold transition-all duration-200 text-center flex items-center justify-center",
                 activeTab === tab.id
                   ? "bg-card text-primary shadow-sm ring-1 ring-black/5"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {tab.label}
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="sm:hidden">
+                 {tab.id === 'thu-tien' ? 'Thu Tiền' : tab.id === 'xac-nhan' ? 'Xác Nhận' : 'Tổng Hợp'}
+              </span>
             </button>
           ))}
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {activeTab === 'thu-tien' && <DriverPaymentTab readonly={role !== 'driver'} />}
-        {activeTab === 'xac-nhan' && <StaffConfirmationTab />}
-        {activeTab === 'tong-hop' && <ManagerSummaryTab />}
+      <div className="flex-1 -mx-4 px-4 md:mx-0 md:px-0">
+        <div className="pt-2 md:pt-0">
+          {activeTab === 'thu-tien' && <DriverPaymentTab readonly={role !== 'driver'} />}
+          {activeTab === 'xac-nhan' && <StaffConfirmationTab />}
+          {activeTab === 'tong-hop' && <ManagerSummaryTab />}
+        </div>
       </div>
     </div>
   );

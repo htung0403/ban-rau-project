@@ -6,6 +6,7 @@ import { useRoleSalaries } from '../../hooks/queries/usePriceSettings';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
+import DraggableFAB from '../../components/shared/DraggableFAB';
 import { Users, Plus, X, UserPlus, Mail, Lock, Phone, ShieldCheck, ChevronRight, Loader2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -81,20 +82,23 @@ const EmployeesPage: React.FC = () => {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
-      <PageHeader 
-        title="Nhân sự" 
-        description="Danh sách nhân viên" 
-        backPath="/hanh-chinh-nhan-su" 
-        actions={
-          <button
-            onClick={handleOpenAdd}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
-          >
-            <Plus size={16} />
-            Thêm nhân sự
-          </button>
-        }
-      />
+      <div className="hidden md:block">
+        <PageHeader 
+          title="Nhân sự" 
+          description="Danh sách nhân viên" 
+          backPath="/hanh-chinh-nhan-su" 
+          actions={
+            <button
+              onClick={handleOpenAdd}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
+            >
+              <Plus size={16} />
+              Thêm nhân sự
+            </button>
+          }
+        />
+      </div>
+      <DraggableFAB icon={<Plus size={24} />} onClick={handleOpenAdd} />
       <div className="flex-1 min-h-0 flex flex-col">
         {isLoading ? (
           <div className="bg-white rounded-2xl border border-border shadow-sm p-4 flex-1"><LoadingSkeleton rows={6} columns={4} /></div>

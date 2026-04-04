@@ -6,6 +6,7 @@ import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import StatusBadge from '../../components/shared/StatusBadge';
+import DraggableFAB from '../../components/shared/DraggableFAB';
 import { format } from 'date-fns';
 import { Plus, Banknote, X, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -65,22 +66,25 @@ const SalaryAdvancesPage = () => {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
-      <PageHeader
-        title="Ứng lương"
-        description="Đơn ứng lương sẽ được trừ vào phiếu lương ở tuần tương ứng"
-        backPath="/hanh-chinh-nhan-su"
-        actions={
-          <button
-            onClick={() => setIsDialogOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all"
-          >
-            <Plus size={16} />
-            Tạo đơn ứng lương
-          </button>
-        }
-      />
+      <div className="hidden md:block">
+        <PageHeader
+          title="Ứng lương"
+          description="Đơn ứng lương sẽ được trừ vào phiếu lương ở tuần tương ứng"
+          backPath="/hanh-chinh-nhan-su"
+          actions={
+            <button
+              onClick={() => setIsDialogOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all"
+            >
+              <Plus size={16} />
+              Tạo đơn ứng lương
+            </button>
+          }
+        />
+      </div>
+      <DraggableFAB icon={<Plus size={24} />} onClick={() => setIsDialogOpen(true)} />
 
-      <div className="bg-white justify-between rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden mt-4">
+      <div className="bg-white justify-between rounded-2xl md:border md:border-border sm:shadow-sm flex flex-col flex-1 min-h-0 mt-0 md:mt-4">
         {isLoading ? (
           <div className="p-4"><LoadingSkeleton columns={4} rows={6} /></div>
         ) : isError ? (
@@ -89,7 +93,8 @@ const SalaryAdvancesPage = () => {
           <EmptyState title="Chưa có đơn ứng lương nào" />
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar">
-            <table className="w-full text-left border-collapse">
+            {/* Desktop Table View */}
+            <table className="w-full text-left border-collapse hidden md:table">
               <thead className="bg-muted/30 sticky top-0 z-10 backdrop-blur-xl">
                 <tr>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap min-w-[250px] border-b border-border/50">Lý do</th>
@@ -121,6 +126,34 @@ const SalaryAdvancesPage = () => {
                 ))}
               </tbody>
             </table>
+
+            {/* Mobile Card View */}
+            <div className="flex flex-col gap-3 p-3 md:hidden bg-slate-50/50 min-h-full pb-20">
+              {advances.map(a => (
+                <div key={a.id} className="bg-white rounded-xl border border-border/60 shadow-sm p-4 flex flex-col gap-3 relative overflow-hidden">
+                  <div className={`absolute left-0 top-0 bottom-0 w-1 ${a.status === 'approved' ? 'bg-emerald-500' : a.status === 'rejected' ? 'bg-red-500' : 'bg-amber-500'}`} />
+                  
+                  <div className="flex justify-between items-start pl-1 mb-1">
+                     <div className="flex flex-col">
+                       <span className="text-[14px] font-bold text-foreground">{a.reason}</span>
+                       <span className="text-[11px] text-muted-foreground mt-0.5">{format(new Date(a.created_at || new Date()), 'HH:mm dd/MM/yyyy')}</span>
+                     </div>
+                     <StatusBadge status={statusColors[a.status] || 'default'} label={statusLabels[a.status] || a.status} />
+                  </div>
+
+                  <div className="flex items-center justify-between bg-muted/20 rounded-lg p-2.5 ml-1 border border-border/50">
+                     <div className="flex flex-col">
+                        <span className="text-[11px] text-muted-foreground font-medium">Tuần nhận lương</span>
+                        <span className="text-[13px] font-bold text-foreground">{a.week_start ? `Tuần ${format(new Date(a.week_start), 'dd/MM/yyyy')}` : 'Không xác định'}</span>
+                     </div>
+                     <div className="flex flex-col items-end">
+                        <span className="text-[11px] text-emerald-600/80 font-medium">Số tiền ứng</span>
+                        <span className="text-[14px] font-bold text-emerald-600 tabular-nums">{formatCurrency(a.amount)}</span>
+                     </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

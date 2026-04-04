@@ -11,6 +11,7 @@ import CollectDebtDialog from './dialogs/CollectDebtDialog';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { useBreadcrumbs } from '../../context/BreadcrumbContext';
+import DraggableFAB from '../../components/shared/DraggableFAB';
 import type { ImportOrder, ExportOrder, Receipt as ReceiptType } from '../../types';
 
 const formatCurrency = (value?: number | null) => {
@@ -28,10 +29,10 @@ const formatDate = (dateString?: string) => {
 };
 
 const TABS = [
-  { id: 'overview', label: 'Tổng quan', icon: Building2 },
-  { id: 'imports', label: 'Phiếu nhập', icon: PackageCheck },
-  { id: 'exports', label: 'Phiếu xuất', icon: FileSpreadsheet },
-  { id: 'receipts', label: 'Lịch sử thu nợ', icon: Receipt },
+  { id: 'overview', label: 'Tổng quan', mobileLabel: 'Tổng quan', icon: Building2 },
+  { id: 'imports', label: 'Phiếu nhập', mobileLabel: 'Nhập', icon: PackageCheck },
+  { id: 'exports', label: 'Phiếu xuất', mobileLabel: 'Xuất', icon: FileSpreadsheet },
+  { id: 'receipts', label: 'Lịch sử thu nợ', mobileLabel: 'Thu nợ', icon: Receipt },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -76,23 +77,26 @@ const CustomerDetailPage: React.FC = () => {
 
   return (
     <div className="animate-in fade-in flex-1 flex flex-col min-h-0 relative z-0">
-      <PageHeader
-        title={`Chi tiết: ${customer.name}`}
-        description="Theo dõi lịch sử giao dịch và công nợ"
-        backPath="/ke-toan/khach-hang"
-        actions={
-          <button
-            onClick={() => setIsCollectDebtOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-[13px] font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all font-inter"
-          >
-            <Wallet size={16} />
-            Thu Nợ
-          </button>
-        }
-      />
+
+      <div className="hidden md:block">
+        <PageHeader
+          title={`Chi tiết: ${customer.name}`}
+          description="Theo dõi lịch sử giao dịch và công nợ"
+          backPath="/ke-toan/khach-hang"
+          actions={
+            <button
+              onClick={() => setIsCollectDebtOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-[13px] font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all font-inter"
+            >
+              <Wallet size={16} />
+              Thu Nợ
+            </button>
+          }
+        />
+      </div>
 
       {/* Tabs Menu */}
-      <div className="flex gap-2 mb-4 overflow-x-auto p-1 custom-scrollbar shrink-0">
+      <div className="grid grid-cols-4 gap-1 md:flex md:gap-2 mb-0 md:mb-4 p-2 md:p-1 bg-white md:bg-transparent -mx-4 sm:mx-0 border-b md:border-0 border-border/50 shrink-0">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -101,25 +105,28 @@ const CustomerDetailPage: React.FC = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={clsx(
-                "flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold transition-all shrink-0 whitespace-nowrap",
+                "flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-2 p-2 md:px-4 md:py-2 rounded-xl transition-all",
                 isActive 
-                  ? "bg-primary text-white shadow-md shadow-primary/20" 
-                  : "bg-white text-muted-foreground hover:bg-muted/50 border border-border"
+                  ? "bg-primary/10 md:bg-primary text-primary md:text-white shadow-sm md:shadow-md shadow-primary/5 md:shadow-primary/20" 
+                  : "bg-transparent md:bg-white text-muted-foreground hover:bg-muted/50 md:border md:border-border"
               )}
             >
-              <Icon size={16} />
-              {tab.label}
+              <Icon size={18} className="md:w-4 md:h-4" />
+              <span className="text-[11px] md:text-[13px] font-bold whitespace-nowrap leading-tight">
+                <span className="md:hidden">{tab.mobileLabel}</span>
+                <span className="hidden md:inline">{tab.label}</span>
+              </span>
             </button>
           );
         })}
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 bg-white rounded-2xl border border-border shadow-sm flex flex-col min-h-0 overflow-hidden">
+      <div className="flex-1 md:bg-white md:rounded-2xl md:border md:border-border md:shadow-sm flex flex-col min-h-0 md:overflow-hidden -mx-4 sm:mx-0 pt-2 md:pt-0">
         
         {/* TAB: OVERVIEW */}
         {activeTab === 'overview' && (
-          <div className="p-6 overflow-y-auto w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="p-4 md:p-6 overflow-y-auto w-full max-w-4xl flex flex-col md:grid md:grid-cols-2 gap-4 md:gap-6 pb-24 md:pb-6">
             <div className="space-y-6">
               <div className="bg-muted/5 border border-border rounded-2xl p-5">
                 <h3 className="text-[13px] font-bold text-muted-foreground/80 uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -192,30 +199,60 @@ const CustomerDetailPage: React.FC = () => {
         {activeTab === 'imports' && (
           <div className="flex-1 overflow-auto custom-scrollbar">
             {isLoadingImports ? <div className="p-4"><LoadingSkeleton rows={5} columns={6}/></div> : !importOrders?.length ? <EmptyState title="Không có phiếu nhập" /> : (
-              <table className="w-full border-collapse min-w-[800px]">
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-muted/30 border-b border-border">
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Mã đơn</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Ngày</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Người nhận</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">SL</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Thành tiền</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
+              <div className="h-full flex flex-col w-full min-h-0">
+                {/* Desktop View */}
+                <div className="hidden md:block">
+                  <table className="w-full border-collapse min-w-[800px]">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="bg-muted/30 border-b border-border">
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Mã đơn</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Ngày</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Người nhận</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">SL</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Thành tiền</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Trạng thái</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {importOrders.map((o: ImportOrder) => (
+                        <tr key={o.id} className="hover:bg-muted/20">
+                          <td className="px-4 py-3 text-[13px] font-bold text-foreground">{o.order_code}</td>
+                          <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{formatDate(o.order_date)}</td>
+                          <td className="px-4 py-3 text-[13px] text-foreground">{o.receiver_name}</td>
+                          <td className="px-4 py-3 text-[13px] font-bold text-right tabular-nums">{o.quantity} {o.import_order_items?.[0]?.package_type || ''}</td>
+                          <td className="px-4 py-3 text-[13px] font-bold text-emerald-600 text-right tabular-nums">{formatCurrency(o.total_order_amount)}</td>
+                          <td className="px-4 py-3 text-center"><StatusBadge status={o.status} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile View */}
+                <div className="md:hidden flex flex-col gap-3 px-4 pb-24">
                   {importOrders.map((o: ImportOrder) => (
-                    <tr key={o.id} className="hover:bg-muted/20">
-                      <td className="px-4 py-3 text-[13px] font-bold text-foreground">{o.order_code}</td>
-                      <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{formatDate(o.order_date)}</td>
-                      <td className="px-4 py-3 text-[13px] text-foreground">{o.receiver_name}</td>
-                      <td className="px-4 py-3 text-[13px] font-bold text-right tabular-nums">{o.quantity} {o.import_order_items?.[0]?.package_type || ''}</td>
-                      <td className="px-4 py-3 text-[13px] font-bold text-emerald-600 text-right tabular-nums">{formatCurrency(o.total_order_amount)}</td>
-                      <td className="px-4 py-3 text-center"><StatusBadge status={o.status} /></td>
-                    </tr>
+                    <div key={o.id} className="bg-white p-4 rounded-2xl shadow-sm border border-border flex flex-col gap-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="text-[14px] font-bold text-foreground block">{o.order_code}</span>
+                          <span className="text-[12px] text-muted-foreground">{formatDate(o.order_date)}</span>
+                        </div>
+                        <StatusBadge status={o.status} />
+                      </div>
+                      <div className="flex justify-between items-end border-t border-border/50 pt-3 mt-1">
+                        <div className="flex flex-col">
+                          <span className="text-[11px] text-muted-foreground">Người nhận</span>
+                          <span className="text-[13px] text-foreground font-medium">{o.receiver_name}</span>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span className="text-[11px] text-muted-foreground">Thành tiền ({o.quantity} {o.import_order_items?.[0]?.package_type || ''})</span>
+                          <span className="text-[14px] font-bold text-emerald-600 tabular-nums">{formatCurrency(o.total_order_amount)}</span>
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -224,32 +261,65 @@ const CustomerDetailPage: React.FC = () => {
         {activeTab === 'exports' && (
           <div className="flex-1 overflow-auto custom-scrollbar">
              {isLoadingExports ? <div className="p-4"><LoadingSkeleton rows={5} columns={6}/></div> : !exportOrders?.length ? <EmptyState title="Không có phiếu xuất" /> : (
-              <table className="w-full border-collapse min-w-[800px]">
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-muted/30 border-b border-border">
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Ngày xuất</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Mặt hàng</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">SL</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Giá trị (Nợ)</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Đã thanh toán</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
+              <div className="h-full flex flex-col w-full min-h-0">
+                {/* Desktop View */}
+                <div className="hidden md:block">
+                  <table className="w-full border-collapse min-w-[800px]">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="bg-muted/30 border-b border-border">
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Ngày xuất</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Mặt hàng</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">SL</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Giá trị (Nợ)</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Đã thanh toán</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Trạng thái</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {exportOrders.map((o: ExportOrder) => (
+                        <tr key={o.id} className="hover:bg-muted/20">
+                          <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{formatDate(o.export_date)}</td>
+                          <td className="px-4 py-3 text-[13px] font-bold text-foreground">
+                            {o.products?.name || (o as any).item_name || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 text-[13px] font-bold text-right tabular-nums">{o.quantity}</td>
+                          <td className="px-4 py-3 text-[13px] font-bold text-red-600 text-right tabular-nums">{formatCurrency(o.debt_amount)}</td>
+                          <td className="px-4 py-3 text-[13px] font-bold text-emerald-600 text-right tabular-nums">{formatCurrency(o.paid_amount)}</td>
+                          <td className="px-4 py-3 text-center"><StatusBadge status={o.payment_status} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile View */}
+                <div className="md:hidden flex flex-col gap-3 px-4 pb-24">
                   {exportOrders.map((o: ExportOrder) => (
-                    <tr key={o.id} className="hover:bg-muted/20">
-                      <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{formatDate(o.export_date)}</td>
-                      <td className="px-4 py-3 text-[13px] font-bold text-foreground">
-                        {o.products?.name || (o as any).item_name || 'N/A'}
-                      </td>
-                      <td className="px-4 py-3 text-[13px] font-bold text-right tabular-nums">{o.quantity}</td>
-                      <td className="px-4 py-3 text-[13px] font-bold text-red-600 text-right tabular-nums">{formatCurrency(o.debt_amount)}</td>
-                      <td className="px-4 py-3 text-[13px] font-bold text-emerald-600 text-right tabular-nums">{formatCurrency(o.paid_amount)}</td>
-                      <td className="px-4 py-3 text-center"><StatusBadge status={o.payment_status} /></td>
-                    </tr>
+                    <div key={o.id} className="bg-white p-4 rounded-2xl shadow-sm border border-border flex flex-col gap-3">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="space-y-1 min-w-0">
+                          <span className="text-[14px] font-bold text-foreground block truncate">{o.products?.name || (o as any).item_name || 'N/A'}</span>
+                          <span className="text-[12px] text-muted-foreground">Ngày: {formatDate(o.export_date)}</span>
+                        </div>
+                        <StatusBadge status={o.payment_status} />
+                      </div>
+                      <div className="flex justify-between items-center bg-muted/5 p-2 px-3 rounded-lg border border-border">
+                         <span className="text-[12px] text-muted-foreground font-medium">Số lượng nhập: <span className="font-bold text-foreground">{o.quantity}</span></span>
+                      </div>
+                      <div className="flex flex-row justify-between pt-1">
+                        <div className="flex flex-col">
+                          <span className="text-[11px] text-muted-foreground">Giá trị (Nợ)</span>
+                          <span className="text-[13px] font-bold text-red-600 tabular-nums">{formatCurrency(o.debt_amount)}</span>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span className="text-[11px] text-muted-foreground">Đã thanh toán</span>
+                          <span className="text-[13px] font-bold text-emerald-600 tabular-nums">{formatCurrency(o.paid_amount)}</span>
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -258,34 +328,65 @@ const CustomerDetailPage: React.FC = () => {
         {activeTab === 'receipts' && (
           <div className="flex-1 overflow-auto custom-scrollbar">
              {isLoadingReceipts ? <div className="p-4"><LoadingSkeleton rows={5} columns={5}/></div> : !receipts?.length ? <EmptyState title="Không có lịch sử thu tiền" /> : (
-              <table className="w-full border-collapse min-w-[700px]">
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-muted/30 border-b border-border">
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-32">Ngày thu</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-40">Số tiền thu</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Ghi chú</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-48">Người thu</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
+              <div className="h-full flex flex-col w-full min-h-0">
+                {/* Desktop View */}
+                <div className="hidden md:block">
+                  <table className="w-full border-collapse min-w-[700px]">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="bg-muted/30 border-b border-border">
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-32">Ngày thu</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-40">Số tiền thu</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Ghi chú</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-48">Người thu</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {receipts.map((r: ReceiptType) => (
+                        <tr key={r.id} className="hover:bg-muted/20">
+                          <td className="px-4 py-3 text-[13px] font-bold text-foreground tabular-nums">{formatDate(r.payment_date)}</td>
+                          <td className="px-4 py-3 text-[14px] font-black text-emerald-600 text-right tabular-nums">+{formatCurrency(r.amount)}</td>
+                          <td className="px-4 py-3 text-[13px] text-muted-foreground">{r.notes || '-'}</td>
+                          <td className="px-4 py-3 text-[12px] text-center text-muted-foreground">
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-muted/30 border border-border">
+                              {r.profiles?.full_name || '-'}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile View */}
+                <div className="md:hidden flex flex-col gap-3 px-4 pb-24">
                   {receipts.map((r: ReceiptType) => (
-                    <tr key={r.id} className="hover:bg-muted/20">
-                      <td className="px-4 py-3 text-[13px] font-bold text-foreground tabular-nums">{formatDate(r.payment_date)}</td>
-                      <td className="px-4 py-3 text-[14px] font-black text-emerald-600 text-right tabular-nums">+{formatCurrency(r.amount)}</td>
-                      <td className="px-4 py-3 text-[13px] text-muted-foreground">{r.notes || '-'}</td>
-                      <td className="px-4 py-3 text-[12px] text-center text-muted-foreground">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-muted/30 border border-border">
-                          {r.profiles?.full_name || '-'}
+                    <div key={r.id} className="bg-white p-4 rounded-2xl shadow-sm border border-border flex flex-col gap-3">
+                      <div className="flex justify-between items-start">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[12px] font-bold text-muted-foreground">{formatDate(r.payment_date)}</span>
+                          <span className="text-[12px] text-muted-foreground">Thu bởi: <span className="font-medium text-foreground">{r.profiles?.full_name || '-'}</span></span>
                         </div>
-                      </td>
-                    </tr>
+                        <span className="text-[16px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">+{formatCurrency(r.amount)}</span>
+                      </div>
+                      {r.notes && (
+                        <div className="border-t border-border/50 pt-3 mt-1 text-[13px] text-muted-foreground opacity-90">
+                          <span className="font-medium text-slate-500">Ghi chú:</span> {r.notes}
+                        </div>
+                      )}
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </div>
             )}
           </div>
         )}
       </div>
+
+      <DraggableFAB
+        icon={<Wallet size={24} />}
+        onClick={() => setIsCollectDebtOpen(true)}
+        className="bg-emerald-600 text-white w-14 h-14 rounded-full"
+      />
 
       <CollectDebtDialog
          isOpen={isCollectDebtOpen}

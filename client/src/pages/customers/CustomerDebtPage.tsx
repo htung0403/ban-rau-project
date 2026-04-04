@@ -110,11 +110,13 @@ const CustomerDebtPage: React.FC = () => {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-        <PageHeader
-          title="Chi tiết Sổ Cái Bù Trừ Nhập Xuất"
-          description="Sổ chi tiết các hóa đơn chưa hoàn tất thanh toán của Xuất/Nhập hàng"
-          backPath="/ke-toan"
-        />
+        <div className="hidden md:block">
+          <PageHeader
+            title="Chi tiết Sổ Cái Bù Trừ Nhập Xuất"
+            description="Sổ chi tiết các hóa đơn chưa hoàn tất thanh toán của Xuất/Nhập hàng"
+            backPath="/ke-toan"
+          />
+        </div>
 
         <div className="flex items-center gap-4 bg-white p-2 px-4 rounded-2xl border border-border shadow-sm">
           <div className="flex flex-col">
@@ -126,7 +128,7 @@ const CustomerDebtPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className="md:bg-white md:rounded-2xl md:border md:border-border md:shadow-sm flex flex-col flex-1 min-h-0 md:overflow-hidden -mx-4 sm:mx-0">
         {isLoading ? (
           <div className="p-4"><LoadingSkeleton rows={10} columns={6} /></div>
         ) : isError ? (
@@ -135,7 +137,9 @@ const CustomerDebtPage: React.FC = () => {
           <EmptyState title="Không có công nợ tồn đọng" description="Tất cả các khoản dư nợ đã được cấn trừ hoặc thanh toán." />
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar">
-            <table className="w-full border-separate border-spacing-0">
+            {/* Desktop View */}
+            <div className="hidden md:block">
+              <table className="w-full border-separate border-spacing-0">
               <thead className="sticky top-0 z-20">
                 <tr className="bg-slate-50/80 backdrop-blur-md border-b border-border">
                   <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-left min-w-[80px] border-b border-border">Nguồn</th>
@@ -232,6 +236,86 @@ const CustomerDebtPage: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            </div>
+
+            {/* Mobile View */}
+            <div className="md:hidden flex flex-col px-4 pb-24 pt-2">
+              {sortedDates.map((date) => (
+                <div key={`mobile-${date}`} className="mb-6">
+                  <div className="flex items-center gap-2 mb-3 px-1 sticky top-0 z-10 bg-[#f8fafc]/90 backdrop-blur-md py-2 -mx-1">
+                    <div className="w-6 h-6 rounded-lg bg-red-500/10 flex items-center justify-center text-red-600">
+                      <Calendar size={13} />
+                    </div>
+                    <span className="text-[13px] font-black text-slate-700 uppercase tracking-wider">
+                      Ng.PS: {date !== 'N/A' ? format(new Date(date), 'dd/MM/yyyy') : 'Chưa định dạng'}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    {groupedOrders[date].map((order) => {
+                      const isExport = order._type === 'export';
+                      const remaining = (order.debt_amount || 0) - (order.paid_amount || 0);
+                      const orderCode = isExport 
+                        ? `#${order.id?.slice(0, 8).toUpperCase()}` 
+                        : (order.order_code || `#${order.id?.slice(0, 8).toUpperCase()}`);
+                      const itemName = isExport ? (order.item_name || 'Xuất hàng') : 'Nhập hàng / CC';
+
+                      return (
+                        <div key={`mob-order-${order.id}`} className="bg-white rounded-2xl border border-border shadow-sm p-4 flex flex-col gap-3">
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[15px] font-bold text-foreground leading-tight">
+                                {orderCode} {isExport ? (
+                                 <span className="inline-block align-middle ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-100 text-blue-700">Xuất Hàng</span>
+                                ) : (
+                                 <span className="inline-block align-middle ml-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-violet-100 text-violet-700">Nhập Hàng</span>
+                                )}
+                              </span>
+                              <span className="text-[13px] font-medium text-muted-foreground line-clamp-1">{order.customers?.name || 'Khách vãng lai'}</span>
+                            </div>
+                            <div className={clsx(
+                                "inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase shrink-0",
+                                order.payment_status === 'partial' ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+                              )}
+                            >
+                              {order.payment_status === 'partial' ? 'Dở dang' : 'Chưa thu/trả'}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col bg-muted/5 border border-border rounded-xl p-3 gap-2">
+                            <div className="flex justify-between items-center text-[13px] gap-2">
+                               <span className="text-muted-foreground line-clamp-1 shrink max-w-[65%]">{itemName}</span>
+                               <span className="font-medium text-slate-600 tabular-nums shrink-0">{formatCurrency(order.debt_amount)}</span>
+                            </div>
+                            <div className="h-[1px] bg-border/50 block w-full"></div>
+                            <div className="flex justify-between items-center">
+                               <span className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground/80">Cần thu/chi</span>
+                               <span className={clsx(
+                                "text-[16px] font-black tabular-nums",
+                                isExport ? "text-red-600" : "text-emerald-600"
+                              )}>
+                                {isExport ? '+' : '-'}{formatCurrency(remaining)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {order.customers && (
+                             <div className="pt-1 border-t border-border/10">
+                                <button
+                                  onClick={() => handleCollect(order.customers)}
+                                  className="w-full py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200/50 hover:bg-emerald-500 hover:text-white text-[13px] font-bold rounded-xl transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                  Xử lý Nợ (Thu hoặc Khớp)
+                                </button>
+                             </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

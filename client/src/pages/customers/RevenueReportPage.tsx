@@ -5,8 +5,8 @@ import { useExportOrders } from '../../hooks/queries/useExportOrders';
 import { useImportOrders } from '../../hooks/queries/useImportOrders';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
-import { 
-  TrendingUp, Banknote, PackageOpen, FileText, Calendar, User, Tag, ArrowUpRight
+import {
+  TrendingUp, Banknote, PackageOpen, FileText, ArrowUpRight
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import type { ExportOrder } from '../../types';
@@ -114,164 +114,218 @@ const RevenueReportPage: React.FC = () => {
   }, [importOrders]);
 
   const ActivityTable = ({ title, icon: Icon, activities, accentColor, viewPath }: { title: string, icon: any, activities: any[], accentColor: string, viewPath: string }) => (
-    <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden flex-1">
-      <div className="p-4 border-b border-border flex items-center justify-between bg-slate-50/50">
+    <div className="bg-transparent md:bg-white md:rounded-2xl md:border md:border-border md:shadow-sm md:overflow-hidden flex-1">
+      <div className="px-4 py-3 md:p-4 border-b border-border/50 md:border-border flex items-center justify-between bg-white md:bg-slate-50/50 sticky md:static -top-4 z-20 md:z-auto shadow-sm md:shadow-none">
         <div className="flex items-center gap-2">
-          <Icon size={16} className={accentColor} />
-          <h3 className="text-[14px] font-bold">{title}</h3>
-          <span className="text-[10px] font-bold px-2 py-0.5 bg-white border border-border rounded-full shadow-sm text-muted-foreground uppercase">
-            {activities.length} bản ghi
+          <div className={`p-1.5 rounded-lg bg-slate-50 md:bg-transparent ${accentColor}`}>
+            <Icon size={18} className="md:w-4 md:h-4" />
+          </div>
+          <h3 className="text-[15px] md:text-[14px] font-bold text-foreground">{title}</h3>
+          <span className="hidden md:inline-block text-[10px] font-bold px-2 py-0.5 bg-white border border-border rounded-full shadow-sm text-muted-foreground uppercase ml-1">
+            {activities.length}
           </span>
         </div>
-        <Link 
+        <Link
           to={viewPath}
-          className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full transition-all group"
+          className="text-[12px] font-bold text-primary hover:bg-primary/5 px-3 py-1.5 rounded-full transition-all flex items-center gap-1"
           title="Xem tất cả"
         >
-          <ArrowUpRight size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+          Xem tất cả
+          <ArrowUpRight size={14} />
         </Link>
       </div>
 
-      <div className="divide-y divide-border">
-        {/* Header Row */}
-        <div className="grid grid-cols-6 gap-4 px-5 py-2.5 bg-slate-50/30 text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden lg:grid">
-          <div className="col-span-1">Ngày</div>
-          <div className="col-span-1">Đối tác</div>
-          <div className="col-span-1">Sản phẩm</div>
-          <div className="col-span-1 text-center">SL</div>
-          <div className="col-span-1 text-right">Giá trị</div>
-          <div className="col-span-1 text-center">Trạng thái</div>
+      {activities.length === 0 ? (
+        <div className="p-8 text-center text-muted-foreground italic text-xs bg-white md:bg-transparent">
+          Chưa có ghi nhận.
         </div>
+      ) : (
+        <>
+          {/* Mobile View */}
+          <div className="md:hidden flex flex-col px-4 py-4 gap-3">
+            {activities.map((act) => (
+              <div key={`mob-${act.id}`} className="bg-white rounded-2xl border border-border shadow-sm p-4 flex flex-col gap-3">
+                <div className="flex justify-between items-start gap-2">
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[15px] font-bold text-foreground line-clamp-1">{act.entity}</span>
+                    <span className="text-[12px] text-muted-foreground mt-0.5">{act.date}</span>
+                  </div>
+                  <span className={`shrink-0 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase border whitespace-nowrap ${statusColors[act.status.toLowerCase()] || 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+                    {statusLabels[act.status.toLowerCase()] || act.status}
+                  </span>
+                </div>
 
-        {/* Data Rows */}
-        {activities.map((act) => (
-          <div key={act.id} className="grid grid-cols-1 lg:grid-cols-6 gap-2 lg:gap-4 px-5 py-3 hover:bg-slate-50 transition-colors items-center">
-            <div className="flex items-center gap-2 lg:col-span-1">
-              <Calendar size={13} className="text-muted-foreground lg:hidden" />
-              <span className="text-[12px] text-muted-foreground tabular-nums font-medium">{act.date || '---'}</span>
-            </div>
-            
-            <div className="flex items-center gap-2 lg:col-span-1">
-              <User size={13} className="text-muted-foreground lg:hidden" />
-              <span className="text-[12px] font-semibold truncate text-foreground">{act.entity}</span>
-            </div>
+                <div className="bg-slate-50 rounded-xl p-3 grid grid-cols-2 gap-2 border border-slate-100">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider mb-0.5">Sản phẩm</span>
+                    <span className="text-[12px] font-bold text-slate-700 line-clamp-1">{act.product}</span>
+                  </div>
+                  <div className="flex flex-col items-end border-l border-slate-200/50 pl-2">
+                    <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider mb-0.5">Số lượng</span>
+                    <span className="text-[12px] font-black text-slate-700">{act.quantity}</span>
+                  </div>
+                </div>
 
-            <div className="flex items-center gap-2 lg:col-span-1 text-slate-500">
-              <Tag size={13} className="lg:hidden" />
-              <span className="text-[12px] truncate">{act.product}</span>
-            </div>
-
-            <div className="flex lg:block justify-between items-center lg:col-span-1 lg:text-center text-[12px] font-bold">
-              <span className="text-slate-400 lg:hidden uppercase text-[9px]">Số lượng:</span>
-              <span className="text-foreground">{act.quantity}</span>
-            </div>
-
-            <div className="flex lg:block justify-between items-center lg:col-span-1 lg:text-right text-[12px] font-bold">
-              <span className="text-slate-400 lg:hidden uppercase text-[9px]">Giá trị:</span>
-              <span className={act.type === 'export' ? 'text-blue-600' : 'text-orange-600'}>{formatCurrency(act.totalAmount)}</span>
-            </div>
-
-            <div className="flex lg:block justify-between items-center lg:col-span-1 lg:text-center">
-              <span className="text-slate-400 lg:hidden uppercase text-[9px]">Trạng thái:</span>
-              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border whitespace-nowrap ${statusColors[act.status.toLowerCase()] || 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                {statusLabels[act.status.toLowerCase()] || act.status}
-              </span>
-            </div>
+                <div className="flex justify-between items-end pt-2 border-t border-border/50">
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Tổng trị giá</span>
+                  <span className={`text-[16px] font-black tabular-nums leading-none ${act.type === 'export' ? 'text-blue-600' : 'text-orange-600'}`}>
+                    {formatCurrency(act.totalAmount)}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
 
-        {activities.length === 0 && (
-          <div className="p-8 text-center text-muted-foreground italic text-xs">
-            Chưa có ghi nhận.
+          {/* Desktop View */}
+          <div className="hidden md:block divide-y divide-border">
+            <div className="grid grid-cols-6 gap-4 px-5 py-2.5 bg-slate-50/30 text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden lg:grid">
+              <div className="col-span-1">Ngày</div>
+              <div className="col-span-1">Đối tác</div>
+              <div className="col-span-1">Sản phẩm</div>
+              <div className="col-span-1 text-center">SL</div>
+              <div className="col-span-1 text-right">Giá trị</div>
+              <div className="col-span-1 text-center">Trạng thái</div>
+            </div>
+            {activities.map((act) => (
+              <div key={`desktop-${act.id}`} className="grid grid-cols-1 lg:grid-cols-6 gap-2 lg:gap-4 px-5 py-3 hover:bg-slate-50 transition-colors items-center">
+                <div className="flex items-center gap-2 lg:col-span-1">
+                  <span className="text-[12px] text-muted-foreground tabular-nums font-medium">{act.date || '---'}</span>
+                </div>
+                <div className="flex items-center gap-2 lg:col-span-1">
+                  <span className="text-[12px] font-semibold truncate text-foreground">{act.entity}</span>
+                </div>
+                <div className="flex items-center gap-2 lg:col-span-1 text-slate-500">
+                  <span className="text-[12px] truncate">{act.product}</span>
+                </div>
+                <div className="flex lg:block justify-between items-center lg:col-span-1 lg:text-center text-[12px] font-bold">
+                  <span className="text-foreground">{act.quantity}</span>
+                </div>
+                <div className="flex lg:block justify-between items-center lg:col-span-1 lg:text-right text-[12px] font-bold">
+                  <span className={act.type === 'export' ? 'text-blue-600' : 'text-orange-600'}>{formatCurrency(act.totalAmount)}</span>
+                </div>
+                <div className="flex lg:block justify-between items-center lg:col-span-1 lg:text-center">
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border whitespace-nowrap ${statusColors[act.status.toLowerCase()] || 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+                    {statusLabels[act.status.toLowerCase()] || act.status}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 
   return (
-    <div className="flex flex-col w-full min-h-0 h-full">
-      <PageHeader
-        title="Báo cáo doanh thu"
-        description="Tổng quan hoạt động kinh doanh"
-        backPath="/ke-toan"
-      />
-      
+    <div className="flex flex-col w-full pb-20">
+      <div className="hidden md:block">
+        <PageHeader
+          title="Báo cáo doanh thu"
+          description="Tổng quan hoạt động kinh doanh"
+          backPath="/ke-toan"
+        />
+      </div>
+
       {isLoading ? (
         <LoadingSkeleton type="card" rows={3} />
       ) : isError ? (
         <ErrorState onRetry={() => refetch()} />
       ) : (
-        <div className="flex-1 overflow-y-auto px-1 pb-10 space-y-6 custom-scrollbar">
+        <div className="flex flex-col space-y-6 pt-2 sm:pt-0 -mx-4 sm:mx-0">
           {/* Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-             <div className="bg-white p-5 rounded-2xl border border-border shadow-sm">
-                <div className="flex items-center gap-3 mb-3 text-primary">
-                  <TrendingUp size={20} />
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Doanh thu</span>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 px-4 sm:px-0">
+            <div className="bg-white p-4 lg:p-5 rounded-2xl border border-border shadow-sm flex flex-col justify-between overflow-hidden">
+              <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3 mb-2 lg:mb-3 text-primary">
+                <div className="w-8 h-8 lg:w-auto lg:h-auto rounded-lg bg-primary/10 lg:bg-transparent flex items-center justify-center">
+                  <TrendingUp size={16} className="lg:w-5 lg:h-5" />
                 </div>
-                <p className="text-2xl font-bold">{formatCurrency(metrics.totalRevenue)}</p>
-             </div>
-             <div className="bg-white p-5 rounded-2xl border border-border shadow-sm">
-                <div className="flex items-center gap-3 mb-3 text-emerald-500">
-                  <Banknote size={20} />
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Đã thu</span>
+                <span className="text-[10px] lg:text-xs font-bold uppercase tracking-wider text-muted-foreground">Doanh thu</span>
+              </div>
+              <p
+                className="text-[14px] sm:text-[16px] md:text-xl lg:text-2xl font-black tabular-nums tracking-tighter truncate"
+                title={formatCurrency(metrics.totalRevenue)}
+              >
+                {formatCurrency(metrics.totalRevenue)}
+              </p>
+            </div>
+            <div className="bg-white p-4 lg:p-5 rounded-2xl border border-border shadow-sm flex flex-col justify-between overflow-hidden">
+              <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3 mb-2 lg:mb-3 text-emerald-500">
+                <div className="w-8 h-8 lg:w-auto lg:h-auto rounded-lg bg-emerald-500/10 lg:bg-transparent flex items-center justify-center">
+                  <Banknote size={16} className="lg:w-5 lg:h-5" />
                 </div>
-                <p className="text-2xl font-bold text-emerald-600">{formatCurrency(metrics.collectedRevenue)}</p>
-             </div>
-             <div className="bg-white p-5 rounded-2xl border border-border shadow-sm">
-                <div className="flex items-center gap-3 mb-3 text-red-500">
-                  <TrendingUp size={20} />
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Công nợ</span>
+                <span className="text-[10px] lg:text-xs font-bold uppercase tracking-wider text-muted-foreground">Đã thu</span>
+              </div>
+              <p
+                className="text-[14px] sm:text-[16px] md:text-xl lg:text-2xl font-black text-emerald-600 tabular-nums tracking-tighter truncate"
+                title={formatCurrency(metrics.collectedRevenue)}
+              >
+                {formatCurrency(metrics.collectedRevenue)}
+              </p>
+            </div>
+            <div className="bg-white p-4 lg:p-5 rounded-2xl border border-border shadow-sm flex flex-col justify-between overflow-hidden">
+              <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3 mb-2 lg:mb-3 text-red-500">
+                <div className="w-8 h-8 lg:w-auto lg:h-auto rounded-lg bg-red-500/10 lg:bg-transparent flex items-center justify-center">
+                  <TrendingUp size={16} className="lg:w-5 lg:h-5" />
                 </div>
-                <p className="text-2xl font-bold text-red-600">{formatCurrency(metrics.totalDebt)}</p>
-             </div>
-             <div className="bg-white p-5 rounded-2xl border border-border shadow-sm">
-                <div className="flex items-center gap-3 mb-3 text-blue-500">
-                  <PackageOpen size={20} />
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Đơn hàng</span>
+                <span className="text-[10px] lg:text-xs font-bold uppercase tracking-wider text-muted-foreground">Công nợ</span>
+              </div>
+              <p
+                className="text-[14px] sm:text-[16px] md:text-xl lg:text-2xl font-black text-red-600 tabular-nums tracking-tighter truncate"
+                title={formatCurrency(metrics.totalDebt)}
+              >
+                {formatCurrency(metrics.totalDebt)}
+              </p>
+            </div>
+            <div className="bg-white p-4 lg:p-5 rounded-2xl border border-border shadow-sm flex flex-col justify-between overflow-hidden">
+              <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3 mb-2 lg:mb-3 text-blue-500">
+                <div className="w-8 h-8 lg:w-auto lg:h-auto rounded-lg bg-blue-500/10 lg:bg-transparent flex items-center justify-center">
+                  <PackageOpen size={16} className="lg:w-5 lg:h-5" />
                 </div>
-                <p className="text-2xl font-bold">{metrics.totalOrders} đơn</p>
-             </div>
+                <span className="text-[10px] lg:text-xs font-bold uppercase tracking-wider text-muted-foreground">Đơn hàng</span>
+              </div>
+              <p className="text-[14px] sm:text-[16px] md:text-xl lg:text-2xl font-black tabular-nums tracking-tighter truncate">
+                {metrics.totalOrders} <span className="text-[10px] font-bold text-muted-foreground lg:hidden tracking-normal">ĐƠN</span>
+              </p>
+            </div>
           </div>
 
           {/* Chart Panel */}
-          <div className="bg-white rounded-2xl border border-border shadow-sm p-6">
-             <h3 className="text-[15px] font-bold text-foreground mb-6">Biểu đồ doanh thu 7 ngày gần nhất</h3>
-             <div className="h-[350px] w-full">
-               <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="date" tick={{fontSize: 12, fill: '#64748b'}} tickMargin={10} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={(val) => `${val / 1000000}tr`} tick={{fontSize: 12, fill: '#64748b'}} axisLine={false} tickLine={false} unit="đ" />
-                    <Tooltip cursor={{fill: '#f1f5f9'}} formatter={(value: any) => formatCurrency(value)} />
-                    <Bar dataKey="doanhThu" name="Doanh thu" fill="#0ea5e9" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                    <Bar dataKey="congNo" name="Công nợ" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                  </BarChart>
-               </ResponsiveContainer>
-             </div>
+          <div className="bg-white sm:rounded-2xl border-y sm:border border-border shadow-sm p-4 lg:p-6">
+            <h3 className="text-[14px] lg:text-[15px] font-bold text-foreground mb-4 lg:mb-6">Biểu đồ doanh thu 7 ngày gần nhất</h3>
+            <div className="h-[350px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b' }} tickMargin={10} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={(val) => `${val / 1000000}tr`} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} unit="đ" />
+                  <Tooltip cursor={{ fill: '#f1f5f9' }} formatter={(value: any) => formatCurrency(value)} />
+                  <Bar dataKey="doanhThu" name="Doanh thu" fill="#0ea5e9" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                  <Bar dataKey="congNo" name="Công nợ" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Tables Section */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <ActivityTable 
-              title="Phiếu xuất gần đây" 
-              icon={FileText} 
-              activities={exportActivities} 
-              accentColor="text-blue-500" 
+            <ActivityTable
+              title="Phiếu xuất gần đây"
+              icon={FileText}
+              activities={exportActivities}
+              accentColor="text-blue-500"
               viewPath="/hang-hoa/xuat-hang"
             />
-            <ActivityTable 
-              title="Phiếu nhập gần đây" 
-              icon={FileText} 
-              activities={importActivities} 
-              accentColor="text-orange-500" 
+            <ActivityTable
+              title="Phiếu nhập gần đây"
+              icon={FileText}
+              activities={importActivities}
+              accentColor="text-orange-500"
               viewPath="/hang-hoa/nhap-hang"
             />
           </div>
         </div>
       )
-    }
+      }
     </div>
   );
 };

@@ -3,6 +3,7 @@ import PageHeader from '../../components/shared/PageHeader';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
+import DraggableFAB from '../../components/shared/DraggableFAB';
 import { Plus, Car } from 'lucide-react';
 import AddEditVehicleDialog from './dialogs/AddEditVehicleDialog';
 import VehicleDetailsDialog from './dialogs/VehicleDetailsDialog';
@@ -48,26 +49,29 @@ const VehiclesPage: React.FC = () => {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
-      <PageHeader
-        title="Danh sách xe"
-        description="Quản lý thông tin xe theo trạng thái"
-        backPath="/quan-ly-xe"
-        actions={
-          <button
-            onClick={() => setIsAddOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all"
-          >
-            <Plus size={16} />
-            Thêm xe
-          </button>
-        }
-      />
+      <div className="hidden md:block">
+        <PageHeader
+          title="Danh sách xe"
+          description="Quản lý thông tin xe theo trạng thái"
+          backPath="/quan-ly-xe"
+          actions={
+            <button
+              onClick={() => setIsAddOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
+            >
+              <Plus size={16} />
+              Thêm xe
+            </button>
+          }
+        />
+      </div>
+      <DraggableFAB icon={<Plus size={24} />} onClick={() => setIsAddOpen(true)} />
 
       {isLoading ? (
-        <div className="flex-1 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
-          <div className="flex gap-6 min-h-full min-w-max lg:min-w-0 lg:grid lg:grid-cols-3">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden pb-6 custom-scrollbar px-1">
+          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-6 lg:min-h-full">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="w-[320px] lg:w-full flex flex-col bg-slate-100/50 border border-slate-200 rounded-[24px] p-4 min-h-[500px]">
+              <div key={i} className="w-full flex flex-col bg-slate-100/50 border border-slate-200 rounded-[24px] p-4 min-h-[150px] lg:min-h-[500px]">
                 {/* Column Header Skeleton */}
                 <div className="flex items-center gap-2.5 mb-5 px-1">
                   <div className="w-2.5 h-2.5 rounded-full bg-slate-200 animate-pulse" />
@@ -101,13 +105,13 @@ const VehiclesPage: React.FC = () => {
       ) : !vehicles?.length ? (
         <EmptyState title="Chưa có xe nào" />
       ) : (
-        <div className="flex-1 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
-          <div className="flex gap-6 min-h-full min-w-max lg:min-w-0 lg:grid lg:grid-cols-3">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden pb-6 custom-scrollbar px-1">
+          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-6 lg:min-h-full">
             {columns.map((column) => {
               const columnVehicles = vehicles.filter(v => v.status === column.id);
 
               return (
-                <div key={column.id} className="w-[320px] lg:w-full flex flex-col bg-slate-100 border border-slate-200 rounded-[24px] p-4 min-h-[500px]">
+                <div key={column.id} className="w-full flex flex-col bg-slate-100 border border-slate-200 rounded-[24px] p-4 min-h-[150px] lg:min-h-[500px]">
                   {/* Column Header */}
                   <div className="flex items-center justify-between mb-5 px-1">
                     <div className="flex items-center gap-2.5">

@@ -51,9 +51,9 @@ const StaffConfirmationTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto min-h-[400px]">
+      {/* Lists & Tables */}
+      <div className="bg-transparent md:bg-white border-0 md:border border-slate-200 md:rounded-xl md:shadow-sm md:overflow-hidden">
+        <div className="min-h-[400px]">
           {isLoading ? (
             <div className="flex items-center justify-center h-40"><p>Đang tải...</p></div>
           ) : isError ? (
@@ -61,8 +61,53 @@ const StaffConfirmationTab: React.FC = () => {
           ) : filtered.length === 0 ? (
             <EmptyState title="Không có phiếu thu nào đang rảnh xác nhận" />
           ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
+            <>
+              {/* Mobile Card Layout */}
+              <div className="md:hidden flex flex-col gap-3 pb-6">
+                {filtered.map(pc => (
+                  <div key={pc.id} className="bg-white rounded-xl border border-yellow-200/50 p-4 shadow-sm relative overflow-hidden">
+                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-yellow-500" />
+                    
+                    <div className="flex justify-between items-start mb-3 pl-2">
+                      <div>
+                        <h3 className="font-bold text-slate-800 text-[14px]">{pc.deliveryOrderCode}</h3>
+                        <p className="text-[12px] text-slate-500">{pc.customerName}</p>
+                      </div>
+                      <span className="bg-yellow-100 text-yellow-700 text-[11px] px-2 py-0.5 rounded font-bold">Chờ XN</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 mb-3 pl-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <div>
+                        <p className="text-slate-500 text-[11px]">Tài xế</p>
+                        <p className="font-bold text-slate-800 text-[13px]">{pc.driverName}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-slate-500 text-[11px]">Tiền Thực Thu</p>
+                        <p className="font-bold text-slate-800 text-[13px]">{formatCurrency(pc.collectedAmount)}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-3 border-t border-slate-100 pl-2">
+                       <div className="text-[11px] text-slate-500">
+                         {pc.submittedAt ? (
+                           <>{formatDate(pc.submittedAt)} {formatTime(pc.submittedAt)}</>
+                         ) : '-'}
+                       </div>
+                       <button 
+                         onClick={() => handleConfirm(pc)} 
+                         className="text-[12px] font-bold text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm shadow-green-600/20"
+                       >
+                         <CheckCircle size={14} /> Xác Nhận
+                       </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table Layout */}
+              <div className="hidden md:block overflow-x-auto pb-6">
+                <table className="w-full text-left border-collapse">
+                <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-200 text-[12px] font-bold text-slate-600 uppercase tracking-wider">
                   <th className="px-4 py-3">Phiếu / Khách Hàng</th>
                   <th className="px-4 py-3">Tài Xế</th>
@@ -121,7 +166,9 @@ const StaffConfirmationTab: React.FC = () => {
                   </tr>
                 ))}
               </tbody>
-            </table>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>

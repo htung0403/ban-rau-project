@@ -14,6 +14,8 @@ import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, subDays } f
 import { vi } from 'date-fns/locale';
 import { translateRole } from '../../lib/utils';
 import type { Attendance } from '../../types';
+import DraggableFAB from '../../components/shared/DraggableFAB';
+import { TimePicker24h } from '../../components/shared/TimePicker24h';
 
 const AttendancePage: React.FC = () => {
   const { user } = useAuth();
@@ -67,10 +69,19 @@ const AttendancePage: React.FC = () => {
       toast.error('Không được chấm công cho ngày trong tương lai');
       return;
     }
+    const targetEmp = emp || user;
     setAttTime(format(new Date(), 'HH:mm'));
-    setAttEmployee(emp || user);
+    setAttEmployee(targetEmp);
     setDialogDate(d);
     setReason('');
+
+    const existing = targetEmp ? (localAttendance[targetEmp.id] || {})[d] : undefined;
+    if (existing && existing.check_in_time) {
+      setAttType('out');
+    } else {
+      setAttType('in');
+    }
+
     setIsOpen(true);
     setIsClosing(false);
   };
@@ -143,48 +154,66 @@ const AttendancePage: React.FC = () => {
   const isLoading = loadingEmployees || loadingAttendance;
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
-      <PageHeader
-        title="Chấm công"
-        description="Quản lý lịch làm việc và giờ giấc nhân viên"
-        backPath="/hanh-chinh-nhan-su"
-        actions={
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-white border border-border/80 rounded-xl overflow-hidden shadow-sm">
-              <button 
-                onClick={() => setSelectedDate(format(subDays(new Date(selectedDate), 7), 'yyyy-MM-dd'))}
-                className="p-2 hover:bg-muted text-muted-foreground transition-colors border-r border-border/50"
-              >
-                <ChevronRight className="rotate-180" size={16} />
-              </button>
-              <div className="px-4 py-2 text-[13px] font-bold text-foreground">
-                Tuần {format(weekStart, 'dd/MM')} - {format(weekEnd, 'dd/MM')}
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0 md:px-0">
+      <div className="hidden md:block">
+        <PageHeader
+          title="Chấm công"
+          description="Quản lý lịch làm việc và giờ giấc nhân viên"
+          backPath="/hanh-chinh-nhan-su"
+          actions={
+            <div className="flex items-center gap-3">
+              <div className="flex items-center bg-white border border-border/80 rounded-xl overflow-hidden shadow-sm">
+                <button 
+                  onClick={() => setSelectedDate(format(subDays(new Date(selectedDate), 7), 'yyyy-MM-dd'))}
+                  className="p-2 hover:bg-muted text-muted-foreground transition-colors border-r border-border/50"
+                >
+                  <ChevronRight className="rotate-180" size={16} />
+                </button>
+                <div className="px-4 py-2 text-[13px] font-bold text-foreground">
+                  Tuần {format(weekStart, 'dd/MM')} - {format(weekEnd, 'dd/MM')}
+                </div>
+                <button 
+                  onClick={() => setSelectedDate(format(addDays(new Date(selectedDate), 7), 'yyyy-MM-dd'))}
+                  className="p-2 hover:bg-muted text-muted-foreground transition-colors border-l border-border/50"
+                >
+                  <ChevronRight size={16} />
+                </button>
               </div>
-              <button 
-                onClick={() => setSelectedDate(format(addDays(new Date(selectedDate), 7), 'yyyy-MM-dd'))}
-                className="p-2 hover:bg-muted text-muted-foreground transition-colors border-l border-border/50"
+              <button
+                onClick={() => handleOpen()}
+                className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
               >
-                <ChevronRight size={16} />
+                <Plus size={16} />
+                Chấm công nhanh
               </button>
             </div>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-4 py-2 bg-white border border-border/80 rounded-xl text-[13px] font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
-            />
-            <button
-              onClick={() => handleOpen()}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
-            >
-              <Plus size={16} />
-              Chấm công nhanh
-            </button>
-          </div>
-        }
-      />
+          }
+        />
+      </div>
 
-      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className="md:hidden flex flex-col gap-3 mb-4 mx-4 mt-2">
+        <div className="flex flex-col gap-3">
+           <div className="flex items-center justify-between bg-white border border-border/80 rounded-xl overflow-hidden shadow-sm">
+             <button 
+               onClick={() => setSelectedDate(format(subDays(new Date(selectedDate), 7), 'yyyy-MM-dd'))}
+               className="p-3 hover:bg-muted text-muted-foreground transition-colors border-r border-border/50 flex-1 flex justify-center"
+             >
+               <ChevronRight className="rotate-180" size={18} />
+             </button>
+             <div className="px-4 py-3 text-[14px] font-bold text-foreground">
+               Tuần {format(weekStart, 'dd/MM')} - {format(weekEnd, 'dd/MM')}
+             </div>
+             <button 
+               onClick={() => setSelectedDate(format(addDays(new Date(selectedDate), 7), 'yyyy-MM-dd'))}
+               className="p-3 hover:bg-muted text-muted-foreground transition-colors border-l border-border/50 flex-1 flex justify-center"
+             >
+               <ChevronRight size={18} />
+             </button>
+           </div>
+        </div>
+      </div>
+
+      <div className="bg-slate-50/50 md:bg-white md:rounded-2xl md:border border-border md:shadow-sm flex flex-col flex-1 min-h-0 md:overflow-hidden">
         {isLoading ? (
           <div className="p-4"><LoadingSkeleton rows={6} columns={5} /></div>
         ) : errorEmployees ? (
@@ -192,8 +221,9 @@ const AttendancePage: React.FC = () => {
         ) : !employees?.length ? (
           <EmptyState title="Chưa có nhân viên" />
         ) : (
-          <div className="flex-1 overflow-auto custom-scrollbar">
-            <table className="w-full border-collapse">
+          <div className="flex-1 overflow-auto custom-scrollbar p-4 md:p-0">
+            {/* Desktop Table View */}
+            <table className="w-full border-collapse hidden md:table">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-muted/50 border-b border-border backdrop-blur-md text-left">
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider min-w-[200px]">Nhân sự</th>
@@ -282,6 +312,86 @@ const AttendancePage: React.FC = () => {
                   })}
               </tbody>
             </table>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden flex flex-col gap-3">
+              {employees
+                .filter((e) => {
+                  if (e.role === 'admin') return false;
+                  if (user?.role === 'admin' || user?.role === 'manager') return true;
+                  return e.id === user?.id;
+                })
+                .map((e) => {
+                  const empAtt = localAttendance[e.id] || {};
+                  
+                  // Tính trước totalPresent cho layout mobile
+                  let totalPresentMobile = 0;
+                  daysInWeek.forEach((day) => {
+                    const dateStr = format(day, 'yyyy-MM-dd');
+                    if (empAtt[dateStr]?.is_present) totalPresentMobile++;
+                  });
+
+                  return (
+                    <div key={`mobile_${e.id}`} className="bg-white rounded-2xl border border-border shadow-sm p-4 flex flex-col gap-4">
+                      {/* header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {e.avatar_url ? (
+                            <img src={e.avatar_url} alt={e.full_name} className="w-10 h-10 rounded-full object-cover ring-2 ring-muted" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-sm">
+                              <UserIcon size={18} />
+                            </div>
+                          )}
+                          <div className="flex flex-col">
+                            <span className="text-[14px] font-bold text-foreground">{e.full_name}</span>
+                            <span className="text-[11px] font-medium text-muted-foreground">{roles?.find(r => r.role_key === e.role)?.role_name || translateRole(e.role)}</span>
+                          </div>
+                        </div>
+                        <span className={clsx(
+                            'px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ring-1 ring-inset',
+                            totalPresentMobile > 0 ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-muted text-muted-foreground ring-border'
+                          )}>
+                            {totalPresentMobile} buổi
+                        </span>
+                      </div>
+                      
+                      {/* Attendance Grid */}
+                      <div className="grid grid-cols-7 gap-1.5">
+                        {daysInWeek.map((day) => {
+                          const dateStr = format(day, 'yyyy-MM-dd');
+                          const att = empAtt[dateStr];
+                          const isPresent = att?.is_present ?? false;
+
+                          return (
+                            <button
+                                key={dateStr}
+                                onClick={() => handleOpen(e, dateStr)}
+                                className={clsx(
+                                  "flex flex-col items-center justify-center py-2 h-[60px] rounded-xl transition-all active:scale-95",
+                                  isPresent ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm" : "bg-muted/50 text-muted-foreground border border-border hover:bg-muted"
+                                )}
+                              >
+                                {isPresent ? (
+                                  <>
+                                    <span className="text-[10px] font-bold leading-tight">{att?.check_in_time?.substring(0, 5) || '--:--'}</span>
+                                    <div className="w-[12px] h-[1px] bg-emerald-300 my-0.5"></div>
+                                    <span className="text-[10px] font-bold leading-tight">{att?.check_out_time?.substring(0, 5) || '--:--'}</span>
+                                  </>
+                                ) : (
+                                  <div className="flex flex-col items-center gap-0.5 opacity-70">
+                                    <span className="text-[9px] uppercase font-bold">{format(day, 'E', { locale: vi })}</span>
+                                    <span className="text-[11px] font-medium">{format(day, 'dd/MM')}</span>
+                                  </div>
+                                )}
+                              </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
           </div>
         )}
       </div>
@@ -394,15 +504,14 @@ const AttendancePage: React.FC = () => {
                     <div className="space-y-1.5">
                       <label className="text-[13px] font-bold text-foreground flex items-center gap-2">Giờ hiện tại <span className="text-red-500">*</span></label>
                       <div className="relative">
-                        <input
-                          type="time"
+                        <TimePicker24h
                           value={attTime}
-                          onChange={(e) => setAttTime(e.target.value)}
-                          className="w-full px-4 py-2.5 bg-white border border-border rounded-xl text-[13px] font-bold text-foreground focus:ring-2 focus:ring-primary/10 transition-all outline-none hide-icon"
+                          onChange={(val) => setAttTime(val)}
+                          className="w-full !h-[48px] !px-4 !bg-white border-border/80 rounded-xl text-[14px] font-bold text-foreground focus:ring-2 focus:ring-primary/10 transition-all"
                         />
                         <button
                           onClick={() => setAttTime(format(new Date(), 'HH:mm'))}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary hover:text-white transition-all shadow-sm"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-[11px] font-bold hover:bg-emerald-100 transition-all z-10"
                         >
                           Giờ hiện tại
                         </button>
@@ -455,7 +564,7 @@ const AttendancePage: React.FC = () => {
         document.body
       )}
 
-      <div className="mt-4 bg-muted/30 border border-border rounded-2xl p-4 flex items-center justify-between backdrop-blur-sm">
+      <div className="md:mt-4 mx-4 md:mx-0 mb-4 md:mb-0 bg-white md:bg-muted/30 border border-border rounded-2xl p-4 flex items-center justify-between md:backdrop-blur-sm shadow-sm md:shadow-none">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/20"></div>
@@ -467,6 +576,11 @@ const AttendancePage: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      <DraggableFAB 
+        icon={<Plus size={24} />} 
+        onClick={() => handleOpen()} 
+      />
     </div>
   );
 };

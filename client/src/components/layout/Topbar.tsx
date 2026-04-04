@@ -270,7 +270,7 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
             </React.Fragment>
           ))}
         </div>
-        <div className="sm:hidden font-semibold text-foreground text-sm">
+        <div className="sm:hidden font-bold text-primary text-[15px] tracking-tight truncate">
           {pageTitle}
         </div>
       </div>

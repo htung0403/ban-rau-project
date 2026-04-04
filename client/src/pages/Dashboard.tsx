@@ -69,14 +69,14 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className={clsx(
-        "bg-card rounded-xl shadow-sm border border-border p-1.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6 lg:mb-8 transition-all duration-300",
-        activeTab === 'tat-ca' ? "w-full" : "max-w-fit"
+        "bg-card sm:rounded-xl shadow-sm border-y border-border sm:border py-1.5 px-4 sm:p-2 flex flex-row items-center gap-1.5 sm:gap-3 mb-6 lg:mb-8 transition-all duration-300 relative z-10 w-[calc(100%+2rem)] -ml-4 sm:ml-0 overflow-hidden",
+        activeTab === 'tat-ca' ? "sm:w-full" : "sm:w-max"
       )}>
-        <div className="flex bg-muted/20 rounded-lg p-0.5 shrink-0">
+        <div className="flex bg-muted rounded-lg p-0.5 sm:p-1 shrink-0 h-9 sm:h-10 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab('chuc-nang')}
             className={clsx(
-              "px-4 py-1.5 rounded-md text-[13px] font-bold transition-all duration-200",
+              "px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-md text-[12px] sm:text-[13px] font-bold transition-all duration-200 whitespace-nowrap",
               activeTab === 'chuc-nang'
                 ? "bg-card text-primary shadow-sm ring-1 ring-black/5"
                 : "text-muted-foreground hover:text-foreground"
@@ -87,7 +87,7 @@ const Dashboard: React.FC = () => {
           <button
             onClick={() => setActiveTab('danh-dau')}
             className={clsx(
-              "px-4 py-1.5 rounded-md text-[13px] font-bold transition-all duration-200",
+              "px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-md text-[12px] sm:text-[13px] font-bold transition-all duration-200 whitespace-nowrap",
               activeTab === 'danh-dau'
                 ? "bg-card text-primary shadow-sm ring-1 ring-black/5"
                 : "text-muted-foreground hover:text-foreground"
@@ -98,9 +98,9 @@ const Dashboard: React.FC = () => {
           <button
             onClick={() => setActiveTab('tat-ca')}
             className={clsx(
-              "px-4 py-1.5 rounded-md text-[13px] font-bold transition-all duration-200",
+              "px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-md text-[12px] sm:text-[13px] font-bold transition-all duration-200 whitespace-nowrap",
               activeTab === 'tat-ca'
-                ? "bg-card text-primary shadow-sm ring-1 ring-primary/10"
+                ? "bg-card text-primary shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -110,12 +110,12 @@ const Dashboard: React.FC = () => {
 
         {/* Search Bar (Only shown on "Tất cả" tab) */}
         {activeTab === 'tat-ca' && (
-          <div className="flex-1 flex items-center bg-muted/20 rounded-lg px-3 py-1.5 animate-in slide-in-from-left-2 duration-300">
-            <Search size={16} className="text-muted-foreground shrink-0" />
+          <div className="flex-1 flex min-w-0 items-center bg-muted/50 rounded-lg h-9 sm:h-10 px-2.5 sm:px-3 animate-in slide-in-from-left-2 duration-300">
+            <Search size={14} className="text-muted-foreground shrink-0 sm:w-4 sm:h-4" />
             <input
               type="text"
-              placeholder="Tìm kiếm module, chức năng..."
-              className="bg-transparent border-none outline-none text-[13px] text-foreground w-full ml-2 placeholder:text-muted-foreground/60"
+              placeholder="Tìm kiếm..."
+              className="bg-transparent border-none outline-none text-[12px] sm:text-[13px] text-foreground w-full ml-1.5 sm:ml-2 placeholder:text-muted-foreground/60 focus:ring-0"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />

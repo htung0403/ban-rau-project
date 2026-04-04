@@ -18,9 +18,9 @@ const ModulePage: React.FC = () => {
   const currentItem = sidebarMenu.find(item => item.path === location.pathname);
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
-      {/* Mobile Header (Only visible on small screens when inside a module) */}
-      <div className="flex items-center gap-3 mb-4 sm:hidden">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full pb-24 sm:pb-4">
+      {/* Mobile Header (Hidden as requested) */}
+      <div className="hidden">
         <button onClick={() => navigate('/')} className="p-2 -ml-2 text-muted-foreground hover:bg-accent rounded-lg flex items-center justify-center bg-card border border-border shadow-sm">
           <ChevronLeft size={20} />
         </button>
@@ -30,20 +30,23 @@ const ModulePage: React.FC = () => {
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-card rounded-xl shadow-sm border border-border p-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 mb-6 relative z-10">
+      <div className="bg-card sm:rounded-xl shadow-sm border-y border-border sm:border py-1.5 px-4 sm:p-2 flex flex-row items-center gap-1.5 sm:gap-3 mb-4 sm:mb-6 relative z-10 w-[calc(100%+2rem)] -ml-4 sm:w-full sm:ml-0 overflow-hidden">
+        {/* Quay lại button */}
         <button 
           onClick={() => navigate('/')}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-muted-foreground text-[13px] font-medium transition-colors bg-card shadow-sm"
+          className="flex items-center justify-center sm:gap-1.5 w-9 sm:w-auto px-0 sm:px-3 h-9 sm:h-10 rounded-lg border border-border hover:bg-muted text-muted-foreground text-[13px] font-medium transition-colors bg-card shadow-sm shrink-0"
+          title="Quay lại"
         >
-          <ChevronLeft size={16} />
-          Quay lại
+          <ChevronLeft size={18} className="sm:-ml-1" />
+          <span className="hidden sm:inline">Quay lại</span>
         </button>
 
-        <div className="flex bg-muted rounded-lg p-1 w-full sm:w-auto">
+        {/* Tabs */}
+        <div className="flex bg-muted rounded-lg p-0.5 sm:p-1 h-9 sm:h-10 shrink-0">
           <button
             onClick={() => setActiveTab('tat-ca')}
             className={clsx(
-              "flex-1 sm:flex-none px-4 py-1.5 rounded-md text-[13px] font-bold transition-all duration-200",
+              "px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-md text-[12px] sm:text-[13px] font-bold transition-all duration-200 whitespace-nowrap",
               activeTab === 'tat-ca'
                 ? "bg-card text-primary shadow-sm ring-1 ring-black/5"
                 : "text-muted-foreground hover:text-foreground"
@@ -54,7 +57,7 @@ const ModulePage: React.FC = () => {
           <button
             onClick={() => setActiveTab('danh-dau')}
             className={clsx(
-              "flex-1 sm:flex-none px-4 py-1.5 rounded-md text-[13px] font-bold transition-all duration-200 whitespace-nowrap",
+              "px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-md text-[12px] sm:text-[13px] font-bold transition-all duration-200 whitespace-nowrap",
               activeTab === 'danh-dau'
                 ? "bg-card text-primary shadow-sm ring-1 ring-black/5"
                 : "text-muted-foreground hover:text-foreground"
@@ -64,14 +67,15 @@ const ModulePage: React.FC = () => {
           </button>
         </div>
 
-        <div className="relative flex-1 w-full">
-          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground">
-            <Search size={16} />
+        {/* Search Input */}
+        <div className="relative flex-1 min-w-0 h-9 sm:h-10">
+          <div className="absolute inset-y-0 left-2.5 sm:left-3 flex items-center pointer-events-none text-muted-foreground">
+            <Search size={14} className="sm:w-4 sm:h-4" />
           </div>
           <input
             type="text"
-            className="w-full text-[13px] bg-transparent border border-border rounded-lg pl-9 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/60"
-            placeholder="Tìm module theo tên hoặc mô tả..."
+            className="w-full h-full text-[12px] sm:text-[13px] bg-transparent border border-border rounded-lg pl-7 sm:pl-9 pr-2 sm:pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/60"
+            placeholder="Tìm module..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />

@@ -3,7 +3,9 @@ import { useVehicleCollectionSummary } from '../../../hooks/queries/usePaymentCo
 import { Download, DollarSign } from 'lucide-react';
 import EmptyState from '../../../components/shared/EmptyState';
 import ErrorState from '../../../components/shared/ErrorState';
+import { DateRangePicker } from '../../../components/shared/DateRangePicker';
 import { formatCurrency } from '../../../utils/formatters';
+import { format } from 'date-fns';
 
 const ManagerSummaryTab: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
@@ -51,32 +53,26 @@ const ManagerSummaryTab: React.FC = () => {
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <div className="flex items-center gap-2">
-            <input 
-              type="date" 
-              value={dateFrom} 
-              onChange={e => setDateFrom(e.target.value)} 
-              className="px-3 py-2 border border-slate-200 rounded-lg text-[13px] outline-none" 
-            />
-            <span className="text-slate-500">-</span>
-            <input 
-              type="date" 
-              value={dateTo} 
-              onChange={e => setDateTo(e.target.value)} 
-              className="px-3 py-2 border border-slate-200 rounded-lg text-[13px] outline-none" 
-            />
-          </div>
+      <div className="flex flex-row items-center justify-between gap-2 sm:gap-4 w-full">
+        <div className="flex-1 min-w-0">
+          <DateRangePicker 
+            initialDateFrom={dateFrom}
+            initialDateTo={dateTo}
+            onUpdate={({ range }) => {
+              setDateFrom(range.from ? format(range.from, 'yyyy-MM-dd') : '');
+              setDateTo(range.to ? format(range.to, 'yyyy-MM-dd') : '');
+            }}
+          />
         </div>
-        <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-[13px] font-bold rounded-lg hover:bg-slate-50 flex items-center gap-2">
-          <Download size={16} /> Xuất Báo Cáo
+        <button className="shrink-0 h-[38px] px-3 sm:px-4 py-2 bg-white border border-slate-200 text-slate-700 text-[13px] font-bold rounded-xl hover:bg-slate-50 flex items-center justify-center gap-2">
+          <Download size={16} className="shrink-0" />
+          <span className="hidden sm:inline">Xuất Báo Cáo</span>
         </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto min-h-[400px]">
+      {/* Table & Cards */}
+      <div className="bg-transparent md:bg-white border-0 md:border border-slate-200 md:rounded-xl md:shadow-sm md:overflow-hidden">
+        <div className="min-h-[400px]">
           {isLoading ? (
             <div className="flex items-center justify-center h-40"><p>Đang tải...</p></div>
           ) : isError ? (
@@ -84,8 +80,35 @@ const ManagerSummaryTab: React.FC = () => {
           ) : summaryByDriver.length === 0 ? (
             <EmptyState title="Không có dữ liệu thu tiền trong khoảng thời gian này" />
           ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
+            <>
+              {/* Mobile Card Layout */}
+              <div className="md:hidden flex flex-col gap-3 pb-6">
+                {summaryByDriver.map((summary, idx) => (
+                  <div key={idx} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-bold text-slate-800 text-[14px]">{summary.driverName}</h3>
+                        <p className="text-[12px] text-slate-500">{summary.vehiclePlate || 'Không có xe'}</p>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center rounded-lg bg-slate-50 p-3 border border-slate-100">
+                      <div className="text-center w-1/2 border-r border-slate-200 pr-3">
+                        <p className="text-[11px] text-slate-500 mb-1">Số Phiếu</p>
+                        <p className="font-bold text-slate-800 text-[14px]">{summary.count}</p>
+                      </div>
+                      <div className="text-center w-1/2 pl-3">
+                        <p className="text-[11px] text-slate-500 mb-1">Tổng Thu (Đã XN)</p>
+                        <p className="font-extrabold text-green-600 text-[15px]">{formatCurrency(summary.totalAmount)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table Layout */}
+              <div className="hidden md:block overflow-x-auto pb-6">
+                <table className="w-full text-left border-collapse">
+                <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-200 text-[12px] font-bold text-slate-600 uppercase tracking-wider">
                   <th className="px-6 py-4">Tài Xế</th>
                   <th className="px-6 py-4">Xe Giao Hàng</th>
@@ -111,7 +134,9 @@ const ManagerSummaryTab: React.FC = () => {
                   </tr>
                 ))}
               </tbody>
-            </table>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>

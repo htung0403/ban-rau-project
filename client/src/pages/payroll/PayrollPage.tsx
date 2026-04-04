@@ -107,62 +107,69 @@ const PayrollPage: React.FC = () => {
   // Active employees
   const targetEmployees = employees?.filter(e => e.is_active && ['admin', 'manager', 'staff', 'driver'].includes(e.role)) || [];
 
+  const payrollActions = (
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+      <div className="flex items-center justify-between bg-white border border-border/80 rounded-xl overflow-hidden shadow-sm shrink-0">
+        <button
+          onClick={() => { setSelectedDate(format(subDays(new Date(selectedDate), 7), 'yyyy-MM-dd')); setPendingPaidChanges({}); }}
+          className="p-2 sm:px-3 hover:bg-muted text-muted-foreground transition-colors border-r border-border/50 flex-1 sm:flex-none flex justify-center"
+        >
+          <ChevronRight className="rotate-180" size={16} />
+        </button>
+        <div className="px-2 sm:px-4 py-2 text-[13px] font-bold text-foreground whitespace-nowrap text-center shrink-0">
+          Tuần {format(weekStart, 'dd/MM')} - {format(weekEnd, 'dd/MM')}
+        </div>
+        <button
+          onClick={() => { setSelectedDate(format(addDays(new Date(selectedDate), 7), 'yyyy-MM-dd')); setPendingPaidChanges({}); }}
+          className="p-2 sm:px-3 hover:bg-muted text-muted-foreground transition-colors border-l border-border/50 flex-1 sm:flex-none flex justify-center"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      {hasPendingChanges ? (
+        <button
+          onClick={handleSaveChanges}
+          disabled={updateStatusesMutation.isPending}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 rounded-xl bg-orange-500 text-white text-[13px] font-bold hover:bg-orange-600 shadow-lg shadow-orange-500/20 transition-all disabled:opacity-50 mt-1 sm:mt-0 shrink-0"
+        >
+          <Check size={16} />
+          {updateStatusesMutation.isPending ? 'Đang lưu...' : 'Lưu trạng thái'}
+        </button>
+      ) : (
+        <button
+          onClick={handleGenerate}
+          disabled={generateMutation.isPending}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all disabled:opacity-50 mt-1 sm:mt-0 shrink-0"
+        >
+          <Lock size={16} />
+          {generateMutation.isPending ? 'Đang xử lý...' : 'Khoá sổ / Chốt lương'}
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
-      <PageHeader
-        title="Bảng lương"
-        description="Tính lương và chốt lương nhân viên theo tuần"
-        backPath="/hanh-chinh-nhan-su"
-        actions={
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-white border border-border/80 rounded-xl overflow-hidden shadow-sm">
-              <button
-                onClick={() => { setSelectedDate(format(subDays(new Date(selectedDate), 7), 'yyyy-MM-dd')); setPendingPaidChanges({}); }}
-                className="p-2 hover:bg-muted text-muted-foreground transition-colors border-r border-border/50"
-              >
-                <ChevronRight className="rotate-180" size={16} />
-              </button>
-              <div className="px-4 py-2 text-[13px] font-bold text-foreground">
-                Tuần {format(weekStart, 'dd/MM')} - {format(weekEnd, 'dd/MM')}
-              </div>
-              <button
-                onClick={() => { setSelectedDate(format(addDays(new Date(selectedDate), 7), 'yyyy-MM-dd')); setPendingPaidChanges({}); }}
-                className="p-2 hover:bg-muted text-muted-foreground transition-colors border-l border-border/50"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
+      <div className="hidden md:block">
+        <PageHeader
+          title="Bảng lương"
+          description="Tính lương và chốt lương nhân viên theo tuần"
+          backPath="/hanh-chinh-nhan-su"
+          actions={payrollActions}
+        />
+      </div>
+      <div className="md:hidden pb-3 mt-1">
+        {payrollActions}
+      </div>
 
 
-            {hasPendingChanges ? (
-              <button
-                onClick={handleSaveChanges}
-                disabled={updateStatusesMutation.isPending}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500 text-white text-[13px] font-bold hover:bg-orange-600 shadow-lg shadow-orange-500/20 transition-all disabled:opacity-50"
-              >
-                <Check size={16} />
-                {updateStatusesMutation.isPending ? 'Đang lưu...' : 'Lưu trạng thái trả lương'}
-              </button>
-            ) : (
-              <button
-                onClick={handleGenerate}
-                disabled={generateMutation.isPending}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
-              >
-                <Lock size={16} />
-                {generateMutation.isPending ? 'Đang xử lý...' : 'Khoá sổ / Chốt lương tuần'}
-              </button>
-            )}
-          </div>
-        }
-      />
-
-      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden mt-2">
-        <div className="flex border-b border-border bg-muted/20">
+      <div className="bg-white md:rounded-2xl md:border md:border-border sm:shadow-sm flex flex-col flex-1 min-h-0 md:overflow-hidden mt-0 md:mt-2 -mx-4 md:mx-0">
+        <div className="flex border-b border-border bg-muted/20 w-full">
           <button
             onClick={() => setActiveTab('payroll')}
             className={clsx(
-              "flex items-center gap-2 px-6 py-4 text-[13px] font-bold transition-all relative",
+              "flex items-center justify-center gap-2 px-6 py-4 text-[13px] font-bold transition-all relative flex-1 md:flex-none",
               activeTab === 'payroll' 
                 ? "text-primary bg-primary/5" 
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -177,7 +184,7 @@ const PayrollPage: React.FC = () => {
           <button
             onClick={() => setActiveTab('stats')}
             className={clsx(
-              "flex items-center gap-2 px-6 py-4 text-[13px] font-bold transition-all relative",
+              "flex items-center justify-center gap-2 px-6 py-4 text-[13px] font-bold transition-all relative flex-1 md:flex-none",
               activeTab === 'stats' 
                 ? "text-primary bg-primary/5" 
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -201,7 +208,8 @@ const PayrollPage: React.FC = () => {
           <ErrorState onRetry={() => { refetchEmployees(); refetchAtt(); refetchPay(); }} />
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar">
-            <table className="w-full text-left border-collapse min-w-[1200px]">
+            {/* Desktop Table View */}
+            <table className="w-full text-left border-collapse min-w-[1200px] hidden md:table">
               <thead className="bg-[#f8fafc] sticky top-0 z-20 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
                 <tr>
                   <th className="sticky text-center left-0 z-30 bg-[#f8fafc] px-3 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap min-w-[200px] border-b border-r border-border/50">
@@ -335,15 +343,6 @@ const PayrollPage: React.FC = () => {
                                 <Lock size={14} />
                               </button>
                             )}
-                            {/* {employeePayroll && (
-                                <button
-                                  onClick={() => window.print()}
-                                  className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                                  title="In phiếu lương"
-                                >
-                                  <Printer size={14} />
-                                </button>
-                              )} */}
                           </div>
                         </td>
                       </tr>
@@ -352,12 +351,109 @@ const PayrollPage: React.FC = () => {
                 )}
               </tbody>
             </table>
+
+            {/* Mobile Card View */}
+            <div className="flex flex-col gap-3 p-3 md:hidden bg-slate-50/50 min-h-full pb-20">
+              {targetEmployees.length === 0 ? (
+                <EmptyState title="Chưa có nhân sự nào được cấu hình" />
+              ) : (
+                targetEmployees.map(e => {
+                  const empAtt = localAttendance[e.id] || {};
+                  let totalPresent = 0;
+
+                  daysInWeek.forEach(day => {
+                    const dateStr = format(day, 'yyyy-MM-dd');
+                    if (empAtt[dateStr]?.is_present) totalPresent++;
+                  });
+
+                  const employeePayroll = currentWeekPayrolls.find(p => p.employee_id === e.id);
+
+                  const dailyWage = employeePayroll?.daily_wage || roles?.find(r => r.role_key === e.role)?.daily_wage || 0;
+                  const daysWorked = employeePayroll?.days_worked ?? totalPresent;
+                  const grossSalary = employeePayroll?.gross_salary ?? (daysWorked * dailyWage);
+                  const totalAdvances = employeePayroll?.total_advances ?? 0;
+                  const netSalary = employeePayroll?.net_salary ?? (grossSalary - totalAdvances);
+                  const status = employeePayroll?.status || 'Chưa tạo';
+
+                  const isPaidState = employeePayroll ? (pendingPaidChanges[employeePayroll.id] !== undefined ? pendingPaidChanges[employeePayroll.id] : status === 'paid') : false;
+
+                  return (
+                    <div key={e.id} className="bg-white rounded-xl border border-border/60 shadow-sm p-4 flex flex-col gap-3 relative overflow-hidden">
+                      <div className={`absolute left-0 top-0 bottom-0 w-1 ${isPaidState ? 'bg-emerald-500' : status === 'confirmed' ? 'bg-blue-500' : 'bg-amber-500'}`} />
+                      
+                      <div className="flex justify-between items-start pl-1">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {e.avatar_url ? (
+                            <img src={e.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover bg-muted/30 border border-border/50 shadow-sm shrink-0" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-sm shrink-0">
+                              <span className="font-bold text-[14px]">
+                                {e.full_name?.trim().split(' ').pop()?.[0]?.toUpperCase() || 'U'}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[14px] font-bold text-foreground line-clamp-1">{e.full_name}</span>
+                            <span className="text-[11px] font-medium text-muted-foreground">{roles?.find(r => r.role_key === e.role)?.role_name || translateRole(e.role)}</span>
+                          </div>
+                        </div>
+                        <div className="shrink-0 flex flex-col items-end gap-1">
+                          {employeePayroll ? (
+                            <StatusBadge status={isPaidState ? 'paid' : status} label={statusLabels[isPaidState ? 'paid' : status]} />
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-muted font-bold text-muted-foreground">Chưa tạo</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 mt-1 pl-1">
+                        <div className="bg-red-50/30 border border-red-100 rounded-lg p-2.5 flex flex-col items-center justify-center text-center overflow-hidden">
+                          <span className="text-[11px] text-red-600/80 font-medium whitespace-nowrap">Tạm ứng</span>
+                          <span className="text-[13px] sm:text-[14px] font-bold text-red-600 tabular-nums truncate w-full">{totalAdvances > 0 ? `-${formatCurrency(totalAdvances)}` : '0 đ'}</span>
+                        </div>
+                        <div className="bg-emerald-50/30 border border-emerald-100 rounded-lg p-2.5 flex flex-col items-center justify-center text-center overflow-hidden">
+                          <span className="text-[11px] text-emerald-600/80 font-medium whitespace-nowrap">Thực nhận</span>
+                          <span className="text-[13px] sm:text-[14px] font-bold text-emerald-700 tabular-nums truncate w-full">{formatCurrency(netSalary)}</span>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-border/40 pt-2 mt-2 pl-1 flex items-center justify-between min-h-[36px]">
+                        <span className="text-[12px] font-medium text-muted-foreground">
+                          Ngày công: <span className="font-bold text-primary text-[13px]">{daysWorked}</span>
+                        </span>
+                        
+                        {employeePayroll && (status === 'confirmed' || status === 'paid') ? (
+                          <label className="flex items-center gap-1.5 cursor-pointer title-tooltip p-1.5 bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-100 rounded-lg transition-colors" title="Xác nhận đã trả lương">
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 text-emerald-500 rounded border-border/50 focus:ring-emerald-500/20"
+                              checked={isPaidState}
+                              onChange={() => handleTogglePaid(employeePayroll.id, isPaidState)}
+                            />
+                            <span className="text-[12px] font-bold text-emerald-700">Đã thanh toán</span>
+                          </label>
+                        ) : status === 'draft' && employeePayroll ? (
+                          <button
+                            onClick={() => confirmMutation.mutate(employeePayroll.id)}
+                            disabled={confirmMutation.isPending}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors text-[12px] font-bold border border-blue-100"
+                          >
+                            <Lock size={14} />
+                            Chốt lương
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         )}
       </div>
 
       {activeTab === 'payroll' && (
-        <div className="mt-4 bg-muted/30 border border-border rounded-2xl p-4 flex items-center gap-6 backdrop-blur-sm">
+        <div className="mt-4 bg-muted/30 border border-border rounded-2xl p-4 hidden md:flex items-center gap-6 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded-full bg-emerald-50 flex items-center justify-center border border-emerald-200">
               <Check size={10} className="text-emerald-600" strokeWidth={3} />

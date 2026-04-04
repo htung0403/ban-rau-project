@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import { Plus, Save, Trash2, Edit2, Loader2, UserCog, X, ShieldCheck, ChevronRight, Coins, Info } from 'lucide-react';
 import type { RoleSalary } from '../../types';
 import { createPortal } from 'react-dom';
+import DraggableFAB from '../../components/shared/DraggableFAB';
 
 const SalarySettingsPage: React.FC = () => {
   const { data: roles, isLoading, isError, refetch } = useRoleSalaries();
@@ -76,83 +77,141 @@ const SalarySettingsPage: React.FC = () => {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
-      <PageHeader
-        title="Quản lý cấp bậc & Lương"
-        description="Cấu hình các vai trò trong hệ thống và mức lương tương ứng"
-        backPath="/hanh-chinh-nhan-su"
-        actions={
-          <button
-            onClick={() => handleOpenDialog()}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
-          >
-            <Plus size={16} />
-            Thêm cấp bậc
-          </button>
-        }
-      />
+      <div className="hidden md:block">
+        <PageHeader
+          title="Quản lý cấp bậc & Lương"
+          description="Cấu hình các vai trò trong hệ thống và mức lương tương ứng"
+          backPath="/hanh-chinh-nhan-su"
+          actions={
+            <button
+              onClick={() => handleOpenDialog()}
+              className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
+            >
+              <Plus size={16} />
+              Thêm cấp bậc
+            </button>
+          }
+        />
+      </div>
 
-      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className="md:bg-white md:rounded-2xl md:border md:border-border md:shadow-sm flex flex-col flex-1 min-h-0 md:overflow-hidden -mx-4 sm:mx-0">
         {isLoading ? (
           <div className="p-6"><LoadingSkeleton rows={5} columns={5} /></div>
         ) : isError ? (
           <ErrorState onRetry={() => refetch()} />
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-muted/30 border-b border-border">
-                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-left w-1/4">Tên Cấp Bậc</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-right w-1/5">Lương/Ngày</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-left">Mô tả</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center w-32">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {roles?.map((role) => (
-                  <tr key={role.id} className="hover:bg-muted/10 transition-colors group">
-                    <td className="px-6 py-4">
-                      <span className="text-[14px] font-bold text-foreground">{role.role_name}</span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span className="text-[14px] font-bold text-emerald-600 tabular-nums">
-                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(role.daily_wage)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-[13px] text-muted-foreground block" title={role.description}>
-                        {role.description || '-'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center gap-2 transition-opacity">
-                        <button
-                          onClick={() => handleOpenDialog(role)}
-                          className="p-2 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors bg-blue-50/50"
-                          title="Chỉnh sửa"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(role.role_key)}
-                          disabled={deleteMutation.isPending}
-                          className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors bg-red-50/50"
-                          title="Xóa"
-                        >
-                          {deleteMutation.isPending && deleteMutation.variables === role.role_key ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : (
-                            <Trash2 size={16} />
-                          )}
-                        </button>
-                      </div>
-                    </td>
+            {/* Desktop View */}
+            <div className="hidden md:block">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-muted/30 border-b border-border">
+                    <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-left w-1/4">Tên Cấp Bậc</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-right w-1/5">Lương/Ngày</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-left">Mô tả</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center w-32">Thao tác</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {roles?.map((role) => (
+                    <tr key={role.id} className="hover:bg-muted/10 transition-colors group">
+                      <td className="px-6 py-4">
+                        <span className="text-[14px] font-bold text-foreground">{role.role_name}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-[14px] font-bold text-emerald-600 tabular-nums">
+                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(role.daily_wage)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-[13px] text-muted-foreground block" title={role.description}>
+                          {role.description || '-'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center gap-2 transition-opacity">
+                          <button
+                            onClick={() => handleOpenDialog(role)}
+                            className="p-2 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors bg-blue-50/50"
+                            title="Chỉnh sửa"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(role.role_key)}
+                            disabled={deleteMutation.isPending}
+                            className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors bg-red-50/50"
+                            title="Xóa"
+                          >
+                            {deleteMutation.isPending && deleteMutation.variables === role.role_key ? (
+                              <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                              <Trash2 size={16} />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile View */}
+            <div className="md:hidden flex flex-col gap-3 px-4 pb-24 pt-2">
+              {roles?.map((role) => (
+                <div key={role.id} className="p-4 flex flex-col gap-3 bg-white rounded-2xl border border-border shadow-sm active:scale-[0.98] transition-transform">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <span className="text-[15px] font-bold text-foreground block">{role.role_name}</span>
+                      {role.description && (
+                        <span className="text-[13px] text-muted-foreground block line-clamp-2">
+                          {role.description}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleOpenDialog(role)}
+                        className="p-2 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors bg-blue-50/50"
+                        title="Chỉnh sửa"
+                      >
+                        <Edit2 size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(role.role_key)}
+                        disabled={deleteMutation.isPending}
+                        className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-colors bg-red-50/50"
+                        title="Xóa"
+                      >
+                        {deleteMutation.isPending && deleteMutation.variables === role.role_key ? (
+                          <Loader2 size={15} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={15} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="px-2.5 py-1.5 rounded-md bg-emerald-50 border border-emerald-100/50 flex items-center gap-1.5">
+                      <Coins size={14} className="text-emerald-600" />
+                      <span className="text-[13px] font-bold text-emerald-600">
+                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(role.daily_wage)} / Ngày
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
+
+      <DraggableFAB
+        icon={<Plus size={24} />}
+        onClick={() => handleOpenDialog()}
+        className="bg-primary text-white w-14 h-14 rounded-full"
+      />
 
       {/* Right Side Panel Dialog */}
       {(isEditing || isClosing) && createPortal(

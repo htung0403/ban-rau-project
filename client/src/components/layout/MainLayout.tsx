@@ -22,9 +22,8 @@ const MainLayout: React.FC = () => {
       >
         <Topbar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-        {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6 custom-scrollbar">
-          <div className="w-full h-full flex flex-col">
+        <main className="flex-1 overflow-y-auto custom-scrollbar">
+          <div className="w-full min-h-full flex flex-col p-4 lg:p-6 pb-[88px] lg:pb-6">
             <Outlet />
           </div>
         </main>

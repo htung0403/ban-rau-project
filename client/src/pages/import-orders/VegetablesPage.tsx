@@ -105,7 +105,7 @@ const VegetablesPage: React.FC = () => {
               <thead className="sticky top-0 z-10 bg-muted/60">
                 <tr>
                   <th className="px-4 py-3 border border-border text-[12px] font-bold text-muted-foreground/80 uppercase tracking-widest text-left">Tên Vựa</th>
-                  <th className="px-4 py-3 border border-border text-[12px] font-bold text-muted-foreground/80 uppercase tracking-widest text-center w-24">Tài</th>
+                  <th className="px-4 py-3 border border-border text-[12px] font-bold text-muted-foreground/80 uppercase tracking-widest text-center w-36">Tài</th>
                   <th className="px-4 py-3 border border-border text-[12px] font-bold text-muted-foreground/80 uppercase tracking-widest text-center w-24">SL</th>
                   <th className="px-4 py-3 border border-border text-[12px] font-bold text-muted-foreground/80 uppercase tracking-widest text-left">Tên Hàng</th>
                   <th className="px-4 py-3 border border-border text-[12px] font-bold text-muted-foreground/80 uppercase tracking-widest text-right w-32">Tiền</th>
@@ -122,7 +122,7 @@ const VegetablesPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 border border-border text-center">
                       <span className="text-[13px] font-medium text-muted-foreground">
-                        {item.order?.driver_name || '-'}
+                        {item.order?.license_plate || '-'}
                       </span>
                     </td>
                     <td className="px-4 py-3 border border-border text-center">

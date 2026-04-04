@@ -80,6 +80,7 @@ function AppRoutes() {
       >
         <Route path="/" element={<Dashboard />} />
         <Route path="/ho-so" element={<ProfilePage />} />
+        <Route path="/ho-so/:id" element={<ProfilePage />} />
 
         {/* Hang hoa module */}
         <Route path="/hang-hoa" element={<ModulePage />} />
@@ -92,6 +93,7 @@ function AppRoutes() {
 
         <Route path="/hanh-chinh-nhan-su" element={<ModulePage />} />
         <Route path="/hanh-chinh-nhan-su/nhan-su" element={<EmployeesPage />} />
+        <Route path="/hanh-chinh-nhan-su/nhan-su/:id" element={<ProfilePage />} />
         <Route path="/hanh-chinh-nhan-su/nghi-phep" element={<LeaveRequestsPage />} />
         <Route path="/hanh-chinh-nhan-su/cham-cong" element={<AttendancePage />} />
         <Route path="/hanh-chinh-nhan-su/luong" element={<PayrollPage />} />

@@ -1,17 +1,19 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/shared/PageHeader';
 import { useEmployees, useCreateEmployee, useUpdateEmployeeStatus } from '../../hooks/queries/useHR';
 import { useRoleSalaries } from '../../hooks/queries/usePriceSettings';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Users, Plus, X, UserPlus, Mail, Lock, Phone, ShieldCheck, ChevronRight, Loader2, Power, PowerOff } from 'lucide-react';
+import { Users, Plus, X, UserPlus, Mail, Lock, Phone, ShieldCheck, ChevronRight, Loader2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { CreatableSearchableSelect } from '../../components/ui/CreatableSearchableSelect';
 import { useUpsertRoleSalary } from '../../hooks/queries/usePriceSettings';
 
 const EmployeesPage: React.FC = () => {
+  const navigate = useNavigate();
   const { data: employees, isLoading, isError, refetch } = useEmployees();
   const { data: roles } = useRoleSalaries();
   const createMutation = useCreateEmployee();
@@ -93,65 +95,81 @@ const EmployeesPage: React.FC = () => {
           </button>
         }
       />
-      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0">
+      <div className="flex-1 min-h-0 flex flex-col">
         {isLoading ? (
-          <div className="p-4"><LoadingSkeleton rows={6} columns={4} /></div>
+          <div className="bg-white rounded-2xl border border-border shadow-sm p-4 flex-1"><LoadingSkeleton rows={6} columns={4} /></div>
         ) : isError ? (
-          <ErrorState onRetry={() => refetch()} />
+          <div className="bg-white rounded-2xl border border-border shadow-sm flex-1"><ErrorState onRetry={() => refetch()} /></div>
         ) : !employees?.length ? (
-          <EmptyState title="Chưa có nhân viên" />
+          <div className="bg-white rounded-2xl border border-border shadow-sm flex-1"><EmptyState title="Chưa có nhân viên" /></div>
         ) : (
-          <div className="flex-1 overflow-auto custom-scrollbar">
-            <table className="w-full border-collapse">
-              <thead className="sticky top-0 z-10">
-                <tr>
-                  <th className="sticky top-0 z-10 bg-white border-b border-border px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left rounded-tl-2xl">Họ tên</th>
-                  <th className="sticky top-0 z-10 bg-white border-b border-border px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Email</th>
-                  <th className="sticky top-0 z-10 bg-white border-b border-border px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">SDT</th>
-                  <th className="sticky top-0 z-10 bg-white border-b border-border px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Vai trò</th>
-                  <th className="sticky top-0 z-10 bg-white border-b border-border px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center rounded-tr-2xl">Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {employees.map((e) => (
-                  <tr key={e.id} className="hover:bg-muted/20 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col">
-                        <span className="text-[13px] font-bold text-foreground line-clamp-1">{e.full_name}</span>
-                        <span className="text-[10px] text-muted-foreground/60 md:hidden">{e.email}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-[12px] text-muted-foreground hidden md:table-cell">{e.email || '-'}</td>
-                    <td className="px-4 py-3 text-[12px] text-muted-foreground">{e.phone || '-'}</td>
-                    <td className="px-4 py-3 text-left">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+          <div className="flex-1 overflow-auto custom-scrollbar pb-6 px-1">
+            <div className="flex flex-col gap-3">
+              {employees.map((e) => (
+                <div key={e.id} onClick={() => navigate(`/hanh-chinh-nhan-su/nhan-su/${e.id}`)} className="cursor-pointer bg-white rounded-2xl border border-border shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-300 overflow-hidden flex flex-col md:flex-row items-center group relative p-4 pl-6">
+                  {/* Left accent line */}
+                  <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${e.is_active ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                  
+                  {/* Avatar & Basic Info */}
+                  <div className="flex items-center gap-4 flex-1 min-w-0 w-full md:w-auto">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0 border border-primary/20 shadow-inner">
+                      <span className="text-lg font-bold">
+                        {e.full_name.trim().split(' ').pop()?.[0]?.toUpperCase() || 'U'}
+                      </span>
+                    </div>
+                    <div className="flex flex-col min-w-0 md:pr-6 border-none md:border-r border-border/50">
+                      <h3 className="text-[16px] font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                        {e.full_name}
+                      </h3>
+                      <span className="w-fit mt-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-muted/10 text-muted-foreground border border-border/50 whitespace-nowrap">
                         {roles?.find(r => r.role_key === e.role)?.role_name || e.role}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => toggleStatus(e.id, e.is_active)}
+                    </div>
+                  </div>
+
+                  {/* Contact Info (middle) */}
+                  <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-6 flex-[1.5] px-0 md:px-6 py-4 md:py-0 w-full md:w-auto">
+                    <div className="flex items-center gap-2.5 text-[13px] text-muted-foreground">
+                      <div className="w-7 h-7 rounded-lg bg-muted/10 flex items-center justify-center shrink-0">
+                        <Mail size={14} className="text-muted-foreground/80" />
+                      </div>
+                      <span className="truncate font-medium">{e.email || 'Chưa cập nhật'}</span>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-[13px] text-muted-foreground">
+                      <div className="w-7 h-7 rounded-lg bg-muted/10 flex items-center justify-center shrink-0">
+                        <Phone size={14} className="text-muted-foreground/80" />
+                      </div>
+                      <span className="font-medium">{e.phone || 'Chưa cập nhật'}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Action (right) */}
+                  <div className="flex items-center gap-4 shrink-0 w-full md:w-auto justify-between md:justify-end pt-4 md:pt-0 border-t md:border-t-0 border-border/50 text-[13px]">
+                    <span className={`flex items-center justify-center w-24 gap-1.5 text-[12px] font-bold ${e.is_active ? 'text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg py-1.5' : 'text-red-500 bg-red-50 border border-red-100 rounded-lg py-1.5'}`}>
+                      {updateStatusMutation.isPending && updateStatusMutation.variables?.id === e.id ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : e.is_active ? (
+                        <ShieldCheck size={13} />
+                      ) : (
+                        <Lock size={13} />
+                      )}
+                      {e.is_active ? 'Hoạt động' : 'Đã khóa'}
+                    </span>
+                    <button
+                        onClick={(ev) => { ev.stopPropagation(); toggleStatus(e.id, e.is_active); }}
                         disabled={updateStatusMutation.isPending}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all ${
+                        className={`text-[12px] font-bold px-3 py-1.5 rounded-lg transition-all ${
                           e.is_active 
-                            ? 'text-emerald-600 bg-emerald-50 border border-emerald-100 hover:bg-emerald-100' 
-                            : 'text-red-500 bg-red-50 border border-red-100 hover:bg-red-100'
+                            ? 'text-red-600 hover:bg-red-50 border border-border/50 hover:border-red-200' 
+                            : 'text-primary hover:bg-primary/5 border border-border/50 hover:border-primary/30'
                         }`}
                       >
-                        {updateStatusMutation.isPending && updateStatusMutation.variables?.id === e.id ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : e.is_active ? (
-                          <Power size={12} />
-                        ) : (
-                          <PowerOff size={12} />
-                        )}
-                        {e.is_active ? 'Hoạt động' : 'Ngừng'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        {e.is_active ? 'Khóa thẻ' : 'Mở khóa'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

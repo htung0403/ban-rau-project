@@ -9,8 +9,10 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useState, useRef, useEffect } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useBreadcrumbs } from '../context/BreadcrumbContext';
 import { useEmployee } from '../hooks/queries/useHR';
 import { useCustomerByUserId } from '../hooks/queries/useCustomers';
 import LoadingSkeleton from '../components/shared/LoadingSkeleton';
@@ -20,16 +22,22 @@ import { authApi } from '../api/authApi';
 import toast from 'react-hot-toast';
 
 const ProfilePage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+  const { setDynamicLabel } = useBreadcrumbs();
   const { user, updateUser } = useAuth();
   const { avatar } = useTheme();
 
-  const isCustomer = user?.role === 'customer';
+  const isCurrentUser = !id || id === user?.id;
+  const targetId = id || user?.id || '';
 
-  // Fetch employee data if not customer
-  const { data: employeeData, isLoading: loadingEmployee } = useEmployee(user?.id || '');
+  // Fetch employee data
+  const { data: employeeData, isLoading: loadingEmployee } = useEmployee(targetId);
 
-  // Fetch customer data if customer
-  const { data: customerData, isLoading: loadingCustomer } = useCustomerByUserId(user?.id || '');
+  // Fetch customer data
+  const { data: customerData, isLoading: loadingCustomer } = useCustomerByUserId(targetId);
+
+  const isCustomer = isCurrentUser ? user?.role === 'customer' : !!customerData;
 
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
@@ -40,9 +48,17 @@ const ProfilePage: React.FC = () => {
 
   const isLoading = isCustomer ? loadingCustomer : loadingEmployee;
   const profileData = isCustomer ? customerData : employeeData;
+  const displayUser = (isCurrentUser ? user : (employeeData || customerData)) as any;
 
-  const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.full_name || 'User')}&background=random&color=random&size=128`;
-  const displayAvatar = user?.avatar_url || avatar || defaultAvatar;
+  const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayUser?.full_name || 'User')}&background=random&color=random&size=128`;
+  const displayAvatar = isCurrentUser ? (user?.avatar_url || avatar || defaultAvatar) : ((displayUser as any)?.avatar_url || defaultAvatar);
+
+  // Update breadcrumb label when user data is available
+  useEffect(() => {
+    if (displayUser?.full_name) {
+      setDynamicLabel(location.pathname, displayUser.full_name);
+    }
+  }, [displayUser?.full_name, location.pathname, setDynamicLabel]);
 
   // Initialize preview avatar when modal opens
   useEffect(() => {
@@ -140,16 +156,16 @@ const ProfilePage: React.FC = () => {
                   </div>
 
                   <div className="mt-4 text-center">
-                    <h2 className="text-xl font-bold text-foreground">{user?.full_name}</h2>
+                    <h2 className="text-xl font-bold text-foreground">{displayUser?.full_name}</h2>
                     <div className="inline-flex items-center px-2.5 py-0.5 mt-1 rounded-full text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">
-                      {translateRole(user?.role)}
+                      {translateRole(displayUser?.role)}
                     </div>
                   </div>
 
                   <div className="w-full mt-8 space-y-4">
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
                       <Mail size={16} className="text-primary/60 shrink-0" />
-                      <span className="truncate">{user?.email || 'N/A'}</span>
+                      <span className="truncate">{displayUser?.email || 'N/A'}</span>
                     </div>
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
                       <Phone size={16} className="text-primary/60 shrink-0" />
@@ -158,7 +174,7 @@ const ProfilePage: React.FC = () => {
                     {!isCustomer && (
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
                         <User size={16} className="text-primary/60 shrink-0" />
-                        <span>{translateRole(user?.role)}</span>
+                        <span>{translateRole(displayUser?.role)}</span>
                       </div>
                     )}
                     {isCustomer && (
@@ -169,7 +185,7 @@ const ProfilePage: React.FC = () => {
                     )}
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
                       <Calendar size={16} className="text-primary/60 shrink-0" />
-                      <span>Tham gia {user ? new Date((user as any).created_at).toLocaleDateString() : '--/--/----'}</span>
+                      <span>Tham gia {displayUser ? new Date((displayUser as any).created_at).toLocaleDateString() : '--/--/----'}</span>
                     </div>
                     <div className="flex items-center gap-3 text-sm text-emerald-500 font-medium">
                       <ShieldCheck size={16} className="shrink-0" />
@@ -177,23 +193,25 @@ const ProfilePage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="w-full grid grid-cols-2 gap-3 mt-8">
-                    <button
-                      onClick={() => setIsAvatarModalOpen(true)}
-                      className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-muted/50 border border-border hover:bg-muted transition-colors group"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shadow-sm">
-                        <Camera size={16} />
-                      </div>
-                      <span className="text-[10px] font-bold text-muted-foreground">Đổi ảnh</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-muted/50 border border-border hover:bg-muted transition-colors group">
-                      <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shadow-sm">
-                        <Key size={16} />
-                      </div>
-                      <span className="text-[10px] font-bold text-muted-foreground">Đổi mật khẩu</span>
-                    </button>
-                  </div>
+                  {isCurrentUser && (
+                    <div className="w-full grid grid-cols-2 gap-3 mt-8">
+                      <button
+                        onClick={() => setIsAvatarModalOpen(true)}
+                        className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-muted/50 border border-border hover:bg-muted transition-colors group"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shadow-sm">
+                          <Camera size={16} />
+                        </div>
+                        <span className="text-[10px] font-bold text-muted-foreground">Đổi ảnh</span>
+                      </button>
+                      <button className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-muted/50 border border-border hover:bg-muted transition-colors group">
+                        <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shadow-sm">
+                          <Key size={16} />
+                        </div>
+                        <span className="text-[10px] font-bold text-muted-foreground">Đổi mật khẩu</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -204,8 +222,8 @@ const ProfilePage: React.FC = () => {
             {/* Section 1: Thông tin cá nhân */}
             <SectionContainer icon={UserCircle} title="THÔNG TIN CÁ NHÂN">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <InfoItem icon={User} label="Họ tên" value={user?.full_name || '---'} />
-                <InfoItem icon={Mail} label="Email" value={user?.email || '---'} />
+                <InfoItem icon={User} label="Họ tên" value={displayUser?.full_name || '---'} />
+                <InfoItem icon={Mail} label="Email" value={displayUser?.email || '---'} />
                 <InfoItem icon={Phone} label="Điện thoại" value={profileData?.phone || 'Chưa cập nhật'} />
                 {isCustomer && (
                   <InfoItem icon={MapPin} label="Địa chỉ" value={(profileData as any)?.address || 'Chưa cập nhật'} cols={2} />
@@ -232,11 +250,11 @@ const ProfilePage: React.FC = () => {
             ) : (
               <SectionContainer icon={BriefcaseIcon} title="THÔNG TIN CÔNG VIỆC">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <InfoItem icon={Fingerprint} label="Mã nhân viên" value={user?.id.substring(0, 5).toUpperCase() || '---'} highlight />
-                  <InfoItem icon={Briefcase} label="Chức vụ" value={translateRole(user?.role)} highlight />
+                  <InfoItem icon={Fingerprint} label="Mã nhân viên" value={displayUser?.id?.substring(0, 5).toUpperCase() || '---'} highlight />
+                  <InfoItem icon={Briefcase} label="Chức vụ" value={translateRole(displayUser?.role)} highlight />
                   <InfoItem icon={Briefcase} label="Phòng ban" value="Phòng Hành chính" highlight />
                   <InfoItem icon={User} label="Cấp bậc" value="Chưa cập nhật" />
-                  <InfoItem icon={Calendar} label="Ngày vào làm" value={user ? new Date((user as any).created_at).toLocaleDateString() : '--/--/----'} />
+                  <InfoItem icon={Calendar} label="Ngày vào làm" value={displayUser ? new Date((displayUser as any).created_at).toLocaleDateString() : '--/--/----'} />
                 </div>
               </SectionContainer>
             )}
@@ -313,9 +331,9 @@ const ProfilePage: React.FC = () => {
             {/* Section 6: Thông tin hệ thống */}
             <SectionContainer icon={Info} title="THÔNG TIN HỆ THỐNG">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <InfoItem icon={Calendar} label="Ngày tạo" value={user ? new Date((user as any).created_at).toLocaleDateString() : '---'} />
+                <InfoItem icon={Calendar} label="Ngày tạo" value={displayUser ? new Date((displayUser as any).created_at).toLocaleDateString() : '---'} />
                 <InfoItem icon={User} label="Người tạo" value="system" />
-                <InfoItem icon={Calendar} label="Cập nhật lần cuối" value={user ? new Date((user as any).updated_at || (user as any).created_at).toLocaleDateString() : '---'} />
+                <InfoItem icon={Calendar} label="Cập nhật lần cuối" value={displayUser ? new Date((displayUser as any).updated_at || (displayUser as any).created_at).toLocaleDateString() : '---'} />
               </div>
             </SectionContainer>
           </div>

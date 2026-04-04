@@ -21,6 +21,23 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const isTokenExpired = (token: string): boolean => {
+  try {
+    const payloadBase64 = token.split('.')[1];
+    if (!payloadBase64) return true;
+    
+    const decodedJson = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
+    const decoded = JSON.parse(decodedJson);
+    const exp = decoded.exp;
+    
+    if (!exp) return false;
+    
+    return Date.now() >= exp * 1000;
+  } catch {
+    return true;
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,12 +46,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     const token = localStorage.getItem('access_token');
+    
     if (storedUser && token) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch {
+      if (isTokenExpired(token)) {
         localStorage.removeItem('user');
         localStorage.removeItem('access_token');
+        setUser(null);
+      } else {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch {
+          localStorage.removeItem('user');
+          localStorage.removeItem('access_token');
+        }
       }
     }
     setIsLoading(false);

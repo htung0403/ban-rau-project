@@ -17,12 +17,12 @@ const formatNumber = (val?: number) => {
   return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
 };
 
-const DeliveryPage: React.FC = () => {
+const VegetableDeliveryPage: React.FC = () => {
   const [startDate, setStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
 
   const { user } = useAuth();
-  const { data: orders, isLoading: ordersLoading, isError, refetch } = useDeliveryOrders(startDate, endDate, 'standard');
+  const { data: orders, isLoading: ordersLoading, isError, refetch } = useDeliveryOrders(startDate, endDate, 'vegetable');
   const { data: vehicles } = useVehicles();
 
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
@@ -68,7 +68,7 @@ const DeliveryPage: React.FC = () => {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <div className="hidden md:block">
-          <PageHeader title="Hàng cần giao" description="Danh sách đơn hàng cần giao" backPath="/hang-hoa" />
+          <PageHeader title="Giao hàng rau" description="Danh sách đơn hàng rau cần giao" backPath="/hang-hoa" />
         </div>
         
         {/* Filters */}
@@ -359,4 +359,4 @@ const DeliveryPage: React.FC = () => {
   );
 };
 
-export default DeliveryPage;
+export default VegetableDeliveryPage;

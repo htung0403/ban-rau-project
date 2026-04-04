@@ -1,9 +1,10 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@300;400;500;600&display=swap");
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
 :root {
   --font-sans: 'Inter', 'Noto Sans', sans-serif;
-  --primary: #3b82f6;
+  --primary: #3EB489;
   --background: #f8fafc;
   --foreground: #0f172a;
   --card: #ffffff;
@@ -12,7 +13,7 @@
   --muted-foreground: #64748b;
   --accent: #f1f5f9;
   --accent-foreground: #0f172a;
-  --ring: #3b82f6;
+  --ring: #3EB489;
 }
 
 .dark {
@@ -24,7 +25,7 @@
   --muted-foreground: #94a3b8;
   --accent: #1e293b;
   --accent-foreground: #f8fafc;
-  --ring: #1d4ed8;
+  --ring: #3EB489;
 }
 
 @theme {
@@ -58,9 +59,11 @@
   .shadow-soft {
     box-shadow: 0 4px 6px -1px var(--color-border), 0 2px 4px -1px var(--color-border);
   }
+
   .shadow-ultra {
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
   }
+
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
@@ -87,18 +90,33 @@
 
 /* Animations */
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes dialog-slide-in {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
 }
 
 @keyframes dialog-slide-out {
-  from { transform: translateX(0); }
-  to { transform: translateX(100%); }
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
 }
 
 .dialog-slide-in {
@@ -110,13 +128,23 @@
 }
 
 @keyframes slide-in-from-bottom-4 {
-  from { transform: translateY(1rem); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(1rem);
+  }
+
+  to {
+    transform: translateY(0);
+  }
 }
 
 @keyframes slide-in-from-bottom-2 {
-  from { transform: translateY(0.5rem); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(0.5rem);
+  }
+
+  to {
+    transform: translateY(0);
+  }
 }
 
 .animate-in {
@@ -140,4 +168,74 @@
 .hide-icon::-webkit-calendar-picker-indicator {
   display: none !important;
   -webkit-appearance: none;
+}
+
+/* --- THE ETHEREAL BOTANIC THEME --- */
+@theme {
+  --color-v-tertiary-fixed-dim: #a2d8e0;
+  --color-v-error-dim: #f8b4a2;
+  --color-v-surface-dim: #f0f4ef;
+  --color-v-background: #f8faf7;
+  --color-v-surface-container-low: #f1f5f0;
+  --color-v-primary-fixed: #d5f3d9;
+  --color-v-primary-fixed-dim: #c2e9c8;
+  --color-v-on-background: #2c332d;
+  --color-v-on-tertiary-fixed-variant: #2b4c51;
+  --color-v-on-primary: #2d5236;
+  --color-v-surface-container: #e9ede7;
+  --color-v-on-tertiary-fixed: #1a3a3e;
+  --color-v-surface-container-high: #e2e7e0;
+  --color-v-on-surface-variant: #606a61;
+  --color-v-secondary-container: #e8efdb;
+  --color-v-outline-variant: #ccd3cc;
+  --color-v-on-primary-fixed-variant: #234a2e;
+  --color-v-surface-variant: #e1e7e0;
+  --color-v-primary: #3EB489;
+  --color-v-on-error: #5a1a0b;
+  --color-v-inverse-surface: #2d332e;
+  --color-v-secondary-fixed-dim: #d9e3c5;
+  --color-v-on-primary-container: #1d4428;
+  --color-v-secondary: #7c896d;
+  --color-v-surface: #f8faf7;
+  --color-v-primary-container: #d5f3d9;
+  --color-v-tertiary-container: #c7eff5;
+  --color-v-outline: #919b92;
+  --color-v-secondary-dim: #667258;
+  --color-v-error-container: #fbdcd4;
+  --color-v-tertiary-fixed: #c7eff5;
+  --color-v-inverse-primary: #3EB489;
+  --color-v-tertiary: #5a9ba6;
+  --color-v-surface-container-highest: #dbe1da;
+  --color-v-on-error-container: #410000;
+  --color-v-on-primary-fixed: #0c2815;
+  --color-v-on-secondary: #f0f7e4;
+  --color-v-secondary-fixed: #e8efdb;
+  --color-v-surface-tint: #3EB489;
+  --color-v-on-tertiary: #f0fafd;
+  --color-v-surface-bright: #f8faf7;
+  --color-v-on-tertiary-container: #134047;
+  --color-v-tertiary-dim: #4e8a94;
+  --color-v-on-secondary-container: #313c23;
+  --color-v-on-secondary-fixed-variant: #49543e;
+  --color-v-surface-container-lowest: #ffffff;
+  --color-v-on-secondary-fixed: #1d2512;
+  --color-v-primary-dim: #77b588;
+  --color-v-on-surface: #2c332d;
+  --color-v-error: #e26b4e;
+  --color-v-inverse-on-surface: #c9cfc8;
+
+  --font-headline: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Be Vietnam Pro', sans-serif;
+
+  --shadow-gentle: 0 10px 30px -5px rgba(0, 0, 0, 0.04), 0 4px 15px -3px rgba(0, 0, 0, 0.02);
+}
+
+@layer utilities {
+  .pastel-gradient {
+    background: linear-gradient(135deg, var(--color-v-primary) 0%, #77ee97 100%);
+  }
+
+  .soft-overlay {
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.5));
+  }
 }

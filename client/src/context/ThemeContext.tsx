@@ -3,9 +3,9 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 type Theme = 'light' | 'dark' | 'system';
 
 export const THEME_COLORS = [
+  { name: 'Xanh thực vật', hex: '#3EB489', class: 'bg-[#3EB489]' },
   { name: 'Xanh dương', hex: '#3b82f6', class: 'bg-blue-600' },
   { name: 'Tím', hex: '#8b5cf6', class: 'bg-violet-600' },
-  { name: 'Xanh lá', hex: '#10b981', class: 'bg-emerald-600' },
   { name: 'Hồng', hex: '#ec4899', class: 'bg-pink-600' },
   { name: 'Cam vàng', hex: '#f59e0b', class: 'bg-amber-500' },
   { name: 'Cam', hex: '#f97316', class: 'bg-orange-600' },
@@ -49,7 +49,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [primaryColor, setPrimaryColor] = useState<string>(() => {
-    return localStorage.getItem('primaryColor') || 'Xanh dương';
+    return localStorage.getItem('primaryColor') || 'Xanh thực vật';
   });
 
   const [font, setFont] = useState<string>(() => {
@@ -125,9 +125,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [theme]);
 
   return (
-    <ThemeContext.Provider value={{ 
-      theme, setTheme, 
-      primaryColor, setPrimaryColor, 
+    <ThemeContext.Provider value={{
+      theme, setTheme,
+      primaryColor, setPrimaryColor,
       font, setFont,
       fontSize, setFontSize,
       avatar, setAvatar

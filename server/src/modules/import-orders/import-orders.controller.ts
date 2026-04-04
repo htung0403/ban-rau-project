@@ -22,6 +22,7 @@ const importOrderSchema = z.object({
   receiver_address: z.string().optional(),
   warehouse_id: z.string().uuid().optional().nullable(),
   customer_id: z.string().uuid().optional().nullable(),
+  order_category: z.enum(['standard', 'vegetable']).optional().default('standard'),
   license_plate: z.string().optional().nullable(),
   driver_name: z.string().optional().nullable(),
   supplier_name: z.string().optional().nullable(),

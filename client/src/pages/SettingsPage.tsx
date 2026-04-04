@@ -48,7 +48,7 @@ const SettingsPage: React.FC = () => {
           <button 
             onClick={() => {
               setTheme('system');
-              setPrimaryColor('Xanh dương');
+              setPrimaryColor('Xanh thực vật');
               setFont('Inter');
               setFontSize('medium');
             }}

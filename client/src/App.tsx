@@ -14,7 +14,10 @@ import ImportOrdersPage from './pages/import-orders/ImportOrdersPage';
 import ExportOrdersPage from './pages/export-orders/ExportOrdersPage';
 import DeliveryPage from './pages/delivery/DeliveryPage';
 import WarehousesPage from './pages/warehouse/WarehousesPage';
+import WarehouseSettingsPage from './pages/warehouse/WarehouseSettingsPage';
+import VegetableImportsPage from './pages/import-orders/VegetableImportsPage';
 import VegetablesPage from './pages/import-orders/VegetablesPage';
+import VegetableDeliveryPage from './pages/delivery/VegetableDeliveryPage';
 import EmployeesPage from './pages/hr/EmployeesPage';
 import LeaveRequestsPage from './pages/hr/LeaveRequestsPage';
 import AttendancePage from './pages/hr/AttendancePage';
@@ -25,7 +28,6 @@ import VehiclesPage from './pages/vehicles/VehiclesPage';
 import DriverCheckinPage from './pages/vehicles/DriverCheckinPage';
 import PaymentCollectionsPage from './pages/vehicles/payment-collections/PaymentCollectionsPage';
 import CustomersPage from './pages/customers/CustomersPage';
-import ProductsPage from './pages/products/ProductsPage';
 import SalarySettingsPage from './pages/hr/SalarySettingsPage';
 import CustomerDetailPage from './pages/customers/CustomerDetailPage';
 import CustomerDebtPage from './pages/customers/CustomerDebtPage';
@@ -84,12 +86,14 @@ function AppRoutes() {
 
         {/* Hang hoa module */}
         <Route path="/hang-hoa" element={<ModulePage />} />
-        <Route path="/hang-hoa/danh-muc" element={<ProductsPage />} />
         <Route path="/hang-hoa/nhap-hang" element={<ImportOrdersPage />} />
+        <Route path="/hang-hoa/nhap-hang-rau" element={<VegetableImportsPage />} />
         <Route path="/hang-hoa/hang-rau" element={<VegetablesPage />} />
+        <Route path="/hang-hoa/giao-hang-rau" element={<VegetableDeliveryPage />} />
         <Route path="/hang-hoa/xuat-hang" element={<ExportOrdersPage />} />
         <Route path="/hang-hoa/giao-hang" element={<DeliveryPage />} />
         <Route path="/hang-hoa/kho" element={<WarehousesPage />} />
+        <Route path="/hang-hoa/cai-dat" element={<WarehouseSettingsPage />} />
 
         <Route path="/hanh-chinh-nhan-su" element={<ModulePage />} />
         <Route path="/hanh-chinh-nhan-su/nhan-su" element={<EmployeesPage />} />

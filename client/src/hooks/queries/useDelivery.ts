@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { deliveryApi } from '../../api/deliveryApi';
 import toast from 'react-hot-toast';
+import { importOrderKeys } from './useImportOrders';
 
 export const deliveryKeys = {
   all: ['delivery'] as const,
@@ -8,17 +9,17 @@ export const deliveryKeys = {
   inventory: () => [...deliveryKeys.all, 'inventory'] as const,
 };
 
-export function useDeliveryOrders(startDate?: string, endDate?: string) {
+export function useDeliveryOrders(startDate?: string, endDate?: string, orderCategory?: 'standard' | 'vegetable') {
   return useQuery({
-    queryKey: [...deliveryKeys.all, 'filter', startDate, endDate],
-    queryFn: () => deliveryApi.getAllToday(startDate, endDate),
+    queryKey: [...deliveryKeys.all, 'filter', startDate, endDate, orderCategory],
+    queryFn: () => deliveryApi.getAllToday(startDate, endDate, orderCategory),
   });
 }
 
-export function useDeliveryInventory() {
+export function useDeliveryInventory(orderCategory?: 'standard' | 'vegetable') {
   return useQuery({
-    queryKey: deliveryKeys.inventory(),
-    queryFn: () => deliveryApi.getInventory(),
+    queryKey: [...deliveryKeys.inventory(), orderCategory],
+    queryFn: () => deliveryApi.getInventory(orderCategory),
   });
 }
 
@@ -48,6 +49,7 @@ export function useAssignVehicle() {
       deliveryApi.assignVehicle(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: deliveryKeys.all });
+      queryClient.invalidateQueries({ queryKey: importOrderKeys.all });
       toast.success('Gắn xe thành công');
     },
     onError: () => toast.error('Lỗi khi gắn xe'),

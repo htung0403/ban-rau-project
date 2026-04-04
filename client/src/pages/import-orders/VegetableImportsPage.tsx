@@ -32,7 +32,7 @@ const formatCurrency = (value?: number | null) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
-const ImportOrdersPage: React.FC = () => {
+const VegetableImportsPage: React.FC = () => {
   // Filters
   const [searchText, setSearchText] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
@@ -59,7 +59,7 @@ const ImportOrdersPage: React.FC = () => {
   if (filterDateTo) filters.dateTo = filterDateTo;
   if (filterStatus) filters.status = filterStatus;
   if (searchText.trim()) filters.sender = searchText.trim();
-  filters.order_category = 'standard';
+  filters.order_category = 'vegetable';
 
   const { data: orders, isLoading, isError, refetch } = useImportOrders(filters);
   const deleteMutation = useDeleteImportOrder();
@@ -132,8 +132,8 @@ const ImportOrdersPage: React.FC = () => {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
       <div className="hidden md:block">
         <PageHeader
-          title="Nhập hàng"
-          description="Quản lý danh sách đơn nhập hàng"
+          title="Nhập hàng rau"
+          description="Quản lý danh sách đơn nhập hàng rau"
           backPath="/hang-hoa"
           actions={
             <button
@@ -434,7 +434,7 @@ const ImportOrdersPage: React.FC = () => {
         isClosing={isDialogClosing}
         editingOrder={editingOrder}
         onClose={closeDialog}
-        defaultCategory="standard"
+        defaultCategory="vegetable"
       />
 
       {/* Delete Confirm */}
@@ -475,4 +475,4 @@ const ImportOrdersPage: React.FC = () => {
   );
 };
 
-export default ImportOrdersPage;
+export default VegetableImportsPage;

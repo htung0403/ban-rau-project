@@ -2,15 +2,17 @@ import axiosClient from './axiosClient';
 import type { DeliveryOrder } from '../types';
 
 export const deliveryApi = {
-  getAllToday: async (startDate?: string, endDate?: string) => {
+  getAllToday: async (startDate?: string, endDate?: string, orderCategory?: string) => {
     const { data } = await axiosClient.get<DeliveryOrder[]>('/delivery', {
-      params: { startDate, endDate },
+      params: { startDate, endDate, order_category: orderCategory },
     });
     return data;
   },
 
-  getInventory: async () => {
-    const { data } = await axiosClient.get('/delivery/inventory');
+  getInventory: async (orderCategory?: string) => {
+    const { data } = await axiosClient.get('/delivery/inventory', {
+      params: { order_category: orderCategory }
+    });
     return data;
   },
 
@@ -21,6 +23,7 @@ export const deliveryApi = {
     unit_price?: number; 
     import_cost?: number; 
     payment_method?: string;
+    order_category?: 'standard' | 'vegetable';
     delivery_date?: string;
     vehicles?: Array<{
       vehicle_id: string;

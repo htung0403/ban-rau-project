@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Truck, Package, User, AlertCircle } from 'lucide-react';
+import { X, Truck, Package, User, AlertCircle, PlusCircle, Trash2, CheckCircle } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAssignVehicle } from '../../../hooks/queries/useDelivery';
@@ -12,11 +12,15 @@ import type { DeliveryOrder } from '../../../types';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import CurrencyInput from '../../../components/shared/CurrencyInput';
 
-const schema = z.object({
+const assignmentSchema = z.object({
   vehicle_id: z.string().min(1, 'Vui lòng chọn xe'),
   driver_id: z.string().min(1, 'Vui lòng chọn tài xế'),
-  quantity: z.coerce.number().min(0.01, 'Số lượng phải lớn hơn 0'),
+  quantity: z.coerce.number().min(0.01, 'SL phải > 0'),
   expected_amount: z.coerce.number().min(0).optional().default(0),
+});
+
+const schema = z.object({
+  assignments: z.array(assignmentSchema).min(1, 'Cần ít nhất một sự phân bổ'),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -45,61 +49,76 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   } = useForm<FormValues>({
     resolver: zodResolver(schema) as any,
     defaultValues: {
-      vehicle_id: '',
-      driver_id: '',
-      quantity: 0,
-      expected_amount: 0,
+      assignments: [],
     },
   });
 
-  const watchVehicleId = watch('vehicle_id');
-  const watchDriverId = watch('driver_id');
-  const watchQuantity = watch('quantity');
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'assignments',
+  });
 
-  // Auto-fill driver when vehicle is selected
+  const watchAssignments = watch('assignments') || [];
+  const totalAssignedQuantity = watchAssignments.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0);
+  const currentAvailable = order ? Math.max(0, order.total_quantity - totalAssignedQuantity) : 0;
+
   useEffect(() => {
-    if (watchVehicleId && vehicles) {
-      const vehicle = vehicles.find(v => v.id === watchVehicleId);
-      if (vehicle?.driver_id) {
-        setValue('driver_id', vehicle.driver_id, { shouldValidate: true });
+    if (order && isOpen) {
+      const existingDvs = order.delivery_vehicles || [];
+      const initialAssignments: any[] = [];
+
+      // Nạp tất cả các phân bổ hiện có
+      if (existingDvs.length > 0) {
+        existingDvs.forEach((dv: any) => {
+          initialAssignments.push({
+            vehicle_id: dv.vehicle_id,
+            driver_id: dv.driver_id || '',
+            quantity: dv.assigned_quantity,
+            expected_amount: dv.expected_amount || (dv.assigned_quantity * (order.unit_price || 0))
+          });
+        });
       }
-    }
-  }, [watchVehicleId, vehicles, setValue]);
 
-  // Auto-calculate expected_amount based on assigned quantity and unit price
-  useEffect(() => {
-    if (watchQuantity && order?.unit_price) {
-      setValue('expected_amount', watchQuantity * order.unit_price, { shouldValidate: true });
-    } else if (watchQuantity === 0 || !watchQuantity) {
-      setValue('expected_amount', 0, { shouldValidate: true });
-    }
-  }, [watchQuantity, order?.unit_price, setValue]);
+      // Xử lý auto-select initialVehicleId (nếu bấm từ cột xe trống)
+      let initialVid = initialVehicleId || '';
 
-  useEffect(() => {
-    if (order) {
-      const totalAssigned = (order.delivery_vehicles || []).reduce(
-        (sum: number, dv: any) => sum + (dv.assigned_quantity || 0),
-        0
-      );
-      const remaining = order.total_quantity - totalAssigned;
+      // Mở dialog ở chế độ general nhưng có xe rồi thì không cần thêm rỗng
+      // Ngược lại nếu click một xe cụ thể chưa có trong danh sách
+      if (initialVid && !initialAssignments.some(a => a.vehicle_id === initialVid)) {
+        const vehicle = vehicles?.find(v => v.id === initialVid);
+        const alreadyAssignedSum = initialAssignments.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
+        const remainingForThis = Math.max(0, order.total_quantity - alreadyAssignedSum);
 
-      reset({
-        vehicle_id: initialVehicleId || '',
-        driver_id: '',
-        quantity: Math.max(0, remaining),
-        expected_amount: Math.max(0, remaining) * (order.unit_price || 0),
-      });
+        initialAssignments.push({
+          vehicle_id: initialVid,
+          driver_id: vehicle?.driver_id || '',
+          quantity: remainingForThis,
+          expected_amount: remainingForThis * (order.unit_price || 0),
+        });
+      }
+
+      // Nếu vẫn hoàn toàn trống
+      if (initialAssignments.length === 0) {
+        initialAssignments.push({
+          vehicle_id: '',
+          driver_id: '',
+          quantity: order.total_quantity,
+          expected_amount: order.total_quantity * (order.unit_price || 0),
+        });
+      }
+
+      reset({ assignments: initialAssignments });
     }
-  }, [order, initialVehicleId, reset]);
+  }, [order, initialVehicleId, isOpen, reset, vehicles]);
 
   if (!isOpen && !isClosing) return null;
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: FormValues) => {
     if (!order) return;
     try {
       await assignMutation.mutateAsync({
         id: order.id,
-        payload: data,
+        payload: data.assignments as any,
       });
       onClose();
     } catch (error) {
@@ -108,12 +127,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   };
 
   const isSubmitting = assignMutation.isPending;
-
-  const totalAssigned = order ? (order.delivery_vehicles || []).reduce(
-    (sum: number, dv: any) => sum + (dv.assigned_quantity || 0),
-    0
-  ) : 0;
-  const remaining = order ? order.total_quantity - totalAssigned : 0;
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
@@ -129,32 +142,34 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       {/* Dialog Container */}
       <div
         className={clsx(
-          'relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col transition-all duration-350',
+          'relative w-full max-w-[800px] bg-white rounded-3xl shadow-2xl flex flex-col transition-all duration-350 max-h-[90vh]',
           isClosing ? 'scale-95 opacity-0' : 'animate-in zoom-in-95 duration-300',
         )}
       >
         {/* Header */}
-        <div className="px-6 py-4 bg-white border-b border-border flex items-center justify-between">
+        <div className="px-6 py-4 bg-white border-b border-border flex items-center justify-between shrink-0 rounded-t-3xl shadow-sm z-10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-600">
               <Truck size={20} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-foreground">Phân xe cho đơn hàng</h2>
+              <h2 className="text-lg font-bold text-foreground">
+                Phân xe cho đơn hàng
+              </h2>
               <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
                 {order?.product_name}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
+          <button type="button" onClick={onClose} className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
             <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
+        <form id="assign-vehicle-form" onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
           {/* Order Info Summary */}
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col gap-3">
+          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col gap-3 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tổng cần giao</span>
@@ -164,129 +179,189 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               </div>
               <div className="w-[1px] h-8 bg-slate-200" />
               <div className="flex flex-col items-end">
-                <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">Còn lại</span>
-                <span className="text-lg font-black text-orange-600 tabular-nums">
-                  {(remaining ?? 0).toLocaleString()}
+                <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">Còn lại (Chưa phân)</span>
+                <span className="text-lg font-black text-orange-600 tabular-nums transition-all">
+                  {currentAvailable.toLocaleString()}
                 </span>
               </div>
             </div>
-            
+
             {order?.import_orders?.total_amount != null && (
-               <div className="flex items-center justify-between pt-3 border-t border-slate-200/50">
-                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Tổng tiền đơn hàng</span>
-                 <span className="text-[15px] font-black text-emerald-600 tabular-nums">
-                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(order.import_orders.total_amount))}
-                 </span>
-               </div>
+              <div className="flex items-center justify-between pt-3 border-t border-slate-200/50">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Tổng tiền đơn hàng</span>
+                <span className="text-[15px] font-black text-emerald-600 tabular-nums">
+                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(order.import_orders.total_amount))}
+                </span>
+              </div>
             )}
           </div>
 
-          <div className="space-y-4">
-            {/* Vehicle Selection */}
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-bold text-foreground flex items-center gap-2">
-                <Truck size={14} className="text-primary" />
-                Chọn xe <span className="text-red-500">*</span>
-              </label>
-              <SearchableSelect
-                options={(vehicles || []).map(v => ({ 
-                  value: v.id, 
-                  label: `${v.license_plate} ${v.profiles?.full_name ? `(${v.profiles.full_name})` : ''}` 
-                }))}
-                value={watchVehicleId}
-                onValueChange={(val) => setValue('vehicle_id', val, { shouldValidate: true })}
-                placeholder="Chọn biển số xe..."
-              />
-              {errors.vehicle_id && <p className="text-red-500 text-[11px] font-medium">{errors.vehicle_id.message as string}</p>}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[13px] font-bold text-slate-800 uppercase tracking-wider">Danh sách phương tiện</h3>
             </div>
 
-            {/* Driver Selection */}
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-bold text-foreground flex items-center gap-2">
-                <User size={14} className="text-primary" />
-                Tài xế phụ trách <span className="text-red-500">*</span>
-              </label>
-              <SearchableSelect
-                options={(employees || []).filter(e => e.role === 'driver').map(e => ({ value: e.id, label: e.full_name }))}
-                value={watchDriverId}
-                onValueChange={(val) => setValue('driver_id', val, { shouldValidate: true })}
-                placeholder="Chọn tài xế..."
-              />
-              {errors.driver_id && <p className="text-red-500 text-[11px] font-medium">{errors.driver_id.message as string}</p>}
+            <div className="flex flex-col gap-3">
+              {fields.map((field, index) => {
+                const currentVid = watchAssignments[index]?.vehicle_id;
+                const isPaid = currentVid
+                  ? (order?.payment_collections || []).some((pc: any) => pc.vehicle_id === currentVid && (pc.status === 'confirmed' || pc.status === 'self_confirmed'))
+                  : false;
+
+                return (
+                  <div key={field.id} className={clsx("relative flex flex-col md:flex-row gap-4 p-4 bg-white border border-slate-200 shadow-sm rounded-xl items-start md:items-end group transition-colors", isPaid ? "opacity-90 bg-slate-50/50" : "hover:border-primary/30")}>
+                    {/* Badge đã thu tiền */}
+                    {isPaid && (
+                      <div className="absolute -top-3 left-4 bg-green-100 border border-green-200 text-green-700 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm">
+                        <CheckCircle size={10} strokeWidth={3} /> Đã thu tiền
+                      </div>
+                    )}
+
+                    {/* Xe */}
+                    <div className="flex-1 w-full space-y-1.5 mt-2 md:mt-0">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                        <Truck size={12} className={isPaid ? "text-green-500" : "text-primary"} /> Chọn xe
+                      </label>
+                      <SearchableSelect
+                        options={(vehicles || []).map(v => ({
+                          value: v.id,
+                          label: `${v.license_plate} ${v.profiles?.full_name ? '(' + v.profiles.full_name + ')' : ''}`,
+                          selectedLabel: v.license_plate
+                        }))}
+                        value={currentVid || ''}
+                        onValueChange={(val) => {
+                          if (isPaid) return;
+                          setValue(`assignments.${index}.vehicle_id`, val, { shouldValidate: true });
+                          // Auto fill driver
+                          const vehicle = vehicles?.find(v => v.id === val);
+                          if (vehicle?.driver_id) {
+                            setValue(`assignments.${index}.driver_id`, vehicle.driver_id, { shouldValidate: true });
+                          }
+                        }}
+                        placeholder="Biển số..."
+                        disabled={isPaid}
+                      />
+                      {errors.assignments?.[index]?.vehicle_id && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.vehicle_id?.message}</p>}
+                    </div>
+                    {/* Tài xế */}
+                    <div className="flex-1 w-full space-y-1.5 mt-2 md:mt-0">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                        <User size={12} className={isPaid ? "text-green-500" : "text-primary"} /> Tài xế
+                      </label>
+                      <SearchableSelect
+                        options={(employees || []).filter(e => e.role === 'driver').map(e => ({ value: e.id, label: e.full_name }))}
+                        value={watchAssignments[index]?.driver_id || ''}
+                        onValueChange={(val) => {
+                          if (isPaid) return;
+                          setValue(`assignments.${index}.driver_id`, val, { shouldValidate: true });
+                        }}
+                        placeholder="Chọn tài xế..."
+                        disabled={isPaid}
+                      />
+                      {errors.assignments?.[index]?.driver_id && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.driver_id?.message}</p>}
+                    </div>
+                    {/* Số lượng */}
+                    <div className="w-full md:w-28 space-y-1.5 mt-2 md:mt-0">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                        <Package size={12} className={isPaid ? "text-green-500" : "text-primary"} /> SL
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        {...register(`assignments.${index}.quantity` as const, {
+                          onChange: (e) => {
+                            if (isPaid) return;
+                            const val = Number(e.target.value) || 0;
+                            setValue(`assignments.${index}.expected_amount`, val * (order?.unit_price || 0), { shouldValidate: true });
+                          }
+                        })}
+                        disabled={isPaid}
+                        placeholder="0"
+                        className={clsx("w-full h-[42px] px-3 bg-muted/20 border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums", isPaid && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed")}
+                      />
+                      {errors.assignments?.[index]?.quantity && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.quantity?.message}</p>}
+                    </div>
+                    {/* Tiền thu */}
+                    <div className="w-full md:w-36 space-y-1.5 mt-2 md:mt-0">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Tiền thu</label>
+                      <Controller
+                        name={`assignments.${index}.expected_amount` as const}
+                        control={control}
+                        render={({ field }) => (
+                          <CurrencyInput
+                            {...field}
+                            value={field.value as number}
+                            placeholder="0đ"
+                            disabled={isPaid}
+                            className={clsx("w-full h-[42px] px-3 bg-muted/20 border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-bold tabular-nums text-emerald-600", isPaid && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed")}
+                          />
+                        )}
+                      />
+                    </div>
+
+                    {/* Nút xóa */}
+                    {fields.length > 1 && !isPaid && (
+                      <button
+                        type="button"
+                        onClick={() => remove(index)}
+                        className="absolute -top-2 -right-2 md:static md:w-10 md:h-[42px] flex items-center justify-center bg-white md:bg-transparent text-red-400 hover:text-red-500 hover:bg-red-50 border border-red-100 md:border-transparent rounded-full md:rounded-lg shadow-sm md:shadow-none transition-all"
+                        title="Xóa xe này"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() => append({ vehicle_id: '', driver_id: '', quantity: currentAvailable > 0 ? currentAvailable : 0, expected_amount: (currentAvailable > 0 ? currentAvailable : 0) * (order?.unit_price || 0) })}
+                className="mt-2 py-3.5 flex items-center justify-center gap-2 text-primary font-bold bg-primary/5 hover:bg-primary/10 border-2 border-primary/20 hover:border-primary/30 border-dashed rounded-xl transition-all"
+              >
+                <PlusCircle size={18} />
+                Thêm xe khác
+              </button>
             </div>
 
-            {/* Quantity and Expected Amount Row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground flex items-center gap-2">
-                  <Package size={14} className="text-primary" />
-                  Số lượng giao <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  {...register('quantity')}
-                  placeholder="Nhập số lượng..."
-                  className="w-full px-4 py-2.5 bg-muted/20 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums"
-                />
-                {errors.quantity && <p className="text-red-500 text-[11px] font-medium">{errors.quantity.message as string}</p>}
+            {order?.total_quantity && totalAssignedQuantity > order.total_quantity && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-100 flex items-start gap-2 text-amber-700 mt-4">
+                <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                <p className="text-[12px] font-medium italic">Tổng số lượng đã phân ({totalAssignedQuantity.toLocaleString()}) đang vượt quá yêu cầu của đơn hàng ({order.total_quantity.toLocaleString()}).</p>
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground flex items-center gap-2">
-                  <span className="text-emerald-500 opacity-80">₫</span>
-                  Tiền cần thu
-                </label>
-                <Controller
-                  name="expected_amount"
-                  control={control}
-                  render={({ field }) => (
-                    <CurrencyInput
-                      {...field}
-                      value={field.value as number}
-                      placeholder="0đ"
-                      className="w-full px-4 py-2.5 bg-muted/20 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-bold tabular-nums text-emerald-600"
-                    />
-                  )}
-                />
-                {errors.expected_amount && <p className="text-red-500 text-[11px] font-medium">{errors.expected_amount.message as string}</p>}
-              </div>
-            </div>
-
-            {(order?.remaining_quantity ?? order?.total_quantity ?? 0) < Number(watch('quantity')) && (
-               <div className="p-3 rounded-xl bg-amber-50 border border-amber-100 flex items-start gap-2 text-amber-700">
-                 <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                 <p className="text-[12px] font-medium italic">Số lượng phân bổ vượt quá số lượng còn lại của đơn hàng.</p>
-               </div>
             )}
           </div>
+        </form>
 
-          {/* Footer Buttons */}
-          <div className="flex items-center gap-3 pt-2">
+        {/* Footer Buttons */}
+        <div className="p-6 pt-4 bg-white border-t border-slate-100 shrink-0 rounded-b-3xl">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl border border-border hover:bg-muted text-foreground text-[13px] font-bold transition-all"
+              className="flex-1 py-3 rounded-xl border border-border hover:bg-muted text-foreground text-[14px] font-bold transition-all"
             >
               Hủy bỏ
             </button>
             <button
               type="submit"
+              form="assign-vehicle-form"
               disabled={isSubmitting}
               className={clsx(
-                "flex-[2] py-2.5 rounded-xl bg-primary text-white text-[13px] font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2",
-                isSubmitting && "opacity-70 cursor-not-allowed"
+                "flex-[2] py-3 rounded-xl bg-primary text-white text-[14px] font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2",
+                isSubmitting && "opacity-70 cursor-not-allowed pointer-events-none"
               )}
             >
               {isSubmitting ? (
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                <Truck size={16} />
+                <Truck size={18} />
               )}
-              Xác nhận phân xe
+              Xác nhận thông tin
             </button>
           </div>
-        </form>
+        </div>
+
       </div>
     </div>,
     document.body

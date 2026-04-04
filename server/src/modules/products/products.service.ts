@@ -51,6 +51,11 @@ export class ProductService {
       .delete()
       .eq('id', id);
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23503') {
+        throw new Error('Dữ liệu này đang được nằm trong các Đơn Nhập/Xuất kho nên không thể xóa.');
+      }
+      throw error;
+    }
   }
 }

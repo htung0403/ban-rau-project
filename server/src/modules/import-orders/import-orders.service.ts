@@ -5,11 +5,13 @@ export class ImportOrderService {
   static async getAll(filters: any) {
     let query = supabaseService
       .from('import_orders')
-      .select('*, profiles(full_name), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*))')
+      .select('*, profiles(full_name), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate)))')
       .order('created_at', { ascending: false });
 
-    if (filters.date) query = query.eq('order_date', filters.date);
+    if (filters.dateFrom) query = query.gte('order_date', filters.dateFrom);
+    if (filters.dateTo) query = query.lte('order_date', filters.dateTo);
     if (filters.status) query = query.eq('status', filters.status);
+    if (filters.order_category) query = query.eq('order_category', filters.order_category);
     
     // Support filtering by supplier or license plate if needed
     if (filters.supplier_name) query = query.ilike('supplier_name', `%${filters.supplier_name}%`);
@@ -27,7 +29,7 @@ export class ImportOrderService {
   static async getById(id: string) {
     const { data, error } = await supabaseService
       .from('import_orders')
-      .select('*, profiles(full_name), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*))')
+      .select('*, profiles(full_name), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate)))')
       .eq('id', id)
       .single();
     if (error) throw error;
@@ -70,7 +72,11 @@ export class ImportOrderService {
         driver_name: mainData.driver_name,
         supplier_name: mainData.supplier_name,
         sheet_number: mainData.sheet_number,
-        customer_id: mainData.customer_id
+        customer_id: mainData.customer_id,
+        order_category: mainData.order_category || 'standard',
+        is_custom_amount: mainData.is_custom_amount || false,
+        total_amount: mainData.is_custom_amount ? mainData.total_amount : undefined,
+        debt_amount: mainData.is_custom_amount ? mainData.total_amount : undefined
       })
       .select()
       .single();
@@ -105,6 +111,7 @@ export class ImportOrderService {
           total_quantity: item.quantity || 1,
           unit_price: item.unit_price,
           import_cost: item.unit_price,
+          order_category: mainData.order_category || 'standard',
           delivery_date: orderDate,
           status: 'pending'
         }));
@@ -149,7 +156,11 @@ export class ImportOrderService {
         driver_name: mainData.driver_name,
         supplier_name: mainData.supplier_name,
         sheet_number: mainData.sheet_number,
-        customer_id: mainData.customer_id
+        customer_id: mainData.customer_id,
+        order_category: mainData.order_category || 'standard',
+        is_custom_amount: mainData.is_custom_amount || false,
+        total_amount: mainData.is_custom_amount ? mainData.total_amount : undefined,
+        debt_amount: mainData.is_custom_amount ? mainData.total_amount : undefined
       })
       .eq('id', id)
       .select()
@@ -207,6 +218,7 @@ export class ImportOrderService {
           total_quantity: item.quantity || 1,
           unit_price: item.unit_price,
           import_cost: item.unit_price,
+          order_category: mainData.order_category || 'standard',
           delivery_date: mainData.order_date || format(new Date(), 'yyyy-MM-dd'),
           status: 'pending'
         }));
@@ -230,7 +242,6 @@ export class ImportOrderService {
         }
       }
     }
-
     return order;
   }
 

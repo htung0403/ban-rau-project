@@ -19,6 +19,7 @@ import {
 interface Option {
   value: string
   label: string
+  selectedLabel?: string
 }
 
 interface SearchableSelectProps {
@@ -59,7 +60,7 @@ export function SearchableSelect({
           )}
         >
           <span className="truncate">
-            {selectedOption ? selectedOption.label : placeholder}
+            {selectedOption ? (selectedOption.selectedLabel || selectedOption.label) : placeholder}
           </span>
           <div className="flex items-center gap-1.5 ml-2">
             {value && !disabled && (

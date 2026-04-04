@@ -12,12 +12,37 @@ const formatCurrency = (value?: number | null) => {
   return new Intl.NumberFormat('vi-VN').format(value);
 };
 
+const getAssignedVehicles = (item: any) => {
+  const plates = new Set<string>();
+  
+  if (item.order?.delivery_orders) {
+    const matchedDeliveryOrders = item.order.delivery_orders.filter(
+      (doItem: any) => doItem.product_id === item.product_id
+    );
+    
+    matchedDeliveryOrders.forEach((d: any) => {
+      if (d.delivery_vehicles) {
+         d.delivery_vehicles.forEach((dv: any) => {
+           if (dv.vehicles?.license_plate) plates.add(dv.vehicles.license_plate);
+         });
+      }
+    });
+  }
+  
+  if (plates.size > 0) {
+    return Array.from(plates).join(', ');
+  }
+  
+  return item.order?.license_plate || '-';
+};
+
 const VegetablesPage: React.FC = () => {
   const [filterDate, setFilterDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [searchQuery, setSearchQuery] = useState('');
 
   const filters: any = {};
   if (filterDate) filters.date = filterDate;
+  filters.order_category = 'vegetable';
 
   const { data: orders, isLoading, isError, refetch } = useImportOrders(filters);
 
@@ -122,7 +147,7 @@ const VegetablesPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 border border-border text-center">
                       <span className="text-[13px] font-medium text-muted-foreground">
-                        {item.order?.license_plate || '-'}
+                        {getAssignedVehicles(item)}
                       </span>
                     </td>
                     <td className="px-4 py-3 border border-border text-center">

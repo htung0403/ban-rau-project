@@ -119,10 +119,13 @@ export interface ImportOrder {
   quantity?: number;
   unit_price?: number;
   total_order_amount?: number; 
+  total_amount?: number;
+  is_custom_amount?: boolean;
   payment_status?: 'paid' | 'unpaid' | 'partial';
   received_by?: string;
   warehouse_id?: string;
   product_id?: string;
+  order_category?: 'standard' | 'vegetable';
   status: OrderStatus;
   customer_id?: string;
   notes?: string;
@@ -159,6 +162,7 @@ export interface ImportOrderCreatePayload {
   receiver_phone?: string;
   receiver_address?: string;
   warehouse_id?: string;
+  order_category?: 'standard' | 'vegetable';
   status?: OrderStatus;
   customer_id?: string;
   notes?: string;
@@ -199,6 +203,7 @@ export interface DeliveryOrder {
   unit_price?: number;
   import_cost?: number;
   payment_method?: string;
+  order_category?: 'standard' | 'vegetable';
   status: DeliveryStatus;
   delivery_date?: string;
   created_at: string;
@@ -212,6 +217,11 @@ export interface DeliveryOrder {
     customers?: { name: string };
     total_amount?: number;
   };
+  payment_collections?: {
+    id: string;
+    status: PaymentCollectionStatus;
+    vehicle_id: string;
+  }[];
 }
 
 // --- Vehicles ---
@@ -438,8 +448,10 @@ export interface ApiResponse<T = unknown> {
 
 // --- Filter helpers ---
 export interface ImportOrderFilters {
-  date?: string;
+  dateFrom?: string;
+  dateTo?: string;
   status?: OrderStatus;
+  order_category?: 'standard' | 'vegetable';
   sender?: string;
   receiver?: string;
   customer_id?: string;

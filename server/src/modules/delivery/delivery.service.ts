@@ -2,11 +2,13 @@ import { supabaseService } from '../../config/supabase';
 import { format } from 'date-fns';
 
 export class DeliveryService {
-  static async getAllToday(startDate?: string, endDate?: string) {
+  static async getAllToday(startDate?: string, endDate?: string, orderCategory?: string) {
     let query = supabaseService
       .from('delivery_orders')
-      .select('*, import_orders(order_code, sender_name, receiver_name, customers(name), total_amount), delivery_vehicles(*, vehicles(license_plate))')
+      .select('*, import_orders(order_code, sender_name, receiver_name, customers(name), total_amount), delivery_vehicles(*, vehicles(license_plate)), payment_collections(id, status, vehicle_id)')
       .order('delivery_date', { ascending: false });
+
+    if (orderCategory) query = query.eq('order_category', orderCategory);
 
     if (startDate && endDate) {
       query = query.gte('delivery_date', startDate).lte('delivery_date', endDate);
@@ -32,6 +34,7 @@ export class DeliveryService {
       .from('delivery_orders')
       .insert({
         ...orderData,
+        order_category: orderData.order_category || 'standard',
         status: (vehicles && vehicles.length > 0) ? 'in_progress' : 'pending'
       })
       .select()
@@ -121,11 +124,15 @@ export class DeliveryService {
     return data;
   }
 
-  static async getInventory() {
-    const { data, error } = await supabaseService
+  static async getInventory(orderCategory?: string) {
+    let query = supabaseService
       .from('import_orders')
       .select('*, warehouses(name)')
       .eq('status', 'pending'); // Items in warehouse not yet assigned for delivery
+      
+    if (orderCategory) query = query.eq('order_category', orderCategory);
+    
+    const { data, error } = await query;
     if (error) throw error;
     return data;
   }

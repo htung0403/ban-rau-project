@@ -1,6 +1,6 @@
 import {
   Users,
-  Warehouse, Download, Upload, Truck as DeliveryIcon, Box,
+  Warehouse, Download, Upload, Truck as DeliveryIcon,
   Banknote, Car, CalendarDays, ClipboardList, ClipboardCheck, DollarSign, FileText, Settings2
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
@@ -15,12 +15,19 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
     {
       section: 'Hàng hóa',
       items: [
-        { icon: Box, title: 'Danh mục hàng hóa', description: 'Quản lý danh sách các mặt hàng.', colorScheme: 'blue', path: '/hang-hoa/danh-muc' },
         { icon: Warehouse, title: 'Tồn kho thực tế', description: 'Quản lý sản phẩm còn tồn kho chờ giao.', colorScheme: 'teal', path: '/hang-hoa/kho' },
         { icon: Upload, title: 'Xuất hàng', description: 'Quản lý phiếu xuất kho.', colorScheme: 'red', path: '/hang-hoa/xuat-hang' },
         { icon: Download, title: 'Nhập hàng', description: 'Quản lý phiếu nhập kho.', colorScheme: 'green', path: '/hang-hoa/nhap-hang' },
-        { icon: ClipboardList, title: 'Bảng Hàng Rau', description: 'Bảng xem chi tiết các mặt hàng rau nhập.', colorScheme: 'purple', path: '/hang-hoa/hang-rau' },
         { icon: DeliveryIcon, title: 'Hàng cần giao', description: 'Danh sách các đơn hàng cần giao.', colorScheme: 'orange', path: '/hang-hoa/giao-hang' },
+        { icon: Settings2, title: 'Cài đặt hàng hóa', description: 'Xem dữ liệu từ điển hàng hóa và đơn vị.', colorScheme: 'slate', path: '/hang-hoa/cai-dat' },
+      ]
+    },
+    {
+      section: 'Hàng Rau',
+      items: [
+        { icon: Download, title: 'Nhập hàng rau', description: 'Quản lý phiếu nhập kho mặt hàng rau.', colorScheme: 'green', path: '/hang-hoa/nhap-hang-rau' },
+        { icon: ClipboardList, title: 'Bảng Hàng Rau', description: 'Bảng xem chi tiết các mặt hàng rau nhập.', colorScheme: 'purple', path: '/hang-hoa/hang-rau' },
+        { icon: DeliveryIcon, title: 'Giao hàng rau', description: 'Danh sách các đơn hàng rau cần giao.', colorScheme: 'orange', path: '/hang-hoa/giao-hang-rau' },
       ]
     }
   ],

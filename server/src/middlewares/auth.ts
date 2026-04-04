@@ -2,12 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import { supabaseService } from '../config/supabase';
 import { errorResponse } from '../utils/response';
 import { UserPayload, Role } from '../types';
-import jwt from 'jsonwebtoken';
-import { env } from '../config/env';
 
 // Simple in-memory cache for profiles to reduce DB round-trips
 // Key: userId, Value: { profile: any, timestamp: number }
 const profileCache = new Map<string, { profile: any; timestamp: number }>();
+// Cache for token validation to skip Supabase Auth HTTP requests
+const tokenCache = new Map<string, { user: any; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
@@ -21,31 +21,33 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
   const start = Date.now();
 
   try {
-    // 1. Verify token locally (Offline) using JWT_SECRET
-    // This avoids a 300ms network roundtrip to Supabase Auth
+    // 1. Verify token & get user - Use Cache to avoid HTTP roundtrip
     const authStart = Date.now();
-    let decoded;
-    try {
-      decoded = jwt.verify(token, env.JWT_SECRET) as any;
-    } catch (jwtErr) {
-      return res.status(401).json(errorResponse('Invalid or expired token', 'UNAUTHORIZED'));
+    let user: any = null;
+    const cachedToken = tokenCache.get(token);
+    const now = Date.now();
+
+    if (cachedToken && (now - cachedToken.timestamp < CACHE_TTL)) {
+      user = cachedToken.user;
+    } else {
+      const { data: authData, error } = await (supabaseService.auth as any).getUser(token);
+      if (error || !authData?.user) {
+        return res.status(401).json(errorResponse('Invalid or expired token', 'UNAUTHORIZED'));
+      }
+      user = authData.user;
+      tokenCache.set(token, { user, timestamp: now });
     }
     const authEnd = Date.now();
     
-    const userId = decoded.sub; // Supabase stores user ID in 'sub' claim
-    const email = decoded.email;
-
-    if (!userId) {
-      return res.status(401).json(errorResponse('Invalid token payload', 'UNAUTHORIZED'));
-    }
+    const userId = user.id;
+    const email = user.email;
 
     // 2. Get profile - Check cache first to save a DB round-trip
     let profile: any = null;
-    const cached = profileCache.get(userId);
-    const now = Date.now();
+    const cachedProfile = profileCache.get(userId);
 
-    if (cached && (now - cached.timestamp < CACHE_TTL)) {
-      profile = cached.profile;
+    if (cachedProfile && (now - cachedProfile.timestamp < CACHE_TTL)) {
+      profile = cachedProfile.profile;
     } else {
       const profileStart = Date.now();
       const { data, error: profileError } = await supabaseService
@@ -78,7 +80,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
 
     const totalTime = Date.now() - start;
     if (totalTime > 200) {
-      console.warn(`[PERF WARNING] authMiddleware took ${totalTime}ms (auth local: ${authEnd - authStart}ms, profile: ${cached ? 'CACHED' : 'FETCHED'})`);
+      console.warn(`[PERF WARNING] authMiddleware took ${totalTime}ms (auth local/fetch: ${authEnd - authStart}ms, profile: ${cachedProfile ? 'CACHED' : 'FETCHED'})`);
     }
 
     next();

@@ -6,6 +6,7 @@ import { Box, Users, Wallet, Car, Copyright, Search } from 'lucide-react';
 import { clsx } from 'clsx';
 import { moduleData } from '../data/moduleData';
 import { ModuleCard } from '../components/ui/ModuleCard';
+import ZaloLogo from '../assets/zalo-seeklogo.svg';
 
 const dashboardModules: ActionCardProps[] = [
   {
@@ -41,6 +42,13 @@ const dashboardModules: ActionCardProps[] = [
     title: 'Thông tin bản quyền',
     description: 'Quản lý sở hữu trí tuệ.',
     href: '/ban-quyen',
+    colorScheme: 'blue'
+  },
+  {
+    iconSrc: ZaloLogo,
+    title: 'Chat Zalo',
+    description: 'Chuyển sang ứng dụng Zalo chat',
+    href: 'https://chat.zalo.me/',
     colorScheme: 'blue'
   }
 ];

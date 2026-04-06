@@ -18,6 +18,10 @@ export interface DateRangePickerProps {
   initialDateTo?: Date | string
   align?: 'start' | 'center' | 'end'
   locale?: string
+  inline?: boolean
+  icon?: React.ReactNode
+  className?: string
+  hidePresets?: boolean
 }
 
 const formatDate = (date: Date, locale: string = 'vi-VN'): string => {
@@ -65,6 +69,10 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
   onUpdate,
   align = 'end',
   locale = 'vi-VN',
+  inline = false,
+  icon,
+  className,
+  hidePresets = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -234,6 +242,122 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
     }
   }, [isOpen])
 
+  const trigger = (
+    <button
+      onClick={() => inline && setIsOpen(!isOpen)}
+      className={cn("relative flex items-center justify-center md:justify-between px-3 md:pl-3 md:pr-2 h-[38px] bg-white border border-border rounded-xl shadow-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors font-bold text-[13px] w-full md:w-[240px]", className)}
+    >
+      <div className="flex items-center gap-2 overflow-hidden w-full md:w-auto justify-center md:justify-start">
+        {icon && <span className="text-muted-foreground/60 shrink-0">{icon}</span>}
+        <span className="truncate text-center md:text-left font-bold">
+          {range.from ? `${formatDate(range.from, locale)}${range.to != null ? ' - ' + formatDate(range.to, locale) : ''}` : <span className="text-muted-foreground font-normal">Chọn ngày...</span>}
+        </span>
+      </div>
+      <div className="absolute right-3 md:static opacity-60 text-muted-foreground md:ml-2 shrink-0">
+        {isOpen ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
+      </div>
+    </button>
+  );
+
+  const content = (
+    <div className="flex py-2 flex-col md:flex-row bg-white">
+      <div className="flex">
+        <div className="flex flex-col w-full">
+          {isSmallScreen && !hidePresets && (
+            <div className="px-4 py-2">
+              <CustomSelect
+                value={selectedPreset || ''}
+                onChange={(val) => {
+                  if (val) setPreset(val)
+                }}
+                options={PRESETS.map(p => ({ value: p.name, label: p.label }))}
+                placeholder="Chọn nhanh..."
+                className="w-full py-2 bg-background border-border"
+              />
+            </div>
+          )}
+
+          <div className="p-2 border-t md:border-t-0 md:mt-2 border-border/50 flex justify-center">
+            <Calendar
+              mode="range"
+              onSelect={(value: { from?: Date, to?: Date } | undefined) => {
+                if (value?.from != null) {
+                  setRange({ from: value.from, to: value?.to })
+                }
+              }}
+              selected={range}
+              numberOfMonths={isSmallScreen ? 1 : 2}
+              defaultMonth={
+                isSmallScreen ? undefined : new Date(
+                  new Date().setMonth(
+                    new Date().getMonth() - 1
+                  )
+                )
+              }
+            />
+          </div>
+        </div>
+      </div>
+
+      {!isSmallScreen && !hidePresets && (
+        <div className="flex flex-col items-end gap-1 pr-0 w-36 border-l border-border/50 py-2">
+          {PRESETS.map((preset) => (
+            <PresetButton
+              key={preset.name}
+              preset={preset.name}
+              label={preset.label}
+              isSelected={selectedPreset === preset.name}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const actions = (
+    <div className="flex justify-end gap-2 px-4 py-3 border-t border-border/50 bg-muted/10 w-full">
+      <button
+        onClick={() => {
+          setIsOpen(false)
+          resetValues()
+        }}
+        className="px-4 py-2 rounded-xl text-[13px] font-bold text-muted-foreground hover:bg-muted transition-all"
+      >
+        Hủy
+      </button>
+      <button
+        onClick={() => {
+          setIsOpen(false)
+          if (!areRangesEqual(range, openedRangeRef.current)) {
+            onUpdate?.({ range })
+          }
+        }}
+        className="px-4 py-2 rounded-xl text-[13px] font-bold bg-primary text-white hover:bg-primary/90 shadow-sm transition-all"
+      >
+        Áp dụng
+      </button>
+    </div>
+  );
+
+  if (inline) {
+    return (
+      <div className="flex flex-col w-full">
+        {trigger}
+        <div className={cn(
+          "grid transition-all duration-300 ease-in-out",
+          isOpen ? "grid-rows-[1fr] opacity-100 mt-2" : "grid-rows-[0fr] opacity-0 mt-0"
+        )}>
+          <div className="overflow-hidden">
+            <div className="rounded-2xl border border-border/60 shadow-sm bg-white flex flex-col">
+              {content}
+              {actions}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <Popover
       modal={true}
@@ -246,90 +370,11 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
       }}
     >
       <PopoverTrigger asChild>
-        <button className="relative flex items-center justify-center md:justify-between px-3 md:pl-3 md:pr-2 py-2 bg-white border border-border/80 rounded-xl hover:bg-slate-50 transition-all font-medium text-[13px] w-full md:w-[240px]">
-          <div className="text-center md:text-left font-medium w-full md:w-auto">
-            {range.from ? `${formatDate(range.from, locale)}${range.to != null ? ' - ' + formatDate(range.to, locale) : ''}` : <span className="text-muted-foreground font-normal">Chọn ngày...</span>}
-          </div>
-          <div className="absolute right-3 md:static opacity-60 text-muted-foreground md:ml-2">
-            {isOpen ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
-          </div>
-        </button>
+        {trigger}
       </PopoverTrigger>
       <PopoverContent align={align} className="w-auto p-0 rounded-2xl border-border/60 shadow-xl overflow-hidden">
-        <div className="flex py-2 flex-col md:flex-row">
-          <div className="flex">
-            <div className="flex flex-col">
-              {isSmallScreen && (
-                <div className="px-4 py-2">
-                  <CustomSelect
-                    value={selectedPreset || ''}
-                    onChange={(val) => {
-                      if (val) setPreset(val)
-                    }}
-                    options={PRESETS.map(p => ({ value: p.name, label: p.label }))}
-                    placeholder="Chọn nhanh..."
-                    className="w-full py-2 bg-background border-border"
-                  />
-                </div>
-              )}
-
-              <div className="p-2 border-t md:border-t-0 md:mt-2 border-border/50">
-                <Calendar
-                  mode="range"
-                  onSelect={(value: { from?: Date, to?: Date } | undefined) => {
-                    if (value?.from != null) {
-                      setRange({ from: value.from, to: value?.to })
-                    }
-                  }}
-                  selected={range}
-                  numberOfMonths={isSmallScreen ? 1 : 2}
-                  defaultMonth={
-                    isSmallScreen ? undefined : new Date(
-                      new Date().setMonth(
-                        new Date().getMonth() - 1
-                      )
-                    )
-                  }
-                />
-              </div>
-            </div>
-          </div>
-
-          {!isSmallScreen && (
-            <div className="flex flex-col items-end gap-1 pr-0 w-36 border-l border-border/50 py-2">
-              {PRESETS.map((preset) => (
-                <PresetButton
-                  key={preset.name}
-                  preset={preset.name}
-                  label={preset.label}
-                  isSelected={selectedPreset === preset.name}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-border/50 bg-muted/10">
-          <button
-            onClick={() => {
-              setIsOpen(false)
-              resetValues()
-            }}
-            className="px-4 py-2 rounded-xl text-[13px] font-bold text-muted-foreground hover:bg-muted transition-all"
-          >
-            Hủy
-          </button>
-          <button
-            onClick={() => {
-              setIsOpen(false)
-              if (!areRangesEqual(range, openedRangeRef.current)) {
-                onUpdate?.({ range })
-              }
-            }}
-            className="px-4 py-2 rounded-xl text-[13px] font-bold bg-primary text-white hover:bg-primary/90 shadow-sm transition-all"
-          >
-            Áp dụng
-          </button>
-        </div>
+        {content}
+        {actions}
       </PopoverContent>
     </Popover>
   )

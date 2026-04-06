@@ -129,6 +129,7 @@ export interface ImportOrder {
   status: OrderStatus;
   customer_id?: string;
   notes?: string;
+  receipt_image_url?: string;
   created_at: string;
   updated_at: string;
   // Nested relations from API
@@ -144,6 +145,7 @@ export interface ImportOrderItem {
   import_order_id: string;
   product_id?: string;
   package_type?: string;
+  package_quantity?: number;
   weight_kg?: number;
   quantity: number;
   unit_price?: number;
@@ -216,6 +218,15 @@ export interface DeliveryOrder {
     receiver_name: string;
     customers?: { name: string };
     total_amount?: number;
+    profiles?: { full_name: string };
+  };
+  vegetable_orders?: {
+    order_code: string;
+    sender_name: string;
+    receiver_name: string;
+    customers?: { name: string };
+    total_amount?: number;
+    profiles?: { full_name: string };
   };
   payment_collections?: {
     id: string;
@@ -450,10 +461,12 @@ export interface ApiResponse<T = unknown> {
 export interface ImportOrderFilters {
   dateFrom?: string;
   dateTo?: string;
-  status?: OrderStatus;
+  status?: string;
   order_category?: 'standard' | 'vegetable';
   sender?: string;
   receiver?: string;
   customer_id?: string;
+  license_plate?: string;
+  received_by?: string;
   search?: string;
 }

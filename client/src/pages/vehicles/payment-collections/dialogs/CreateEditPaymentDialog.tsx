@@ -146,8 +146,8 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
                     value={deliveryOrderId}
                     onValueChange={(val) => {
                       setDeliveryOrderId(val);
-                      const sel = pendingOrders.find(o => o.id === val);
-                      if (sel) setCollectedAmount(sel.amount.toString());
+                      // Yêu cầu: Để tài xế tự điền số tiền thay vì tự động điền
+                      setCollectedAmount('');
                     }}
                     placeholder="-- Chọn đơn hàng --"
                     searchPlaceholder="Tìm mã hoặc tên KH..."

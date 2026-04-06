@@ -11,13 +11,21 @@ export class AccountingService {
   }
 
   static async getRevenueByDate(from: string, to: string) {
-    const { data, error } = await supabaseService
+    const { data: stdData, error: stdError } = await supabaseService
       .from('import_orders')
       .select('total_amount, order_date')
       .gte('order_date', from)
       .lte('order_date', to);
-    
-    if (error) throw error;
+    if (stdError) throw stdError;
+
+    const { data: vegData, error: vegError } = await supabaseService
+      .from('vegetable_orders')
+      .select('total_amount, order_date')
+      .gte('order_date', from)
+      .lte('order_date', to);
+    if (vegError) throw vegError;
+
+    const data = [...(stdData || []), ...(vegData || [])];
 
     // Aggregating locally for simplicity, or use RPC for large datasets
     const aggregation = data?.reduce((acc: any, curr: any) => {

@@ -7,7 +7,7 @@ export class PaymentCollectionsService {
       .from('payment_collections')
       .select(`
         *,
-        delivery_orders ( id, import_orders ( order_code, customers ( name ) ) ),
+        delivery_orders ( id, import_orders ( order_code, customers ( name ) ), vegetable_orders ( order_code, customers ( name ) ) ),
         drivers:profiles!payment_collections_driver_id_fkey(full_name),
         receivers:profiles!payment_collections_receiver_id_fkey(full_name),
         vehicles ( license_plate )
@@ -32,7 +32,7 @@ export class PaymentCollectionsService {
       .from('payment_collections')
       .select(`
         *,
-        delivery_orders ( id, import_orders ( order_code, customers ( name ) ) ),
+        delivery_orders ( id, import_orders ( order_code, customers ( name ) ), vegetable_orders ( order_code, customers ( name ) ) ),
         drivers:profiles!payment_collections_driver_id_fkey(full_name),
         receivers:profiles!payment_collections_receiver_id_fkey(full_name),
         vehicles ( license_plate )
@@ -48,7 +48,7 @@ export class PaymentCollectionsService {
     // 1. Get delivery order to get customer_id and expected_amount
     const { data: doData, error: doError } = await supabaseService
       .from('delivery_orders')
-      .select('id, import_orders(customer_id, total_amount)')
+      .select('id, import_orders(customer_id, total_amount), vegetable_orders(customer_id, total_amount)')
       .eq('id', data.deliveryOrderId)
       .single();
 
@@ -65,7 +65,8 @@ export class PaymentCollectionsService {
 
     if (dvError || !dvData) throw new Error('Bạn không được giao đơn hàng này');
 
-    const importOrder: any = Array.isArray(doData.import_orders) ? doData.import_orders[0] : doData.import_orders;
+    const ioOrVeg: any = doData.vegetable_orders || doData.import_orders;
+    const importOrder: any = Array.isArray(ioOrVeg) ? ioOrVeg[0] : ioOrVeg;
     // Prefer the explicitly assigned expected_amount from delivery_vehicles. Fallback to import order total if missing.
     const expectedAmount = Number(dvData.expected_amount) || Number(importOrder?.total_amount) || 0;
 
@@ -225,7 +226,7 @@ export class PaymentCollectionsService {
       .from('payment_collections')
       .select(`
         *,
-        delivery_orders ( id, import_orders ( order_code, customers ( name ) ) ),
+        delivery_orders ( id, import_orders ( order_code, customers ( name ) ), vegetable_orders ( order_code, customers ( name ) ) ),
         drivers:profiles!payment_collections_driver_id_fkey(full_name),
         receivers:profiles!payment_collections_receiver_id_fkey(full_name),
         vehicles ( license_plate )
@@ -272,25 +273,28 @@ export class PaymentCollectionsService {
   private static async updateImportOrderPaidAmount(deliveryOrderId: string, collectedAmount: number) {
     if (!deliveryOrderId || !collectedAmount) return;
     
-    // 1. Get import_order_id
+    // 1. Get import_order_id & vegetable_order_id
     const { data: doData } = await supabaseService.from('delivery_orders')
-      .select('import_order_id')
+      .select('import_order_id, vegetable_order_id')
       .eq('id', deliveryOrderId)
       .single();
       
-    if (!doData || !doData.import_order_id) return;
+    if (!doData || (!doData.import_order_id && !doData.vegetable_order_id)) return;
+
+    const tName = doData.vegetable_order_id ? 'vegetable_orders' : 'import_orders';
+    const orderId = doData.vegetable_order_id || doData.import_order_id;
 
     // 2. Get current paid_amount
-    const { data: ioData } = await supabaseService.from('import_orders')
+    const { data: ioData } = await supabaseService.from(tName)
       .select('paid_amount')
-      .eq('id', doData.import_order_id)
+      .eq('id', orderId)
       .single();
       
     if (ioData) {
       // 3. Increment paid_amount
-      await supabaseService.from('import_orders')
+      await supabaseService.from(tName)
         .update({ paid_amount: Number(ioData.paid_amount || 0) + collectedAmount })
-        .eq('id', doData.import_order_id);
+        .eq('id', orderId);
     }
   }
 
@@ -299,9 +303,9 @@ export class PaymentCollectionsService {
     return {
       id: pc.id,
       deliveryOrderId: pc.delivery_order_id,
-      deliveryOrderCode: pc.delivery_orders?.import_orders ? (Array.isArray(pc.delivery_orders.import_orders) ? pc.delivery_orders.import_orders[0].order_code : pc.delivery_orders.import_orders.order_code) : undefined,
+      deliveryOrderCode: pc.delivery_orders?.vegetable_orders ? (Array.isArray(pc.delivery_orders.vegetable_orders) ? pc.delivery_orders.vegetable_orders[0].order_code : pc.delivery_orders.vegetable_orders.order_code) : (pc.delivery_orders?.import_orders ? (Array.isArray(pc.delivery_orders.import_orders) ? pc.delivery_orders.import_orders[0].order_code : pc.delivery_orders.import_orders.order_code) : undefined),
       customerId: pc.customer_id,
-      customerName: pc.delivery_orders?.import_orders ? (Array.isArray(pc.delivery_orders.import_orders) ? pc.delivery_orders.import_orders[0].customers?.name : pc.delivery_orders.import_orders.customers?.name) : undefined,
+      customerName: pc.delivery_orders?.vegetable_orders ? (Array.isArray(pc.delivery_orders.vegetable_orders) ? pc.delivery_orders.vegetable_orders[0].customers?.name : pc.delivery_orders.vegetable_orders.customers?.name) : (pc.delivery_orders?.import_orders ? (Array.isArray(pc.delivery_orders.import_orders) ? pc.delivery_orders.import_orders[0].customers?.name : pc.delivery_orders.import_orders.customers?.name) : undefined),
       driverId: pc.driver_id,
       driverName: pc.drivers?.full_name,
       vehicleId: pc.vehicle_id,

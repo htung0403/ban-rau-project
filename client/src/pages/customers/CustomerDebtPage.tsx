@@ -6,7 +6,7 @@ import { useCustomers, useUpdateCustomerPayment } from '../../hooks/queries/useC
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Banknote, Calendar, Info, X } from 'lucide-react';
+import { Banknote, Calendar, Info, X, Search, Filter, Store, Truck } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { useForm, Controller } from 'react-hook-form';
@@ -14,6 +14,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import CurrencyInput from '../../components/shared/CurrencyInput';
 import { format } from 'date-fns';
+import { DateRangePicker } from '../../components/shared/DateRangePicker';
+import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
+import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 
 const formatCurrency = (value?: number | null) => {
   if (value == null) return '-';
@@ -40,6 +43,24 @@ const CustomerDebtPage: React.FC = () => {
   const [isCollectClosing, setIsCollectClosing] = useState(false);
   const [currentCustomerDebt, setCurrentCustomerDebt] = useState<number>(0);
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
+  const [filterVehicle, setFilterVehicle] = useState<string[]>([]);
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isFilterClosing, setIsFilterClosing] = useState(false);
+
+  const openFilter = () => setIsFilterOpen(true);
+  const closeFilter = () => {
+    setIsFilterClosing(true);
+    setTimeout(() => {
+      setIsFilterOpen(false);
+      setIsFilterClosing(false);
+    }, 300);
+  };
+
   const isLoading = isExportLoading || isImportLoading;
   const isError = isExportError || isImportError;
 
@@ -51,8 +72,52 @@ const CustomerDebtPage: React.FC = () => {
 
   const unpaidOrders = [...unpaidExport, ...unpaidImport];
 
+  const { customerOptions, vehicleOptions } = React.useMemo(() => {
+    const cSet = new Set<string>();
+    const vSet = new Set<string>();
+    
+    unpaidOrders.forEach((o: any) => {
+      const cName = o.customers?.name || (o._type === 'import' ? o.sender_name : null);
+      if (cName) cSet.add(cName);
+      
+      const vName = o.license_plate;
+      if (vName && vName.trim() !== '') vSet.add(vName);
+    });
+    
+    return {
+      customerOptions: Array.from(cSet).filter(Boolean).map(c => ({ label: c, value: c })),
+      vehicleOptions: Array.from(vSet).filter(Boolean).map(v => ({ label: v, value: v })),
+    };
+  }, [unpaidOrders]);
+
+  const filteredUnpaidOrders = React.useMemo(() => {
+    return unpaidOrders.filter((o: any) => {
+      const cName = o.customers?.name || (o._type === 'import' ? o.sender_name : '');
+      const vName = o.license_plate || '';
+      const pName = o.item_name || 'Nhập hàng / Nhà cung cấp';
+      const orderCode = o._type === 'export' ? `#${o.id?.slice(0, 8).toUpperCase()}` : (o.order_code || `#${o.id?.slice(0, 8).toUpperCase()}`);
+
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        if (!cName?.toLowerCase().includes(q) && !vName?.toLowerCase().includes(q) && !pName?.toLowerCase().includes(q) && !orderCode.toLowerCase().includes(q)) {
+          return false;
+        }
+      }
+      if (filterCustomer.length > 0 && cName && !filterCustomer.includes(cName)) return false;
+      if (filterVehicle.length > 0 && vName && !filterVehicle.includes(vName)) return false;
+      
+      const dateStr = o.export_date || o.order_date;
+      if (dateStr) {
+        if (startDate && dateStr < startDate) return false;
+        if (endDate && dateStr > endDate) return false;
+      }
+      
+      return true;
+    });
+  }, [unpaidOrders, searchQuery, filterCustomer, filterVehicle, startDate, endDate]);
+
   // Nhóm theo ngày
-  const groupedOrders = unpaidOrders.reduce((acc: Record<string, any[]>, order: any) => {
+  const groupedOrders = filteredUnpaidOrders.reduce((acc: Record<string, any[]>, order: any) => {
     const date = order.export_date || order.order_date || 'N/A';
     if (!acc[date]) acc[date] = [];
     acc[date].push(order);
@@ -62,6 +127,14 @@ const CustomerDebtPage: React.FC = () => {
   const sortedDates = Object.keys(groupedOrders).sort((a, b) => b.localeCompare(a));
 
   const totalUncollectedDebt = customers?.reduce((sum, c) => sum + (c.debt > 0 ? c.debt : 0), 0) || 0;
+  const numberOfCustomersInDebt = React.useMemo(() => {
+    const ids = new Set();
+    unpaidOrders.forEach((o: any) => {
+      const identifier = o.customers?.id || o.customers?.name || (o._type === 'import' ? o.sender_name : null) || 'Khách vãng lai';
+      ids.add(identifier);
+    });
+    return ids.size;
+  }, [unpaidOrders]);
 
   const handleCollect = (customer: any) => {
     if (!customer || !customer.id) {
@@ -109,7 +182,7 @@ const CustomerDebtPage: React.FC = () => {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <div className="hidden md:block">
           <PageHeader
             title="Chi tiết Sổ Cái Bù Trừ Nhập Xuất"
@@ -118,13 +191,97 @@ const CustomerDebtPage: React.FC = () => {
           />
         </div>
 
-        <div className="flex items-center gap-4 bg-white p-2 px-4 rounded-2xl border border-border shadow-sm">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase opacity-70">Khách vãng lai nợ</span>
-            <span className="text-[16px] font-black text-red-600 tabular-nums">
-              {formatCurrency(totalUncollectedDebt)}
-            </span>
+        <div className="flex w-full md:w-auto items-center gap-3 flex-shrink-0 mb-1 md:mb-0">
+          <div className="flex flex-col flex-1 md:flex-none md:min-w-[120px] bg-white p-2.5 px-4 rounded-2xl border border-border shadow-sm">
+             <span className="text-[10px] font-bold text-muted-foreground uppercase opacity-70 mb-1">Số lượng khách</span>
+             <span className="text-[16px] font-black text-foreground tabular-nums">
+               {numberOfCustomersInDebt} <span className="text-[12px] font-semibold text-muted-foreground">người</span>
+             </span>
           </div>
+
+          <div className="flex flex-col flex-1 md:flex-none md:min-w-[140px] bg-white p-2.5 px-4 rounded-2xl border border-red-200 shadow-sm">
+             <span className="text-[10px] font-bold text-red-500 uppercase opacity-80 mb-1">Dư nợ hệ thống</span>
+             <span className="text-[16px] font-black text-red-600 tabular-nums">
+               {formatCurrency(totalUncollectedDebt)}
+             </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white flex flex-row w-full gap-2 items-center rounded-2xl shadow-sm border border-border p-2.5 md:mb-6 mb-3 overflow-x-auto custom-scrollbar">
+        {/* SEARCH BAR */}
+        <div className="relative flex-1 min-w-[200px] md:max-w-full">
+          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
+            <Search size={15} />
+          </div>
+          <input
+            type="text"
+            className="w-full text-[13px] bg-slate-50 border border-border/80 rounded-xl pl-9 pr-7 py-2 h-[38px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/50 transition-all placeholder:text-muted-foreground/60 font-medium"
+            placeholder="Tìm mã đơn, khách, xe..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* DESKTOP ADVANCED FILTERS */}
+        <div className="hidden md:flex gap-2 items-center shrink-0">
+          <div className="w-[200px]">
+            <MultiSearchableSelect
+              options={customerOptions}
+              value={filterCustomer}
+              onValueChange={setFilterCustomer}
+              placeholder="Khách hàng"
+              className="bg-transparent"
+              icon={<Store size={15} />}
+            />
+          </div>
+
+          <div className="w-[180px]">
+            <MultiSearchableSelect
+              options={vehicleOptions}
+              value={filterVehicle}
+              onValueChange={setFilterVehicle}
+              placeholder="Theo xe"
+              className="bg-transparent"
+              icon={<Truck size={15} />}
+            />
+          </div>
+        </div>
+
+        {/* DESKTOP DATE FILTER */}
+        <div className="hidden md:block shrink-0">
+          <DateRangePicker
+            initialDateFrom={startDate}
+            initialDateTo={endDate}
+            onUpdate={(values) => {
+              if (values.range.from) {
+                setStartDate(format(values.range.from, 'yyyy-MM-dd'));
+              } else {
+                setStartDate('');
+              }
+              if (values.range.to) {
+                setEndDate(format(values.range.to, 'yyyy-MM-dd'));
+              } else {
+                setEndDate('');
+              }
+            }}
+          />
+        </div>
+
+        {/* ACTIONS */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* MOBILE FILTER BUTTON */}
+          <button
+            onClick={openFilter}
+            className="md:hidden flex items-center justify-center w-[38px] h-[38px] shrink-0 border border-border/80 rounded-xl transition-all bg-slate-50 text-muted-foreground hover:bg-slate-100"
+          >
+            <Filter size={17} />
+          </button>
         </div>
       </div>
 
@@ -133,10 +290,10 @@ const CustomerDebtPage: React.FC = () => {
           <div className="p-4"><LoadingSkeleton rows={10} columns={6} /></div>
         ) : isError ? (
           <ErrorState onRetry={() => refetch()} />
-        ) : unpaidOrders.length === 0 ? (
-          <EmptyState title="Không có công nợ tồn đọng" description="Tất cả các khoản dư nợ đã được cấn trừ hoặc thanh toán." />
+        ) : filteredUnpaidOrders.length === 0 ? (
+          <EmptyState title="Không tìm thấy đơn nợ" description="Tất cả các khoản dư nợ đã được cấn trừ hoặc không khớp với bộ lọc." />
         ) : (
-          <div className="flex-1 overflow-auto custom-scrollbar">
+          <div className="flex-1 md:overflow-auto custom-scrollbar">
             {/* Desktop View */}
             <div className="hidden md:block">
               <table className="w-full border-separate border-spacing-0">
@@ -239,19 +396,19 @@ const CustomerDebtPage: React.FC = () => {
             </div>
 
             {/* Mobile View */}
-            <div className="md:hidden flex flex-col px-4 pb-24 pt-2">
+            <div className="md:hidden flex flex-col gap-4 px-3 pt-0 pb-20 relative">
               {sortedDates.map((date) => (
-                <div key={`mobile-${date}`} className="mb-6">
-                  <div className="flex items-center gap-2 mb-3 px-1 sticky top-0 z-10 bg-[#f8fafc]/90 backdrop-blur-md py-2 -mx-1">
-                    <div className="w-6 h-6 rounded-lg bg-red-500/10 flex items-center justify-center text-red-600">
-                      <Calendar size={13} />
+                <div key={`mobile-${date}`} className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 sticky top-0 bg-slate-50/95 backdrop-blur-sm p-3 -mx-3 px-5 z-20 border-b border-border/50 shadow-sm">
+                    <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-red-500/10 text-red-600 shrink-0">
+                      <Calendar size={14} />
                     </div>
-                    <span className="text-[13px] font-black text-slate-700 uppercase tracking-wider">
-                      Ng.PS: {date !== 'N/A' ? format(new Date(date), 'dd/MM/yyyy') : 'Chưa định dạng'}
+                    <span className="text-[13px] font-black text-slate-800 uppercase tracking-wider">
+                      Ngày phát sinh: {date !== 'N/A' ? format(new Date(date), 'dd/MM/yyyy') : 'Chưa định dạng'}
                     </span>
                   </div>
 
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-3 px-1">
                     {groupedOrders[date].map((order) => {
                       const isExport = order._type === 'export';
                       const remaining = (order.debt_amount || 0) - (order.paid_amount || 0);
@@ -427,6 +584,49 @@ const CustomerDebtPage: React.FC = () => {
         </div>,
         document.body
       )}
+
+      <MobileFilterSheet
+        isOpen={isFilterOpen}
+        isClosing={isFilterClosing}
+        onClose={closeFilter}
+        onApply={(filters) => {
+          setStartDate(filters.dateFrom || '');
+          setEndDate(filters.dateTo || '');
+        }}
+        onClear={() => {
+          setFilterCustomer([]);
+          setFilterVehicle([]);
+        }}
+        showClearButton={filterCustomer.length > 0 || filterVehicle.length > 0}
+        initialDateFrom={startDate}
+        initialDateTo={endDate}
+        dateLabel="Khoảng thời gian"
+      >
+        <div className="space-y-1.5 z-30">
+          <label className="text-[13px] font-bold text-muted-foreground">Khách hàng</label>
+          <MultiSearchableSelect
+            options={customerOptions}
+            value={filterCustomer}
+            onValueChange={setFilterCustomer}
+            placeholder="Tất cả..."
+            className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
+            inline
+            icon={<Store size={15} />}
+          />
+        </div>
+        <div className="space-y-1.5 z-[25]">
+          <label className="text-[13px] font-bold text-muted-foreground">Theo xe</label>
+          <MultiSearchableSelect
+            options={vehicleOptions}
+            value={filterVehicle}
+            onValueChange={setFilterVehicle}
+            placeholder="Tất cả..."
+            className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
+            inline
+            icon={<Truck size={15} />}
+          />
+        </div>
+      </MobileFilterSheet>
     </div>
   );
 };

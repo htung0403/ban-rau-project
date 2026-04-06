@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
-import { Calendar, PlusCircle, Truck, CheckCircle } from 'lucide-react';
+import { Calendar, PlusCircle, Truck, CheckCircle, Search, Store, Package, User } from 'lucide-react';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import PageHeader from '../../components/shared/PageHeader';
-import { useDeliveryOrders } from '../../hooks/queries/useDelivery';
+import { useDeliveryOrders, useAssignVehicle } from '../../hooks/queries/useDelivery';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import AssignVehicleDialog from './dialogs/AssignVehicleDialog';
+import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
+import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
+import { Filter, X } from 'lucide-react';
 
 const formatNumber = (val?: number) => {
   if (val == null) return '0.00';
@@ -24,6 +27,7 @@ const DeliveryPage: React.FC = () => {
   const { user } = useAuth();
   const { data: orders, isLoading: ordersLoading, isError, refetch } = useDeliveryOrders(startDate, endDate, 'standard');
   const { data: vehicles } = useVehicles();
+  const assignMutation = useAssignVehicle();
 
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
@@ -34,7 +38,25 @@ const DeliveryPage: React.FC = () => {
 
   const isLoading = ordersLoading;
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
+  const isDriver = user?.role === 'driver';
   const myVehicle = vehicles?.find(v => v.driver_id === user?.id);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
+  const [filterReceiver, setFilterReceiver] = useState<string[]>([]);
+  const [filterProduct, setFilterProduct] = useState<string[]>([]);
+
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isFilterClosing, setIsFilterClosing] = useState(false);
+
+  const openFilter = () => setIsFilterOpen(true);
+  const closeFilter = () => {
+    setIsFilterClosing(true);
+    setTimeout(() => {
+      setIsFilterOpen(false);
+      setIsFilterClosing(false);
+    }, 300);
+  };
 
   const openAssign = (order: any, vehicleId?: string) => {
     setSelectedOrder(order);
@@ -52,10 +74,127 @@ const DeliveryPage: React.FC = () => {
     }, 350);
   };
 
+  const handleOrderClick = async (order: any, vehicleId?: string) => {
+    const existingDvs = order.delivery_vehicles || [];
+    const totalAssigned = existingDvs.reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
+    const remainingQty = order.total_quantity - totalAssigned;
 
+    const clickedVehicleId = vehicleId || myVehicle?.id;
+
+    if (
+      isDriver &&
+      clickedVehicleId &&
+      myVehicle?.id === clickedVehicleId &&
+      existingDvs.length > 0 &&
+      remainingQty > 0
+    ) {
+      const payload: any[] = [];
+      existingDvs.forEach((dv: any) => {
+        payload.push({
+          vehicle_id: dv.vehicle_id,
+          driver_id: dv.driver_id || '',
+          quantity: dv.assigned_quantity,
+          expected_amount: dv.expected_amount || (dv.assigned_quantity * (order.unit_price || 0))
+        });
+      });
+
+      const myExistingIndex = payload.findIndex((p: any) => p.vehicle_id === clickedVehicleId);
+      if (myExistingIndex >= 0) {
+        payload[myExistingIndex].quantity += remainingQty;
+        payload[myExistingIndex].expected_amount = payload[myExistingIndex].quantity * (order.unit_price || 0);
+      } else {
+        payload.push({
+          vehicle_id: clickedVehicleId,
+          driver_id: user?.id || '',
+          quantity: remainingQty,
+          expected_amount: remainingQty * (order.unit_price || 0)
+        });
+      }
+
+      try {
+        await assignMutation.mutateAsync({
+           id: order.id,
+           payload: payload as any
+        });
+        return;
+      } catch (error) {
+        // Fallback to dialog on error, or just do nothing
+        return;
+      }
+    }
+
+    openAssign(order, vehicleId);
+  };
+
+
+
+  const { customerOptions, receiverOptions, productOptions } = React.useMemo(() => {
+    if (!orders) return { customerOptions: [], receiverOptions: [], productOptions: [] };
+    const cSet = new Set<string>();
+    const rSet = new Set<string>();
+    const pSet = new Set<string>();
+    orders.forEach(o => {
+      const cName = o.import_orders?.sender_name || o.import_orders?.customers?.name;
+      if (cName) cSet.add(cName);
+
+      const rName = o.import_orders?.customers?.name || o.import_orders?.receiver_name?.trim() || o.import_orders?.profiles?.full_name;
+      if (rName) rSet.add(rName);
+
+      const pName = o.product_name.includes(' - ') ? o.product_name.split(' - ').slice(1).join(' - ') : o.product_name;
+      if (pName) pSet.add(pName);
+    });
+    return {
+      customerOptions: Array.from(cSet).map(c => ({ label: c, value: c })),
+      receiverOptions: Array.from(rSet).map(c => ({ label: c, value: c })),
+      productOptions: Array.from(pSet).map(p => ({ label: p, value: p })),
+    };
+  }, [orders]);
+
+  const filteredOrders = React.useMemo(() => {
+    let list = orders || [];
+
+    // Driver / Hiding logic
+    list = list.filter(o => {
+      const totalAssigned = (o.delivery_vehicles || []).reduce((s: number, dv: any) => s + (dv.assigned_quantity || 0), 0);
+      const remainingQty = o.total_quantity - totalAssigned;
+
+      // Phân giao: Ẩn tất cả các đơn có số lượng còn lại = 0 (nếu dư thì vẫn hiện để xử lý)
+      if (remainingQty === 0) return false;
+
+      if (isDriver) {
+        const myAssigned = (o.delivery_vehicles || []).find((dv: any) => dv.vehicle_id === myVehicle?.id)?.assigned_quantity || 0;
+        // Đơn chưa phân (remaining > 0) hoặc của mình (myAssigned > 0)
+        if (myAssigned > 0 || remainingQty > 0) return true;
+        return false;
+      }
+
+      return true;
+    });
+
+    // Text & Select Filters logic
+    list = list.filter(o => {
+      const cName = o.import_orders?.sender_name || o.import_orders?.customers?.name;
+      const rName = o.import_orders?.customers?.name || o.import_orders?.receiver_name?.trim() || o.import_orders?.profiles?.full_name;
+      const pName = o.product_name.includes(' - ') ? o.product_name.split(' - ').slice(1).join(' - ') : o.product_name;
+
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        if (!cName?.toLowerCase().includes(q) && !rName?.toLowerCase().includes(q) && !pName?.toLowerCase().includes(q) && !(o.import_orders?.order_code?.toLowerCase().includes(q))) {
+          return false;
+        }
+      }
+      if (filterCustomer.length > 0 && cName && !filterCustomer.includes(cName)) return false;
+      if (filterReceiver.length > 0 && rName && !filterReceiver.includes(rName)) return false;
+      if (filterProduct.length > 0 && pName && !filterProduct.includes(pName)) return false;
+
+      return true;
+    });
+
+    return list;
+  }, [orders, isDriver, myVehicle?.id, searchQuery, filterCustomer, filterReceiver, filterProduct]);
 
   // Grouping logic: Date -> [Orders]
-  const groupedOrders = (orders || []).reduce((acc: Record<string, any[]>, order: any) => {
+  const groupedOrders = (filteredOrders || []).reduce((acc: Record<string, any[]>, order: any) => {
     const date = order.delivery_date || 'N/A';
     if (!acc[date]) acc[date] = [];
     acc[date].push(order);
@@ -66,13 +205,68 @@ const DeliveryPage: React.FC = () => {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-        <div className="hidden md:block">
-          <PageHeader title="Hàng cần giao" description="Danh sách đơn hàng cần giao" backPath="/hang-hoa" />
+      <div className="hidden md:block">
+        <PageHeader title="Hàng cần giao" description="Danh sách đơn hàng cần giao" backPath="/hang-hoa" />
+      </div>
+
+      <div className="bg-card flex flex-row w-full gap-2 items-center rounded-2xl shadow-sm border border-border p-2.5 md:mb-6 mb-3 overflow-x-auto custom-scrollbar">
+        {/* SEARCH BAR */}
+        <div className="relative flex-1 min-w-[200px] md:max-w-full">
+          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
+            <Search size={15} />
+          </div>
+          <input
+            type="text"
+            className="w-full text-[13px] bg-muted/20 border border-border/80 rounded-xl pl-9 pr-7 py-2 h-[38px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-muted-foreground/60 font-medium"
+            placeholder="Tìm mã, vựa, hàng..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X size={14} />
+            </button>
+          )}
         </div>
-        
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3">
+
+        {/* DESKTOP ADVANCED FILTERS */}
+        <div className="hidden md:flex gap-2 items-center shrink-0">
+          <div className="w-[200px]">
+            <MultiSearchableSelect
+              options={customerOptions}
+              value={filterCustomer}
+              onValueChange={setFilterCustomer}
+              placeholder="Tên vựa / chủ"
+              className="bg-transparent"
+              icon={<Store size={15} />}
+            />
+          </div>
+
+          <div className="w-[200px]">
+            <MultiSearchableSelect
+              options={receiverOptions}
+              value={filterReceiver}
+              onValueChange={setFilterReceiver}
+              placeholder="Người nhận"
+              className="bg-transparent"
+              icon={<User size={15} />}
+            />
+          </div>
+
+          <div className="w-[200px]">
+            <MultiSearchableSelect
+              options={productOptions}
+              value={filterProduct}
+              onValueChange={setFilterProduct}
+              placeholder="Tên hàng"
+              className="bg-transparent"
+              icon={<Package size={15} />}
+            />
+          </div>
+        </div>
+
+        {/* DESKTOP DATE FILTER */}
+        <div className="hidden md:block shrink-0">
           <DateRangePicker
             initialDateFrom={startDate}
             initialDateTo={endDate}
@@ -90,6 +284,17 @@ const DeliveryPage: React.FC = () => {
             }}
           />
         </div>
+
+        {/* ACTIONS */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* MOBILE FILTER BUTTON */}
+          <button
+            onClick={openFilter}
+            className="md:hidden flex items-center justify-center w-[38px] h-[38px] shrink-0 border border-border/80 rounded-xl transition-all bg-muted/20 text-muted-foreground hover:bg-muted"
+          >
+            <Filter size={17} />
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -97,161 +302,170 @@ const DeliveryPage: React.FC = () => {
           <div className="p-4"><LoadingSkeleton rows={10} columns={6} /></div>
         ) : isError ? (
           <ErrorState onRetry={() => refetch()} />
-        ) : !orders?.length ? (
-          <EmptyState title="Không có đơn cần giao" description="Hôm nay không có đơn hàng nào cần giao." />
+        ) : !filteredOrders?.length ? (
+          <EmptyState title="Không có đơn cần giao" description="Hôm nay không có đơn hàng nào cần giao phù hợp với bộ lọc." />
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar bg-slate-50/30 md:bg-transparent relative">
             {/* Desktop View */}
             <div className="hidden md:block">
               <table className="w-full border-collapse bg-white">
-              <thead className="sticky top-0 z-20">
-                <tr className="bg-white border-b border-slate-200 text-slate-600">
-                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left w-48 border-r border-slate-100">Mã đơn</th>
-                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left min-w-[80px] border-r border-slate-100">Người nhận</th>
-                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left border-r border-slate-100">Hàng</th>
-                  <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-100">SL Tổng</th>
-                  <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-200">Còn lại</th>
-                  {vehicles?.map(v => (
-                    <th key={v.id} className={clsx(
-                      "px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-28 border-r border-slate-100 last:border-r-0",
-                      v.id === myVehicle?.id && "bg-primary/5 text-primary"
-                    )}>
-                      {v.license_plate}
-                    </th>
-                  ))}
-                  {(!vehicles || vehicles.length === 0) && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => (
-                    <th key={col} className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-12 border-r border-slate-100 last:border-r-0">
-                      {col}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {sortedDates.map((date) => (
-                  <React.Fragment key={date}>
-                    {/* Date separator row */}
-                    <tr className="bg-slate-100/80 border-y border-slate-200 shadow-sm overflow-hidden">
-                      <td colSpan={5 + (vehicles?.length || 10)} className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 text-primary">
-                            <Calendar size={14} />
-                          </div>
-                          <span className="text-[13px] font-black text-slate-800 uppercase tracking-wider">Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}</span>
-                        </div>
-                      </td>
-                    </tr>
-                    {/* Items for this date */}
-                    {groupedOrders[date].map((o: any) => {
-                      const totalAssigned = (o.delivery_vehicles || []).reduce(
-                        (sum: number, dv: any) => sum + (dv.assigned_quantity || 0),
-                        0
-                      );
-                      const remainingQty = o.total_quantity - totalAssigned;
-
-                      return (
-                        <tr key={o.id} className="hover:bg-blue-50/30 transition-colors group">
-                          <td className="px-4 py-3 border-r border-slate-100">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[13px] font-bold text-primary">{o.import_orders?.order_code || 'N/A'}</span>
-                              {isAdmin && (
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openAssign(o);
-                                  }}
-                                  className={clsx(
-                                    "p-1.5 rounded-md transition-colors",
-                                    remainingQty > 0 
-                                      ? "bg-orange-100 text-orange-600 hover:bg-orange-200"
-                                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                  )}
-                                  title={remainingQty > 0 ? "Phân xe" : "Chỉnh sửa phân xe"}
-                                >
-                                  <Truck size={14} strokeWidth={2.5} />
-                                </button>
-                              )}
+                <thead className="sticky top-0 z-20">
+                  <tr className="bg-white border-b border-slate-200 text-slate-600">
+                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left w-48 border-r border-slate-100">Mã đơn</th>
+                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left min-w-[80px] border-r border-slate-100">Người nhận</th>
+                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left border-r border-slate-100">Hàng</th>
+                    <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-100">SL Tổng</th>
+                    <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-100">Còn lại</th>
+                    <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-200">Dư</th>
+                    {vehicles?.map(v => (
+                      <th key={v.id} className={clsx(
+                        "px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-28 border-r border-slate-100 last:border-r-0",
+                        v.id === myVehicle?.id && "bg-primary/5 text-primary"
+                      )}>
+                        {v.license_plate}
+                      </th>
+                    ))}
+                    {(!vehicles || vehicles.length === 0) && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => (
+                      <th key={col} className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-12 border-r border-slate-100 last:border-r-0">
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {sortedDates.map((date) => (
+                    <React.Fragment key={date}>
+                      {/* Date separator row */}
+                      <tr className="bg-slate-100/80 border-y border-slate-200 shadow-sm overflow-hidden">
+                        <td colSpan={6 + (vehicles?.length || 10)} className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 text-primary">
+                              <Calendar size={14} />
                             </div>
-                          </td>
-                          <td className="px-4 py-3 text-[12px] font-bold text-slate-700 border-r border-slate-100">
-                            {o.import_orders?.customers?.name || o.import_orders?.receiver_name || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-[13px] font-medium text-slate-600 border-r border-slate-100">
-                            {o.product_name.includes(' - ') ? o.product_name.split(' - ').slice(1).join(' - ') : o.product_name}
-                          </td>
-                          <td className="px-2 py-3 text-[13px] font-bold text-slate-500 text-center tabular-nums border-r border-slate-100">
-                            {formatNumber(o.total_quantity)}
-                          </td>
-                          <td className="px-2 py-3 text-[13px] font-black text-orange-600 text-center tabular-nums border-r border-slate-200">
-                            {formatNumber(remainingQty)}
-                          </td>
-                        {vehicles?.map(v => {
-                          const dv = (o.delivery_vehicles || []).find((dv: any) => dv.vehicle_id === v.id);
-                          const qty = dv?.assigned_quantity || 0;
-                          const isEditableByMe = v.id === myVehicle?.id;
-                          const canEdit = isEditableByMe || isAdmin;
+                            <span className="text-[13px] font-black text-slate-800 uppercase tracking-wider">Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}</span>
+                          </div>
+                        </td>
+                      </tr>
+                      {/* Items for this date */}
+                      {groupedOrders[date].map((o: any) => {
+                        const totalAssigned = (o.delivery_vehicles || []).reduce(
+                          (sum: number, dv: any) => sum + (dv.assigned_quantity || 0),
+                          0
+                        );
+                        const remainingQty = o.total_quantity - totalAssigned;
 
-                          const isPaid = (o.payment_collections || []).some(
-                            (pc: any) => pc.vehicle_id === v.id && (pc.status === 'confirmed' || pc.status === 'self_confirmed')
-                          );
-
-                          return (
-                            <td 
-                              key={v.id} 
-                              onClick={() => {
-                                if (canEdit && (qty > 0 || remainingQty > 0)) {
-                                  openAssign(o, v.id);
-                                }
-                              }}
-                              className={clsx(
-                                "px-1 py-1 text-[13px] text-center tabular-nums border-r border-slate-100 last:border-r-0 transition-all relative",
-                                qty > 0 ? "font-bold text-blue-600 bg-blue-50/10" : "text-slate-300",
-                                canEdit && (qty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95"
-                              )}
-                            >
-                              <div className="flex flex-col items-center justify-center">
-                                <span>
-                                  {qty > 0 ? formatNumber(qty) : (canEdit && remainingQty > 0 ? <PlusCircle size={14} className="mx-auto opacity-10 group-hover:opacity-40" /> : '-')}
-                                </span>
-                                {isPaid && (
-                                  <div className="mt-0.5 flex items-center justify-center gap-0.5 text-green-600 bg-green-100 rounded-sm px-1" title="Đã xác nhận thu tiền">
-                                    <CheckCircle size={8} strokeWidth={3} />
-                                    <span className="text-[9px] font-black leading-none pb-[1px]">Thu</span>
-                                  </div>
+                        return (
+                          <tr key={o.id} className="hover:bg-blue-50/30 transition-colors group">
+                            <td className="px-4 py-3 border-r border-slate-100">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[13px] font-bold text-primary">{o.import_orders?.order_code || 'N/A'}</span>
+                                {isAdmin && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOrderClick(o);
+                                    }}
+                                    className={clsx(
+                                      "p-1.5 rounded-md transition-colors",
+                                      remainingQty > 0
+                                        ? "bg-orange-100 text-orange-600 hover:bg-orange-200"
+                                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                    )}
+                                    title={remainingQty > 0 ? "Phân xe" : "Chỉnh sửa phân xe"}
+                                  >
+                                    <Truck size={14} strokeWidth={2.5} />
+                                  </button>
                                 )}
                               </div>
                             </td>
-                          );
-                        })}
-                        {(!vehicles || vehicles.length === 0) && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => {
-                          const getQtyForCol = (col: string) => {
-                            const matches = (o.delivery_vehicles || []).filter((dv: any) => {
-                              const plate = (dv.vehicles?.license_plate || '').toLowerCase();
-                              if (col === 'ba') return plate.includes('ba');
-                              if (col === 'kho') return plate.includes('kho');
-                              return plate.includes(col);
-                            });
-                            return matches.reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
-                          };
-                          const qty = getQtyForCol(col);
-                          return (
-                            <td 
-                              key={col} 
-                              className={clsx(
-                                "px-2 py-3 text-[13px] text-center tabular-nums border-r border-slate-100 last:border-r-0",
-                                qty > 0 ? "font-bold text-orange-600 bg-orange-50/30" : "text-slate-300"
-                              )}
-                            >
-                              {qty > 0 ? formatNumber(qty) : '-'}
+                            <td className="px-4 py-3 text-[12px] font-bold text-slate-700 border-r border-slate-100">
+                              {(() => {
+                                const orderObj = o.import_orders || {};
+                                const custName = orderObj.customers?.name;
+                                const recName = orderObj.receiver_name?.trim();
+                                return custName || recName || orderObj.profiles?.full_name || '-';
+                              })()}
                             </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
-              </tbody>
-            </table>
+                            <td className="px-4 py-3 text-[13px] font-medium text-slate-600 border-r border-slate-100">
+                              {o.product_name.includes(' - ') ? o.product_name.split(' - ').slice(1).join(' - ') : o.product_name}
+                            </td>
+                            <td className="px-2 py-3 text-[13px] font-bold text-slate-500 text-center tabular-nums border-r border-slate-100">
+                              {formatNumber(o.total_quantity)}
+                            </td>
+                            <td className="px-2 py-3 text-[13px] font-black text-orange-600 text-center tabular-nums border-r border-slate-100">
+                              {formatNumber(remainingQty > 0 ? remainingQty : 0)}
+                            </td>
+                            <td className="px-2 py-3 text-[13px] font-black text-red-600 text-center tabular-nums border-r border-slate-200">
+                              {remainingQty < 0 ? formatNumber(remainingQty) : '-'}
+                            </td>
+                            {vehicles?.map(v => {
+                              const dv = (o.delivery_vehicles || []).find((dv: any) => dv.vehicle_id === v.id);
+                              const qty = dv?.assigned_quantity || 0;
+                              const isEditableByMe = v.id === myVehicle?.id;
+                              const canEdit = isEditableByMe || isAdmin;
+
+                              const isPaid = (o.payment_collections || []).some(
+                                (pc: any) => pc.vehicle_id === v.id && (pc.status === 'confirmed' || pc.status === 'self_confirmed')
+                              );
+
+                              return (
+                                <td
+                                  key={v.id}
+                                  onClick={() => {
+                                    if (canEdit && (qty > 0 || remainingQty > 0)) {
+                                      handleOrderClick(o, v.id);
+                                    }
+                                  }}
+                                  className={clsx(
+                                    "px-1 py-1 text-[13px] text-center tabular-nums border-r border-slate-100 last:border-r-0 transition-all relative",
+                                    qty > 0 ? "font-bold text-blue-600 bg-blue-50/10" : "text-slate-300",
+                                    canEdit && (qty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95"
+                                  )}
+                                >
+                                  <div className="flex flex-col items-center justify-center">
+                                    <span>
+                                      {qty > 0 ? formatNumber(qty) : (canEdit && remainingQty > 0 ? <PlusCircle size={14} className="mx-auto opacity-10 group-hover:opacity-40" /> : '-')}
+                                    </span>
+                                    {isPaid && (
+                                      <div className="mt-0.5 flex items-center justify-center gap-0.5 text-green-600 bg-green-100 rounded-sm px-1" title="Đã xác nhận thu tiền">
+                                        <CheckCircle size={8} strokeWidth={3} />
+                                        <span className="text-[9px] font-black leading-none pb-[1px]">Thu</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                              );
+                            })}
+                            {(!vehicles || vehicles.length === 0) && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => {
+                              const getQtyForCol = (col: string) => {
+                                const matches = (o.delivery_vehicles || []).filter((dv: any) => {
+                                  const plate = (dv.vehicles?.license_plate || '').toLowerCase();
+                                  if (col === 'ba') return plate.includes('ba');
+                                  if (col === 'kho') return plate.includes('kho');
+                                  return plate.includes(col);
+                                });
+                                return matches.reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
+                              };
+                              const qty = getQtyForCol(col);
+                              return (
+                                <td
+                                  key={col}
+                                  className={clsx(
+                                    "px-2 py-3 text-[13px] text-center tabular-nums border-r border-slate-100 last:border-r-0",
+                                    qty > 0 ? "font-bold text-orange-600 bg-orange-50/30" : "text-slate-300"
+                                  )}
+                                >
+                                  {qty > 0 ? formatNumber(qty) : '-'}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
             {/* Mobile View */}
@@ -266,7 +480,7 @@ const DeliveryPage: React.FC = () => {
                       Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}
                     </span>
                   </div>
-                  
+
                   <div className="flex flex-col gap-3 px-1">
                     {groupedOrders[date].map((o: any) => {
                       const totalAssigned = (o.delivery_vehicles || []).reduce(
@@ -274,53 +488,65 @@ const DeliveryPage: React.FC = () => {
                         0
                       );
                       const remainingQty = o.total_quantity - totalAssigned;
-                      
+
                       return (
-                        <div 
+                        <div
                           key={`mobile-order-${o.id}`}
-                          onClick={() => openAssign(o)}
+                          onClick={() => handleOrderClick(o)}
                           className={clsx(
-                            "bg-white rounded-2xl p-4 border shadow-sm transition-all relative overflow-hidden flex flex-col gap-2",
+                            "bg-white rounded-xl p-3 border shadow-sm transition-all relative overflow-hidden flex flex-col gap-2.5",
                             "cursor-pointer active:scale-[0.98]",
-                            remainingQty > 0 ? "border-orange-200 hover:border-orange-300" : "border-slate-200 hover:border-slate-300"
+                            remainingQty > 0 ? "border-orange-200" : "border-slate-200"
                           )}
                         >
-                          <div className="flex justify-between items-start">
-                            <div className="flex flex-col pr-4">
-                              <span className="text-[14px] font-bold text-primary mb-0.5">{o.import_orders?.order_code || 'N/A'}</span>
-                              <span className="text-[13px] font-bold text-slate-700 leading-snug">
-                                {o.product_name.includes(' - ') ? o.product_name.split(' - ').slice(1).join(' - ') : o.product_name}
-                              </span>
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="flex flex-col pr-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[13px] font-bold text-primary">{o.import_orders?.order_code || 'N/A'}</span>
+                                <div className="w-1 h-1 rounded-full bg-slate-300" />
+                                <span className="text-[13px] font-bold text-slate-700">
+                                  {o.product_name.includes(' - ') ? o.product_name.split(' - ').slice(1).join(' - ') : o.product_name}
+                                </span>
+                              </div>
                             </div>
+
                             {remainingQty > 0 ? (
-                              <div className="px-2 py-1 bg-orange-100 text-orange-600 rounded-lg text-[10px] font-bold shrink-0 border border-orange-200 shadow-sm">
+                              <div className="px-1.5 py-0.5 bg-orange-100 text-orange-600 rounded text-[10px] font-bold shrink-0">
                                 Thiếu {formatNumber(remainingQty)}
                               </div>
+                            ) : remainingQty < 0 ? (
+                              <div className="px-1.5 py-0.5 bg-red-100 text-red-600 rounded text-[10px] font-bold shrink-0">
+                                Dư {formatNumber(remainingQty)}
+                              </div>
                             ) : (
-                              <div className="px-2 py-1 bg-green-100 text-green-600 rounded-lg text-[10px] font-bold shrink-0 border border-green-200 shadow-sm">
+                              <div className="px-1.5 py-0.5 bg-green-100 text-green-600 rounded text-[10px] font-bold shrink-0">
                                 Đã đủ
                               </div>
                             )}
                           </div>
 
-                          <div className="flex text-[12px] text-slate-500">
-                            Người nhận: <span className="font-semibold text-slate-700 ml-1">{o.import_orders?.customers?.name || o.import_orders?.receiver_name || '-'}</span>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2 mt-1 pt-3 border-t border-slate-100">
-                            <div className="flex flex-col">
-                              <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Tổng SL</span>
-                              <span className="text-[14px] font-bold text-slate-700 tabular-nums">{formatNumber(o.total_quantity)}</span>
+                          <div className="flex justify-between items-end">
+                            <div className="flex items-center gap-1.5 text-[12px] text-slate-500 truncate pr-2">
+                              <User size={13} className="text-slate-400 shrink-0" />
+                              <span className="font-semibold text-slate-700 truncate">
+                                {(() => {
+                                  const orderObj = o.import_orders || {};
+                                  const custName = orderObj.customers?.name;
+                                  const recName = orderObj.receiver_name?.trim();
+                                  return custName || recName || orderObj.profiles?.full_name || '-';
+                                })()}
+                              </span>
                             </div>
-                            <div className="flex flex-col items-end">
-                              <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Còn lại</span>
-                              <span className="text-[14px] font-black text-orange-600 tabular-nums">{formatNumber(remainingQty)}</span>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className="text-[10px] uppercase font-black tracking-wider text-slate-400">SL:</span>
+                              <span className="text-[13px] font-bold text-slate-700 tabular-nums">{formatNumber(o.total_quantity)}</span>
                             </div>
                           </div>
 
                           {/* Show assigned vehicles */}
                           {o.delivery_vehicles?.length > 0 && o.delivery_vehicles.some((dv: any) => dv.assigned_quantity > 0) && (
-                            <div className="mt-1 pt-3 border-t border-slate-100 flex flex-wrap gap-1.5">
+                            <div className="mt-0.5 pt-2 border-t border-slate-100 flex flex-wrap gap-1.5">
                               {o.delivery_vehicles.filter((dv: any) => dv.assigned_quantity > 0).map((dv: any) => {
                                 const isPaid = (o.payment_collections || []).some(
                                   (pc: any) => pc.vehicle_id === dv.vehicle_id && (pc.status === 'confirmed' || pc.status === 'self_confirmed')
@@ -355,6 +581,62 @@ const DeliveryPage: React.FC = () => {
         initialVehicleId={selectedVehicleId}
         onClose={closeAssign}
       />
+
+      <MobileFilterSheet
+        isOpen={isFilterOpen}
+        isClosing={isFilterClosing}
+        onClose={closeFilter}
+        onApply={(filters) => {
+          setStartDate(filters.dateFrom || '');
+          setEndDate(filters.dateTo || '');
+        }}
+        onClear={() => {
+          setFilterCustomer([]);
+          setFilterReceiver([]);
+          setFilterProduct([]);
+        }}
+        showClearButton={filterCustomer.length > 0 || filterReceiver.length > 0 || filterProduct.length > 0}
+        initialDateFrom={startDate}
+        initialDateTo={endDate}
+        dateLabel="Khoảng thời gian"
+      >
+        <div className="space-y-1.5 z-30">
+          <label className="text-[13px] font-bold text-muted-foreground">Tên vựa / chủ</label>
+          <MultiSearchableSelect
+            options={customerOptions}
+            value={filterCustomer}
+            onValueChange={setFilterCustomer}
+            placeholder="Tất cả..."
+            className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
+            inline
+            icon={<Store size={15} />}
+          />
+        </div>
+        <div className="space-y-1.5 z-[25]">
+          <label className="text-[13px] font-bold text-muted-foreground">Người nhận</label>
+          <MultiSearchableSelect
+            options={receiverOptions}
+            value={filterReceiver}
+            onValueChange={setFilterReceiver}
+            placeholder="Tất cả..."
+            className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
+            inline
+            icon={<User size={15} />}
+          />
+        </div>
+        <div className="space-y-1.5 z-20">
+          <label className="text-[13px] font-bold text-muted-foreground">Tên hàng</label>
+          <MultiSearchableSelect
+            options={productOptions}
+            value={filterProduct}
+            onValueChange={setFilterProduct}
+            placeholder="Tất cả..."
+            className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
+            inline
+            icon={<Package size={15} />}
+          />
+        </div>
+      </MobileFilterSheet>
     </div>
   );
 };

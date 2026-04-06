@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { X, CalendarDays } from 'lucide-react';
 import { clsx } from 'clsx';
 import { DateRangePicker } from './DateRangePicker';
 import { CustomSelect } from './CustomSelect';
+import { MultiSearchableSelect } from '../ui/MultiSearchableSelect';
 interface MobileFilterSheetProps {
   isOpen: boolean;
   isClosing: boolean;
@@ -15,6 +16,10 @@ interface MobileFilterSheetProps {
   statusOptions?: { value: string; label: string }[];
   dateLabel?: string;
   statusLabel?: string;
+  children?: React.ReactNode;
+  onClear?: () => void;
+  showClearButton?: boolean;
+  hideDateFilter?: boolean;
 }
 
 const MobileFilterSheet: React.FC<MobileFilterSheetProps> = ({
@@ -28,6 +33,10 @@ const MobileFilterSheet: React.FC<MobileFilterSheetProps> = ({
   statusOptions,
   dateLabel = 'Ngày nhập',
   statusLabel = 'Trạng thái',
+  children,
+  onClear,
+  showClearButton,
+  hideDateFilter = false,
 }) => {
   const [draftDateFrom, setDraftDateFrom] = useState(initialDateFrom);
   const [draftDateTo, setDraftDateTo] = useState(initialDateTo);
@@ -55,10 +64,10 @@ const MobileFilterSheet: React.FC<MobileFilterSheetProps> = ({
       />
       {/* Panel */}
       <div className={clsx(
-        "relative bg-white rounded-t-3xl w-full px-5 pt-5 pb-6 flex flex-col gap-4 duration-300 shadow-2xl",
+        "relative bg-white rounded-t-3xl w-full px-5 pt-5 pb-6 flex flex-col duration-300 shadow-2xl max-h-[85vh]",
         isClosing ? "animate-out slide-out-to-bottom-full" : "animate-in slide-in-from-bottom-full"
       )}>
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-3 shrink-0">
           <h3 className="text-[16px] font-bold text-foreground">Lọc danh sách</h3>
           <button 
             onClick={onClose}
@@ -68,43 +77,69 @@ const MobileFilterSheet: React.FC<MobileFilterSheetProps> = ({
           </button>
         </div>
 
-        <div className="space-y-4">
-          <div className="space-y-1.5 z-20">
-            <label className="text-[13px] font-bold text-muted-foreground">{dateLabel}</label>
-            <div className="relative w-full z-20">
-              <DateRangePicker
-                initialDateFrom={draftDateFrom || undefined}
-                initialDateTo={draftDateTo || undefined}
-                onUpdate={({ range }) => {
-                  const format = (d: Date) => {
-                    const local = new Date(d.getTime() - (d.getTimezoneOffset() * 60000));
-                    return local.toISOString().split('T')[0];
-                  };
-                  setDraftDateFrom(range.from ? format(range.from) : '');
-                  setDraftDateTo(range.to ? format(range.to) : '');
-                }}
-                align="center"
-              />
+        <div className="space-y-4 overflow-y-auto custom-scrollbar -mx-2 px-2 pb-2 flex-1 min-h-0">
+          {!hideDateFilter && (
+            <div className="space-y-1.5 z-20">
+              <label className="text-[13px] font-bold text-muted-foreground">{dateLabel}</label>
+              <div className="relative w-full z-20">
+                <DateRangePicker
+                  initialDateFrom={draftDateFrom || undefined}
+                  initialDateTo={draftDateTo || undefined}
+                  onUpdate={({ range }) => {
+                    const format = (d: Date) => {
+                      const local = new Date(d.getTime() - (d.getTimezoneOffset() * 60000));
+                      return local.toISOString().split('T')[0];
+                    };
+                    setDraftDateFrom(range.from ? format(range.from) : '');
+                    setDraftDateTo(range.to ? format(range.to) : '');
+                  }}
+                  align="center"
+                  inline
+                  icon={<CalendarDays size={15} />}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {statusOptions && (
             <div className="space-y-1.5 z-10">
               <label className="text-[13px] font-bold text-muted-foreground">{statusLabel}</label>
-              <CustomSelect
-                value={draftStatus}
-                onChange={(val) => setDraftStatus(val)}
-                options={statusOptions}
-                className="w-full py-2.5 bg-muted/20"
-              />
+              {Array.isArray(initialStatus) ? (
+                <MultiSearchableSelect
+                  value={draftStatus}
+                  onValueChange={(val) => setDraftStatus(val)}
+                  options={statusOptions}
+                  className="w-full"
+                  inline
+                  placeholder="Tất cả trạng thái..."
+                />
+              ) : (
+                <CustomSelect
+                  value={draftStatus}
+                  onChange={(val) => setDraftStatus(val)}
+                  options={statusOptions}
+                  className="w-full py-2.5 bg-muted/20"
+                />
+              )}
+            </div>
+          )}
+
+          {children && (
+            <div className="flex flex-col gap-4 z-0">
+              {children}
             </div>
           )}
         </div>
 
-        <div className="pt-4 flex gap-2">
-          {(draftDateFrom || draftDateTo || draftStatus) && (
+        <div className="pt-4 mt-2 flex gap-2 shrink-0 border-t border-border/50">
+          {(draftDateFrom || draftDateTo || draftStatus || showClearButton) && (
             <button
-              onClick={() => { setDraftDateFrom(''); setDraftDateTo(''); setDraftStatus(''); }}
+              onClick={() => { 
+                setDraftDateFrom(''); 
+                setDraftDateTo(''); 
+                setDraftStatus(Array.isArray(initialStatus) ? [] : ''); 
+                onClear?.();
+              }}
               className="px-4 py-3 rounded-xl border border-border/80 text-foreground text-[14px] font-bold hover:bg-muted transition-all"
             >
               Xóa lọc

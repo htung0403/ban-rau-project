@@ -44,29 +44,90 @@ CREATE TABLE public.customers (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. IMPORT ORDERS
+-- 5. IMPORT ORDERS (Hàng nhập)
 CREATE TABLE public.import_orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_code VARCHAR(20) NOT NULL,
   order_date DATE NOT NULL,
   order_time TIME NOT NULL,
-  sender_name VARCHAR(255) NOT NULL,
-  receiver_name VARCHAR(255) NOT NULL,
+  sender_name VARCHAR(255),
+  receiver_name VARCHAR(255),
   receiver_phone VARCHAR(20),
   receiver_address TEXT,
-  package_type VARCHAR(50) CHECK (package_type IN ('thùng','bao','kiện','pallet','khác')),
-  weight_kg NUMERIC(10,2),
-  quantity INTEGER NOT NULL DEFAULT 1,
-  unit_price NUMERIC(15,2),
-  total_amount NUMERIC(15,2) GENERATED ALWAYS AS (quantity * weight_kg * unit_price) STORED,
+  license_plate VARCHAR(20),
+  driver_name VARCHAR(100),
+  supplier_name VARCHAR(255),
+  sheet_number VARCHAR(50),
+  total_amount NUMERIC(15,2) DEFAULT 0,
+  paid_amount NUMERIC(15,2) DEFAULT 0,
+  debt_amount NUMERIC(15,2) DEFAULT 0,
+  is_custom_amount BOOLEAN DEFAULT false,
+  payment_status VARCHAR(20) DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid', 'partial', 'paid')),
   received_by UUID REFERENCES public.profiles(id),
   warehouse_id UUID REFERENCES public.warehouses(id),
-  order_category VARCHAR(50) DEFAULT 'standard' CHECK (order_category IN ('standard','vegetable')),
   status VARCHAR(30) DEFAULT 'pending' CHECK (status IN ('pending','processing','delivered','returned')),
   customer_id UUID REFERENCES public.customers(id),
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5.1 IMPORT ORDER ITEMS
+CREATE TABLE public.import_order_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  import_order_id UUID REFERENCES public.import_orders(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES public.products(id),
+  package_type VARCHAR(50),
+  package_quantity INTEGER,
+  weight_kg NUMERIC(10,2),
+  quantity INTEGER,
+  unit_price NUMERIC(15,2),
+  total_amount NUMERIC(15,2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
+  payment_status VARCHAR(20) DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid','paid')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5.2 VEGETABLE ORDERS (Hàng rau)
+CREATE TABLE public.vegetable_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_code VARCHAR(20) NOT NULL,
+  order_date DATE NOT NULL,
+  order_time TIME NOT NULL,
+  sender_name VARCHAR(255),
+  receiver_name VARCHAR(255),
+  receiver_phone VARCHAR(20),
+  receiver_address TEXT,
+  license_plate VARCHAR(20),
+  driver_name VARCHAR(100),
+  supplier_name VARCHAR(255),
+  sheet_number VARCHAR(50),
+  total_amount NUMERIC(15,2) DEFAULT 0,
+  paid_amount NUMERIC(15,2) DEFAULT 0,
+  debt_amount NUMERIC(15,2) DEFAULT 0,
+  is_custom_amount BOOLEAN DEFAULT false,
+  payment_status VARCHAR(20) DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid', 'partial', 'paid')),
+  received_by UUID REFERENCES public.profiles(id),
+  warehouse_id UUID REFERENCES public.warehouses(id),
+  status VARCHAR(30) DEFAULT 'pending' CHECK (status IN ('pending','processing','delivered','returned')),
+  customer_id UUID REFERENCES public.customers(id),
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5.3 VEGETABLE ORDER ITEMS
+CREATE TABLE public.vegetable_order_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vegetable_order_id UUID REFERENCES public.vegetable_orders(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES public.products(id),
+  package_type VARCHAR(50),
+  package_quantity INTEGER,
+  weight_kg NUMERIC(10,2),
+  quantity INTEGER,
+  unit_price NUMERIC(15,2),
+  total_amount NUMERIC(15,2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
+  payment_status VARCHAR(20) DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid','paid')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 6. EXPORT ORDERS
@@ -87,6 +148,7 @@ CREATE TABLE public.export_orders (
 CREATE TABLE public.delivery_orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   import_order_id UUID REFERENCES public.import_orders(id),
+  vegetable_order_id UUID REFERENCES public.vegetable_orders(id),
   product_name VARCHAR(255) NOT NULL,
   total_quantity INTEGER NOT NULL,
   delivered_quantity INTEGER DEFAULT 0,

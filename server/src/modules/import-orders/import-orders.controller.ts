@@ -23,6 +23,8 @@ const importOrderSchema = z.object({
   warehouse_id: z.string().uuid().optional().nullable(),
   customer_id: z.string().uuid().optional().nullable(),
   order_category: z.enum(['standard', 'vegetable']).optional().default('standard'),
+  total_amount: z.number().optional().nullable(),
+  is_custom_amount: z.boolean().optional(),
   license_plate: z.string().optional().nullable(),
   driver_name: z.string().optional().nullable(),
   supplier_name: z.string().optional().nullable(),
@@ -82,7 +84,7 @@ export class ImportOrderController {
   static async getNextSequence(req: Request, res: Response) {
     try {
       const date = (req.query.date as string) || new Date().toISOString().split('T')[0];
-      const nextCode = await ImportOrderService.generateOrderCode(date);
+      const nextCode = await ImportOrderService.generateOrderCode(date, false);
       return res.status(200).json(successResponse({ next_code: nextCode }));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));

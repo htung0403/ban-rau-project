@@ -3,43 +3,96 @@ import { format } from 'date-fns';
 
 export class ImportOrderService {
   static async getAll(filters: any) {
-    let query = supabaseService
-      .from('import_orders')
-      .select('*, profiles(full_name), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate)))')
-      .order('created_at', { ascending: false });
+    const isVegOnly = filters.order_category === 'vegetable';
+    const isStandardOnly = filters.order_category === 'standard';
+    const fetchBoth = !isVegOnly && !isStandardOnly;
 
-    if (filters.dateFrom) query = query.gte('order_date', filters.dateFrom);
-    if (filters.dateTo) query = query.lte('order_date', filters.dateTo);
-    if (filters.status) query = query.eq('status', filters.status);
-    if (filters.order_category) query = query.eq('order_category', filters.order_category);
-    
-    // Support filtering by supplier or license plate if needed
-    if (filters.supplier_name) query = query.ilike('supplier_name', `%${filters.supplier_name}%`);
-    if (filters.license_plate) query = query.ilike('license_plate', `%${filters.license_plate}%`);
+    const buildQuery = (tName: string, iName: string) => {
+      let q = supabaseService
+        .from(tName)
+        .select(`*, profiles(full_name), warehouses(name), customers(id, name, phone, address), ${iName}(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate)))`);
+      
+      if (filters.dateFrom) q = q.gte('order_date', filters.dateFrom);
+      if (filters.dateTo) q = q.lte('order_date', filters.dateTo);
+      if (filters.status) {
+        if (filters.status.includes(',')) {
+          q = q.in('status', filters.status.split(','));
+        } else {
+          q = q.eq('status', filters.status);
+        }
+      }
+      if (filters.supplier_name) q = q.ilike('supplier_name', `%${filters.supplier_name}%`);
+      if (filters.license_plate) q = q.ilike('license_plate', `%${filters.license_plate}%`);
+      return q;
+    };
 
-    const { data, error } = await query;
-    if (error) throw error;
+    let allData: any[] = [];
     
-    // total_amount is now computed by DB triggers
-    return data.map((order: any) => {
+    if (fetchBoth || isStandardOnly) {
+      const { data, error } = await buildQuery('import_orders', 'import_order_items');
+      if (error) throw error;
+      if (data) allData = allData.concat(data.map((d: any) => ({ ...d, order_category: 'standard' })));
+    }
+    
+    if (fetchBoth || isVegOnly) {
+      const { data, error } = await buildQuery('vegetable_orders', 'vegetable_order_items');
+      if (error) throw error;
+      if (data) {
+        allData = allData.concat(data.map((d: any) => {
+           const mapped = { ...d, order_category: 'vegetable' };
+           if (mapped.vegetable_order_items) {
+             mapped.import_order_items = mapped.vegetable_order_items;
+             delete mapped.vegetable_order_items;
+           }
+           return mapped;
+        }));
+      }
+    }
+
+    // Sort by created_at desc
+    allData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    // Compute total_order_amount
+    return allData.map((order: any) => {
       return { ...order, total_order_amount: Number(order.total_amount) || 0 };
     });
   }
 
   static async getById(id: string) {
-    const { data, error } = await supabaseService
+    let { data, error } = await supabaseService
       .from('import_orders')
       .select('*, profiles(full_name), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate)))')
       .eq('id', id)
-      .single();
+      .maybeSingle();
+
+    let isVeg = false;
+    if (!data) {
+      // Try vegetable_orders
+      const veg = await supabaseService
+        .from('vegetable_orders')
+        .select('*, profiles(full_name), warehouses(name), customers(id, name, phone, address), vegetable_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate)))')
+        .eq('id', id)
+        .maybeSingle();
+      data = veg.data;
+      error = veg.error;
+      isVeg = true;
+    }
+
     if (error) throw error;
+    if (!data) throw new Error('Order not found');
     
-    return { ...data, total_order_amount: Number(data.total_amount) || 0 };
+    const mappedOrder = { ...data, order_category: isVeg ? 'vegetable' : 'standard', total_order_amount: Number(data.total_amount) || 0 };
+    if (isVeg && mappedOrder.vegetable_order_items) {
+      mappedOrder.import_order_items = mappedOrder.vegetable_order_items;
+      delete mappedOrder.vegetable_order_items;
+    }
+    return mappedOrder;
   }
 
-  static async generateOrderCode(date: string) {
+  static async generateOrderCode(date: string, isVeg: boolean) {
+    const tName = isVeg ? 'vegetable_orders' : 'import_orders';
     const { count, error } = await supabaseService
-      .from('import_orders')
+      .from(tName)
       .select('*', { count: 'exact', head: true })
       .eq('order_date', date);
 
@@ -53,13 +106,18 @@ export class ImportOrderService {
   }
 
   static async create(orderData: any, userId: string) {
-    const { items, ...mainData } = orderData;
+    const { items, order_category, ...mainData } = orderData;
+    const isVeg = order_category === 'vegetable';
+    const tName = isVeg ? 'vegetable_orders' : 'import_orders';
+    const iName = isVeg ? 'vegetable_order_items' : 'import_order_items';
+    const fkName = isVeg ? 'vegetable_order_id' : 'import_order_id';
+
     const orderDate = mainData.order_date || format(new Date(), 'yyyy-MM-dd');
-    const orderCode = await this.generateOrderCode(orderDate);
+    const orderCode = await this.generateOrderCode(orderDate, isVeg);
 
     // 1. Create order
     const { data: order, error: orderError } = await supabaseService
-      .from('import_orders')
+      .from(tName)
       .insert({
         order_date: orderDate,
         order_time: mainData.order_time || format(new Date(), 'HH:mm'),
@@ -71,12 +129,13 @@ export class ImportOrderService {
         license_plate: mainData.license_plate,
         driver_name: mainData.driver_name,
         supplier_name: mainData.supplier_name,
+        receiver_name: mainData.receiver_name,
         sheet_number: mainData.sheet_number,
         customer_id: mainData.customer_id,
-        order_category: mainData.order_category || 'standard',
         is_custom_amount: mainData.is_custom_amount || false,
-        total_amount: mainData.is_custom_amount ? mainData.total_amount : undefined,
-        debt_amount: mainData.is_custom_amount ? mainData.total_amount : undefined
+        total_amount: mainData.total_amount,
+        receipt_image_url: mainData.receipt_image_url,
+        debt_amount: mainData.total_amount
       })
       .select()
       .single();
@@ -88,15 +147,16 @@ export class ImportOrderService {
       const itemsToInsert = items.map((item: any) => ({
         product_id: item.product_id,
         quantity: item.quantity,
-        unit_price: item.unit_price,
         weight_kg: item.weight_kg,
         package_type: item.package_type,
+        package_quantity: item.package_quantity,
+        image_url: item.image_url,
         payment_status: item.payment_status || 'unpaid',
-        import_order_id: (order as any).id,
+        [fkName]: (order as any).id,
       }));
 
       const { error: itemsError, data: insertedItems } = await supabaseService
-        .from('import_order_items')
+        .from(iName)
         .insert(itemsToInsert)
         .select('*, products(name)');
 
@@ -105,13 +165,11 @@ export class ImportOrderService {
       // Auto-create delivery orders
       if (insertedItems && insertedItems.length > 0) {
         const doInsert = insertedItems.map(item => ({
-          import_order_id: (order as any).id,
+          [fkName]: (order as any).id,
           product_id: item.product_id,
           product_name: item.products?.name || item.package_type || 'Hàng hóa',
           total_quantity: item.quantity || 1,
-          unit_price: item.unit_price,
-          import_cost: item.unit_price,
-          order_category: mainData.order_category || 'standard',
+          order_category: order_category || 'standard',
           delivery_date: orderDate,
           status: 'pending'
         }));
@@ -122,17 +180,19 @@ export class ImportOrderService {
       // Handle "paid" status directly from form
       const formPaymentStatus = items[0]?.payment_status === 'paid';
       if (formPaymentStatus) {
-        const { data: currentOrder } = await supabaseService
-          .from('import_orders')
-          .select('total_amount')
-          .eq('id', (order as any).id)
-          .single();
-        if (currentOrder && Number(currentOrder.total_amount) > 0) {
-          await supabaseService
-            .from('import_orders')
-            .update({ paid_amount: currentOrder.total_amount })
-            .eq('id', (order as any).id);
-        }
+         const { error: rpcError } = await supabaseService.rpc('mark_order_paid', { p_order_id: (order as any).id, p_is_veg: isVeg });
+         if (rpcError) {
+             // Fallback
+             const { data: currentOrder } = await supabaseService.from(tName).select('total_amount').eq('id', (order as any).id).single();
+             if (currentOrder && Number(currentOrder.total_amount) > 0) {
+               await supabaseService.from(tName).update({ paid_amount: currentOrder.total_amount }).eq('id', (order as any).id);
+             }
+         }
+      }
+
+      // Re-apply custom amount after trigger overrides it
+      if (mainData.is_custom_amount && mainData.total_amount !== undefined) {
+         await supabaseService.from(tName).update({ total_amount: mainData.total_amount, debt_amount: mainData.total_amount }).eq('id', (order as any).id);
       }
     }
 
@@ -140,12 +200,16 @@ export class ImportOrderService {
   }
 
   static async update(id: string, orderData: any) {
-    console.log('--- BACKEND UPDATE IMPORT ORDER --- ID:', id, 'DATA:', orderData);
-    const { items, ...mainData } = orderData;
+    console.log('--- BACKEND UPDATE ORDER --- ID:', id, 'DATA:', orderData);
+    const { items, order_category, ...mainData } = orderData;
+    const isVeg = order_category === 'vegetable';
+    const tName = isVeg ? 'vegetable_orders' : 'import_orders';
+    const iName = isVeg ? 'vegetable_order_items' : 'import_order_items';
+    const fkName = isVeg ? 'vegetable_order_id' : 'import_order_id';
 
     // 1. Update main order
     const { data: order, error: orderError } = await supabaseService
-      .from('import_orders')
+      .from(tName)
       .update({
         order_date: mainData.order_date,
         order_time: mainData.order_time,
@@ -155,12 +219,13 @@ export class ImportOrderService {
         license_plate: mainData.license_plate,
         driver_name: mainData.driver_name,
         supplier_name: mainData.supplier_name,
+        receiver_name: mainData.receiver_name,
         sheet_number: mainData.sheet_number,
         customer_id: mainData.customer_id,
-        order_category: mainData.order_category || 'standard',
         is_custom_amount: mainData.is_custom_amount || false,
-        total_amount: mainData.is_custom_amount ? mainData.total_amount : undefined,
-        debt_amount: mainData.is_custom_amount ? mainData.total_amount : undefined
+        total_amount: mainData.total_amount,
+        receipt_image_url: mainData.receipt_image_url,
+        debt_amount: mainData.total_amount
       })
       .eq('id', id)
       .select()
@@ -170,9 +235,9 @@ export class ImportOrderService {
 
     // 2. Delete old items
     const { error: deleteError } = await supabaseService
-      .from('import_order_items')
+      .from(iName)
       .delete()
-      .eq('import_order_id', id);
+      .eq(fkName, id);
     
     if (deleteError) throw deleteError;
 
@@ -182,16 +247,17 @@ export class ImportOrderService {
         return {
           product_id: item.product_id,
           quantity: item.quantity,
-          unit_price: item.unit_price,
           weight_kg: item.weight_kg,
           package_type: item.package_type,
+          package_quantity: item.package_quantity,
+          image_url: item.image_url,
           payment_status: item.payment_status || 'unpaid',
-          import_order_id: id,
+          [fkName]: id,
         };
       });
 
       const { error: insertError, data: insertedItems } = await supabaseService
-        .from('import_order_items')
+        .from(iName)
         .insert(itemsToInsert)
         .select('*, products(name)');
 
@@ -201,7 +267,7 @@ export class ImportOrderService {
       const { data: existingDO } = await supabaseService
         .from('delivery_orders')
         .select('id, delivery_vehicles(id)')
-        .eq('import_order_id', id);
+        .eq(fkName, id);
 
       const deletableIds = existingDO?.filter(d => !d.delivery_vehicles || d.delivery_vehicles.length === 0).map(d => d.id) || [];
       
@@ -212,13 +278,11 @@ export class ImportOrderService {
       // Re-create delivery orders for deletable or new ones
       if (insertedItems && insertedItems.length > 0) {
         const newDoInsert = insertedItems.map(item => ({
-          import_order_id: id,
+          [fkName]: id,
           product_id: item.product_id,
           product_name: item.products?.name || item.package_type || 'Hàng hóa',
           total_quantity: item.quantity || 1,
-          unit_price: item.unit_price,
-          import_cost: item.unit_price,
-          order_category: mainData.order_category || 'standard',
+          order_category: order_category || 'standard',
           delivery_date: mainData.order_date || format(new Date(), 'yyyy-MM-dd'),
           status: 'pending'
         }));
@@ -229,25 +293,30 @@ export class ImportOrderService {
       // Handle "paid" status directly from form
       const formPaymentStatus = items[0]?.payment_status === 'paid';
       if (formPaymentStatus) {
-        const { data: currentOrder } = await supabaseService
-          .from('import_orders')
-          .select('total_amount')
-          .eq('id', id)
-          .single();
-        if (currentOrder && Number(currentOrder.total_amount) > 0) {
-          await supabaseService
-            .from('import_orders')
-            .update({ paid_amount: currentOrder.total_amount })
-            .eq('id', id);
-        }
-      }
+         const { error: rpcError } = await supabaseService.rpc('mark_order_paid', { p_order_id: id, p_is_veg: isVeg });
+         if (rpcError) {
+             // Fallback
+             const { data: currentOrder } = await supabaseService.from(tName).select('total_amount').eq('id', id).single();
+             if (currentOrder && Number(currentOrder.total_amount) > 0) {
+               await supabaseService.from(tName).update({ paid_amount: currentOrder.total_amount }).eq('id', id);
+             }
+         }
+          }
+       }
+
+    // Re-apply custom amount after trigger overrides it on update
+    if (mainData.is_custom_amount && mainData.total_amount !== undefined) {
+       await supabaseService.from(tName).update({ total_amount: mainData.total_amount, debt_amount: mainData.total_amount }).eq('id', id);
     }
+
     return order;
   }
 
   static async delete(id: string) {
     // Delete order (cascade will delete items)
-    const { error } = await supabaseService.from('import_orders').delete().eq('id', id);
-    if (error) throw error;
+    let { error } = await supabaseService.from('import_orders').delete().eq('id', id);
+    if (!error) {
+       await supabaseService.from('vegetable_orders').delete().eq('id', id);
+    }
   }
 }

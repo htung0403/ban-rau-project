@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Truck, Package, User, AlertCircle, PlusCircle, Trash2, CheckCircle } from 'lucide-react';
+import { X, Truck, Package, User, AlertCircle, Trash2, CheckCircle } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useForm, Controller, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAssignVehicle } from '../../../hooks/queries/useDelivery';
@@ -10,7 +10,7 @@ import { useVehicles } from '../../../hooks/queries/useVehicles';
 import { useEmployees } from '../../../hooks/queries/useHR';
 import type { DeliveryOrder } from '../../../types';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import CurrencyInput from '../../../components/shared/CurrencyInput';
+import { useAuth } from '../../../context/AuthContext';
 
 const assignmentSchema = z.object({
   vehicle_id: z.string().min(1, 'Vui lòng chọn xe'),
@@ -37,6 +37,10 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const { data: vehicles } = useVehicles(isOpen);
   const { data: employees } = useEmployees(isOpen);
   const assignMutation = useAssignVehicle();
+  const { user } = useAuth();
+  
+  const isDriver = user?.role === 'driver';
+  const myVehicle = vehicles?.find(v => v.driver_id === user?.id);
 
   const {
     register,
@@ -53,7 +57,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, remove } = useFieldArray({
     control,
     name: 'assignments',
   });
@@ -81,6 +85,9 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
       // Xử lý auto-select initialVehicleId (nếu bấm từ cột xe trống)
       let initialVid = initialVehicleId || '';
+      if (isDriver && myVehicle?.id) {
+        initialVid = myVehicle.id;
+      }
 
       // Mở dialog ở chế độ general nhưng có xe rồi thì không cần thêm rỗng
       // Ngược lại nếu click một xe cụ thể chưa có trong danh sách
@@ -91,7 +98,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
         initialAssignments.push({
           vehicle_id: initialVid,
-          driver_id: vehicle?.driver_id || '',
+          driver_id: vehicle?.driver_id || (isDriver ? user?.id : ''),
           quantity: remainingForThis,
           expected_amount: remainingForThis * (order.unit_price || 0),
         });
@@ -129,7 +136,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const isSubmitting = assignMutation.isPending;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4">
       {/* Backdrop */}
       <div
         className={clsx(
@@ -142,12 +149,16 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       {/* Dialog Container */}
       <div
         className={clsx(
-          'relative w-full max-w-[800px] bg-white rounded-3xl shadow-2xl flex flex-col transition-all duration-350 max-h-[90vh]',
-          isClosing ? 'scale-95 opacity-0' : 'animate-in zoom-in-95 duration-300',
+          'relative w-full bg-white flex flex-col transition-all duration-350',
+          'h-[100dvh] sm:h-auto sm:max-h-[90vh] sm:max-w-[800px]',
+          'rounded-none sm:rounded-3xl shadow-2xl',
+          isClosing 
+             ? 'translate-y-full sm:translate-y-0 sm:scale-95 opacity-0' 
+             : 'animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300'
         )}
       >
         {/* Header */}
-        <div className="px-6 py-4 bg-white border-b border-border flex items-center justify-between shrink-0 rounded-t-3xl shadow-sm z-10">
+        <div className="px-5 sm:px-6 py-4 bg-white border-b border-border flex items-center justify-between shrink-0 sm:rounded-t-3xl shadow-sm z-10 pb-safe-top">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-600">
               <Truck size={20} />
@@ -167,7 +178,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         </div>
 
         {/* Content */}
-        <form id="assign-vehicle-form" onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
+        <form id="assign-vehicle-form" onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 custom-scrollbar">
           {/* Order Info Summary */}
           <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col gap-3 shrink-0">
             <div className="flex items-center justify-between">
@@ -208,6 +219,10 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                   ? (order?.payment_collections || []).some((pc: any) => pc.vehicle_id === currentVid && (pc.status === 'confirmed' || pc.status === 'self_confirmed'))
                   : false;
 
+                // Nếu là driver, disable các dòng không phải xe của mình
+                const isMyVehicleRow = currentVid === myVehicle?.id;
+                const isRowDisabled = isPaid || (isDriver && !isMyVehicleRow);
+
                 return (
                   <div key={field.id} className={clsx("relative flex flex-col md:flex-row gap-4 p-4 bg-white border border-slate-200 shadow-sm rounded-xl items-start md:items-end group transition-colors", isPaid ? "opacity-90 bg-slate-50/50" : "hover:border-primary/30")}>
                     {/* Badge đã thu tiền */}
@@ -230,7 +245,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                         }))}
                         value={currentVid || ''}
                         onValueChange={(val) => {
-                          if (isPaid) return;
+                          if (isRowDisabled) return;
                           setValue(`assignments.${index}.vehicle_id`, val, { shouldValidate: true });
                           // Auto fill driver
                           const vehicle = vehicles?.find(v => v.id === val);
@@ -239,7 +254,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                           }
                         }}
                         placeholder="Biển số..."
-                        disabled={isPaid}
+                        disabled={isRowDisabled || isDriver}
                       />
                       {errors.assignments?.[index]?.vehicle_id && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.vehicle_id?.message}</p>}
                     </div>
@@ -252,16 +267,16 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                         options={(employees || []).filter(e => e.role === 'driver').map(e => ({ value: e.id, label: e.full_name }))}
                         value={watchAssignments[index]?.driver_id || ''}
                         onValueChange={(val) => {
-                          if (isPaid) return;
+                          if (isRowDisabled) return;
                           setValue(`assignments.${index}.driver_id`, val, { shouldValidate: true });
                         }}
                         placeholder="Chọn tài xế..."
-                        disabled={isPaid}
+                        disabled={isRowDisabled || isDriver}
                       />
                       {errors.assignments?.[index]?.driver_id && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.driver_id?.message}</p>}
                     </div>
                     {/* Số lượng */}
-                    <div className="w-full md:w-28 space-y-1.5 mt-2 md:mt-0">
+                    <div className="w-full md:w-32 space-y-1.5 mt-2 md:mt-0">
                       <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                         <Package size={12} className={isPaid ? "text-green-500" : "text-primary"} /> SL
                       </label>
@@ -270,37 +285,20 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                         step="any"
                         {...register(`assignments.${index}.quantity` as const, {
                           onChange: (e) => {
-                            if (isPaid) return;
+                            if (isRowDisabled) return;
                             const val = Number(e.target.value) || 0;
                             setValue(`assignments.${index}.expected_amount`, val * (order?.unit_price || 0), { shouldValidate: true });
                           }
                         })}
-                        disabled={isPaid}
+                        disabled={isRowDisabled}
                         placeholder="0"
-                        className={clsx("w-full h-[42px] px-3 bg-muted/20 border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums", isPaid && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed")}
+                        className={clsx("w-full h-[42px] px-3 bg-muted/20 border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums", isRowDisabled && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed")}
                       />
                       {errors.assignments?.[index]?.quantity && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.quantity?.message}</p>}
                     </div>
-                    {/* Tiền thu */}
-                    <div className="w-full md:w-36 space-y-1.5 mt-2 md:mt-0">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Tiền thu</label>
-                      <Controller
-                        name={`assignments.${index}.expected_amount` as const}
-                        control={control}
-                        render={({ field }) => (
-                          <CurrencyInput
-                            {...field}
-                            value={field.value as number}
-                            placeholder="0đ"
-                            disabled={isPaid}
-                            className={clsx("w-full h-[42px] px-3 bg-muted/20 border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all font-bold tabular-nums text-emerald-600", isPaid && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed")}
-                          />
-                        )}
-                      />
-                    </div>
 
                     {/* Nút xóa */}
-                    {fields.length > 1 && !isPaid && (
+                    {fields.length > 1 && !isRowDisabled && (
                       <button
                         type="button"
                         onClick={() => remove(index)}
@@ -313,15 +311,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                   </div>
                 );
               })}
-
-              <button
-                type="button"
-                onClick={() => append({ vehicle_id: '', driver_id: '', quantity: currentAvailable > 0 ? currentAvailable : 0, expected_amount: (currentAvailable > 0 ? currentAvailable : 0) * (order?.unit_price || 0) })}
-                className="mt-2 py-3.5 flex items-center justify-center gap-2 text-primary font-bold bg-primary/5 hover:bg-primary/10 border-2 border-primary/20 hover:border-primary/30 border-dashed rounded-xl transition-all"
-              >
-                <PlusCircle size={18} />
-                Thêm xe khác
-              </button>
             </div>
 
             {order?.total_quantity && totalAssignedQuantity > order.total_quantity && (
@@ -334,7 +323,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         </form>
 
         {/* Footer Buttons */}
-        <div className="p-6 pt-4 bg-white border-t border-slate-100 shrink-0 rounded-b-3xl">
+        <div className="p-5 sm:p-6 pt-4 bg-white border-t border-slate-100 shrink-0 sm:rounded-b-3xl">
           <div className="flex items-center gap-3">
             <button
               type="button"

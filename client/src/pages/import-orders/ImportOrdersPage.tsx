@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Search, X, ChevronLeft, ChevronRight, Edit, Trash2, Filter } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Search, X, ChevronLeft, ChevronRight, Edit, Trash2, Filter, Store, Truck, UserCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useImportOrders, useDeleteImportOrder } from '../../hooks/queries/useImportOrders';
 import type { ImportOrder, ImportOrderFilters, OrderStatus } from '../../types';
@@ -10,10 +10,11 @@ import ErrorState from '../../components/shared/ErrorState';
 import PageHeader from '../../components/shared/PageHeader';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
-import { CustomSelect } from '../../components/shared/CustomSelect';
 import AddEditImportOrderDialog from './dialogs/AddEditImportOrderDialog';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import DraggableFAB from '../../components/shared/DraggableFAB';
+import { ColumnSettings, type ColumnOption } from '../../components/shared/ColumnSettings';
+import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'Chờ xử lý',
@@ -22,25 +23,57 @@ const statusLabels: Record<OrderStatus, string> = {
   returned: 'Trả lại',
 };
 
-const statusOptions = [
-  { value: '', label: 'Tất cả trạng thái' },
-  ...Object.entries(statusLabels).map(([key, label]) => ({ value: key, label }))
-];
+const statusOptions = Object.entries(statusLabels).map(([value, label]) => ({ value, label }));
+
+const getOrderVehicles = (order: any) => {
+  const plates = new Set<string>();
+  if (order.license_plate) plates.add(order.license_plate);
+  if (order.delivery_orders) {
+    order.delivery_orders.forEach((d: any) => {
+      if (d.delivery_vehicles) {
+        d.delivery_vehicles.forEach((dv: any) => {
+          if (dv.vehicles?.license_plate) plates.add(dv.vehicles.license_plate);
+        });
+      }
+    });
+  }
+  return plates.size > 0 ? Array.from(plates).join(', ') : '';
+};
 
 const formatCurrency = (value?: number | null) => {
   if (value == null) return '-';
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
+const defaultColumns: ColumnOption[] = [
+  { id: 'order_code', label: 'Mã đơn', isVisible: true },
+  { id: 'order_date', label: 'Ngày', isVisible: true },
+  { id: 'order_time', label: 'Giờ', isVisible: true },
+  { id: 'sender', label: 'Chủ hàng', isVisible: true },
+  { id: 'vehicle', label: 'Biển số xe / Tài xế', isVisible: true },
+  { id: 'sheet_number', label: 'Số tờ', isVisible: true },
+  { id: 'payment_status', label: 'Tình trạng', isVisible: true },
+  { id: 'total_amount', label: 'Tổng tiền', isVisible: true },
+  { id: 'receiver', label: 'Người nhận', isVisible: true },
+  { id: 'status', label: 'Trạng thái', isVisible: true },
+  { id: 'actions', label: 'Thao tác', isVisible: true },
+];
+
 const ImportOrdersPage: React.FC = () => {
   // Filters
   const [searchText, setSearchText] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
-  const [filterStatus, setFilterStatus] = useState<OrderStatus | ''>('');
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
   
+  const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
+  const [filterVehicle, setFilterVehicle] = useState<string[]>([]);
+  const [filterReceiver, setFilterReceiver] = useState<string[]>([]);
+
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
+
+  const [columns, setColumns] = useState<ColumnOption[]>(defaultColumns);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -57,23 +90,67 @@ const ImportOrdersPage: React.FC = () => {
   const filters: ImportOrderFilters = {};
   if (filterDateFrom) filters.dateFrom = filterDateFrom;
   if (filterDateTo) filters.dateTo = filterDateTo;
-  if (filterStatus) filters.status = filterStatus;
+  if (filterStatus.length > 0) filters.status = filterStatus.join(',');
   if (searchText.trim()) filters.sender = searchText.trim();
   filters.order_category = 'standard';
 
   const { data: orders, isLoading, isError, refetch } = useImportOrders(filters);
   const deleteMutation = useDeleteImportOrder();
 
+  const { vuaOptions, taiOptions, nguoiNhapOptions } = useMemo(() => {
+    if (!orders) return { vuaOptions: [], taiOptions: [], nguoiNhapOptions: [] };
+    const vuaSet = new Set<string>();
+    const taiSet = new Set<string>();
+    const receiverSet = new Set<string>();
+
+    orders.forEach(order => {
+      const chuHang = order.customers?.name || order.sender_name;
+      if (chuHang) vuaSet.add(chuHang);
+
+      const tai = getOrderVehicles(order);
+      if (tai) {
+        tai.split(', ').forEach((t: string) => taiSet.add(t));
+      }
+
+      const receiver = (order as any).profiles?.full_name || order.receiver_name || order.received_by;
+      if (receiver) receiverSet.add(receiver);
+    });
+
+    return {
+      vuaOptions: Array.from(vuaSet).map(v => ({ label: v, value: v })),
+      taiOptions: Array.from(taiSet).map(v => ({ label: v, value: v })),
+      nguoiNhapOptions: Array.from(receiverSet).map(v => ({ label: v, value: v }))
+    };
+  }, [orders]);
+
   // Local search filtering (supplementary to API filters)
   const filteredOrders = (orders || []).filter((o) => {
-    if (!searchText.trim()) return true;
-    const q = searchText.toLowerCase();
-    return (
-      o.order_code?.toLowerCase().includes(q) ||
-      o.customers?.name?.toLowerCase().includes(q) ||
-      (o as any).profiles?.full_name?.toLowerCase().includes(q) ||
-      o.receiver_phone?.includes(q)
-    );
+    const chuHang = o.customers?.name || o.sender_name;
+    const receiver = (o as any).profiles?.full_name || o.receiver_name || o.received_by;
+    const tai = getOrderVehicles(o);
+
+    let matches = true;
+    if (searchText.trim()) {
+      const q = searchText.toLowerCase();
+      matches = (
+        o.order_code?.toLowerCase().includes(q) ||
+        chuHang?.toLowerCase().includes(q) ||
+        receiver?.toLowerCase().includes(q) ||
+        o.receiver_phone?.includes(q)
+      );
+    }
+    
+    if (!matches) return false;
+    if (filterCustomer.length > 0 && chuHang && !filterCustomer.includes(chuHang)) return false;
+    if (filterVehicle.length > 0) {
+      if (!tai) return false;
+      const orderPlates = tai.split(', ');
+      const hasMatch = filterVehicle.some(v => orderPlates.includes(v));
+      if (!hasMatch) return false;
+    }
+    if (filterReceiver.length > 0 && receiver && !filterReceiver.includes(receiver)) return false;
+
+    return true;
   });
 
   // Pagination
@@ -122,11 +199,14 @@ const ImportOrdersPage: React.FC = () => {
     setSearchText('');
     setFilterDateFrom('');
     setFilterDateTo('');
-    setFilterStatus('');
+    setFilterStatus([]);
+    setFilterCustomer([]);
+    setFilterVehicle([]);
+    setFilterReceiver([]);
     setPage(1);
   };
 
-  const hasActiveFilters = !!filterDateFrom || !!filterDateTo || !!filterStatus || !!searchText;
+  const hasActiveFilters = !!filterDateFrom || !!filterDateTo || filterStatus.length > 0 || !!searchText || filterCustomer.length > 0 || filterVehicle.length > 0 || filterReceiver.length > 0;
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
@@ -174,11 +254,61 @@ const ImportOrdersPage: React.FC = () => {
                onClick={openFilter}
                className={clsx(
                  "md:hidden flex items-center justify-center w-[38px] shrink-0 border border-border/80 rounded-xl transition-all",
-                 (filterDateFrom || filterDateTo || filterStatus) ? "bg-primary/10 text-primary border-primary/30" : "bg-muted/20 text-muted-foreground hover:bg-muted"
+                 (hasActiveFilters) ? "bg-primary/10 text-primary border-primary/30" : "bg-muted/20 text-muted-foreground hover:bg-muted"
                )}
             >
                <Filter size={18} />
             </button>
+          </div>
+
+          {/* DESKTOP ADVANCED FILTERS */}
+          <div className="hidden xl:flex gap-2 items-center shrink-0">
+            <div className="w-[180px]">
+              <MultiSearchableSelect
+                options={vuaOptions}
+                value={filterCustomer}
+                onValueChange={(v) => { setFilterCustomer(v); setPage(1); }}
+                placeholder="Chủ hàng"
+                className="bg-transparent"
+                icon={<Store size={15} />}
+              />
+            </div>
+            <div className="w-[150px]">
+              <MultiSearchableSelect
+                options={taiOptions}
+                value={filterVehicle}
+                onValueChange={(v) => { setFilterVehicle(v); setPage(1); }}
+                placeholder="Tài"
+                className="bg-transparent"
+                icon={<Truck size={15} />}
+              />
+            </div>
+            <div className="w-[180px]">
+              <MultiSearchableSelect
+                options={nguoiNhapOptions}
+                value={filterReceiver}
+                onValueChange={(v) => { setFilterReceiver(v); setPage(1); }}
+                placeholder="Người nhận"
+                className="bg-transparent"
+                icon={<UserCircle size={15} />}
+              />
+            </div>
+          </div>
+
+          {/* Status filter - Desktop */}
+          <div className="hidden md:block z-20">
+            <MultiSearchableSelect
+              value={filterStatus}
+              onValueChange={(val) => { setFilterStatus(val); setPage(1); }}
+              options={statusOptions}
+              placeholder="Tất cả trạng thái"
+              className="w-full md:w-[160px]"
+            />
+          </div>
+
+          {/* Column Settings - Desktop */}
+          <div className="hidden md:block z-20">
+            <ColumnSettings columns={columns} onColumnsChange={setColumns} />
           </div>
 
           {/* Date filter - Desktop */}
@@ -196,16 +326,6 @@ const ImportOrdersPage: React.FC = () => {
                 setFilterDateTo(range.to ? format(range.to) : '');
                 setPage(1);
               }}
-            />
-          </div>
-
-          {/* Status filter - Desktop */}
-          <div className="hidden md:block z-20">
-            <CustomSelect
-              value={filterStatus}
-              onChange={(val) => { setFilterStatus(val as OrderStatus | ''); setPage(1); }}
-              options={statusOptions}
-              className="w-full md:w-[160px]"
             />
           </div>
 
@@ -248,17 +368,22 @@ const ImportOrdersPage: React.FC = () => {
               <table className="w-full border-collapse min-w-[900px]">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-muted/30 border-b border-border">
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-34">Mã đơn</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-28">Ngày</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-20">Giờ</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left min-w-[100px]">Chủ hàng</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-36">Biển số xe / Tài xế</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-24">Số tờ</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-24">Tình trạng</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-36">Tổng tiền</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Nhân viên nhận</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-28">Trạng thái</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-24">Thao tác</th>
+                    {columns.filter(c => c.isVisible).map((col) => {
+                      switch (col.id) {
+                        case 'order_code': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-34">Mã đơn</th>;
+                        case 'order_date': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-28">Ngày</th>;
+                        case 'order_time': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-20">Giờ</th>;
+                        case 'sender': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left min-w-[100px]">Chủ hàng</th>;
+                        case 'vehicle': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-36">Biển số xe / Tài xế</th>;
+                        case 'sheet_number': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-24">Số tờ</th>;
+                        case 'payment_status': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-24">Tình trạng</th>;
+                        case 'total_amount': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-36">Tổng tiền</th>;
+                        case 'receiver': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Người nhận</th>;
+                        case 'status': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-28">Trạng thái</th>;
+                        case 'actions': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-24">Thao tác</th>;
+                        default: return null;
+                      }
+                    })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
@@ -268,61 +393,91 @@ const ImportOrdersPage: React.FC = () => {
                       onClick={() => openEditDialog(order)}
                       className="hover:bg-muted/20 transition-colors cursor-pointer"
                     >
-                      <td className="px-4 py-3">
-                        <span className="text-[13px] font-bold text-primary">{order.order_code}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-[12px] text-muted-foreground font-medium tabular-nums">{order.order_date}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-[12px] text-muted-foreground font-medium tabular-nums">{order.order_time || '-'}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-[13px] font-bold text-foreground">{order.customers?.name || order.sender_name || '-'}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-[12px] font-medium text-foreground tabular-nums">
-                          {order.license_plate ? <span className="font-bold text-amber-700 block">{order.license_plate}</span> : '-'}
-                          {order.driver_name ? <span className="text-muted-foreground block">{order.driver_name}</span> : null}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-[13px] font-bold text-muted-foreground">{order.sheet_number || '-'}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {order.payment_status === 'paid' ? (
-                          <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Đã trả</span>
-                        ) : order.payment_status === 'partial' ? (
-                          <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">1 phần</span>
-                        ) : (
-                          <span className="text-[11px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md">Chưa trả</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right text-[13px] font-black text-primary tabular-nums">
-                        {formatCurrency(order.total_order_amount)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-[13px] font-medium text-foreground">{(order as any).profiles?.full_name || order.receiver_name || '-'}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <StatusBadge status={order.status} label={statusLabels[order.status]} />
-                      </td>
-                      <td className="px-4 py-3 flex items-center justify-center gap-1">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
-                          className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
-                          title="Sửa"
-                        >
-                          <Edit size={14} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
-                          className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
-                          title="Xóa"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
+                      {columns.filter(c => c.isVisible).map((col) => {
+                        switch (col.id) {
+                          case 'order_code': return (
+                            <td key={col.id} className="px-4 py-3">
+                              <span className="text-[13px] font-bold text-primary">{order.order_code}</span>
+                            </td>
+                          );
+                          case 'order_date': return (
+                            <td key={col.id} className="px-4 py-3">
+                              <span className="text-[12px] text-muted-foreground font-medium tabular-nums">{order.order_date}</span>
+                            </td>
+                          );
+                          case 'order_time': return (
+                            <td key={col.id} className="px-4 py-3">
+                              <span className="text-[12px] text-muted-foreground font-medium tabular-nums">{order.order_time || '-'}</span>
+                            </td>
+                          );
+                          case 'sender': return (
+                            <td key={col.id} className="px-4 py-3">
+                              <span className="text-[13px] font-bold text-foreground">{order.customers?.name || order.sender_name || '-'}</span>
+                            </td>
+                          );
+                          case 'vehicle': {
+                            const taiStr = getOrderVehicles(order);
+                            return (
+                              <td key={col.id} className="px-4 py-3">
+                                <span className="text-[12px] font-medium text-foreground tabular-nums">
+                                  {taiStr ? <span className="font-bold text-amber-700 block">{taiStr}</span> : '-'}
+                                  {order.driver_name ? <span className="text-muted-foreground block">{order.driver_name}</span> : null}
+                                </span>
+                              </td>
+                            );
+                          }
+                          case 'sheet_number': return (
+                            <td key={col.id} className="px-4 py-3">
+                              <span className="text-[13px] font-bold text-muted-foreground">{order.sheet_number || '-'}</span>
+                            </td>
+                          );
+                          case 'payment_status': return (
+                            <td key={col.id} className="px-4 py-3 text-right">
+                              {order.payment_status === 'paid' ? (
+                                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Đã trả</span>
+                              ) : order.payment_status === 'partial' ? (
+                                <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">1 phần</span>
+                              ) : (
+                                <span className="text-[11px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md">Chưa trả</span>
+                              )}
+                            </td>
+                          );
+                          case 'total_amount': return (
+                            <td key={col.id} className="px-4 py-3 text-right text-[13px] font-black text-primary tabular-nums">
+                              {formatCurrency(order.total_amount)}
+                            </td>
+                          );
+                          case 'receiver': return (
+                            <td key={col.id} className="px-4 py-3">
+                              <span className="text-[13px] font-medium text-foreground">{(order as any).profiles?.full_name || order.receiver_name || '-'}</span>
+                            </td>
+                          );
+                          case 'status': return (
+                            <td key={col.id} className="px-4 py-3 text-center">
+                              <StatusBadge status={order.status} label={statusLabels[order.status]} />
+                            </td>
+                          );
+                          case 'actions': return (
+                            <td key={col.id} className="px-4 py-3 flex items-center justify-center gap-1">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
+                                className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
+                                title="Sửa"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
+                                className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
+                                title="Xóa"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          );
+                          default: return null;
+                        }
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -350,7 +505,11 @@ const ImportOrdersPage: React.FC = () => {
                       <span className="text-[13px] font-bold text-foreground">{order.customers?.name || order.sender_name}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase w-14 shrink-0">NV</span>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase w-14 shrink-0">Tài</span>
+                      <span className="text-[13px] font-medium text-foreground">{getOrderVehicles(order) || '-'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase w-14 shrink-0">Người nhận</span>
                       <span className="text-[13px] font-medium text-foreground">{(order as any).profiles?.full_name || order.receiver_name}</span>
                     </div>
                   </div>
@@ -367,7 +526,7 @@ const ImportOrdersPage: React.FC = () => {
                         <span className="text-[10px] font-bold text-red-500 mr-2 bg-red-50 px-1.5 py-0.5 rounded">Chưa trả</span>
                       )}
                       <span className="text-[14px] font-black text-primary tabular-nums mr-2">
-                        {formatCurrency(order.total_order_amount)}
+                        {formatCurrency(order.total_amount)}
                       </span>
                       <button
                         onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
@@ -470,7 +629,50 @@ const ImportOrdersPage: React.FC = () => {
         initialDateTo={filterDateTo}
         initialStatus={filterStatus}
         statusOptions={statusOptions}
-      />
+        onClear={() => {
+          setFilterCustomer([]);
+          setFilterVehicle([]);
+          setFilterReceiver([]);
+        }}
+        showClearButton={filterCustomer.length > 0 || filterVehicle.length > 0 || filterReceiver.length > 0}
+      >
+        <div className="space-y-1.5 z-30">
+          <label className="text-[13px] font-bold text-muted-foreground">Chủ hàng</label>
+          <MultiSearchableSelect
+            options={vuaOptions}
+            value={filterCustomer}
+            onValueChange={setFilterCustomer}
+            placeholder="Tất cả..."
+            className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
+            inline
+            icon={<Store size={15} />}
+          />
+        </div>
+        <div className="space-y-1.5 z-20">
+          <label className="text-[13px] font-bold text-muted-foreground">Tài (Xe)</label>
+          <MultiSearchableSelect
+            options={taiOptions}
+            value={filterVehicle}
+            onValueChange={setFilterVehicle}
+            placeholder="Tất cả..."
+            className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
+            inline
+            icon={<Truck size={15} />}
+          />
+        </div>
+        <div className="space-y-1.5 z-10">
+          <label className="text-[13px] font-bold text-muted-foreground">Người nhận</label>
+          <MultiSearchableSelect
+            options={nguoiNhapOptions}
+            value={filterReceiver}
+            onValueChange={setFilterReceiver}
+            placeholder="Tất cả..."
+            className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
+            inline
+            icon={<UserCircle size={15} />}
+          />
+        </div>
+      </MobileFilterSheet>
     </div>
   );
 };

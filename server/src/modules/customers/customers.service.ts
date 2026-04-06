@@ -20,13 +20,25 @@ export class CustomerService {
   }
 
   static async getOrders(id: string) {
-     const { data, error } = await supabaseService
+    const { data: stdOrders, error: stdError } = await supabaseService
       .from('import_orders')
       .select('*')
-      .eq('customer_id', id)
-      .order('order_date', { ascending: false });
-    if (error) throw error;
-    return data;
+      .eq('customer_id', id);
+    if (stdError) throw stdError;
+
+    const { data: vegOrders, error: vegError } = await supabaseService
+      .from('vegetable_orders')
+      .select('*')
+      .eq('customer_id', id);
+    if (vegError) throw vegError;
+
+    const allData = [
+      ...(stdOrders || []).map(o => ({ ...o, order_category: 'standard' })),
+      ...(vegOrders || []).map(o => ({ ...o, order_category: 'vegetable' }))
+    ];
+
+    allData.sort((a, b) => new Date(b.order_date).getTime() - new Date(a.order_date).getTime() || new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return allData;
   }
 
   static async getExportOrders(id: string) {

@@ -5,7 +5,7 @@ export class DeliveryService {
   static async getAllToday(startDate?: string, endDate?: string, orderCategory?: string) {
     let query = supabaseService
       .from('delivery_orders')
-      .select('*, import_orders(order_code, sender_name, receiver_name, customers(name), total_amount), delivery_vehicles(*, vehicles(license_plate)), payment_collections(id, status, vehicle_id)')
+      .select('*, import_orders(order_code, sender_name, receiver_name, customers(name), total_amount, profiles:received_by(full_name)), vegetable_orders(order_code, sender_name, receiver_name, customers(name), total_amount, profiles:received_by(full_name)), delivery_vehicles(*, vehicles(license_plate)), payment_collections(id, status, vehicle_id)')
       .order('delivery_date', { ascending: false });
 
     if (orderCategory) query = query.eq('order_category', orderCategory);
@@ -125,15 +125,30 @@ export class DeliveryService {
   }
 
   static async getInventory(orderCategory?: string) {
-    let query = supabaseService
-      .from('import_orders')
-      .select('*, warehouses(name)')
-      .eq('status', 'pending'); // Items in warehouse not yet assigned for delivery
+    const fetchVeg = !orderCategory || orderCategory === 'vegetable';
+    const fetchStd = !orderCategory || orderCategory === 'standard';
+
+    let allData: any[] = [];
+    if (fetchStd) {
+      const { data, error } = await supabaseService
+        .from('import_orders')
+        .select('*, warehouses(name)')
+        .eq('status', 'pending');
       
-    if (orderCategory) query = query.eq('order_category', orderCategory);
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    return data;
+      if (error) throw error;
+      if (data) allData = allData.concat(data.map(d => ({ ...d, order_category: 'standard' })));
+    }
+
+    if (fetchVeg) {
+      const { data, error } = await supabaseService
+        .from('vegetable_orders')
+        .select('*, warehouses(name)')
+        .eq('status', 'pending');
+      
+      if (error) throw error;
+      if (data) allData = allData.concat(data.map(d => ({ ...d, order_category: 'vegetable' })));
+    }
+
+    return allData;
   }
 }

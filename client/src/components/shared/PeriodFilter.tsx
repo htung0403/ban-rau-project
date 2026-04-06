@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar as CalendarIcon, ChevronDown, Check } from 'lucide-react';
 import { clsx } from 'clsx';
-import { DateRangePicker } from './DateRangePicker';
 
 interface DateRange {
   from: Date | undefined;
@@ -33,7 +32,7 @@ const YEARS = [
   { id: 'customYear', label: 'Tùy chọn năm...' },
 ];
 
-export const PeriodFilter: React.FC<PeriodFilterProps> = ({ label, onUpdate, className, inline }) => {
+export const PeriodFilter: React.FC<PeriodFilterProps> = ({ onUpdate, className, inline }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string>('thisMonth');
   const [customYearStr, setCustomYearStr] = useState<string>(new Date().getFullYear().toString());

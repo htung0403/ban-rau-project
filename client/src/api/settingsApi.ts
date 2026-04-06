@@ -27,4 +27,20 @@ export const settingsApi = {
     const { data } = await axiosClient.delete(`/settings/roles/${key}`);
     return data;
   },
+
+  // General Settings
+  getGeneralSettings: async () => {
+    const { data } = await axiosClient.get<any[]>('/settings/general');
+    return data;
+  },
+
+  getGeneralSettingByKey: async (key: string) => {
+    const { data } = await axiosClient.get<any>(`/settings/general/${key}`);
+    return data;
+  },
+
+  upsertGeneralSetting: async (key: string, payload: { value: any; description?: string }) => {
+    const { data } = await axiosClient.put<any>(`/settings/general/${key}`, payload);
+    return data;
+  },
 };

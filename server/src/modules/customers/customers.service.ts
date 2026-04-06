@@ -68,16 +68,23 @@ export class CustomerService {
     return data;
   }
 
-  static async updateDebtPayment(id: string, payload: { amount: number, payment_date?: string, notes?: string }, userId?: string) {
-    const paymentDate = payload.payment_date || new Date().toISOString().split('T')[0];
+  static async updateDebtPayment(id: string, payload: { amount: number, payment_date?: string, payment_time?: string, collector_id?: string, notes?: string }, userId?: string) {
+    const paymentDateStr = payload.payment_date || new Date().toISOString().split('T')[0];
+    const createdBy = payload.collector_id || userId;
+    
+    // Combine datetime to TIMESTAMPTZ (assuming +07:00 or system timezone)
+    let paymentTimestampStr = paymentDateStr;
+    if (payload.payment_time) {
+      paymentTimestampStr = `${paymentDateStr}T${payload.payment_time}:00+07:00`;
+    }
     
     // Call the atomic RPC function that handles receipt creation, ledger, and FIFO distribution
     const { data, error } = await supabaseService.rpc('handle_customer_payment_fifo_atomic', {
       p_customer_id: id,
       p_amount: payload.amount,
-      p_payment_date: paymentDate,
+      p_payment_date: paymentTimestampStr,
       p_notes: payload.notes || '',
-      p_created_by: userId
+      p_created_by: createdBy
     });
 
     if (error) throw error;

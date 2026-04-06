@@ -42,7 +42,7 @@ export const customersApi = {
     return data;
   },
 
-  updatePayment: async (id: string, payload: { amount: number, payment_date?: string, notes?: string }) => {
+  updatePayment: async (id: string, payload: { amount: number, payment_date?: string, payment_time?: string, collector_id?: string, notes?: string }) => {
     const { data } = await axiosClient.put(`/customers/${id}/payment`, payload);
     return data;
   },

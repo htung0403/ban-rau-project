@@ -74,7 +74,7 @@ export function useCreateCustomer() {
 export function useUpdateCustomerPayment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: { amount: number, payment_date?: string, notes?: string } }) => customersApi.updatePayment(id, payload),
+    mutationFn: ({ id, payload }: { id: string; payload: { amount: number, payment_date?: string, payment_time?: string, collector_id?: string, notes?: string } }) => customersApi.updatePayment(id, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: customerKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: customerKeys.list() });

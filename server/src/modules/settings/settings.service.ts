@@ -55,3 +55,35 @@ export class PriceSettingsService {
     return true;
   }
 }
+
+export class GeneralSettingsService {
+  static async getAll() {
+    const { data, error } = await supabaseService.from('general_settings').select('*');
+    if (error) throw error;
+    return data;
+  }
+
+  static async getByKey(key: string) {
+    const { data, error } = await supabaseService.from('general_settings').select('*').eq('setting_key', key).single();
+    if (error && error.code !== 'PGRST116') throw error; // ignore no rows error
+    return data || null;
+  }
+
+  static async upsert(key: string, value: any, description: string | undefined, updatedBy: string) {
+    const { data, error } = await supabaseService
+      .from('general_settings')
+      .upsert({ 
+        setting_key: key, 
+        setting_value: value, 
+        description,
+        updated_at: new Date(),
+        updated_by: updatedBy 
+      }, {
+        onConflict: 'setting_key'
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+}

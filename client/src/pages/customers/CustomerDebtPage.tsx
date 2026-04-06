@@ -14,7 +14,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import CurrencyInput from '../../components/shared/CurrencyInput';
 import { format } from 'date-fns';
+import { useEmployees } from '../../hooks/queries/useHR';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
+import { DatePicker } from '../../components/shared/DatePicker';
+import { TimePicker24h } from '../../components/shared/TimePicker24h';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 
@@ -25,6 +29,9 @@ const formatCurrency = (value?: number | null) => {
 
 const paymentSchema = z.object({
   amount: z.coerce.number().min(0, 'Số tiền không hợp lệ'),
+  payment_date: z.string().nonempty('Vui lòng chọn ngày'),
+  payment_time: z.string().nonempty('Vui lòng chọn giờ'),
+  receiver_id: z.string().nonempty('Vui lòng chọn người thu'),
   notes: z.string().optional(),
 });
 
@@ -34,8 +41,16 @@ const CustomerDebtPage: React.FC = () => {
   const { data: exportOrders, isLoading: isExportLoading, isError: isExportError, refetch: refetchExport } = useExportOrders();
   const { data: importOrders, isLoading: isImportLoading, isError: isImportError, refetch: refetchImport } = useImportOrders();
   const { data: customers } = useCustomers();
+  const { data: employees } = useEmployees();
   
   const updatePayment = useUpdateCustomerPayment();
+
+  const employeeOptions = React.useMemo(() => {
+    if (!employees) return [];
+    return employees
+      .filter(e => e.role === 'staff' || e.role === 'manager' || e.role === 'admin')
+      .map(e => ({ value: e.id, label: `${e.full_name} (${e.role === 'staff' ? 'Nhân viên' : 'Quản lý'})` }));
+  }, [employees]);
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedCustomerName, setSelectedCustomerName] = useState('');
@@ -148,6 +163,13 @@ const CustomerDebtPage: React.FC = () => {
     // Lấy công nợ thật từ DB thay vì tự tính
     const globalCustomerInfo = customers?.find(c => c.id === customer.id);
     setCurrentCustomerDebt(globalCustomerInfo?.debt || 0);
+    reset({
+      amount: 0,
+      notes: '',
+      payment_date: format(new Date(), "yyyy-MM-dd"),
+      payment_time: format(new Date(), "HH:mm"),
+      receiver_id: ''
+    });
     setIsCollectOpen(true);
   };
 
@@ -162,7 +184,13 @@ const CustomerDebtPage: React.FC = () => {
 
   const { handleSubmit, control, reset, formState: { errors } } = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema) as any,
-    defaultValues: { amount: 0, notes: '' },
+    defaultValues: { 
+      amount: 0, 
+      notes: '', 
+      payment_date: format(new Date(), "yyyy-MM-dd"), 
+      payment_time: format(new Date(), "HH:mm"), 
+      receiver_id: '' 
+    },
   });
 
   const onSubmitPayment = async (data: PaymentFormData) => {
@@ -170,7 +198,13 @@ const CustomerDebtPage: React.FC = () => {
     try {
       await updatePayment.mutateAsync({
         id: selectedCustomerId,
-        payload: { amount: data.amount, notes: data.notes }
+        payload: { 
+          amount: data.amount, 
+          payment_date: data.payment_date,
+          payment_time: data.payment_time,
+          collector_id: data.receiver_id,
+          notes: data.notes 
+        }
       });
       reset();
       closeCollectDialog();
@@ -545,6 +579,59 @@ const CustomerDebtPage: React.FC = () => {
                   {errors.amount && <p className="text-red-500 text-[11px] font-bold mt-1 px-1">{errors.amount.message as string}</p>}
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[13px] font-bold text-foreground">Ngày thu <span className="text-red-500">*</span></label>
+                    <Controller
+                      name="payment_date"
+                      control={control}
+                      render={({ field }) => (
+                         <DatePicker
+                           value={field.value}
+                           onChange={field.onChange}
+                           className="w-full h-[46px] bg-slate-50 border-border rounded-xl focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all"
+                         />
+                      )}
+                    />
+                    {errors.payment_date && <p className="text-red-500 text-[11px] font-bold mt-1 px-1">{errors.payment_date.message as string}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[13px] font-bold text-foreground">Giờ thu <span className="text-red-500">*</span></label>
+                    <Controller
+                      name="payment_time"
+                      control={control}
+                      render={({ field }) => (
+                        <TimePicker24h
+                          value={field.value}
+                          onChange={field.onChange}
+                          className="w-full h-[46px] bg-slate-50 border-border rounded-xl focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all"
+                        />
+                      )}
+                    />
+                    {errors.payment_time && <p className="text-red-500 text-[11px] font-bold mt-1 px-1">{errors.payment_time.message as string}</p>}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[13px] font-bold text-foreground">Người thu hộ <span className="text-red-500">*</span></label>
+                  <Controller
+                    name="receiver_id"
+                    control={control}
+                    render={({ field }) => (
+                      <SearchableSelect
+                        options={employeeOptions}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        placeholder="Chọn người thu..."
+                        searchPlaceholder="Tìm người..."
+                        emptyMessage="Không tìm thấy nhân viên."
+                      />
+                    )}
+                  />
+                  {errors.receiver_id && <p className="text-red-500 text-[11px] font-bold mt-1 px-1">{errors.receiver_id.message as string}</p>}
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-[13px] font-bold text-foreground">Ghi chú (nếu có)</label>
                   <Controller
@@ -554,7 +641,7 @@ const CustomerDebtPage: React.FC = () => {
                       <textarea
                         {...field}
                         rows={3}
-                        placeholder="Nội dung khoản thu..."
+                        placeholder="Nội dung khoản thu... (ví dụ: Chuyển khoản Vietcombank)"
                         className="w-full px-4 py-3 bg-slate-50 border border-border rounded-xl text-[14px] focus:outline-none focus:border-primary/50 transition-all resize-none"
                       />
                     )}

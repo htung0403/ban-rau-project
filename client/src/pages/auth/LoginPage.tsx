@@ -8,7 +8,7 @@ import { User, Lock, ArrowRight, AlertCircle, EyeOff, Eye } from 'lucide-react';
 import { clsx } from 'clsx';
 
 const loginSchema = z.object({
-  email: z.string().min(1, 'Vui lòng nhập email').email('Email không hợp lệ'),
+  phone: z.string().min(1, 'Vui lòng nhập số điện thoại'),
   password: z.string().min(6, 'Mật khẩu tối thiểu 6 ký tự'),
   rememberMe: z.boolean().optional(),
 });
@@ -35,15 +35,15 @@ const LoginPage: React.FC = () => {
   });
 
   useEffect(() => {
-    const savedEmail = localStorage.getItem('remember_email');
-    if (savedEmail) {
-      setValue('email', savedEmail, { shouldValidate: true });
+    const savedPhone = localStorage.getItem('remember_phone') || localStorage.getItem('remember_email');
+    if (savedPhone) {
+      setValue('phone', savedPhone, { shouldValidate: true });
       setValue('rememberMe', true);
     }
   }, [setValue]);
 
-  const handleQuickLogin = (email: string, password: string) => {
-    setValue('email', email, { shouldValidate: true });
+  const handleQuickLogin = (phone: string, password: string) => {
+    setValue('phone', phone, { shouldValidate: true });
     setValue('password', password, { shouldValidate: true });
     setTimeout(() => {
       handleSubmit(onSubmit)();
@@ -55,12 +55,13 @@ const LoginPage: React.FC = () => {
     setServerError('');
     try {
       if (data.rememberMe) {
-        localStorage.setItem('remember_email', data.email);
+        localStorage.setItem('remember_phone', data.phone);
       } else {
-        localStorage.removeItem('remember_email');
+        localStorage.removeItem('remember_phone');
       }
 
-      await login(data.email, data.password);
+      const loginEmail = data.phone.includes('@') ? data.phone : `${data.phone}@vuarau.com`;
+      await login(loginEmail, data.password);
       navigate('/', { replace: true });
     } catch (err: any) {
       setServerError(err?.response?.data?.message || err?.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
@@ -101,21 +102,21 @@ const LoginPage: React.FC = () => {
               )}
 
               <div className="space-y-2">
-                <label className="block text-sm font-semibold text-v-on-surface ml-1">Email</label>
+                <label className="block text-sm font-semibold text-v-on-surface ml-1">Số điện thoại</label>
                 <div className="relative">
                   <User size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-v-outline" />
                   <input
-                    {...register('email')}
+                    {...register('phone')}
                     className={clsx(
                       "w-full pl-12 pr-4 py-4 bg-v-surface-container-low border-none rounded-[1.25rem] focus:ring-2 focus:ring-v-primary/30 transition-all text-v-on-surface placeholder:text-v-outline/60 outline-none",
-                      errors.email && "ring-2 ring-red-500/50"
+                      errors.phone && "ring-2 ring-red-500/50"
                     )}
-                    placeholder="admin@vuarau.com"
-                    type="email"
+                    placeholder="VD: 0901234567"
+                    type="text"
                   />
                 </div>
-                {errors.email && (
-                  <p className="text-red-500 text-[12px] font-medium ml-1">{errors.email.message}</p>
+                {errors.phone && (
+                  <p className="text-red-500 text-[12px] font-medium ml-1">{errors.phone.message}</p>
                 )}
               </div>
 
@@ -149,11 +150,11 @@ const LoginPage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2 px-1 pb-1">
-                <input 
+                <input
                   {...register('rememberMe')}
-                  className="w-4 h-4 rounded border-v-outline-variant text-v-primary focus:ring-v-primary/20 accent-v-primary" 
-                  id="remember" 
-                  type="checkbox" 
+                  className="w-4 h-4 rounded border-v-outline-variant text-v-primary focus:ring-v-primary/20 accent-v-primary"
+                  id="remember"
+                  type="checkbox"
                 />
                 <label className="text-sm text-v-on-surface-variant cursor-pointer" htmlFor="remember">Ghi nhớ đăng nhập</label>
               </div>
@@ -185,15 +186,15 @@ const LoginPage: React.FC = () => {
               <p className="text-[10px] font-bold text-v-outline uppercase tracking-[0.2em] whitespace-nowrap text-center">Đăng nhập nhanh (Test)</p>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: 'Admin', email: 'admin_demo@vuarau.com', role: 'Quản trị' },
-                  { label: 'Kho', email: 'kho1@vuarau.com', role: 'Quản lý kho' },
-                  { label: 'Tài xế', email: 'xe1@vuarau.com', role: 'Tài xế' },
-                  { label: 'Khách', email: 'khach1@vuarau.com', role: 'Khách hàng' },
+                  { label: 'Admin', value: 'admin_demo@vuarau.com', role: 'Quản trị' },
+                  { label: 'Kho', value: 'kho1@vuarau.com', role: 'Quản lý kho' },
+                  { label: 'Tài xế', value: 'xe1@vuarau.com', role: 'Tài xế' },
+                  { label: 'Khách', value: 'khach1@vuarau.com', role: 'Khách hàng' },
                 ].map((account) => (
                   <button
-                    key={account.email}
+                    key={account.value}
                     type="button"
-                    onClick={() => handleQuickLogin(account.email, 'password123')}
+                    onClick={() => handleQuickLogin(account.value, 'password123')}
                     className="group relative flex flex-col items-center gap-1 p-3 bg-v-surface-container-low hover:bg-v-surface-container-high border border-v-outline-variant/20 rounded-xl transition-all duration-300 hover:border-v-primary/30 hover:shadow-sm active:scale-[0.98]"
                   >
                     <span className="text-[13px] font-bold text-v-on-surface group-hover:text-v-primary transition-colors">{account.label}</span>
@@ -203,12 +204,12 @@ const LoginPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-8 text-center hidden md:block">
+            {/* <div className="mt-8 text-center hidden md:block">
               <p className="text-sm text-v-on-surface-variant">
                 Chưa có tài khoản?
                 <a className="font-bold text-v-primary-dim hover:text-v-primary transition-colors ml-1" href="#">Đăng ký ngay</a>
               </p>
-            </div>
+            </div> */}
 
           </div>
         </div>

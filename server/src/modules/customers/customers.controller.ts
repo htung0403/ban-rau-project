@@ -11,8 +11,10 @@ const createCustomerSchema = z.object({
 });
 
 const debtPaymentSchema = z.object({
-  amount: z.number().positive(),
+  amount: z.number().min(0),
   payment_date: z.string().optional(),
+  payment_time: z.string().optional(),
+  collector_id: z.string().uuid().optional(),
   notes: z.string().optional(),
 });
 

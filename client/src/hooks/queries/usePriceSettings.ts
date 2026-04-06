@@ -58,3 +58,36 @@ export function useDeleteRoleSalary() {
     onError: () => toast.error('Lỗi khi xóa cấp bậc'),
   });
 }
+
+export const generalSettingsKeys = {
+  all: ['general-settings'] as const,
+  detail: (key: string) => [...generalSettingsKeys.all, key] as const,
+};
+
+export function useGeneralSettings() {
+  return useQuery({
+    queryKey: generalSettingsKeys.all,
+    queryFn: () => settingsApi.getGeneralSettings(),
+  });
+}
+
+export function useGeneralSetting(key: string) {
+  return useQuery({
+    queryKey: generalSettingsKeys.detail(key),
+    queryFn: () => settingsApi.getGeneralSettingByKey(key),
+  });
+}
+
+export function useUpsertGeneralSetting() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ key, value, description }: { key: string; value: any; description?: string }) => 
+      settingsApi.upsertGeneralSetting(key, { value, description }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: generalSettingsKeys.all });
+      queryClient.invalidateQueries({ queryKey: generalSettingsKeys.detail(variables.key) });
+      toast.success('Cập nhật cấu hình thành công');
+    },
+    onError: () => toast.error('Lỗi khi cập nhật cấu hình'),
+  });
+}

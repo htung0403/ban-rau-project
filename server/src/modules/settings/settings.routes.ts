@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { PriceSettingsController } from './settings.controller';
+import { PriceSettingsController, GeneralSettingsController } from './settings.controller';
 import { authMiddleware } from '../../middlewares/auth';
 import { requireRole } from '../../middlewares/role';
 
@@ -14,5 +14,10 @@ router.put('/prices/:key', requireRole('manager'), PriceSettingsController.updat
 router.get('/roles', PriceSettingsController.getRoleSalaries);
 router.post('/roles', requireRole('admin'), PriceSettingsController.upsertRoleSalary);
 router.delete('/roles/:key', requireRole('admin'), PriceSettingsController.deleteRoleSalary);
+
+// General Settings
+router.get('/general', GeneralSettingsController.getAll);
+router.get('/general/:key', GeneralSettingsController.getByKey);
+router.put('/general/:key', requireRole('manager'), GeneralSettingsController.upsert);
 
 export default router;

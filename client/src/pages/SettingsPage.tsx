@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Settings, RotateCcw, Palette, Sun, Moon, Monitor, 
   Type, Maximize, Languages, Globe, Bell, 
-  CheckCircle2, ChevronDown, X
+  CheckCircle2, ChevronDown, X, MapPin, Crosshair, Save
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useTheme, THEME_COLORS, THEME_FONTS, THEME_SIZES } from '../context/ThemeContext';
+import { useGeneralSetting, useUpsertGeneralSetting } from '../hooks/queries/usePriceSettings';
+import toast from 'react-hot-toast';
+
 
 const SettingsPage: React.FC = () => {
   const { theme, setTheme, primaryColor, setPrimaryColor, font, setFont, fontSize, setFontSize } = useTheme();
@@ -13,6 +16,57 @@ const SettingsPage: React.FC = () => {
   const [isSizeDropdownOpen, setIsSizeDropdownOpen] = React.useState(false);
   const fontDropdownRef = React.useRef<HTMLDivElement>(null);
   const sizeDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  const { data: baseLocationData } = useGeneralSetting('base_location');
+  const upsertSetting = useUpsertGeneralSetting();
+
+  const [lat, setLat] = useState<string>('');
+  const [lng, setLng] = useState<string>('');
+  const [radius, setRadius] = useState<string>('50');
+
+  useEffect(() => {
+    if (baseLocationData?.setting_value) {
+      setLat(String(baseLocationData.setting_value.lat || ''));
+      setLng(String(baseLocationData.setting_value.lng || ''));
+      setRadius(String(baseLocationData.setting_value.radius || '50'));
+    }
+  }, [baseLocationData]);
+
+  const handleGetCurrentLocation = () => {
+    if ('geolocation' in navigator) {
+      toast.loading('Đang lấy vị trí...', { id: 'location' });
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLat(String(position.coords.latitude));
+          setLng(String(position.coords.longitude));
+          toast.success('Lấy vị trí thành công', { id: 'location' });
+        },
+        (error) => {
+          console.error(error);
+          toast.error('Không thể lấy vị trí. Vui lòng cấp quyền xem vị trí trên trình duyệt.', { id: 'location' });
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    } else {
+      toast.error('Trình duyệt của bạn không hỗ trợ định vị.');
+    }
+  };
+
+  const handleSaveLocationSetting = () => {
+    if (!lat || !lng) {
+      toast.error('Vui lòng nhập đầy đủ Vĩ độ và Kinh độ');
+      return;
+    }
+    upsertSetting.mutate({
+      key: 'base_location',
+      value: {
+        lat: parseFloat(lat),
+        lng: parseFloat(lng),
+        radius: parseInt(radius, 10) || 50
+      },
+      description: 'Vị trí gốc chấm công (vĩ độ, kinh độ, bán kính bằng mét)'
+    });
+  };
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -248,6 +302,69 @@ const SettingsPage: React.FC = () => {
                 <p className="text-[11px] text-muted-foreground/60 italic px-1">Ảnh hưởng đến kích thước hiển thị trên toàn hệ thống.</p>
               </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Attendance Settings */}
+        <div className="bg-card rounded-2xl border border-border shadow-sm">
+          <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center gap-2 rounded-t-2xl">
+            <MapPin size={18} className="text-primary" />
+            <h2 className="text-[14px] font-bold text-foreground">Cấu hình chấm công</h2>
+          </div>
+          <div className="p-6 space-y-6">
+            <p className="text-[13px] text-muted-foreground mb-2">Thiết lập vị trí gốc công ty để nhân viên chấm công bằng điện thoại.</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <label className="text-[13px] font-bold text-foreground">Vĩ độ (Latitude)</label>
+                <input 
+                  type="text" 
+                  value={lat} 
+                  onChange={e => setLat(e.target.value)}
+                  placeholder="VD: 10.8231"
+                  className="w-full px-4 py-2.5 bg-white border border-border rounded-xl text-[14px] text-foreground font-medium focus:ring-2 focus:ring-primary/10 outline-none transition-all" 
+                />
+              </div>
+              <div className="space-y-3">
+                <label className="text-[13px] font-bold text-foreground">Kinh độ (Longitude)</label>
+                <input 
+                  type="text" 
+                  value={lng} 
+                  onChange={e => setLng(e.target.value)}
+                  placeholder="VD: 106.6297"
+                  className="w-full px-4 py-2.5 bg-white border border-border rounded-xl text-[14px] text-foreground font-medium focus:ring-2 focus:ring-primary/10 outline-none transition-all" 
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <label className="text-[13px] font-bold text-foreground">Bán kính cho phép (mét)</label>
+              <input 
+                  type="number" 
+                  value={radius} 
+                  onChange={e => setRadius(e.target.value)}
+                  placeholder="VD: 50"
+                  className="w-full px-4 py-2.5 bg-white border border-border rounded-xl text-[14px] text-foreground font-medium focus:ring-2 focus:ring-primary/10 outline-none transition-all" 
+                />
+              <p className="text-[11px] text-muted-foreground/80 italic">Nhân viên phải ở trong phạm vi bán kính này mới có thể chấm công.</p>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button 
+                onClick={handleGetCurrentLocation}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-muted/30 hover:bg-muted border border-border rounded-xl text-[13px] font-bold text-foreground transition-all"
+              >
+                <Crosshair size={16} />
+                Lấy vị trí hiện tại
+              </button>
+              <button 
+                onClick={handleSaveLocationSetting}
+                disabled={upsertSetting.isPending}
+                className="flex-[1.5] flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-[13px] font-bold transition-all shadow-sm disabled:opacity-50"
+              >
+                <Save size={16} />
+                {upsertSetting.isPending ? 'Đang lưu...' : 'Lưu lại'}
+              </button>
             </div>
           </div>
         </div>

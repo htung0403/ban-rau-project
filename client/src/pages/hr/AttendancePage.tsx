@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import PageHeader from '../../components/shared/PageHeader';
 import { useEmployees, useMarkAttendance, useAttendance, useCreateCompensatoryAttendance } from '../../hooks/queries/useHR';
-import { useRoleSalaries } from '../../hooks/queries/usePriceSettings';
+import { useRoleSalaries, useGeneralSetting } from '../../hooks/queries/usePriceSettings';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
@@ -16,6 +16,21 @@ import { translateRole } from '../../lib/utils';
 import type { Attendance } from '../../types';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 import { TimePicker24h } from '../../components/shared/TimePicker24h';
+
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371e3; // metres
+  const p1 = lat1 * Math.PI / 180;
+  const p2 = lat2 * Math.PI / 180;
+  const dp = (lat2 - lat1) * Math.PI / 180;
+  const dl = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(dp / 2) * Math.sin(dp / 2) +
+            Math.cos(p1) * Math.cos(p2) *
+            Math.sin(dl / 2) * Math.sin(dl / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+};
 
 const AttendancePage: React.FC = () => {
   const { user } = useAuth();
@@ -34,6 +49,7 @@ const AttendancePage: React.FC = () => {
     format(weekEnd, 'yyyy-MM-dd')
   );
   const markAttendance = useMarkAttendance();
+  const { data: baseLocationData } = useGeneralSetting('base_location');
 
   // Dialog state
   const [isOpen, setIsOpen] = useState(false);
@@ -123,32 +139,61 @@ const AttendancePage: React.FC = () => {
       return;
     }
 
-    const existing = (localAttendance[attEmployee.id] || {})[dialogDate] || {};
-    const ensureSeconds = (t: string | null | undefined) => {
-      if (!t) return null;
-      if (t.split(':').length === 2) return `${t}:00`;
-      return t;
+    const checkLocationAndSave = async () => {
+      const existing = (localAttendance[attEmployee.id] || {})[dialogDate] || {};
+      const ensureSeconds = (t: string | null | undefined) => {
+        if (!t) return null;
+        if (t.split(':').length === 2) return `${t}:00`;
+        return t;
+      };
+
+      if (isPastDate) {
+        await createCompensatory.mutateAsync({
+          work_date: dialogDate,
+          check_in_time: attType === 'in' ? ensureSeconds(attTime) : (existing.check_in_time || null),
+          check_out_time: attType === 'out' ? ensureSeconds(attTime) : (existing.check_out_time || null),
+          reason: reason.trim(),
+        });
+      } else {
+        await markAttendance.mutateAsync({
+          employee_id: attEmployee.id,
+          work_date: dialogDate,
+          is_present: true,
+          check_in_time: attType === 'in' ? ensureSeconds(attTime) : (existing.check_in_time || null),
+          check_out_time: attType === 'out' ? ensureSeconds(attTime) : (existing.check_out_time || null),
+        });
+      }
+
+      handleClose();
+      refetchAttendance();
     };
 
-    if (isPastDate) {
-      await createCompensatory.mutateAsync({
-        work_date: dialogDate,
-        check_in_time: attType === 'in' ? ensureSeconds(attTime) : (existing.check_in_time || null),
-        check_out_time: attType === 'out' ? ensureSeconds(attTime) : (existing.check_out_time || null),
-        reason: reason.trim(),
-      });
+    if (baseLocationData?.setting_value && dialogDate === todayStr && user?.role !== 'admin') {
+      toast.loading('Đang kiểm tra vị trí...', { id: 'att-loc' });
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const { lat, lng, radius } = baseLocationData.setting_value;
+            const dist = calculateDistance(lat, lng, pos.coords.latitude, pos.coords.longitude);
+            if (dist > radius) {
+              toast.error(`Vị trí của bạn nằm ngoài phạm vi cho phép (cách ${Math.round(dist)} mét)`, { id: 'att-loc' });
+            } else {
+              toast.success('Xác thực vị trí thành công', { id: 'att-loc' });
+              checkLocationAndSave();
+            }
+          },
+          (err) => {
+            console.error(err);
+            toast.error('Không thể kiểm tra vị trí. Vui lòng cấp quyền xem vị trí.', { id: 'att-loc' });
+          },
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+      } else {
+        toast.error('Trình duyệt không hỗ trợ xem vị trí', { id: 'att-loc' });
+      }
     } else {
-      await markAttendance.mutateAsync({
-        employee_id: attEmployee.id,
-        work_date: dialogDate,
-        is_present: true,
-        check_in_time: attType === 'in' ? ensureSeconds(attTime) : (existing.check_in_time || null),
-        check_out_time: attType === 'out' ? ensureSeconds(attTime) : (existing.check_out_time || null),
-      });
+      checkLocationAndSave();
     }
-
-    handleClose();
-    refetchAttendance();
   };
 
   const isLoading = loadingEmployees || loadingAttendance;

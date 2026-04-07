@@ -38,6 +38,7 @@ CREATE TABLE public.customers (
   name VARCHAR(255) NOT NULL,
   phone VARCHAR(20),
   address TEXT,
+  customer_type VARCHAR(20) DEFAULT 'retail' CHECK (customer_type IN ('retail', 'wholesale', 'grocery')),
   total_orders INTEGER DEFAULT 0,
   total_revenue NUMERIC(15,2) DEFAULT 0,
   debt NUMERIC(15,2) DEFAULT 0,

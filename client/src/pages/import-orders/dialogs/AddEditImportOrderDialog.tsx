@@ -23,7 +23,7 @@ import toast from 'react-hot-toast';
 const importOrderItemSchema = z.object({
   product_id: z.string().min(1, 'Chọn hàng hóa'),
   package_type: z.string().optional().nullable().catch(null),
-  package_quantity: z.coerce.number().optional().nullable().catch(null),
+  weight_kg: z.coerce.number().optional().nullable().catch(null),
   quantity: z.coerce.number().min(1, 'SL > 0').catch(1),
   image_url: z.string().optional().nullable().catch(null),
 });
@@ -56,8 +56,35 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
   const updateMutation = useUpdateImportOrder();
   const createProductMutation = useCreateProduct();
   const { data: products } = useProducts(isOpen);
-  const { data: customers } = useCustomers(isOpen);
+  const { data: customers } = useCustomers(undefined, isOpen);
   const { data: employees } = useEmployees(isOpen);
+
+  const filteredProducts = React.useMemo(() => {
+    const list = products?.filter((p: any) => p.category === defaultCategory || (!p.category && defaultCategory === 'standard')) || [];
+    if (editingOrder?.import_order_items) {
+      const addedIds = new Set(list.map((p: any) => p.id));
+      editingOrder.import_order_items.forEach((item: any) => {
+        if (item.products && !addedIds.has(item.product_id)) {
+          list.push(item.products);
+          addedIds.add(item.product_id);
+        }
+      });
+    }
+    return list;
+  }, [products, defaultCategory, editingOrder]);
+
+  const filteredCustomers = React.useMemo(() => {
+    const list: any[] = customers?.filter((c: any) =>
+      defaultCategory === 'vegetable'
+        ? (c.customer_type === 'wholesale' || c.customer_type === 'vegetable')
+        : c.customer_type === 'grocery'
+    ) || [];
+    
+    if (editingOrder?.customers && !list.find((c: any) => c.id === editingOrder.customer_id)) {
+      list.push(editingOrder.customers);
+    }
+    return list;
+  }, [customers, defaultCategory, editingOrder]);
 
   const {
     register,
@@ -73,7 +100,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
     defaultValues: {
       order_date: format(new Date(), 'yyyy-MM-dd'),
       order_time: new Date().toTimeString().slice(0, 5),
-      items: [{ quantity: 1, package_quantity: '', product_id: '', image_url: null }],
+      items: [{ quantity: 1, weight_kg: '', product_id: '', image_url: null }],
       payment_status: 'unpaid',
       customer_id: '',
       received_by: '',
@@ -82,6 +109,26 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
       receipt_image_url: null,
     } as any,
   });
+
+  const watchItems = watch('items');
+
+  useEffect(() => {
+    if (!watchItems || !filteredProducts.length) return;
+    let sum = 0;
+    watchItems.forEach((item: any) => {
+      const product = filteredProducts.find((p: any) => p.id === item.product_id);
+      if (product && product.base_price) {
+        const kg = Number(item.weight_kg) || 0;
+        const qty = Number(item.quantity) || 0;
+        const amount = Math.round((qty * kg / 1000) * product.base_price);
+        sum += amount;
+      }
+    });
+
+    if (sum > 0) {
+      setValue('total_amount', sum, { shouldValidate: true });
+    }
+  }, [JSON.stringify(watchItems), filteredProducts, defaultCategory, setValue]);
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -103,7 +150,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
         items: editingOrder.import_order_items?.map((item: ImportOrderItem) => ({
           product_id: item.product_id,
           package_type: item.package_type,
-          package_quantity: item.package_quantity,
+          weight_kg: item.weight_kg,
           quantity: item.quantity,
           image_url: item.image_url || null,
         })) || [],
@@ -115,7 +162,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
       reset({
         order_date: format(new Date(), 'yyyy-MM-dd'),
         order_time: new Date().toTimeString().slice(0, 5),
-        items: [{ quantity: 1, package_quantity: '', product_id: '', image_url: null }],
+        items: [{ quantity: 1, weight_kg: '', product_id: '', image_url: null }],
         payment_status: 'unpaid',
         customer_id: '',
         receiver_name: '',
@@ -188,8 +235,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
     try {
       const resp = await createProductMutation.mutateAsync({
         name,
-        sku: `P-${Date.now().toString().slice(-6)}`,
-        unit: 'Kg',
+        category: defaultCategory,
       });
       const newId = resp.data?.id || (resp as any).id;
       if (newId) {
@@ -290,12 +336,14 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
 
                 <div className="space-y-3 md:space-y-4">
                   <div className="space-y-1.5">
-                    <label className="text-[13px] font-bold text-slate-700">Khách hàng / Chủ hàng <span className="text-red-500">*</span></label>
+                    <label className="text-[13px] font-bold text-slate-700">
+                      {defaultCategory === 'vegetable' ? 'Vựa rau / KH Rau' : 'Tạp hóa'} <span className="text-red-500">*</span>
+                    </label>
                     <SearchableSelect
-                      options={(customers || []).map(c => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}` }))}
+                      options={filteredCustomers.map((c: any) => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}` }))}
                       value={watchCustomerId}
                       onValueChange={(val) => setValue('customer_id', val, { shouldValidate: true })}
-                      placeholder="Tìm khách hàng..."
+                      placeholder={defaultCategory === 'vegetable' ? 'Tìm vựa rau hoặc KH Rau...' : 'Tìm tạp hóa...'}
                     />
                     {errors.customer_id && <p className="text-red-500 text-[11px] font-medium">{errors.customer_id.message as string}</p>}
                   </div>
@@ -452,7 +500,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                   </div>
                   <button
                     type="button"
-                    onClick={() => append({ quantity: 1, package_quantity: '', product_id: '', image_url: null })}
+                    onClick={() => append({ quantity: 1, weight_kg: '', product_id: '', image_url: null })}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-[12px] font-bold hover:bg-primary/90 transition-all shadow-sm shadow-primary/30 active:scale-95"
                   >
                     <Plus size={14} />
@@ -463,10 +511,11 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                 <div className="flex-1 overflow-auto p-0 bg-slate-50/30 md:bg-transparent custom-scrollbar">
                   <div className="md:min-w-[750px] w-full">
                     {/* Desktop Header */}
-                    <div className="hidden md:grid grid-cols-[minmax(150px,3fr)_70px_70px_36px_36px] gap-3 px-4 py-3 bg-white border-b border-border sticky top-0 z-10 md:items-center">
+                    <div className="hidden md:grid grid-cols-[minmax(150px,3fr)_70px_70px_100px_36px_36px] gap-3 px-4 py-3 bg-white border-b border-border sticky top-0 z-10 md:items-center">
                       <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tên Mặt Hàng</div>
-                      <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Số hàng</div>
+                      <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Số Kg</div>
                       <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">SL</div>
+                      <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Thành tiền</div>
                       <div></div>
                       <div></div>
                     </div>
@@ -475,14 +524,14 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                     <div className="flex flex-col md:block md:divide-y md:divide-slate-100 p-2 md:p-0 gap-3 md:gap-0">
                       {fields.map((field, index) => {
                         return (
-                          <div key={field.id} className="grid grid-cols-1 md:grid-cols-[minmax(150px,3fr)_70px_70px_36px_36px] gap-2 md:gap-3 p-3 md:px-4 md:py-2 md:items-center bg-white rounded-xl md:rounded-none border border-slate-200 md:border-none shadow-sm md:shadow-none hover:bg-slate-50/50 transition-all group relative">
+                          <div key={field.id} className="grid grid-cols-1 md:grid-cols-[minmax(150px,3fr)_70px_70px_100px_36px_36px] gap-2 md:gap-3 p-3 md:px-4 md:py-2 md:items-center bg-white rounded-xl md:rounded-none border border-slate-200 md:border-none shadow-sm md:shadow-none hover:bg-slate-50/50 transition-all group relative">
 
                             {/* 1. Tên Mặt Hàng & Nút xoá (Mobile) */}
                             <div className="flex items-end gap-2 md:contents">
                               <div className="flex-1 flex flex-col justify-center space-y-1 md:space-y-0 relative">
                                 <label className="text-[11px] font-bold text-slate-500 md:hidden uppercase">Mặt hàng</label>
                                 <CreatableSearchableSelect
-                                  options={(products || []).map((p: any) => ({
+                                  options={filteredProducts.map((p: any) => ({
                                     value: p.id,
                                     label: p.name
                                   }))}
@@ -537,13 +586,13 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                             </div>
 
                             <div className="grid grid-cols-2 md:contents gap-2 md:gap-3 border-t border-dashed border-slate-200 md:border-none pt-2 md:pt-0 mt-2 md:mt-0">
-                              {/* 2. Số hàng */}
+                              {/* 2. Số Kg */}
                               <div className="flex flex-col justify-center space-y-1 md:space-y-0 col-span-1">
-                                <label className="text-[11px] font-bold text-slate-500 md:hidden uppercase">Số hàng</label>
+                                <label className="text-[11px] font-bold text-slate-500 md:hidden uppercase">Số Kg</label>
                                 <input
                                   type="number"
                                   placeholder="VD: 5"
-                                  {...register(`items.${index}.package_quantity` as const)}
+                                  {...register(`items.${index}.weight_kg` as const)}
                                   className="w-full h-9 px-2 bg-white border border-slate-200 rounded-lg text-[13px] font-medium text-center text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none tabular-nums transition-all"
                                 />
                               </div>
@@ -556,6 +605,29 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                                   {...register(`items.${index}.quantity` as const)}
                                   className="w-full h-9 px-2 bg-white border border-slate-200 rounded-lg text-[13px] font-black text-center text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none tabular-nums transition-all"
                                 />
+                              </div>
+
+                              {/* 4. Thành tiền */}
+                              <div className="flex flex-col justify-center space-y-1 md:space-y-0 col-span-2 md:col-span-1 md:text-right">
+                                {(() => {
+                                  const productId = watch(`items.${index}.product_id`);
+                                  const kg = Number(watch(`items.${index}.weight_kg`) || 0);
+                                  const qty = Number(watch(`items.${index}.quantity`) || 0);
+                                  const prod = filteredProducts.find((p: any) => p.id === productId);
+                                  const price = prod?.base_price || 0;
+                                  const total = Math.round((qty * kg / 1000) * price);
+                                  return (
+                                    <>
+                                      <label className="text-[11px] font-bold text-slate-500 md:hidden uppercase flex justify-between items-center pr-2">
+                                        <span>Thành tiền</span>
+                                        {price > 0 && <span className="text-[9px] text-slate-400 normal-case">(Cước: {new Intl.NumberFormat('vi-VN').format(price)}/Tấn)</span>}
+                                      </label>
+                                      <span className="text-[13px] font-bold text-primary tabular-nums h-9 md:h-auto flex items-center md:justify-end bg-slate-50 md:bg-transparent px-3 md:px-0 rounded-lg border border-slate-200 md:border-transparent">
+                                        {total > 0 ? new Intl.NumberFormat('vi-VN').format(total) : '-'}
+                                      </span>
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
 

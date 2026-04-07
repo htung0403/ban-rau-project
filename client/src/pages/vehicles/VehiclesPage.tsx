@@ -14,17 +14,31 @@ const VehiclesPage: React.FC = () => {
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isAddClosing, setIsAddClosing] = useState(false);
+  const [vehicleToEdit, setVehicleToEdit] = useState<Vehicle | null>(null);
 
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isDetailClosing, setIsDetailClosing] = useState(false);
+
+  const openAddEdit = (vehicle?: Vehicle) => {
+    setVehicleToEdit(vehicle || null);
+    setIsAddOpen(true);
+  };
 
   const closeAddDialog = () => {
     setIsAddClosing(true);
     setTimeout(() => {
       setIsAddOpen(false);
       setIsAddClosing(false);
+      setVehicleToEdit(null);
     }, 350);
+  };
+
+  const handleEditVehicle = (vehicle: Vehicle) => {
+    closeDetail();
+    setTimeout(() => {
+      openAddEdit(vehicle);
+    }, 350); // wait for detail dialog to close before opening edit
   };
 
   const openDetail = (vehicle: Vehicle) => {
@@ -56,7 +70,7 @@ const VehiclesPage: React.FC = () => {
           backPath="/quan-ly-xe"
           actions={
             <button
-              onClick={() => setIsAddOpen(true)}
+              onClick={() => openAddEdit()}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
               <Plus size={16} />
@@ -65,7 +79,7 @@ const VehiclesPage: React.FC = () => {
           }
         />
       </div>
-      <DraggableFAB icon={<Plus size={24} />} onClick={() => setIsAddOpen(true)} />
+      <DraggableFAB icon={<Plus size={24} />} onClick={() => openAddEdit()} />
 
       {isLoading ? (
         <div className="flex-1 overflow-y-auto overflow-x-hidden pb-6 custom-scrollbar px-1">
@@ -179,6 +193,7 @@ const VehiclesPage: React.FC = () => {
       )}
 
       <AddEditVehicleDialog
+        vehicle={vehicleToEdit}
         isOpen={isAddOpen}
         isClosing={isAddClosing}
         onClose={closeAddDialog}
@@ -189,6 +204,7 @@ const VehiclesPage: React.FC = () => {
         isOpen={isDetailOpen}
         isClosing={isDetailClosing}
         onClose={closeDetail}
+        onEdit={handleEditVehicle}
       />
     </div>
   );

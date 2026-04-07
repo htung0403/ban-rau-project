@@ -47,7 +47,7 @@ const COL_DEF: Record<string, { thClass: string, tdClass: string, render: (item:
   chu_hang: { thClass: 'text-left', tdClass: '', render: (item: any) => <div className="font-bold text-[13px] text-foreground">{item.order?.sender_name || item.order?.customers?.name || '-'}</div> },
   tai: { thClass: 'text-center w-36', tdClass: 'text-center', render: (item: any) => <span className="text-[13px] font-medium text-muted-foreground">{getAssignedVehicles(item)}</span> },
   sl: { thClass: 'text-center w-24', tdClass: 'text-center', render: (item: any) => <span className="font-bold text-[13px] text-primary tabular-nums">{item.quantity}</span> },
-  so_hang: { thClass: 'text-center w-28', tdClass: 'text-center', render: (item: any) => <span className="text-[13px] font-medium text-foreground tabular-nums">{item.package_quantity ? `${item.package_quantity} ${item.package_type || ''}` : '-'}</span> },
+  so_hang: { thClass: 'text-center w-28', tdClass: 'text-center', render: (item: any) => <span className="text-[13px] font-medium text-foreground tabular-nums">{item.weight_kg ? `${item.weight_kg} Kg` : '-'}</span> },
   ten_hang: { thClass: 'text-left', tdClass: '', render: (item: any) => <div className="font-medium text-[13px] text-foreground">{item.products?.name || '-'}</div> },
   tien: { thClass: 'text-right w-32', tdClass: 'text-right', render: (item: any) => <span className="text-[13px] font-medium text-muted-foreground tabular-nums">{item.unit_price ? formatCurrency(item.unit_price) : '-'}</span> },
   thanh_tien: { thClass: 'text-right w-40', tdClass: 'text-right', render: (item: any) => <span className="text-[13px] font-bold text-primary tabular-nums">{item.total_amount ? formatCurrency(item.total_amount) : '-'}</span> },
@@ -59,7 +59,7 @@ const VegetablesPage: React.FC = () => {
     { id: 'chu_hang', label: 'Chủ Hàng', isVisible: true },
     { id: 'tai', label: 'Tài', isVisible: true },
     { id: 'sl', label: 'SL', isVisible: true },
-    { id: 'so_hang', label: 'Số Hàng', isVisible: true },
+    { id: 'so_hang', label: 'Số Kg', isVisible: true },
     { id: 'ten_hang', label: 'Tên Hàng', isVisible: true },
     { id: 'tien', label: 'Tiền', isVisible: true },
     { id: 'thanh_tien', label: 'Thành Tiền', isVisible: true },
@@ -180,7 +180,7 @@ const VegetablesPage: React.FC = () => {
       "Tài (Xe)": getAssignedVehicles(item),
       "Người nhập": item.order?.profiles?.full_name || item.order?.receiver_name || item.order?.received_by || '-',
       "Số lượng": item.quantity,
-      "Số hàng": item.package_quantity ? `${item.package_quantity} ${item.package_type || ''}` : '-',
+      "Số Kg": item.weight_kg ? `${item.weight_kg} Kg` : '-',
       "Tên Hàng": item.products?.name || '-',
       "Đơn giá": item.unit_price || 0,
       "Thành Tiền": item.total_amount || 0
@@ -192,7 +192,7 @@ const VegetablesPage: React.FC = () => {
       "Tài (Xe)": "",
       "Người nhập": "",
       "Số lượng": "",
-      "Số hàng": "",
+      "Số Kg": "",
       "Tên Hàng": "",
       "Đơn giá": "",
       "Thành Tiền": totalAmount
@@ -396,10 +396,10 @@ const VegetablesPage: React.FC = () => {
                           <span className="text-[10px] font-bold text-muted-foreground uppercase w-8 shrink-0">Hàng</span>
                           <span className="font-medium text-foreground truncate">{item.products?.name || '-'}</span>
                         </div>
-                        {item.package_quantity && (
+                        {item.weight_kg && (
                           <div className="text-[12px] text-muted-foreground flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase w-8 shrink-0">Số K.</span>
-                            <span className="font-medium text-foreground truncate">{item.package_quantity} {item.package_type}</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase w-8 shrink-0">Số Kg</span>
+                            <span className="font-medium text-foreground truncate">{item.weight_kg} Kg</span>
                           </div>
                         )}
                       </div>

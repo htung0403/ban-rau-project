@@ -516,9 +516,9 @@ const VegetableImportsPage: React.FC = () => {
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <div className="text-[12px] text-muted-foreground">
                       <span className="font-bold">{order.import_order_items?.length || 1}</span> mặt hàng
-                      {order.import_order_items && order.import_order_items.length > 0 && order.import_order_items[0].package_quantity ? (
+                      {order.import_order_items && order.import_order_items.length > 0 && order.import_order_items[0].weight_kg ? (
                         <span className="ml-1">
-                          (gồm <span className="font-bold text-foreground">{order.import_order_items.reduce((acc, curr) => acc + (curr.package_quantity || 0), 0)}</span> {order.import_order_items[0].package_type || 'hàng'})
+                          (gồm <span className="font-bold text-foreground">{order.import_order_items.reduce((acc, curr) => acc + (curr.weight_kg || 0), 0)}</span> Kg)
                         </span>
                       ) : null}
                     </div>

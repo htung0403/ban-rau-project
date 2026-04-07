@@ -86,8 +86,6 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
     try {
       const resp = await createProductMutation.mutateAsync({
         name,
-        sku: `P-${Date.now().toString().slice(-6)}`,
-        unit: 'kg', // Default unit for quick create
       });
       
       // Axios returns response with 'data'
@@ -181,7 +179,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                 <CreatableSearchableSelect
                   options={(products || []).map((p: any) => ({ 
                     value: p.id, 
-                    label: `[${p.sku}] ${p.name} (${p.unit})` 
+                    label: `${p.name}` 
                   }))}
                   value={productId}
                   onValueChange={(val) => setValue('product_id', val, { shouldValidate: true })}

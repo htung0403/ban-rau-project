@@ -2,8 +2,8 @@ import axiosClient from './axiosClient';
 import type { Customer } from '../types';
 
 export const customersApi = {
-  getAll: async () => {
-    const { data } = await axiosClient.get<Customer[]>('/customers');
+  getAll: async (type?: string) => {
+    const { data } = await axiosClient.get<Customer[]>('/customers', { params: { type } });
     return data;
   },
 

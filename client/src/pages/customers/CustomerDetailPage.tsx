@@ -28,6 +28,15 @@ const formatDate = (dateString?: string) => {
   }
 };
 
+const getCustomerTypeBadge = (type?: string) => {
+  switch (type) {
+    case 'wholesale': return { label: 'Vựa rau', color: 'bg-emerald-100/50 text-emerald-700 border-emerald-200' };
+    case 'grocery': return { label: 'Tạp hóa', color: 'bg-blue-100/50 text-blue-700 border-blue-200' };
+    case 'vegetable': return { label: 'KH Rau', color: 'bg-purple-100/50 text-purple-700 border-purple-200' };
+    default: return { label: 'Chưa phân loại', color: 'bg-slate-100 text-slate-700 border-slate-200' };
+  }
+};
+
 const TABS = [
   { id: 'overview', label: 'Tổng quan', mobileLabel: 'Tổng quan', icon: Building2 },
   { id: 'imports', label: 'Phiếu nhập', mobileLabel: 'Nhập', icon: PackageCheck },
@@ -73,7 +82,17 @@ const CustomerDetailPage: React.FC = () => {
   };
 
   if (isLoadingCustomer) return <div className="p-6"><LoadingSkeleton rows={5} /></div>;
-  if (isErrorCustomer || !customer) return <ErrorState onRetry={() => navigate('/ke-toan/khach-hang')} />;
+  if (isErrorCustomer || !customer) return <ErrorState onRetry={() => navigate('/ke-toan')} />;
+
+  const getBackPath = (type?: string) => {
+    switch (type) {
+      case 'wholesale': return '/ke-toan/vua-rau';
+      case 'grocery': return '/ke-toan/khach-hang-tap-hoa';
+      case 'vegetable': return '/ke-toan/khach-hang-rau';
+      default: return '/ke-toan';
+    }
+  };
+  const backPath = getBackPath(customer?.customer_type);
 
   return (
     <div className="animate-in fade-in flex-1 flex flex-col min-h-0 relative z-0">
@@ -82,7 +101,7 @@ const CustomerDetailPage: React.FC = () => {
         <PageHeader
           title={`Chi tiết: ${customer.name}`}
           description="Theo dõi lịch sử giao dịch và công nợ"
-          backPath="/ke-toan/khach-hang"
+          backPath={backPath}
           actions={
             <button
               onClick={() => setIsCollectDebtOpen(true)}
@@ -137,7 +156,17 @@ const CustomerDetailPage: React.FC = () => {
                     <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
                       <Building2 size={16} />
                     </div>
-                    <span>{customer.name}</span>
+                    <span className="flex items-center gap-2">
+                       {customer.name}
+                       {(() => {
+                         const badge = getCustomerTypeBadge(customer.customer_type);
+                         return (
+                           <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold border ${badge.color}`}>
+                             {badge.label}
+                           </span>
+                         );
+                       })()}
+                    </span>
                   </div>
                   <div className="flex items-center gap-3 text-[14px] font-medium text-foreground">
                     <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">

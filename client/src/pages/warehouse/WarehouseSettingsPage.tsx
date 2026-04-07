@@ -1,21 +1,36 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import PageHeader from '../../components/shared/PageHeader';
-import { useProducts, useCreateProduct, useDeleteProduct } from '../../hooks/queries/useProducts';
-import { useUnits, useCreateUnit, useDeleteUnit } from '../../hooks/queries/useUnits';
-import { Database, Box, Scale, Plus, X, Trash2 } from 'lucide-react';
+import { useProducts, useCreateProduct, useDeleteProduct, useUpdateProduct } from '../../hooks/queries/useProducts';
+import { Database, Box, Plus, X, Trash2, Leaf, Edit2, Search, ArrowUpDown, Filter, Check } from 'lucide-react';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
+import CurrencyInput from '../../components/shared/CurrencyInput';
+import { CustomSelect } from '../../components/shared/CustomSelect';
+import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 
 const InputDialog: React.FC<{
   isOpen: boolean;
   title: string;
   placeholder: string;
+  defaultCategory?: string;
+  initialName?: string;
+  initialPrice?: number;
   onClose: () => void;
-  onSubmit: (val: string) => void;
+  onSubmit: (data: { name: string, category: string, base_price: number }) => void;
   isSubmitting?: boolean;
-}> = ({ isOpen, title, placeholder, onClose, onSubmit, isSubmitting }) => {
-  const [val, setVal] = useState('');
+}> = ({ isOpen, title, placeholder, defaultCategory = 'standard', initialName = '', initialPrice = 0, onClose, onSubmit, isSubmitting }) => {
+  const [val, setVal] = useState(initialName);
+  const [basePrice, setBasePrice] = useState<number | ''>(initialPrice || '');
+  const [category, setCategory] = useState(defaultCategory);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setVal(initialName);
+      setBasePrice(initialPrice || '');
+      setCategory(defaultCategory);
+    }
+  }, [isOpen, defaultCategory, initialName, initialPrice]);
 
   if (!isOpen) return null;
 
@@ -30,33 +45,49 @@ const InputDialog: React.FC<{
           </button>
         </div>
         <div className="p-5">
-          <input 
+          <label className="text-[12px] font-medium text-slate-700 mb-1 block">Tên hàng hóa</label>
+          <input
             type="text"
             autoFocus
             value={val}
             onChange={e => setVal(e.target.value)}
             placeholder={placeholder}
-            className="w-full px-3 py-2.5 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-700"
-            onKeyDown={e => {
-              if (e.key === 'Enter' && val.trim() && !isSubmitting) {
-                onSubmit(val.trim());
-                setVal('');
-              }
-            }}
+            className="w-full px-3 py-2.5 mb-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-700"
           />
+          <label className="text-[12px] font-medium text-slate-700 mb-1 block">Cước phí / 1 Tấn (VNĐ)</label>
+          <CurrencyInput
+            value={typeof basePrice === 'number' ? basePrice : 0}
+            onChange={(val) => setBasePrice(val || '')}
+            placeholder="VD: 25.000"
+            className="w-full px-3 py-2.5 mb-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-700 tabular-nums"
+          />
+          <div className="flex flex-col gap-2">
+            <label className="text-[12px] font-medium text-slate-700">Loại hàng hóa</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                <input type="radio" name="category" value="standard" checked={category === 'standard'} onChange={() => setCategory('standard')} className="w-4 h-4 text-primary accent-primary" />
+                Hàng tạp hóa
+              </label>
+              <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                <input type="radio" name="category" value="vegetable" checked={category === 'vegetable'} onChange={() => setCategory('vegetable')} className="w-4 h-4 text-primary accent-primary" />
+                Hàng vựa rau
+              </label>
+            </div>
+          </div>
         </div>
         <div className="px-5 py-4 border-t border-border bg-slate-50 flex items-center justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-200 transition-colors">
             Hủy
           </button>
-          <button 
+          <button
             disabled={!val.trim() || isSubmitting}
             onClick={() => {
               if (val.trim()) {
-                onSubmit(val.trim());
+                onSubmit({ name: val.trim(), category, base_price: Number(basePrice) || 0 });
                 setVal('');
+                setBasePrice('');
               }
-            }} 
+            }}
             className="px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 shadow-sm bg-primary text-white hover:bg-primary/90 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed"
           >
             {isSubmitting && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
@@ -93,16 +124,16 @@ const ConfirmDialog: React.FC<{
           <p className="text-[13px] text-slate-700">{message}</p>
         </div>
         <div className="px-5 py-4 border-t border-border bg-slate-50 flex items-center justify-end gap-3">
-          <button 
+          <button
             disabled={isLoading}
-            onClick={onCancel} 
+            onClick={onCancel}
             className="px-4 py-2 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-50"
           >
             Hủy
           </button>
-          <button 
+          <button
             disabled={isLoading}
-            onClick={onConfirm} 
+            onClick={onConfirm}
             className="px-4 py-2.5 rounded-xl bg-red-50 text-red-600 text-[13px] font-bold hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm"
           >
             {isLoading && <span className="w-4 h-4 border-2 border-red-500/30 border-t-red-600 rounded-full animate-spin" />}
@@ -115,63 +146,183 @@ const ConfirmDialog: React.FC<{
   );
 };
 
+const BulkEditDialog: React.FC<{
+  isOpen: boolean;
+  selectedCount: number;
+  onClose: () => void;
+  onSubmit: (data: { category?: string; base_price?: number }) => void;
+  isSubmitting?: boolean;
+}> = ({ isOpen, selectedCount, onClose, onSubmit, isSubmitting }) => {
+  const [category, setCategory] = useState<string | ''>('');
+  const [basePrice, setBasePrice] = useState<number | ''>('');
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setCategory('');
+      setBasePrice('');
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-slate-50">
+          <h2 className="text-[15px] font-bold text-slate-800">Sửa Hàng Loạt ({selectedCount} món)</h2>
+          <button onClick={onClose} className="text-slate-400 hover:bg-slate-200 p-1.5 rounded-full transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5">
+          <p className="text-[12px] text-muted-foreground mb-4">Chỉ điền thông tin bạn muốn đổi hàng loạt. Để trống nếu muốn giữ nguyên giá trị cũ từng món.</p>
+          <label className="text-[12px] font-medium text-slate-700 mb-1 block">Cước phí / 1 Tấn mới (VNĐ)</label>
+          <CurrencyInput
+            value={typeof basePrice === 'number' ? basePrice : 0}
+            onChange={(val) => setBasePrice(val || '')}
+            placeholder="Không đổi..."
+            className="w-full px-3 py-2.5 mb-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-700 tabular-nums"
+          />
+          <div className="flex flex-col gap-2">
+            <label className="text-[12px] font-medium text-slate-700">Đổi loại hàng hóa thành</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                <input type="radio" name="bulk_category" value="standard" checked={category === 'standard'} onChange={() => setCategory('standard')} className="w-4 h-4 text-primary accent-primary" />
+                Hàng tạp hóa
+              </label>
+              <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                <input type="radio" name="bulk_category" value="vegetable" checked={category === 'vegetable'} onChange={() => setCategory('vegetable')} className="w-4 h-4 text-primary accent-primary" />
+                Hàng vựa rau
+              </label>
+            </div>
+            <label className="flex items-center gap-2 text-[13px] cursor-pointer mt-1">
+              <input type="radio" name="bulk_category" value="" checked={category === ''} onChange={() => setCategory('')} className="w-4 h-4 text-primary accent-primary" />
+              <span className="text-muted-foreground italic">Không đổi phân loại</span>
+            </label>
+          </div>
+        </div>
+        <div className="px-5 py-4 border-t border-border bg-slate-50 flex items-center justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-200 transition-colors">
+            Hủy
+          </button>
+          <button
+            disabled={isSubmitting || (category === '' && basePrice === '')}
+            onClick={() => {
+              const data: any = {};
+              if (category) data.category = category;
+              if (basePrice !== '') data.base_price = Number(basePrice);
+              onSubmit(data);
+            }}
+            className="px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 shadow-sm bg-primary text-white hover:bg-primary/90 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed"
+          >
+            {isSubmitting && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+            Áp dụng
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 const WarehouseSettingsPage: React.FC = () => {
   const { data: products, isLoading: isProductsLoading, isError: isProductsError, refetch: refetchProducts } = useProducts();
-  const { data: units, isLoading: isUnitsLoading, isError: isUnitsError, refetch: refetchUnits } = useUnits();
-  
+
   const createProduct = useCreateProduct();
-  const createUnit = useCreateUnit();
+  const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
-  const deleteUnit = useDeleteUnit();
 
-  const [productDialogOpen, setProductDialogOpen] = useState(false);
-  const [unitDialogOpen, setUnitDialogOpen] = useState(false);
+  const [productDialog, setProductDialog] = useState<{
+    isOpen: boolean,
+    defaultCategory: string,
+    initialName?: string,
+    initialPrice?: number,
+    mode: 'add' | 'edit',
+    editingId?: string
+  }>({ isOpen: false, defaultCategory: 'standard', mode: 'add' });
+
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
-  const [selectedUnits, setSelectedUnits] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; type: 'products' | 'units' }>({ isOpen: false, type: 'products' });
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [isBulkEditing, setIsBulkEditing] = useState(false);
 
-  const handleAddProduct = async (name: string) => {
-    await createProduct.mutateAsync({ name });
-    setProductDialogOpen(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'nameAsc' | 'nameDesc' | 'priceAsc' | 'priceDesc'>('nameAsc');
+
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isFilterClosing, setIsFilterClosing] = useState(false);
+  const [draftSortBy, setDraftSortBy] = useState(sortBy);
+
+  React.useEffect(() => {
+    if (isFilterOpen) setDraftSortBy(sortBy);
+  }, [isFilterOpen, sortBy]);
+
+  const closeFilter = () => {
+    setIsFilterClosing(true);
+    setTimeout(() => {
+      setIsFilterOpen(false);
+      setIsFilterClosing(false);
+    }, 300);
   };
 
-  const handleAddUnit = async (name: string) => {
-    await createUnit.mutateAsync(name);
-    setUnitDialogOpen(false);
+  const processedProducts = React.useMemo(() => {
+    if (!products) return [];
+    let p = [...products];
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      p = p.filter((item: any) => item.name.toLowerCase().includes(term));
+    }
+    p.sort((a, b) => {
+      if (sortBy === 'nameAsc') return a.name.localeCompare(b.name);
+      if (sortBy === 'nameDesc') return b.name.localeCompare(a.name);
+      if (sortBy === 'priceAsc') return (a.base_price || 0) - (b.base_price || 0);
+      if (sortBy === 'priceDesc') return (b.base_price || 0) - (a.base_price || 0);
+      return 0;
+    });
+    return p;
+  }, [products, searchTerm, sortBy]);
+
+  const handleDialogSubmit = async (data: { name: string, category: string, base_price: number }) => {
+    if (productDialog.mode === 'edit' && productDialog.editingId) {
+      await updateProduct.mutateAsync({ id: productDialog.editingId, data });
+      setSelectedProducts([]);
+    } else {
+      await createProduct.mutateAsync({ name: data.name, category: data.category, base_price: data.base_price });
+    }
+    setProductDialog(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const handleBulkEditSubmit = async (data: { category?: string; base_price?: number }) => {
+    setIsBulkEditing(true);
+    try {
+      await Promise.all(selectedProducts.map(id => updateProduct.mutateAsync({ id, data })));
+      setSelectedProducts([]);
+      setBulkEditOpen(false);
+    } catch {
+      // Error is handled in the mutation
+    } finally {
+      setIsBulkEditing(false);
+    }
   };
 
   const handleToggleProduct = (id: string) => {
-    setSelectedProducts(prev => 
-      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-    );
-  };
-
-  const handleToggleUnit = (id: string) => {
-    setSelectedUnits(prev => 
+    setSelectedProducts(prev =>
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
     );
   };
 
   const handleDeleteProducts = () => {
-    setDeleteConfirm({ isOpen: true, type: 'products' });
-  };
-
-  const handleDeleteUnits = () => {
-    setDeleteConfirm({ isOpen: true, type: 'units' });
+    setDeleteConfirm(true);
   };
 
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
     try {
-      if (deleteConfirm.type === 'products') {
-        await Promise.all(selectedProducts.map(id => deleteProduct.mutateAsync(id)));
-        setSelectedProducts([]);
-      } else {
-        await Promise.all(selectedUnits.map(id => deleteUnit.mutateAsync(id)));
-        setSelectedUnits([]);
-      }
-      setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+      await Promise.all(selectedProducts.map(id => deleteProduct.mutateAsync(id)));
+      setSelectedProducts([]);
+      setDeleteConfirm(false);
     } catch {
       // Error is handled in the mutation
     } finally {
@@ -179,168 +330,303 @@ const WarehouseSettingsPage: React.FC = () => {
     }
   };
 
-  const isLoading = isProductsLoading || isUnitsLoading;
-  const isError = isProductsError || isUnitsError;
+  const renderProductRow = (p: any, isVeg: boolean) => {
+    const isSelected = selectedProducts.includes(p.id);
+    return (
+      <div
+        key={p.id}
+        className={`group flex items-center justify-between p-3 rounded-xl border transition-all ${isSelected ? (isVeg ? 'bg-emerald-50/50 border-emerald-200' : 'bg-blue-50/50 border-blue-200') : 'bg-white border-transparent hover:border-slate-200 hover:bg-slate-50 shadow-sm hover:shadow-md'}`}
+      >
+        <div className="flex items-center gap-3">
+          <label className="flex items-center justify-center p-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => handleToggleProduct(p.id)}
+              className={`w-4 h-4 rounded border-slate-300 text-${isVeg ? 'emerald' : 'blue'}-600 focus:ring-${isVeg ? 'emerald' : 'blue'}-500 cursor-pointer`}
+            />
+          </label>
+          <div
+            className="flex flex-col cursor-pointer"
+            onClick={() => setProductDialog({
+              isOpen: true,
+              defaultCategory: p.category || 'standard',
+              initialName: p.name,
+              initialPrice: p.base_price || 0,
+              mode: 'edit',
+              editingId: p.id
+            })}
+          >
+            <span className="text-[14px] font-bold text-slate-800 group-hover:text-primary transition-colors">{p.name}</span>
+            <span className="text-[12px] font-medium text-slate-500">
+              {Number(p.base_price) > 0 ? (
+                <span className="text-orange-600 font-bold">{new Intl.NumberFormat('vi-VN').format(p.base_price)} đ/Tấn</span>
+              ) : (
+                <span className="italic opacity-60">Chưa có cước phí</span>
+              )}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => setProductDialog({
+              isOpen: true,
+              defaultCategory: p.category || 'standard',
+              initialName: p.name,
+              initialPrice: p.base_price || 0,
+              mode: 'edit',
+              editingId: p.id
+            })}
+            className={`p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors`}
+            title="Sửa"
+          >
+            <Edit2 size={16} />
+          </button>
+          <button
+            onClick={() => {
+              setSelectedProducts([p.id]);
+              setDeleteConfirm(true);
+            }}
+            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            title="Xóa"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const isLoading = isProductsLoading;
+  const isError = isProductsError;
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0 pb-6">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0 pb-6 relative">
       <PageHeader
         title="Cài đặt hàng hóa"
-        description="Xem danh sách dữ liệu từ điển hàng hóa và đơn vị tính hiện có trong hệ thống"
+        description="Xem danh sách dữ liệu từ điển hàng hóa hiện có trong hệ thống"
         backPath="/hang-hoa"
         actions={<div />}
       />
 
-      {isLoading ? (
-        <LoadingSkeleton type="table" rows={3} />
-      ) : isError ? (
-        <ErrorState onRetry={() => {
-          refetchProducts();
-          refetchUnits();
-        }} />
-      ) : (
-        <div className="bg-card rounded-2xl border border-border shadow-sm flex-1 overflow-hidden flex flex-col">
-          <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center gap-2">
-            <Database size={18} className="text-primary" />
-            <h2 className="text-[14px] font-bold text-foreground">Dữ liệu hệ thống ({products?.length || 0} Sản phẩm, {units?.length || 0} Đơn vị)</h2>
-          </div>
-          
-          <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 overflow-y-auto custom-scrollbar">
-            {/* Products Data */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-border">
-                <h3 className="text-[14px] font-bold text-foreground flex items-center gap-2">
-                  <Box size={16} className="text-blue-500" />
-                  Dữ liệu Hàng hóa
-                </h3>
-                <div className="flex items-center gap-2">
-                  {selectedProducts.length > 0 && (
-                    <button 
-                      onClick={handleDeleteProducts}
-                      disabled={isDeleting}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors text-[12px] font-bold disabled:opacity-50"
-                    >
-                      <Trash2 size={14} />
-                      Xóa ({selectedProducts.length})
-                    </button>
-                  )}
-                  <button 
-                    onClick={() => setProductDialogOpen(true)}
-                    className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors"
-                    title="Thêm hàng hóa"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2 pt-2">
-                {products?.map((p: any) => {
-                  const isSelected = selectedProducts.includes(p.id);
-                  return (
-                    <button 
-                      key={p.id}
-                      onClick={() => handleToggleProduct(p.id)}
-                      className={`px-3 py-1.5 rounded-lg text-[13px] border font-medium whitespace-nowrap transition-all ${
-                        isSelected 
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-600/20' 
-                          : 'bg-blue-500/10 text-blue-700 border-blue-500/20 hover:bg-blue-500/20'
-                      }`}
-                    >
-                      {p.name}
-                    </button>
-                  );
-                })}
-                {(!products || products.length === 0) && (
-                  <span className="text-[13px] text-muted-foreground italic">Chưa có sản phẩm nào.</span>
-                )}
-              </div>
+      {/* Floating Action Bar */}
+      {selectedProducts.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in zoom-in-95 duration-200">
+          <div className="flex items-center gap-3 bg-slate-800 text-white px-4 py-3 rounded-2xl shadow-2xl border border-white/10">
+            <div className="flex items-center gap-2 pr-4 border-r border-slate-600">
+              <span className="flex items-center justify-center w-5 h-5 bg-blue-500 rounded-full text-[10px] font-bold text-white">
+                {selectedProducts.length}
+              </span>
+              <span className="text-[13px] font-medium whitespace-nowrap hidden sm:inline">đã chọn</span>
             </div>
 
-            {/* Units Data */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-border">
-                <h3 className="text-[14px] font-bold text-foreground flex items-center gap-2">
-                  <Scale size={16} className="text-emerald-500" />
-                  Dữ liệu Đơn vị tính
-                </h3>
-                <div className="flex items-center gap-2">
-                  {selectedUnits.length > 0 && (
-                    <button 
-                      onClick={handleDeleteUnits}
-                      disabled={isDeleting}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors text-[12px] font-bold disabled:opacity-50"
-                    >
-                      <Trash2 size={14} />
-                      Xóa ({selectedUnits.length})
-                    </button>
-                  )}
-                  <button 
-                    onClick={() => setUnitDialogOpen(true)}
-                    className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-emerald-50 text-emerald-600 transition-colors"
-                    title="Thêm đơn vị tính"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2 pt-2">
-                {units?.map((u: any) => {
-                  const isSelected = selectedUnits.includes(u.id);
-                  return (
-                    <button 
-                      key={u.id}
-                      onClick={() => handleToggleUnit(u.id)}
-                      className={`px-3 py-1.5 rounded-lg text-[13px] border font-medium whitespace-nowrap transition-all ${
-                        isSelected 
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-600/20' 
-                          : 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 hover:bg-emerald-500/20'
-                      }`}
-                    >
-                      {u.name}
-                    </button>
-                  );
-                })}
-                {(!units || units.length === 0) && (
-                  <span className="text-[13px] text-muted-foreground italic">Chưa có đơn vị tính nào.</span>
-                )}
-              </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setBulkEditOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/20 text-orange-200 hover:bg-orange-500/30 transition-colors text-[13px] font-bold whitespace-nowrap"
+              >
+                <Edit2 size={14} />
+                Sửa hàng loạt
+              </button>
+              <button
+                onClick={handleDeleteProducts}
+                disabled={isDeleting}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/20 text-red-200 hover:bg-red-500/30 transition-colors text-[13px] font-bold disabled:opacity-50"
+              >
+                <Trash2 size={14} />
+                Xóa
+              </button>
+              <button
+                onClick={() => setSelectedProducts([])}
+                className="ml-2 p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                title="Bỏ chọn tất cả"
+              >
+                <X size={16} />
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Dialogs */}
+      {isLoading ? (
+        <LoadingSkeleton type="table" rows={3} />
+      ) : isError ? (
+        <ErrorState onRetry={refetchProducts} />
+      ) : (
+        <div className="bg-card rounded-2xl border border-border flex-1 overflow-hidden flex flex-col shadow-sm relative">
+          <div className="px-6 py-4 border-b border-border bg-white flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-10">
+            <div className="flex items-center gap-2">
+              <Database size={18} className="text-primary hidden md:block" />
+              <div className="relative w-full md:w-64 flex gap-2">
+                <div className="relative flex-1">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Tìm hàng hoá..."
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[13px] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all focus:bg-white"
+                  />
+                </div>
+                <button 
+                  onClick={() => setIsFilterOpen(true)}
+                  className="md:hidden flex items-center justify-center p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                   <Filter size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="hidden md:flex items-center gap-3 w-full md:w-auto">
+              <div className="relative flex items-center gap-2 w-full md:w-auto">
+                <ArrowUpDown size={14} className="text-slate-400 hidden sm:block" />
+                <CustomSelect
+                  value={sortBy}
+                  onChange={val => setSortBy(val as any)}
+                  options={[
+                    { value: 'nameAsc', label: 'Tên (A-Z)' },
+                    { value: 'nameDesc', label: 'Tên (Z-A)' },
+                    { value: 'priceAsc', label: 'Giá (Thấp - Cao)' },
+                    { value: 'priceDesc', label: 'Giá (Cao - Thấp)' }
+                  ]}
+                  className="w-full md:w-auto min-w-[160px] bg-slate-50 border-slate-200 hover:bg-slate-100 font-medium"
+                  align="end"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 overflow-y-auto custom-scrollbar bg-slate-50/50">
+            {/* Standard Products */}
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
+                <h3 className="text-[15px] font-bold text-slate-800 flex items-center gap-2">
+                  <Box size={18} className="text-blue-500" />
+                  Hàng tạp hóa
+                </h3>
+                <span className="text-[12px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full tabular-nums">
+                  {processedProducts.filter((p: any) => p.category !== 'vegetable').length}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1.5 mb-4 flex-1">
+                {processedProducts.filter((p: any) => p.category !== 'vegetable').map((p: any) => renderProductRow(p, false))}
+                {processedProducts.filter((p: any) => p.category !== 'vegetable').length === 0 && (
+                  <div className="py-8 text-center bg-white border border-dashed border-slate-200 rounded-xl">
+                    <span className="text-[13px] text-muted-foreground italic">Không có kết quả nào.</span>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setProductDialog({ isOpen: true, defaultCategory: 'standard', mode: 'add' })}
+                className="w-full flex items-center justify-center gap-2 py-3 mt-auto rounded-xl border-2 border-dashed border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-400 transition-colors text-[13px] font-bold group"
+              >
+                <Plus size={16} className="group-hover:scale-110 transition-transform" />
+                Thêm hàng tạp hóa mới
+              </button>
+            </div>
+
+            {/* Vegetable Products */}
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
+                <h3 className="text-[15px] font-bold text-slate-800 flex items-center gap-2">
+                  <Leaf size={18} className="text-emerald-500" />
+                  Hàng vựa rau
+                </h3>
+                <span className="text-[12px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full tabular-nums">
+                  {processedProducts.filter((p: any) => p.category === 'vegetable').length}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1.5 mb-4 flex-1">
+                {processedProducts.filter((p: any) => p.category === 'vegetable').map((p: any) => renderProductRow(p, true))}
+                {processedProducts.filter((p: any) => p.category === 'vegetable').length === 0 && (
+                  <div className="py-8 text-center bg-white border border-dashed border-slate-200 rounded-xl">
+                    <span className="text-[13px] text-muted-foreground italic">Không có kết quả nào.</span>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setProductDialog({ isOpen: true, defaultCategory: 'vegetable', mode: 'add' })}
+                className="w-full flex items-center justify-center gap-2 py-3 mt-auto rounded-xl border-2 border-dashed border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-400 transition-colors text-[13px] font-bold group"
+              >
+                <Plus size={16} className="group-hover:scale-110 transition-transform" />
+                Thêm hàng vựa rau mới
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <InputDialog
-        isOpen={productDialogOpen}
-        title="Thêm Hàng Hóa Mới"
+        isOpen={productDialog.isOpen}
+        defaultCategory={productDialog.defaultCategory}
+        initialName={productDialog.initialName}
+        initialPrice={productDialog.initialPrice}
+        title={productDialog.mode === 'edit' ? "Sửa Hàng Hóa" : "Thêm Hàng Hóa Mới"}
         placeholder="VD: Cà chua Đài Loan"
-        onClose={() => setProductDialogOpen(false)}
-        onSubmit={handleAddProduct}
-        isSubmitting={createProduct.isPending}
+        onClose={() => setProductDialog(prev => ({ ...prev, isOpen: false }))}
+        onSubmit={handleDialogSubmit}
+        isSubmitting={createProduct.isPending || updateProduct.isPending}
       />
-      
-      <InputDialog
-        isOpen={unitDialogOpen}
-        title="Thêm Đơn Vị Tính"
-        placeholder="VD: Két"
-        onClose={() => setUnitDialogOpen(false)}
-        onSubmit={handleAddUnit}
-        isSubmitting={createUnit.isPending}
+
+      <BulkEditDialog
+        isOpen={bulkEditOpen}
+        selectedCount={selectedProducts.length}
+        onClose={() => setBulkEditOpen(false)}
+        onSubmit={handleBulkEditSubmit}
+        isSubmitting={isBulkEditing}
       />
 
       <ConfirmDialog
-        isOpen={deleteConfirm.isOpen}
-        title={deleteConfirm.type === 'products' ? "Xóa Hàng Hóa" : "Xóa Đơn Vị Tính"}
-        message={deleteConfirm.type === 'products' 
-          ? `Bạn có chắc chắn muốn xóa ${selectedProducts.length} hàng hóa đã chọn? Thao tác này không thể hoàn tác.`
-          : `Bạn có chắc chắn muốn xóa ${selectedUnits.length} đơn vị tính đã chọn? Thao tác này không thể hoàn tác.`
-        }
+        isOpen={deleteConfirm}
+        title="Xóa Hàng Hóa"
+        message={`Bạn có chắc chắn muốn xóa ${selectedProducts.length} hàng hóa đã chọn? Thao tác này không thể hoàn tác.`}
         isLoading={isDeleting}
         onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteConfirm(prev => ({ ...prev, isOpen: false }))}
+        onCancel={() => setDeleteConfirm(false)}
       />
+
+      <MobileFilterSheet
+        isOpen={isFilterOpen}
+        isClosing={isFilterClosing}
+        onClose={closeFilter}
+        onApply={() => setSortBy(draftSortBy)}
+        initialDateFrom=""
+        initialDateTo=""
+        hideDateFilter={true}
+      >
+        <div className="space-y-1.5 z-10 w-full mt-2">
+          <label className="text-[12px] uppercase tracking-wider font-bold text-slate-500">Sắp xếp theo</label>
+          <div className="flex flex-col gap-1.5">
+            {[
+              { value: 'nameAsc', label: 'Tên (A-Z)' },
+              { value: 'nameDesc', label: 'Tên (Z-A)' },
+              { value: 'priceAsc', label: 'Giá (Thấp - Cao)' },
+              { value: 'priceDesc', label: 'Giá (Cao - Thấp)' }
+            ].map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setDraftSortBy(opt.value as any)}
+                className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-[13px] font-bold transition-all ${
+                  draftSortBy === opt.value
+                    ? 'bg-primary text-white border-primary shadow-sm'
+                    : 'bg-white border-border text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <span>{opt.label}</span>
+                {draftSortBy === opt.value && <Check size={16} className="text-white" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      </MobileFilterSheet>
     </div>
   );
 };
 
 export default WarehouseSettingsPage;
+

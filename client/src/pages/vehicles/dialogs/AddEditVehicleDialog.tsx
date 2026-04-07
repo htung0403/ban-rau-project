@@ -5,9 +5,10 @@ import { clsx } from 'clsx';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useCreateVehicle } from '../../../hooks/queries/useVehicles';
+import { useCreateVehicle, useUpdateVehicle } from '../../../hooks/queries/useVehicles';
 import { useEmployees } from '../../../hooks/queries/useHR';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import type { Vehicle } from '../../../types';
 
 const vehicleSchema = z.object({
   license_plate: z.string().min(5, 'Biển số phải từ 5 ký tự'),
@@ -18,13 +19,15 @@ const vehicleSchema = z.object({
 type VehicleFormData = z.infer<typeof vehicleSchema>;
 
 interface Props {
+  vehicle?: Vehicle | null;
   isOpen: boolean;
   isClosing: boolean;
   onClose: () => void;
 }
 
-const AddEditVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, onClose }) => {
+const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onClose }) => {
   const createMutation = useCreateVehicle();
+  const updateMutation = useUpdateVehicle();
   const { data: employees } = useEmployees();
 
   const {
@@ -47,13 +50,21 @@ const AddEditVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, onClose }) =
 
   useEffect(() => {
     if (isOpen) {
-      reset({
-        license_plate: '',
-        vehicle_type: '',
-        driver_id: '',
-      });
+      if (vehicle) {
+        reset({
+          license_plate: vehicle.license_plate,
+          vehicle_type: vehicle.vehicle_type || '',
+          driver_id: vehicle.driver_id || '',
+        });
+      } else {
+        reset({
+          license_plate: '',
+          vehicle_type: '',
+          driver_id: '',
+        });
+      }
     }
-  }, [isOpen, reset]);
+  }, [isOpen, vehicle, reset]);
 
   const onSubmit = async (data: VehicleFormData) => {
     try {
@@ -62,7 +73,11 @@ const AddEditVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, onClose }) =
         vehicle_type: data.vehicle_type || undefined,
         driver_id: data.driver_id || undefined,
       };
-      await createMutation.mutateAsync(payload);
+      if (vehicle) {
+        await updateMutation.mutateAsync({ id: vehicle.id, payload });
+      } else {
+        await createMutation.mutateAsync(payload);
+      }
       onClose();
     } catch (error) {
       // Error handled by mutation
@@ -95,7 +110,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, onClose }) =
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
               <Car size={20} />
             </div>
-            <h2 className="text-lg font-bold text-foreground">Thêm xe mới</h2>
+            <h2 className="text-lg font-bold text-foreground">{vehicle ? 'Chỉnh sửa xe' : 'Thêm xe mới'}</h2>
           </div>
           <button
             onClick={onClose}
@@ -173,20 +188,20 @@ const AddEditVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, onClose }) =
           <button 
             type="submit"
             form="vehicle-form"
-            disabled={createMutation.isPending}
+            disabled={createMutation.isPending || updateMutation.isPending}
             className={clsx(
               "flex items-center gap-2 px-8 py-2 rounded-xl text-[13px] font-bold shadow-lg transition-all group",
-              createMutation.isPending 
+              (createMutation.isPending || updateMutation.isPending)
                 ? "bg-primary/50 text-white/60 cursor-wait" 
                 : "bg-primary text-white hover:bg-primary/90 shadow-primary/20"
             )}
           >
-            {createMutation.isPending ? (
+            {(createMutation.isPending || updateMutation.isPending) ? (
               <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <Plus size={18} />
             )}
-            Thêm mới
+            {vehicle ? 'Lưu thay đổi' : 'Thêm mới'}
             <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>

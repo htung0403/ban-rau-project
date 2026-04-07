@@ -74,9 +74,7 @@ export interface RoleSalary {
 // --- Products ---
 export interface Product {
   id: string;
-  sku: string;
   name: string;
-  unit: string;
   category?: string;
   base_price: number;
   description?: string;
@@ -93,6 +91,7 @@ export interface Customer {
   name: string;
   phone?: string;
   address?: string;
+  customer_type?: 'retail' | 'wholesale' | 'grocery' | 'vegetable';
   total_orders: number;
   total_revenue: number;
   debt: number;

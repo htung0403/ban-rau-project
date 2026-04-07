@@ -37,6 +37,19 @@ export function useCreateVehicle() {
   });
 }
 
+export function useUpdateVehicle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<Parameters<typeof vehiclesApi.update>[1]> }) =>
+      vehiclesApi.update(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.all });
+      toast.success('Cập nhật xe thành công');
+    },
+    onError: () => toast.error('Lỗi khi cập nhật xe'),
+  });
+}
+
 export function useCheckin() {
   const queryClient = useQueryClient();
   return useMutation({

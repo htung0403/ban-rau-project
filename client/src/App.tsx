@@ -27,7 +27,9 @@ import SalaryAdvancesPage from './pages/hr/SalaryAdvancesPage';
 import VehiclesPage from './pages/vehicles/VehiclesPage';
 import DriverCheckinPage from './pages/vehicles/DriverCheckinPage';
 import PaymentCollectionsPage from './pages/vehicles/payment-collections/PaymentCollectionsPage';
-import CustomersPage from './pages/customers/CustomersPage';
+import GroceryCustomersPage from './pages/customers/GroceryCustomersPage';
+import VegetableCustomersPage from './pages/customers/VegetableCustomersPage';
+import WholesaleCustomersPage from './pages/customers/WholesaleCustomersPage';
 import SalarySettingsPage from './pages/hr/SalarySettingsPage';
 import CustomerDetailPage from './pages/customers/CustomerDetailPage';
 import CustomerDebtPage from './pages/customers/CustomerDebtPage';
@@ -108,7 +110,9 @@ function AppRoutes() {
         {/* Ke toan module */}
         <Route path="/ke-toan">
           <Route index element={<ModulePage />} />
-          <Route path="khach-hang" element={<CustomersPage />} />
+          <Route path="khach-hang-tap-hoa" element={<GroceryCustomersPage />} />
+          <Route path="khach-hang-rau" element={<VegetableCustomersPage />} />
+          <Route path="vua-rau" element={<WholesaleCustomersPage />} />
           <Route path="khach-hang/:id" element={<CustomerDetailPage />} />
           <Route path="cong-no" element={<CustomerDebtPage />} />
           <Route path="doanh-thu" element={<RevenueReportPage />} />

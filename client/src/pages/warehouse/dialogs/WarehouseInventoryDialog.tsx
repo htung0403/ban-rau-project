@@ -28,8 +28,7 @@ const WarehouseInventoryDialog: React.FC<Props> = ({ isOpen, isClosing, onClose,
   if (!isOpen && !isClosing) return null;
 
   const filteredInventory = inventory?.filter((item: any) =>
-    item.products?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.products?.sku.toLowerCase().includes(searchQuery.toLowerCase())
+    item.products?.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return createPortal(
@@ -107,9 +106,7 @@ const WarehouseInventoryDialog: React.FC<Props> = ({ isOpen, isClosing, onClose,
                       <Box size={18} />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-primary tracking-wider uppercase">{item.products?.sku}</span>
-                      </div>
+
                       <h4 className="text-[13px] font-bold text-foreground line-clamp-1">{item.products?.name}</h4>
                     </div>
                   </div>
@@ -117,7 +114,6 @@ const WarehouseInventoryDialog: React.FC<Props> = ({ isOpen, isClosing, onClose,
                     <div className="text-[16px] font-black text-foreground">
                       {item.quantity}
                     </div>
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase">{item.products?.unit}</div>
                   </div>
                 </div>
               ))

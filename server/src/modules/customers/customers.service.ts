@@ -1,8 +1,12 @@
 import { supabaseService } from '../../config/supabase';
 
 export class CustomerService {
-  static async getAll() {
-    const { data, error } = await supabaseService.from('customers').select('*');
+  static async getAll(type?: string) {
+    let query = supabaseService.from('customers').select('*');
+    if (type) {
+      query = query.eq('customer_type', type);
+    }
+    const { data, error } = await query;
     if (error) throw error;
     return data;
   }

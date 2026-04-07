@@ -4,17 +4,17 @@ import toast from 'react-hot-toast';
 
 export const customerKeys = {
   all: ['customers'] as const,
-  list: () => [...customerKeys.all, 'list'] as const,
+  list: (type?: string) => [...customerKeys.all, 'list', type] as const,
   detail: (id: string) => [...customerKeys.all, 'detail', id] as const,
   orders: (id: string) => [...customerKeys.all, 'orders', id] as const,
   exportOrders: (id: string) => [...customerKeys.all, 'export-orders', id] as const,
   receipts: (id: string) => [...customerKeys.all, 'receipts', id] as const,
 };
 
-export function useCustomers(enabled = true) {
+export function useCustomers(type?: string, enabled = true) {
   return useQuery({
-    queryKey: customerKeys.list(),
-    queryFn: () => customersApi.getAll(),
+    queryKey: customerKeys.list(type),
+    queryFn: () => customersApi.getAll(type),
     enabled,
   });
 }

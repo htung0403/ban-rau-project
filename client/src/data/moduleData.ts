@@ -19,7 +19,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
         { icon: Upload, title: 'Xuất hàng', description: 'Quản lý phiếu xuất kho.', colorScheme: 'red', path: '/hang-hoa/xuat-hang' },
         { icon: Download, title: 'Nhập hàng', description: 'Quản lý phiếu nhập kho.', colorScheme: 'green', path: '/hang-hoa/nhap-hang' },
         { icon: DeliveryIcon, title: 'Hàng cần giao', description: 'Danh sách các đơn hàng cần giao.', colorScheme: 'orange', path: '/hang-hoa/giao-hang' },
-        { icon: Settings2, title: 'Cài đặt hàng hóa', description: 'Xem dữ liệu từ điển hàng hóa và đơn vị.', colorScheme: 'slate', path: '/hang-hoa/cai-dat' },
+        { icon: Settings2, title: 'Cài đặt hàng hóa', description: 'Xem dữ liệu từ điển hàng hóa.', colorScheme: 'slate', path: '/hang-hoa/cai-dat' },
       ]
     },
     {
@@ -49,8 +49,10 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
     {
       section: 'Kế toán',
       items: [
-        { icon: Users, title: 'Danh sách KH', description: 'Quản lý danh sách khách hàng.', colorScheme: 'blue', path: '/ke-toan/khach-hang' },
-        { icon: Banknote, title: 'Công nợ KH', description: 'Theo dõi công nợ khách hàng.', colorScheme: 'green', path: '/ke-toan/cong-no' },
+        { icon: Users, title: 'Danh sách KH Tạp hóa', description: 'Quản lý khách hàng tạp hóa.', colorScheme: 'blue', path: '/ke-toan/khach-hang-tap-hoa' },
+        { icon: Users, title: 'Danh sách KH Rau', description: 'Quản lý khách hàng rau.', colorScheme: 'green', path: '/ke-toan/khach-hang-rau' },
+        { icon: Users, title: 'Danh sách Vựa', description: 'Quản lý vựa.', colorScheme: 'emerald', path: '/ke-toan/vua-rau' },
+        { icon: Banknote, title: 'Công nợ KH', description: 'Theo dõi công nợ khách hàng.', colorScheme: 'orange', path: '/ke-toan/cong-no' },
         { icon: FileText, title: 'Báo cáo doanh thu', description: 'Báo cáo doanh thu theo ngày.', colorScheme: 'purple', path: '/ke-toan/doanh-thu' },
       ]
     }

@@ -7,6 +7,7 @@ const createCustomerSchema = z.object({
   name: z.string().min(1),
   phone: z.string().optional(),
   address: z.string().optional(),
+  customer_type: z.enum(['retail', 'wholesale', 'grocery', 'vegetable']).default('retail'),
   user_id: z.string().uuid().optional(),
 });
 
@@ -27,7 +28,8 @@ const createAccountSchema = z.object({
 export class CustomerController {
   static async getAll(req: Request, res: Response) {
     try {
-      const data = await CustomerService.getAll();
+      const type = req.query.type as string | undefined;
+      const data = await CustomerService.getAll(type);
       return res.status(200).json(successResponse(data));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));

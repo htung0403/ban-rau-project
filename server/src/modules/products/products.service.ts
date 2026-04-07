@@ -5,6 +5,7 @@ export class ProductService {
     const { data, error } = await supabaseService
       .from('products')
       .select('*')
+      .eq('is_active', true)
       .order('name', { ascending: true });
 
     if (error) throw error;
@@ -48,13 +49,10 @@ export class ProductService {
   static async delete(id: string) {
     const { error } = await supabaseService
       .from('products')
-      .delete()
+      .update({ is_active: false })
       .eq('id', id);
 
     if (error) {
-      if (error.code === '23503') {
-        throw new Error('Dữ liệu này đang được nằm trong các Đơn Nhập/Xuất kho nên không thể xóa.');
-      }
       throw error;
     }
   }

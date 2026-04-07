@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X, Car, User, Package, MapPin, Navigation } from 'lucide-react';
+import { X, Car, User, Package, MapPin, Navigation, Edit2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useVehicleAssignments, useVehicleCheckins } from '../../../hooks/queries/useVehicles';
 import type { Vehicle } from '../../../types';
@@ -11,9 +11,10 @@ interface Props {
   isOpen: boolean;
   isClosing: boolean;
   onClose: () => void;
+  onEdit?: (vehicle: Vehicle) => void;
 }
 
-const VehicleDetailsDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onClose }) => {
+const VehicleDetailsDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onClose, onEdit }) => {
   const { data: assignments, isLoading: assignmentsLoading } = useVehicleAssignments(vehicle?.id);
   const { data: checkins, isLoading: checkinsLoading } = useVehicleCheckins(vehicle?.id || '');
 
@@ -205,7 +206,16 @@ const VehicleDetailsDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
         </div>
 
         {/* Footer */}
-        <div className="bg-white border-t border-slate-100 px-6 py-4 flex items-center justify-end shrink-0">
+        <div className="bg-white border-t border-slate-100 px-6 py-4 flex items-center justify-end gap-3 shrink-0">
+          {onEdit && vehicle && (
+            <button
+              onClick={() => onEdit(vehicle)}
+              className="px-6 py-2.5 rounded-2xl bg-primary/10 hover:bg-primary/20 text-primary text-[13px] font-extrabold transition-all flex items-center gap-2"
+            >
+              <Edit2 size={16} />
+              Chỉnh sửa
+            </button>
+          )}
           <button
             onClick={onClose}
             className="px-6 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[13px] font-extrabold transition-all"

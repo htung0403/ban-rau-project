@@ -7,7 +7,7 @@ const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 async function run() {
   try {
-    const sqlPath = path.resolve(__dirname, '../database/migrations/23_create_units_table.sql');
+    const sqlPath = path.resolve(__dirname, '../database/migrations/27_add_receipt_image.sql');
     const sql = fs.readFileSync(sqlPath, 'utf8');
     
     // Attempt to run the SQL via exec_sql

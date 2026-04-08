@@ -1,7 +1,7 @@
 import { supabaseService } from '../../config/supabase';
 export class ExportOrderService {
   static async getAll(filters: any) {
-    let query = supabaseService.from('export_orders').select('*, profiles(full_name), customers(id, name, debt), products(name)');
+    let query = supabaseService.from('export_orders').select('*, profiles(full_name), customers(id, name, debt)');
     
     if (filters.date) query = query.eq('export_date', filters.date);
     if (filters.customer_id) query = query.eq('customer_id', filters.customer_id);

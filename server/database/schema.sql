@@ -135,8 +135,10 @@ CREATE TABLE public.vegetable_order_items (
 CREATE TABLE public.export_orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   export_date DATE NOT NULL,
-  item_name VARCHAR(255) NOT NULL,
-  quantity INTEGER NOT NULL,
+  export_time TEXT,
+  product_id TEXT,                                -- delivery_order_id reference (no FK)
+  product_name TEXT,
+  quantity NUMERIC(10,2) NOT NULL,
   customer_id UUID REFERENCES public.customers(id),
   debt_amount NUMERIC(15,2) DEFAULT 0,
   payment_status VARCHAR(20) DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid','partial','paid')),

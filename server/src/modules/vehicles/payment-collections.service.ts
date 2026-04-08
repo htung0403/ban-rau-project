@@ -171,6 +171,7 @@ export class PaymentCollectionsService {
     // update debt
     await this.updateCustomerDebt(pc.customer_id, pc.collected_amount, pc.id);
     await this.updateImportOrderPaidAmount(pc.delivery_order_id, pc.collected_amount);
+    await this.updateExportOrderPaymentStatus(pc.delivery_order_id, pc.collected_amount);
 
     return this.getPaymentCollectionById(id);
   }
@@ -197,6 +198,7 @@ export class PaymentCollectionsService {
     // update debt
     await this.updateCustomerDebt(pc.customer_id, pc.collected_amount, pc.id);
     await this.updateImportOrderPaidAmount(pc.delivery_order_id, pc.collected_amount);
+    await this.updateExportOrderPaymentStatus(pc.delivery_order_id, pc.collected_amount);
 
     return this.getPaymentCollectionById(id);
   }
@@ -295,6 +297,37 @@ export class PaymentCollectionsService {
       await supabaseService.from(tName)
         .update({ paid_amount: Number(ioData.paid_amount || 0) + collectedAmount })
         .eq('id', orderId);
+    }
+  }
+
+  private static async updateExportOrderPaymentStatus(deliveryOrderId: string, collectedAmount: number) {
+    if (!deliveryOrderId) return;
+
+    // Tìm phiếu xuất có product_id = delivery_order_id
+    const { data: exportOrders } = await supabaseService
+      .from('export_orders')
+      .select('id, debt_amount, paid_amount')
+      .eq('product_id', deliveryOrderId);
+
+    if (!exportOrders || exportOrders.length === 0) return;
+
+    for (const eo of exportOrders) {
+      const newPaidAmount = Number(eo.paid_amount || 0) + collectedAmount;
+      const debtAmount = Number(eo.debt_amount || 0);
+      let paymentStatus = 'unpaid';
+      if (newPaidAmount >= debtAmount && debtAmount > 0) {
+        paymentStatus = 'paid';
+      } else if (newPaidAmount > 0) {
+        paymentStatus = 'partial';
+      }
+
+      await supabaseService
+        .from('export_orders')
+        .update({
+          paid_amount: newPaidAmount,
+          payment_status: paymentStatus,
+        })
+        .eq('id', eo.id);
     }
   }
 

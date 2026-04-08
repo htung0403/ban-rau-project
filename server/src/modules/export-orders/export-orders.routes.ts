@@ -8,7 +8,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get('/', ExportOrderController.getAll);
-router.post('/', requireRole('admin', 'manager', 'staff'), ExportOrderController.create);
+router.post('/', requireRole('admin', 'manager', 'staff', 'driver'), ExportOrderController.create);
 router.put('/:id/payment', requireRole('admin', 'manager', 'staff'), ExportOrderController.updatePayment);
 
 export default router;

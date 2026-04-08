@@ -5,9 +5,10 @@ import { z } from 'zod';
 
 const exportOrderSchema = z.object({
   export_date: z.string().min(1, 'Ngày xuất không được để trống'),
-  product_id: z.string().uuid('Hàng hóa không hợp lệ'),
-  warehouse_id: z.string().uuid('Kho không hợp lệ'),
-  quantity: z.number().int().positive('Số lượng phải lớn hơn 0'),
+  export_time: z.string().optional(),
+  product_id: z.string().min(1, 'Hàng hóa không hợp lệ'),
+  product_name: z.string().optional(),
+  quantity: z.number().positive('Số lượng phải lớn hơn 0'),
   customer_id: z.string().uuid('Khách hàng không hợp lệ'),
   debt_amount: z.number().min(0, 'Công nợ không được âm').optional(),
   payment_status: z.enum(['unpaid', 'partial', 'paid']).optional(),

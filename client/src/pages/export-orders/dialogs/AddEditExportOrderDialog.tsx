@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Package, User, DollarSign, Plus, ChevronRight } from 'lucide-react';
+import { X, Package, Plus, ChevronRight, Truck, User, Clock, Calendar, DollarSign, ShoppingBag } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,19 +8,23 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import { useCreateExportOrder } from '../../../hooks/queries/useExportOrders';
 import { useCustomers } from '../../../hooks/queries/useCustomers';
-import { useCreateProduct, useProducts } from '../../../hooks/queries/useProducts';
-import { useWarehouses } from '../../../hooks/queries/useWarehouses';
+import { useVehicles } from '../../../hooks/queries/useVehicles';
+import { useDeliveryOrders, useAssignVehicle } from '../../../hooks/queries/useDelivery';
+import { useAuth } from '../../../context/AuthContext';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import { CreatableSearchableSelect } from '../../../components/ui/CreatableSearchableSelect';
 import CurrencyInput from '../../../components/shared/CurrencyInput';
+import { DatePicker } from '../../../components/shared/DatePicker';
+import { TimePicker24h } from '../../../components/shared/TimePicker24h';
 
 const exportOrderSchema = z.object({
   export_date: z.string().min(1, 'Ngày xuất không được để trống'),
-  product_id: z.string().min(1, 'Vui lòng chọn hàng hóa'),
-  warehouse_id: z.string().min(1, 'Vui lòng chọn kho xuất'),
-  quantity: z.coerce.number().min(1, 'Số lượng phải lớn hơn 0'),
+  export_time: z.string().min(1, 'Vui lòng nhập giờ'),
+  vehicle_id: z.string().optional(),
+  delivery_staff: z.string().optional(),
   customer_id: z.string().min(1, 'Vui lòng chọn khách hàng'),
-  debt_amount: z.coerce.number().min(0, 'Công nợ không được âm'),
+  product_id: z.string().min(1, 'Vui lòng chọn hàng hóa'),
+  quantity: z.coerce.number().min(1, 'Số lượng phải lớn hơn 0'),
+  debt_amount: z.coerce.number().min(0, 'Thành tiền không được âm'),
 });
 
 type ExportOrderFormData = z.infer<typeof exportOrderSchema>;
@@ -31,15 +35,54 @@ interface Props {
   onClose: () => void;
 }
 
+const formatCurrency = (val?: number) => {
+  if (val == null || val === 0) return '0';
+  return new Intl.NumberFormat('vi-VN').format(val);
+};
+
 const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose }) => {
+  const { user } = useAuth();
   const createMutation = useCreateExportOrder();
-  const createProductMutation = useCreateProduct();
-  const { data: customers } = useCustomers();
-  const { data: products } = useProducts();
-  const { data: warehouses } = useWarehouses();
+  const assignVehicleMutation = useAssignVehicle();
+  const { data: customers } = useCustomers('grocery', isOpen);
+  const { data: vehicles } = useVehicles(isOpen);
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const { data: deliveryOrders } = useDeliveryOrders(today, today, 'standard');
+
+  const isDriver = user?.role === 'driver';
+  const myVehicle = vehicles?.find(v => v.driver_id === user?.id);
+
+  // Lọc khách tạp hóa (grocery)
+  const groceryCustomers = useMemo(() => {
+    return (customers || []).filter((c: any) => c.customer_type === 'grocery');
+  }, [customers]);
+
+  // Ref chống vòng lặp khi auto-set customer/product
+  const isAutoSettingRef = useRef(false);
+
+  // Lấy danh sách hàng cần giao hôm nay (kèm thông tin khách)
+  const todayDeliveryItems = useMemo(() => {
+    if (!deliveryOrders) return [];
+    return deliveryOrders.map((o: any) => {
+      const pName = o.product_name?.includes(' - ')
+        ? o.product_name.split(' - ').slice(1).join(' - ')
+        : o.product_name;
+      const customerName =
+        o.import_orders?.customers?.name
+        || o.import_orders?.receiver_name?.trim()
+        || o.import_orders?.profiles?.full_name
+        || '';
+      return {
+        id: o.id,
+        name: pName || 'N/A',
+        quantity: o.total_quantity || 0,
+        unitPrice: o.unit_price || 0,
+        customerName,
+      };
+    });
+  }, [deliveryOrders]);
 
   const {
-    register,
     handleSubmit,
     control,
     setValue,
@@ -49,74 +92,154 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
   } = useForm<ExportOrderFormData>({
     resolver: zodResolver(exportOrderSchema) as any,
     defaultValues: {
-      export_date: format(new Date(), 'yyyy-MM-dd'),
-      product_id: '',
-      warehouse_id: '',
-      quantity: 1,
+      export_date: today,
+      export_time: new Date().toTimeString().slice(0, 5),
+      vehicle_id: '',
+      delivery_staff: '',
       customer_id: '',
+      product_id: '',
+      quantity: 1,
       debt_amount: 0,
     },
   });
 
   const customerId = watch('customer_id');
   const productId = watch('product_id');
-  const warehouseId = watch('warehouse_id');
+  const quantity = watch('quantity');
+  const debtAmount = watch('debt_amount');
 
+  // Tìm tên khách đang chọn (để lọc sản phẩm)
+  const selectedCustomerName = useMemo(() => {
+    if (!customerId) return '';
+    return groceryCustomers.find((c: any) => c.id === customerId)?.name || '';
+  }, [customerId, groceryCustomers]);
+
+  // Danh sách sản phẩm đã lọc theo khách (nếu đã chọn khách trước)
+  const filteredProducts = useMemo(() => {
+    if (!selectedCustomerName) return todayDeliveryItems;
+    return todayDeliveryItems.filter(item => item.customerName === selectedCustomerName);
+  }, [todayDeliveryItems, selectedCustomerName]);
+
+  // Khi chọn hàng → tự động chọn khách tương ứng
+  useEffect(() => {
+    if (!productId || isAutoSettingRef.current) return;
+    const item = todayDeliveryItems.find(p => p.id === productId);
+    if (!item?.customerName) return;
+    // Tìm khách tạp hóa khớp tên
+    const matchedCustomer = groceryCustomers.find(
+      (c: any) => c.name === item.customerName
+    );
+    if (matchedCustomer && matchedCustomer.id !== customerId) {
+      isAutoSettingRef.current = true;
+      setValue('customer_id', matchedCustomer.id, { shouldValidate: true });
+      setTimeout(() => { isAutoSettingRef.current = false; }, 50);
+    }
+  }, [productId, todayDeliveryItems, groceryCustomers, customerId, setValue]);
+
+  // Khi đổi khách → reset hàng nếu hàng cũ không thuộc khách mới
+  useEffect(() => {
+    if (!customerId || isAutoSettingRef.current || !productId) return;
+    const selectedItem = todayDeliveryItems.find(p => p.id === productId);
+    const newCustomerName = groceryCustomers.find((c: any) => c.id === customerId)?.name || '';
+    if (selectedItem && selectedItem.customerName !== newCustomerName) {
+      setValue('product_id', '', { shouldValidate: false });
+    }
+  }, [customerId, productId, todayDeliveryItems, groceryCustomers, setValue]);
+
+  // Reset form when dialog opens
   useEffect(() => {
     if (isOpen) {
       reset({
-        export_date: format(new Date(), 'yyyy-MM-dd'),
-        product_id: '',
-        warehouse_id: '',
-        quantity: 1,
+        export_date: today,
+        export_time: new Date().toTimeString().slice(0, 5),
+        vehicle_id: myVehicle?.id || '',
+        delivery_staff: user?.id || '',
         customer_id: '',
+        product_id: '',
+        quantity: 1,
         debt_amount: 0,
       });
     }
-  }, [isOpen, reset]);
+  }, [isOpen, reset, myVehicle?.id, user?.id, today]);
 
-  // Auto-select first warehouse when list is available and none is selected
+  // Auto set vehicle and staff when driver logs in
   useEffect(() => {
-    if (isOpen && warehouses && warehouses.length > 0 && !warehouseId) {
-      setValue('warehouse_id', warehouses[0].id, { shouldValidate: true });
+    if (isOpen && myVehicle?.id) {
+      setValue('vehicle_id', myVehicle.id);
     }
-  }, [isOpen, warehouses, warehouseId, setValue]);
-
-  const handleCreateProduct = async (name: string) => {
-    try {
-      const resp = await createProductMutation.mutateAsync({
-        name,
-      });
-      
-      // Axios returns response with 'data'
-      // If server returns {success:true, data: {id:...}}
-      const newId = resp.data?.id || (resp as any).id;
-      if (newId) {
-        setValue('product_id', newId, { shouldValidate: true });
-      }
-    } catch (error) {
-      // Handled by mutation toast
+    if (isOpen && user?.id) {
+      setValue('delivery_staff', user.id);
     }
-  };
+  }, [isOpen, myVehicle?.id, user?.id, setValue]);
 
   const onSubmit = async (data: ExportOrderFormData) => {
     try {
+      const selectedItem = todayDeliveryItems.find(p => p.id === data.product_id);
       const payload = {
         export_date: data.export_date,
+        export_time: data.export_time,
         product_id: data.product_id,
-        warehouse_id: data.warehouse_id,
+        product_name: selectedItem?.name || '',
         quantity: Number(data.quantity),
         customer_id: data.customer_id,
         debt_amount: Number(data.debt_amount),
         payment_status: 'unpaid' as const,
         paid_amount: 0,
       };
-      await createMutation.mutateAsync(payload);
+      await createMutation.mutateAsync(payload as any);
+
+      // Tự động gán xe giao cho đơn delivery tương ứng
+      const deliveryOrderId = data.product_id; // product_id = delivery order ID
+      const deliveryOrder = deliveryOrders?.find((o: any) => o.id === deliveryOrderId);
+
+      if (deliveryOrder && myVehicle?.id && user?.id) {
+        const existingDvs = deliveryOrder.delivery_vehicles || [];
+        const assignPayload: any[] = [];
+
+        // Giữ nguyên các xe đã gán trước đó
+        existingDvs.forEach((dv: any) => {
+          assignPayload.push({
+            vehicle_id: dv.vehicle_id,
+            driver_id: dv.driver_id || '',
+            quantity: dv.assigned_quantity,
+            expected_amount: dv.expected_amount || (dv.assigned_quantity * (deliveryOrder.unit_price || 0)),
+          });
+        });
+
+        // Cộng dồn hoặc thêm mới cho xe của tài xế hiện tại
+        const myExistingIndex = assignPayload.findIndex((p: any) => p.vehicle_id === myVehicle.id);
+        const qty = Number(data.quantity);
+        if (myExistingIndex >= 0) {
+          assignPayload[myExistingIndex].quantity += qty;
+          assignPayload[myExistingIndex].expected_amount =
+            assignPayload[myExistingIndex].quantity * (deliveryOrder.unit_price || 0);
+        } else {
+          assignPayload.push({
+            vehicle_id: myVehicle.id,
+            driver_id: user.id,
+            quantity: qty,
+            expected_amount: qty * (deliveryOrder.unit_price || 0),
+          });
+        }
+
+        try {
+          await assignVehicleMutation.mutateAsync({
+            id: deliveryOrderId,
+            payload: assignPayload as any,
+          });
+        } catch {
+          // Phiếu xuất đã tạo thành công, lỗi gán xe không chặn luồng
+        }
+      }
+
       onClose();
     } catch (error) {
       // Error handled by mutation
     }
   };
+
+  // Tính thông tin hàng đã chọn
+  const selectedProduct = todayDeliveryItems.find(p => p.id === productId);
 
   if (!isOpen && !isClosing) return null;
 
@@ -134,159 +257,279 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
       {/* Panel */}
       <div
         className={clsx(
-          'relative w-full max-w-[600px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
+          'relative w-full max-w-[600px] bg-slate-50 shadow-2xl flex flex-col h-screen border-l border-border',
           isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
+        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 bg-white border-b border-border z-10 shadow-sm relative">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 shadow-inner">
               <Package size={20} />
             </div>
-            <h2 className="text-lg font-bold text-foreground">Thêm phiếu xuất</h2>
+            <div>
+              <h2 className="text-lg md:text-xl font-bold text-slate-800">Tạo Phiếu Xuất Hàng</h2>
+              <p className="text-[12px] font-medium text-slate-500">Giao hàng cho khách tạp hóa</p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors"
+            className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Form Body */}
-        <form id="export-order-form" onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* THÔNG TIN CHUNG */}
+        <form id="export-order-form" onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto custom-scrollbar p-3 md:p-6 space-y-4">
+          
+          {/* NGÀY GIỜ & THÔNG TIN XE */}
           <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
-              <Package size={16} className="text-primary" />
-              <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Thông tin chung</span>
+            <div className="px-5 py-3 border-b border-border bg-slate-50/80 flex items-center gap-2">
+              <Clock size={16} className="text-emerald-600" />
+              <span className="text-[12px] font-bold text-emerald-700 uppercase tracking-wider">Thông tin giao hàng</span>
             </div>
-            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5 md:col-span-2">
-                <label className="text-[13px] font-bold text-foreground">Ngày xuất <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    {...register('export_date')}
-                    className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+            <div className="p-4 md:p-5 space-y-4">
+              {/* Ngày & Giờ */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <Calendar size={12} />
+                    Ngày
+                  </label>
+                  <Controller
+                    name="export_date"
+                    control={control}
+                    render={({ field }) => (
+                      <DatePicker value={field.value} onChange={field.onChange} />
+                    )}
                   />
-                  {errors.export_date && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.export_date.message}</p>}
+                  {errors.export_date && <p className="text-red-500 text-[11px] font-medium">{errors.export_date.message}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <Clock size={12} />
+                    Giờ
+                  </label>
+                  <Controller
+                    name="export_time"
+                    control={control}
+                    render={({ field }) => (
+                      <TimePicker24h value={field.value} onChange={field.onChange} />
+                    )}
+                  />
+                  {errors.export_time && <p className="text-red-500 text-[11px] font-medium">{errors.export_time.message}</p>}
                 </div>
               </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <label className="text-[13px] font-bold text-foreground">Hàng xuất <span className="text-red-500">*</span></label>
-                <CreatableSearchableSelect
-                  options={(products || []).map((p: any) => ({ 
-                    value: p.id, 
-                    label: `${p.name}` 
-                  }))}
-                  value={productId}
-                  onValueChange={(val) => setValue('product_id', val, { shouldValidate: true })}
-                  onCreate={handleCreateProduct}
-                  placeholder="Chọn hoặc nhập tên hàng mới..."
-                  searchPlaceholder="Tìm kiếm hoặc gõ tên món hàng..."
-                />
-                {errors.product_id && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.product_id.message}</p>}
+
+              {/* Số xe (tự động) */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <Truck size={12} />
+                  Số xe
+                  {isDriver && <span className="text-[9px] text-emerald-600 normal-case ml-1">(tự động)</span>}
+                </label>
+                <div className={clsx(
+                  "w-full px-3 py-2.5 rounded-xl text-[13px] font-semibold border",
+                  myVehicle 
+                    ? "bg-blue-50 border-blue-200 text-blue-800" 
+                    : "bg-slate-50 border-border text-slate-400"
+                )}>
+                  <div className="flex items-center gap-2">
+                    <Truck size={15} className={myVehicle ? "text-blue-500" : "text-slate-400"} />
+                    {myVehicle ? myVehicle.license_plate : 'Chưa gắn xe'}
+                  </div>
+                </div>
               </div>
 
-              {/* Tạm ẩn phần kho xuất */}
-              {/* 
-              <div className="space-y-1.5 md:col-span-2">
-                <label className="text-[13px] font-bold text-foreground">Kho xuất <span className="text-red-500">*</span></label>
-                <select {...register('warehouse_id')} className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all">
-                  <option value="">Chọn kho xuất...</option>
-                  {(warehouses || []).map((w: any) => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
-                  ))}
-                </select>
-                {errors.warehouse_id && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.warehouse_id.message}</p>}
-              </div>
-              */}
-              <div className="space-y-1.5 md:col-span-2">
-                <label className="text-[13px] font-bold text-foreground">Số lượng <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="1"
-                    {...register('quantity')}
-                    className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
-                  />
-                  {errors.quantity && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.quantity.message}</p>}
+              {/* Nhân viên giao hàng (tự động) */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <User size={12} />
+                  Nhân viên giao hàng
+                  <span className="text-[9px] text-emerald-600 normal-case ml-1">(tự động)</span>
+                </label>
+                <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[13px] font-semibold text-amber-800">
+                  <div className="flex items-center gap-2">
+                    <User size={15} className="text-amber-500" />
+                    {user?.full_name || 'Đang đăng nhập...'}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* KHÁCH HÀNG & CÔNG NỢ */}
+          {/* KHÁCH HÀNG & HÀNG HÓA */}
           <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
-              <User size={16} className="text-primary" />
-              <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Khách hàng & Công nợ</span>
+            <div className="px-5 py-3 border-b border-border bg-slate-50/80 flex items-center gap-2">
+              <ShoppingBag size={16} className="text-emerald-600" />
+              <span className="text-[12px] font-bold text-emerald-700 uppercase tracking-wider">Khách hàng & Hàng hóa</span>
             </div>
-            <div className="p-5 grid grid-cols-1 gap-4">
+            <div className="p-4 md:p-5 space-y-4">
+              {/* Tên khách */}
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Khách hàng <span className="text-red-500">*</span></label>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Tên khách <span className="text-red-500">*</span>
+                </label>
                 <SearchableSelect
-                  options={(customers || []).map(c => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}` }))}
+                  options={groceryCustomers.map((c: any) => ({
+                    value: c.id,
+                    label: `${c.name}${c.phone ? ` (${c.phone})` : ''}`,
+                  }))}
                   value={customerId}
                   onValueChange={(val) => setValue('customer_id', val, { shouldValidate: true })}
-                  placeholder="Chọn khách hàng..."
+                  placeholder="Chọn khách tạp hóa..."
                 />
-                {errors.customer_id && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.customer_id.message}</p>}
+                {errors.customer_id && <p className="text-red-500 text-[11px] font-medium">{errors.customer_id.message}</p>}
               </div>
 
+              {/* Tên hàng */}
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Ghi nợ hiện tại (VNĐ)</label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
-                  <Controller
-                    name="debt_amount"
-                    control={control}
-                    render={({ field }) => (
-                      <CurrencyInput
-                        {...field}
-                        value={field.value as number | undefined}
-                        onChange={field.onChange}
-                        placeholder="0"
-                        className="w-full pl-10 pr-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
-                      />
-                    )}
-                  />
-                  {errors.debt_amount && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.debt_amount.message}</p>}
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Tên hàng <span className="text-red-500">*</span>
+                  <span className="text-[9px] text-slate-400 normal-case ml-1">(hàng cần giao hôm nay)</span>
+                </label>
+                <SearchableSelect
+                  options={filteredProducts.map(p => ({
+                    value: p.id,
+                    label: `${p.name} (SL: ${p.quantity.toLocaleString('vi-VN')})`,
+                  }))}
+                  value={productId}
+                  onValueChange={(val) => setValue('product_id', val, { shouldValidate: true })}
+                  placeholder={selectedCustomerName ? `Hàng của ${selectedCustomerName}...` : 'Chọn hàng cần giao...'}
+                />
+                {errors.product_id && <p className="text-red-500 text-[11px] font-medium">{errors.product_id.message}</p>}
+                {todayDeliveryItems.length === 0 && (
+                  <p className="text-amber-600 text-[11px] font-medium bg-amber-50 px-2 py-1 rounded-lg">
+                    ⚠ Chưa có hàng cần giao hôm nay
+                  </p>
+                )}
+                {selectedCustomerName && filteredProducts.length === 0 && todayDeliveryItems.length > 0 && (
+                  <p className="text-amber-600 text-[11px] font-medium bg-amber-50 px-2 py-1 rounded-lg">
+                    ⚠ Khách <span className="font-bold">{selectedCustomerName}</span> chưa có hàng cần giao hôm nay
+                  </p>
+                )}
+              </div>
+
+              {/* Số lượng */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Số lượng <span className="text-red-500">*</span>
+                </label>
+                <Controller
+                  name="quantity"
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      value={field.value}
+                      onChange={field.onChange}
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold tabular-nums"
+                      placeholder="Nhập số lượng..."
+                    />
+                  )}
+                />
+                {errors.quantity && <p className="text-red-500 text-[11px] font-medium">{errors.quantity.message}</p>}
+                {selectedProduct && (
+                  <p className="text-[11px] text-slate-500">
+                    SL tổng cần giao: <span className="font-bold text-slate-700">{selectedProduct.quantity.toLocaleString('vi-VN')}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Thành tiền */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <DollarSign size={12} />
+                  Thành tiền (VNĐ)
+                </label>
+                <Controller
+                  name="debt_amount"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      {...field}
+                      value={field.value as number | undefined}
+                      onChange={field.onChange}
+                      placeholder="0"
+                      className="w-full px-3 py-2.5 bg-slate-50 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold tabular-nums text-emerald-700"
+                    />
+                  )}
+                />
+                {errors.debt_amount && <p className="text-red-500 text-[11px] font-medium">{errors.debt_amount.message}</p>}
+                {/* <p className="text-[11px] text-slate-400">Sẽ tự động cộng dồn vào tổng công nợ của khách hàng</p> */}
+              </div>
+            </div>
+          </div>
+
+          {/* SUMMARY CARD */}
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200 shadow-sm overflow-hidden">
+            <div className="p-4 md:p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                  <Package size={13} className="text-emerald-600" />
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1">Sẽ tự động cộng dồn vào tổng công nợ của khách hàng này</p>
+                <span className="text-[12px] font-bold text-emerald-700 uppercase tracking-wider">Tóm tắt</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[12px] text-slate-500">Khách hàng</span>
+                  <span className="text-[13px] font-bold text-slate-700">
+                    {groceryCustomers.find((c: any) => c.id === customerId)?.name || '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[12px] text-slate-500">Hàng hóa</span>
+                  <span className="text-[13px] font-bold text-slate-700">
+                    {selectedProduct?.name || '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[12px] text-slate-500">Số lượng</span>
+                  <span className="text-[13px] font-bold text-slate-700 tabular-nums">
+                    {Number(quantity) > 0 ? Number(quantity).toLocaleString('vi-VN') : '—'}
+                  </span>
+                </div>
+                <div className="h-px bg-emerald-200/60 my-1" />
+                <div className="flex justify-between items-center">
+                  <span className="text-[13px] font-bold text-emerald-700">Thành tiền</span>
+                  <span className="text-[15px] font-black text-emerald-700 tabular-nums">
+                    {Number(debtAmount) > 0 ? `${formatCurrency(Number(debtAmount))} ₫` : '0 ₫'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </form>
 
         {/* Footer */}
-        <div className="bg-white border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-white border-t border-border px-4 md:px-6 py-3 md:py-4 flex items-center justify-between shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2 rounded-xl border border-border hover:bg-muted text-foreground text-[13px] font-bold transition-all"
+            className="px-6 py-2.5 rounded-xl border border-border hover:bg-muted text-foreground text-[13px] font-bold transition-all"
           >
             Hủy
           </button>
-          <button 
+          <button
             type="submit"
             form="export-order-form"
-            disabled={createMutation.isPending}
+            disabled={createMutation.isPending || assignVehicleMutation.isPending}
             className={clsx(
-              "flex items-center gap-2 px-8 py-2 rounded-xl text-[13px] font-bold shadow-lg transition-all group",
-              createMutation.isPending 
-                ? "bg-primary/50 text-white/60 cursor-wait" 
-                : "bg-primary text-white hover:bg-primary/90 shadow-primary/20"
+              "flex items-center gap-2 px-8 py-2.5 rounded-xl text-[13px] font-bold shadow-lg transition-all group",
+              (createMutation.isPending || assignVehicleMutation.isPending)
+                ? "bg-emerald-400/50 text-white/60 cursor-wait"
+                : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20 active:scale-[0.98]"
             )}
           >
-            {createMutation.isPending ? (
+            {(createMutation.isPending || assignVehicleMutation.isPending) ? (
               <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <Plus size={18} />
             )}
-            Thêm mới
+            Thêm Phiếu Xuất
             <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>

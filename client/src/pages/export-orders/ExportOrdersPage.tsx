@@ -47,7 +47,7 @@ const ExportOrdersPage: React.FC = () => {
   const filteredOrders = (orders || []).filter((o) => {
     if (searchText.trim()) {
       const q = searchText.toLowerCase();
-      if (!o.products?.name?.toLowerCase().includes(q)) {
+      if (!(o as any).product_name?.toLowerCase().includes(q)) {
         return false;
       }
     }
@@ -151,10 +151,11 @@ const ExportOrdersPage: React.FC = () => {
               <thead className="sticky top-0 z-10">
                 <tr className="bg-muted/30 border-b border-border">
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Ngày</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Giờ</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Khách hàng</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Mặt hàng</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">SL</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Công nợ</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Đã trả</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Số tiền</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Thanh toán</th>
                 </tr>
               </thead>
@@ -162,10 +163,11 @@ const ExportOrdersPage: React.FC = () => {
                 {filteredOrders.map((o) => (
                   <tr key={o.id} className="hover:bg-muted/20 transition-colors">
                     <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{o.export_date}</td>
-                    <td className="px-4 py-3 text-[13px] font-bold text-foreground">{o.products?.name}</td>
+                    <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{(o as any).export_time || '—'}</td>
+                    <td className="px-4 py-3 text-[13px] font-semibold text-foreground">{(o as any).customers?.name || '—'}</td>
+                    <td className="px-4 py-3 text-[13px] font-bold text-foreground">{(o as any).product_name}</td>
                     <td className="px-4 py-3 text-[13px] font-bold text-foreground text-right tabular-nums">{o.quantity}</td>
-                    <td className="px-4 py-3 text-[13px] font-bold text-red-600 text-right tabular-nums">{formatCurrency(o.debt_amount)}</td>
-                    <td className="px-4 py-3 text-[13px] font-bold text-emerald-600 text-right tabular-nums">{formatCurrency(o.paid_amount)}</td>
+                    <td className="px-4 py-3 text-[13px] font-bold text-primary text-right tabular-nums">{formatCurrency(o.debt_amount)}</td>
                     <td className="px-4 py-3 text-center"><StatusBadge status={o.payment_status} label={paymentLabels[o.payment_status]} /></td>
                   </tr>
                 ))}
@@ -183,9 +185,10 @@ const ExportOrdersPage: React.FC = () => {
                 <div className="flex items-start justify-between">
                    <div className="flex flex-col">
                       <span className="text-[14px] font-bold flex items-center gap-2">
-                        <span className="text-foreground">{o.products?.name}</span>
+                        <span className="text-foreground">{(o as any).product_name}</span>
                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted px-1.5 py-0.5 rounded">SL: {o.quantity}</span>
-                      </span>                     
+                      </span>
+                      <span className="text-[12px] font-semibold text-slate-600 mt-0.5">{(o as any).customers?.name || '—'}</span>
                       <span className="text-[11px] text-muted-foreground mt-0.5 tabular-nums">{o.export_date}</span>
                    </div>
                    <StatusBadge status={o.payment_status} label={paymentLabels[o.payment_status]} />
@@ -193,16 +196,9 @@ const ExportOrdersPage: React.FC = () => {
 
                 <div className="flex items-center justify-between pt-2 border-t border-border/50">
                    <div className="flex flex-col">
-                     <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Công nợ</span>
-                     <span className="text-[13px] font-bold text-red-600 tabular-nums">
+                     <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Số tiền</span>
+                     <span className="text-[13px] font-bold text-primary tabular-nums">
                       {formatCurrency(o.debt_amount)}
-                    </span>
-                   </div>
-
-                   <div className="flex flex-col items-end">
-                     <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Đã trả</span>
-                     <span className="text-[13px] font-bold text-emerald-600 tabular-nums">
-                      {formatCurrency(o.paid_amount)}
                     </span>
                    </div>
                 </div>

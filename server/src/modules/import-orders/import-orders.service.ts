@@ -129,13 +129,14 @@ export class ImportOrderService {
         license_plate: mainData.license_plate,
         driver_name: mainData.driver_name,
         supplier_name: mainData.supplier_name,
+        sender_name: mainData.sender_name,
         receiver_name: mainData.receiver_name,
         sheet_number: mainData.sheet_number,
         customer_id: mainData.customer_id,
         is_custom_amount: mainData.is_custom_amount || false,
         total_amount: mainData.total_amount,
         receipt_image_url: mainData.receipt_image_url,
-        debt_amount: mainData.total_amount
+        payment_status: mainData.payment_status || 'unpaid',
       })
       .select()
       .single();
@@ -177,23 +178,6 @@ export class ImportOrderService {
         if (doError) console.error("Failed to auto-create delivery orders:", doError);
       }
 
-      // Handle "paid" status directly from form
-      const formPaymentStatus = items[0]?.payment_status === 'paid';
-      if (formPaymentStatus) {
-         const { error: rpcError } = await supabaseService.rpc('mark_order_paid', { p_order_id: (order as any).id, p_is_veg: isVeg });
-         if (rpcError) {
-             // Fallback
-             const { data: currentOrder } = await supabaseService.from(tName).select('total_amount').eq('id', (order as any).id).single();
-             if (currentOrder && Number(currentOrder.total_amount) > 0) {
-               await supabaseService.from(tName).update({ paid_amount: currentOrder.total_amount }).eq('id', (order as any).id);
-             }
-         }
-      }
-
-      // Re-apply custom amount after trigger overrides it
-      if (mainData.is_custom_amount && mainData.total_amount !== undefined) {
-         await supabaseService.from(tName).update({ total_amount: mainData.total_amount, debt_amount: mainData.total_amount }).eq('id', (order as any).id);
-      }
     }
 
     return order;
@@ -219,13 +203,14 @@ export class ImportOrderService {
         license_plate: mainData.license_plate,
         driver_name: mainData.driver_name,
         supplier_name: mainData.supplier_name,
+        sender_name: mainData.sender_name,
         receiver_name: mainData.receiver_name,
         sheet_number: mainData.sheet_number,
         customer_id: mainData.customer_id,
         is_custom_amount: mainData.is_custom_amount || false,
         total_amount: mainData.total_amount,
         receipt_image_url: mainData.receipt_image_url,
-        debt_amount: mainData.total_amount
+        payment_status: mainData.payment_status || 'unpaid',
       })
       .eq('id', id)
       .select()
@@ -290,23 +275,6 @@ export class ImportOrderService {
         if (doError) console.error("Failed to sync delivery orders on update:", doError);
       }
 
-      // Handle "paid" status directly from form
-      const formPaymentStatus = items[0]?.payment_status === 'paid';
-      if (formPaymentStatus) {
-         const { error: rpcError } = await supabaseService.rpc('mark_order_paid', { p_order_id: id, p_is_veg: isVeg });
-         if (rpcError) {
-             // Fallback
-             const { data: currentOrder } = await supabaseService.from(tName).select('total_amount').eq('id', id).single();
-             if (currentOrder && Number(currentOrder.total_amount) > 0) {
-               await supabaseService.from(tName).update({ paid_amount: currentOrder.total_amount }).eq('id', id);
-             }
-         }
-          }
-       }
-
-    // Re-apply custom amount after trigger overrides it on update
-    if (mainData.is_custom_amount && mainData.total_amount !== undefined) {
-       await supabaseService.from(tName).update({ total_amount: mainData.total_amount, debt_amount: mainData.total_amount }).eq('id', id);
     }
 
     return order;

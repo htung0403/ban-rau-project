@@ -30,6 +30,7 @@ const importOrderSchema = z.object({
   supplier_name: z.string().optional().nullable(),
   sheet_number: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  payment_status: z.enum(['paid', 'unpaid']).default('unpaid'),
   items: z.array(importOrderItemSchema),
 });
 

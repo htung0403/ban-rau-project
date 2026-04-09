@@ -118,6 +118,7 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
               {isEdit ? 'Sửa Phiếu Thu Tiền' : 'Tạo Phiếu Thu Tiền'}
             </h2>
           </div>
+          
           <button
             type="button"
             onClick={onClose}

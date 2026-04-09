@@ -45,8 +45,8 @@ export function useCreateDelivery() {
 export function useAssignVehicle() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: { vehicle_id: string; driver_id: string; quantity: number } }) =>
-      deliveryApi.assignVehicle(id, payload),
+    mutationFn: ({ id, payload }: { id: string; payload: any }) =>
+      deliveryApi.assignVehicle(id, payload as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: deliveryKeys.all });
       queryClient.invalidateQueries({ queryKey: importOrderKeys.all });

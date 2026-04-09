@@ -35,7 +35,7 @@ export const deliveryApi = {
     return data;
   },
 
-  assignVehicle: async (id: string, payload: { vehicle_id: string; driver_id: string; quantity: number }) => {
+  assignVehicle: async (id: string, payload: { assignments: { vehicle_id: string; driver_id: string; loader_name?: string | null; quantity: number }[], image_url?: string }) => {
     const { data } = await axiosClient.put(`/delivery/${id}/assign-vehicle`, payload);
     return data;
   },

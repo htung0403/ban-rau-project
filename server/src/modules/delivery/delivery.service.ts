@@ -5,7 +5,7 @@ export class DeliveryService {
   static async getAllToday(startDate?: string, endDate?: string, orderCategory?: string) {
     let query = supabaseService
       .from('delivery_orders')
-      .select('*, import_orders(order_code, sender_name, receiver_name, customers(name), total_amount, profiles:received_by(full_name)), vegetable_orders(order_code, sender_name, receiver_name, customers(name), total_amount, profiles:received_by(full_name)), delivery_vehicles(*, vehicles(license_plate)), payment_collections(id, status, vehicle_id)')
+      .select('*, import_orders(order_code, sender_name, receiver_name, customers(name), total_amount, profiles:received_by(full_name), receipt_image_url, import_order_items(image_url)), vegetable_orders(order_code, sender_name, receiver_name, customers(name), total_amount, profiles:received_by(full_name), receipt_image_url, vegetable_order_items(image_url)), delivery_vehicles(*, vehicles(license_plate)), payment_collections(id, status, vehicle_id, image_url)')
       .order('delivery_date', { ascending: false });
 
     if (orderCategory) query = query.eq('order_category', orderCategory);
@@ -55,9 +55,19 @@ export class DeliveryService {
     return order;
   }
 
-  static async assignVehicles(deliveryId: string, assignments: any[]) {
+  static async assignVehicles(deliveryId: string, assignments: any[], image_url?: string | null) {
     // assignments: [{vehicle_id, driver_id, quantity}]
     
+    // Save image_url if provided
+    if (image_url !== undefined) {
+      const { error: imageUpdateError } = await supabaseService
+        .from('delivery_orders')
+        .update({ image_url })
+        .eq('id', deliveryId);
+
+      if (imageUpdateError) throw imageUpdateError;
+    }
+
     // Remote old assignments for these vehicles to prevent duplicates
     const vIds = assignments.map(a => a.vehicle_id).filter(Boolean);
     if (vIds.length > 0) {
@@ -72,6 +82,7 @@ export class DeliveryService {
       delivery_order_id: deliveryId,
       vehicle_id: a.vehicle_id,
       driver_id: a.driver_id,
+      loader_name: a.loader_name || null,
       assigned_quantity: a.quantity,
       expected_amount: a.expected_amount || 0,
     }));
@@ -102,11 +113,16 @@ export class DeliveryService {
 
     const { data: doData } = await supabaseService
       .from('delivery_orders')
-      .select('total_quantity, status')
+      .select('total_quantity, status, order_category')
       .eq('id', deliveryId)
       .single();
 
-    if (doData && totalAssigned >= doData.total_quantity && doData.status === 'can_giao') {
+    if (doData?.order_category === 'vegetable') {
+      await supabaseService
+        .from('delivery_orders')
+        .update({ status: 'da_giao' })
+        .eq('id', deliveryId);
+    } else if (doData && totalAssigned >= doData.total_quantity && doData.status === 'can_giao') {
       await supabaseService
         .from('delivery_orders')
         .update({ status: 'da_giao' })

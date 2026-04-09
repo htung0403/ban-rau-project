@@ -145,6 +145,7 @@ export interface ImportOrderItem {
   import_order_id: string;
   product_id?: string;
   package_type?: string;
+  item_note?: string;
   package_quantity?: number;
   weight_kg?: number;
   quantity: number;
@@ -184,6 +185,7 @@ export interface ExportOrder {
   debt_amount: number;
   payment_status: PaymentStatus;
   paid_amount: number;
+  image_url?: string;
   created_by?: string;
   created_at: string;
   // Nested
@@ -232,6 +234,7 @@ export interface DeliveryOrder {
     id: string;
     status: PaymentCollectionStatus;
     vehicle_id: string;
+    image_url?: string;
   }[];
 }
 
@@ -257,6 +260,7 @@ export interface DeliveryVehicle {
   delivery_order_id: string;
   vehicle_id?: string;
   driver_id?: string;
+  loader_name?: string;
   assigned_quantity?: number;
   expected_amount?: number;
   status: DeliveryVehicleStatus;
@@ -314,6 +318,7 @@ export interface PaymentCollection {
   confirmedAt?: string;
   selfConfirmReason?: string;
   notes?: string;
+  imageUrl?: string;
 }
 
 export interface CreatePaymentCollectionDto {
@@ -321,12 +326,14 @@ export interface CreatePaymentCollectionDto {
   collectedAmount: number;
   collectedAt: string;
   notes?: string;
+  imageUrl?: string;
 }
 
 export interface UpdatePaymentCollectionDto {
   collectedAmount?: number;
   collectedAt?: string;
   notes?: string;
+  imageUrl?: string | null;
 }
 
 export interface SubmitPaymentDto {

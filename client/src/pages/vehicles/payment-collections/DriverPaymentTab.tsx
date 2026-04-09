@@ -17,6 +17,12 @@ interface Props {
   readonly?: boolean;
 }
 
+const getLocalDateKey = (value: string) => {
+  const date = new Date(value);
+  const pad = (num: number) => String(num).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
 const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
   const { data: collections, isLoading, isError, refetch } = usePaymentCollections();
 
@@ -33,7 +39,7 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
   const { mutate: revert } = useRevertPaymentCollection();
 
   const filtered = collections?.filter(c => {
-    if (filterDate && c.collectedAt.substring(0, 10) !== filterDate) return false;
+    if (filterDate && getLocalDateKey(c.collectedAt) !== filterDate) return false;
     if (filterStatus && c.status !== filterStatus) return false;
     return true;
   }) || [];
@@ -56,8 +62,8 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
   };
 
   // Summary logic
-  const today = new Date().toISOString().substring(0, 10);
-  const todayCollections = collections?.filter(c => c.collectedAt.startsWith(today)) || [];
+  const today = getLocalDateKey(new Date().toISOString());
+  const todayCollections = collections?.filter(c => getLocalDateKey(c.collectedAt) === today) || [];
   const totalCollectedToday = todayCollections.reduce((sum, c) => sum + c.collectedAmount, 0);
 
   const pendingCount = collections?.filter(c => c.status === 'submitted').length || 0;

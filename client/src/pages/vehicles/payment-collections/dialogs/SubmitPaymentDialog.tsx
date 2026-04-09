@@ -22,7 +22,8 @@ const SubmitPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) => {
   const staffOptions = useMemo(() => {
     if (!employees) return [];
     return employees
-      .filter(e => e.role === 'staff' || e.role === 'manager')
+      .filter(e => e.is_active !== false)
+      .filter(e => e.role !== 'driver' && e.role !== 'customer')
       .map(e => ({
         id: e.id, 
         name: e.full_name, 
@@ -45,7 +46,7 @@ const SubmitPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) => {
       id: payment.id,
       data: {
         receiverId,
-        receiverType: receiver?.type as 'staff' | 'manager',
+        receiverType: receiver?.type === 'manager' ? 'manager' : 'staff',
         submittedAt: new Date(submittedAt).toISOString(),
         notes
       }

@@ -6,6 +6,7 @@ import { z } from 'zod';
 const importOrderItemSchema = z.object({
   product_id: z.string().uuid().optional().nullable(),
   package_type: z.string().optional().nullable(),
+  item_note: z.string().optional().nullable(),
   weight_kg: z.number().optional().nullable(),
   quantity: z.number().int().positive(),
   unit_price: z.number().optional().nullable(),

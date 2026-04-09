@@ -2,38 +2,30 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import PageHeader from '../../components/shared/PageHeader';
 import { useProducts, useCreateProduct, useDeleteProduct, useUpdateProduct } from '../../hooks/queries/useProducts';
-import { Database, Box, Plus, X, Trash2, Leaf, Edit2, Search, ArrowUpDown, Filter, Check } from 'lucide-react';
+import { Database, Box, Plus, X, Trash2, Edit2, Search, ArrowUpDown, Filter, Check } from 'lucide-react';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
 import CurrencyInput from '../../components/shared/CurrencyInput';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
+import DraggableFAB from '../../components/shared/DraggableFAB';
 
 const InputDialog: React.FC<{
   isOpen: boolean;
   title: string;
   placeholder: string;
-  defaultCategory?: string;
   initialName?: string;
-  initialPrice?: number;
-  initialWeight?: number;
   onClose: () => void;
   onSubmit: (data: { name: string, category: string, base_price: number, price_per_weight: number }) => void;
   isSubmitting?: boolean;
-}> = ({ isOpen, title, placeholder, defaultCategory = 'standard', initialName = '', initialPrice = 0, initialWeight, onClose, onSubmit, isSubmitting }) => {
+}> = ({ isOpen, title, placeholder, initialName = '', onClose, onSubmit, isSubmitting }) => {
   const [val, setVal] = useState(initialName);
-  const [basePrice, setBasePrice] = useState<number | ''>(initialPrice || '');
-  const [priceWeight, setPriceWeight] = useState<number | ''>(initialWeight || '');
-  const [category, setCategory] = useState(defaultCategory);
 
   React.useEffect(() => {
     if (isOpen) {
       setVal(initialName);
-      setBasePrice(initialPrice || '');
-      setPriceWeight(initialWeight || '');
-      setCategory(defaultCategory);
     }
-  }, [isOpen, defaultCategory, initialName, initialPrice]);
+  }, [isOpen, initialName]);
 
   if (!isOpen) return null;
 
@@ -57,39 +49,6 @@ const InputDialog: React.FC<{
             placeholder={placeholder}
             className="w-full px-3 py-2.5 mb-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-700"
           />
-          {category === 'vegetable' && (
-            <>
-              <label className="text-[12px] font-medium text-slate-700 mb-1 block">Giá (VNĐ)</label>
-              <CurrencyInput
-                value={typeof basePrice === 'number' ? basePrice : 0}
-                onChange={(val) => setBasePrice(val || '')}
-                placeholder="VD: 14.000"
-                className="w-full px-3 py-2.5 mb-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-700 tabular-nums"
-              />
-              <label className="text-[12px] font-medium text-slate-700 mb-1 block">Trên số kg</label>
-              <input
-                type="number"
-                value={priceWeight === '' ? '' : priceWeight}
-                onChange={e => setPriceWeight(e.target.value ? Number(e.target.value) : '')}
-                placeholder="VD: 10"
-                min={1}
-                className="w-full px-3 py-2.5 mb-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-700 tabular-nums"
-              />
-            </>
-          )}
-          <div className="flex flex-col gap-2">
-            <label className="text-[12px] font-medium text-slate-700">Loại hàng hóa</label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 text-[13px] cursor-pointer">
-                <input type="radio" name="category" value="standard" checked={category === 'standard'} onChange={() => setCategory('standard')} className="w-4 h-4 text-primary accent-primary" />
-                Hàng tạp hóa
-              </label>
-              <label className="flex items-center gap-2 text-[13px] cursor-pointer">
-                <input type="radio" name="category" value="vegetable" checked={category === 'vegetable'} onChange={() => setCategory('vegetable')} className="w-4 h-4 text-primary accent-primary" />
-                Hàng vựa rau
-              </label>
-            </div>
-          </div>
         </div>
         <div className="px-5 py-4 border-t border-border bg-slate-50 flex items-center justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-200 transition-colors">
@@ -99,9 +58,8 @@ const InputDialog: React.FC<{
             disabled={!val.trim() || isSubmitting}
             onClick={() => {
               if (val.trim()) {
-                onSubmit({ name: val.trim(), category, base_price: Number(basePrice) || 0, price_per_weight: Number(priceWeight) || 1 });
+                onSubmit({ name: val.trim(), category: 'standard', base_price: 0, price_per_weight: 1 });
                 setVal('');
-                setBasePrice('');
               }
             }}
             className="px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 shadow-sm bg-primary text-white hover:bg-primary/90 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed"
@@ -162,87 +120,7 @@ const ConfirmDialog: React.FC<{
   );
 };
 
-const BulkEditDialog: React.FC<{
-  isOpen: boolean;
-  selectedCount: number;
-  onClose: () => void;
-  onSubmit: (data: { category?: string; base_price?: number }) => void;
-  isSubmitting?: boolean;
-}> = ({ isOpen, selectedCount, onClose, onSubmit, isSubmitting }) => {
-  const [category, setCategory] = useState<string | ''>('');
-  const [basePrice, setBasePrice] = useState<number | ''>('');
-
-  React.useEffect(() => {
-    if (isOpen) {
-      setCategory('');
-      setBasePrice('');
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-slate-50">
-          <h2 className="text-[15px] font-bold text-slate-800">Sửa Hàng Loạt ({selectedCount} món)</h2>
-          <button onClick={onClose} className="text-slate-400 hover:bg-slate-200 p-1.5 rounded-full transition-colors">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="p-5">
-          <p className="text-[12px] text-muted-foreground mb-4">Chỉ điền thông tin bạn muốn đổi hàng loạt. Để trống nếu muốn giữ nguyên giá trị cũ từng món.</p>
-          <label className="text-[12px] font-medium text-slate-700 mb-1 block">Giá / kg mới (VNĐ)</label>
-          <CurrencyInput
-            value={typeof basePrice === 'number' ? basePrice : 0}
-            onChange={(val) => setBasePrice(val || '')}
-            placeholder="Không đổi..."
-            className="w-full px-3 py-2.5 mb-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-700 tabular-nums"
-          />
-          <div className="flex flex-col gap-2">
-            <label className="text-[12px] font-medium text-slate-700">Đổi loại hàng hóa thành</label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 text-[13px] cursor-pointer">
-                <input type="radio" name="bulk_category" value="standard" checked={category === 'standard'} onChange={() => setCategory('standard')} className="w-4 h-4 text-primary accent-primary" />
-                Hàng tạp hóa
-              </label>
-              <label className="flex items-center gap-2 text-[13px] cursor-pointer">
-                <input type="radio" name="bulk_category" value="vegetable" checked={category === 'vegetable'} onChange={() => setCategory('vegetable')} className="w-4 h-4 text-primary accent-primary" />
-                Hàng vựa rau
-              </label>
-            </div>
-            <label className="flex items-center gap-2 text-[13px] cursor-pointer mt-1">
-              <input type="radio" name="bulk_category" value="" checked={category === ''} onChange={() => setCategory('')} className="w-4 h-4 text-primary accent-primary" />
-              <span className="text-muted-foreground italic">Không đổi phân loại</span>
-            </label>
-          </div>
-        </div>
-        <div className="px-5 py-4 border-t border-border bg-slate-50 flex items-center justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-200 transition-colors">
-            Hủy
-          </button>
-          <button
-            disabled={isSubmitting || (category === '' && basePrice === '')}
-            onClick={() => {
-              const data: any = {};
-              if (category) data.category = category;
-              if (basePrice !== '') data.base_price = Number(basePrice);
-              onSubmit(data);
-            }}
-            className="px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 shadow-sm bg-primary text-white hover:bg-primary/90 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed"
-          >
-            {isSubmitting && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-            Áp dụng
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-};
-
-const WarehouseSettingsPage: React.FC = () => {
+const ProductSettingsPage: React.FC = () => {
   const { data: products, isLoading: isProductsLoading, isError: isProductsError, refetch: refetchProducts } = useProducts();
 
   const createProduct = useCreateProduct();
@@ -251,22 +129,17 @@ const WarehouseSettingsPage: React.FC = () => {
 
   const [productDialog, setProductDialog] = useState<{
     isOpen: boolean,
-    defaultCategory: string,
     initialName?: string,
-    initialPrice?: number,
-    initialWeight?: number,
     mode: 'add' | 'edit',
     editingId?: string
-  }>({ isOpen: false, defaultCategory: 'standard', mode: 'add' });
+  }>({ isOpen: false, mode: 'add' });
 
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
-  const [bulkEditOpen, setBulkEditOpen] = useState(false);
-  const [isBulkEditing, setIsBulkEditing] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState<'nameAsc' | 'nameDesc' | 'priceAsc' | 'priceDesc'>('nameAsc');
+  const [sortBy, setSortBy] = useState<'nameAsc' | 'nameDesc'>('nameAsc');
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
@@ -284,18 +157,16 @@ const WarehouseSettingsPage: React.FC = () => {
     }, 300);
   };
 
-  const processedProducts = React.useMemo(() => {
+  const standardProducts = React.useMemo(() => {
     if (!products) return [];
-    let p = [...products];
+    let p = products.filter((item: any) => item.category !== 'vegetable');
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       p = p.filter((item: any) => item.name.toLowerCase().includes(term));
     }
-    p.sort((a, b) => {
+    p.sort((a: any, b: any) => {
       if (sortBy === 'nameAsc') return a.name.localeCompare(b.name);
       if (sortBy === 'nameDesc') return b.name.localeCompare(a.name);
-      if (sortBy === 'priceAsc') return (a.base_price || 0) - (b.base_price || 0);
-      if (sortBy === 'priceDesc') return (b.base_price || 0) - (a.base_price || 0);
       return 0;
     });
     return p;
@@ -306,22 +177,9 @@ const WarehouseSettingsPage: React.FC = () => {
       await updateProduct.mutateAsync({ id: productDialog.editingId, data });
       setSelectedProducts([]);
     } else {
-      await createProduct.mutateAsync({ name: data.name, category: data.category, base_price: data.base_price, price_per_weight: data.price_per_weight });
+      await createProduct.mutateAsync({ name: data.name, category: 'standard', base_price: 0, price_per_weight: 1 });
     }
     setProductDialog(prev => ({ ...prev, isOpen: false }));
-  };
-
-  const handleBulkEditSubmit = async (data: { category?: string; base_price?: number }) => {
-    setIsBulkEditing(true);
-    try {
-      await Promise.all(selectedProducts.map(id => updateProduct.mutateAsync({ id, data })));
-      setSelectedProducts([]);
-      setBulkEditOpen(false);
-    } catch {
-      // Error is handled in the mutation
-    } finally {
-      setIsBulkEditing(false);
-    }
   };
 
   const handleToggleProduct = (id: string) => {
@@ -347,12 +205,12 @@ const WarehouseSettingsPage: React.FC = () => {
     }
   };
 
-  const renderProductRow = (p: any, isVeg: boolean) => {
+  const renderProductRow = (p: any) => {
     const isSelected = selectedProducts.includes(p.id);
     return (
       <div
         key={p.id}
-        className={`group flex items-center justify-between p-3 rounded-xl border transition-all ${isSelected ? (isVeg ? 'bg-emerald-50/50 border-emerald-200' : 'bg-blue-50/50 border-blue-200') : 'bg-white border-transparent hover:border-slate-200 hover:bg-slate-50 shadow-sm hover:shadow-md'}`}
+        className={`group flex items-center justify-between p-3 rounded-xl border transition-all ${isSelected ? 'bg-blue-50/50 border-blue-200' : 'bg-white border-transparent hover:border-slate-200 hover:bg-slate-50 shadow-sm hover:shadow-md'}`}
       >
         <div className="flex items-center gap-3">
           <label className="hidden md:flex items-center justify-center p-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
@@ -360,31 +218,19 @@ const WarehouseSettingsPage: React.FC = () => {
               type="checkbox"
               checked={isSelected}
               onChange={() => handleToggleProduct(p.id)}
-              className={`w-4 h-4 rounded border-slate-300 text-${isVeg ? 'emerald' : 'blue'}-600 focus:ring-${isVeg ? 'emerald' : 'blue'}-500 cursor-pointer`}
+              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
             />
           </label>
           <div
             className="flex flex-col cursor-pointer"
             onClick={() => setProductDialog({
               isOpen: true,
-              defaultCategory: p.category || 'standard',
               initialName: p.name,
-              initialPrice: p.base_price || 0,
-              initialWeight: p.price_per_weight || 1,
               mode: 'edit',
               editingId: p.id
             })}
           >
             <span className="text-[14px] font-bold text-slate-800 group-hover:text-primary transition-colors">{p.name}</span>
-            {isVeg && (
-              <span className="text-[12px] font-medium text-slate-500">
-                {Number(p.base_price) > 0 ? (
-                  <span className="text-orange-600 font-bold">{new Intl.NumberFormat('vi-VN').format(p.base_price)}đ / {p.price_per_weight || 1}kg</span>
-                ) : (
-                  <span className="italic opacity-60">Chưa có giá</span>
-                )}
-              </span>
-            )}
           </div>
         </div>
 
@@ -392,14 +238,11 @@ const WarehouseSettingsPage: React.FC = () => {
           <button
             onClick={() => setProductDialog({
               isOpen: true,
-              defaultCategory: p.category || 'standard',
               initialName: p.name,
-              initialPrice: p.base_price || 0,
-              initialWeight: p.price_per_weight || 1,
               mode: 'edit',
               editingId: p.id
             })}
-            className={`p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors`}
+            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
             title="Sửa"
           >
             <Edit2 size={16} />
@@ -425,8 +268,8 @@ const WarehouseSettingsPage: React.FC = () => {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0 pb-6 relative">
       <PageHeader
-        title="Cài đặt hàng hóa"
-        description="Xem danh sách dữ liệu từ điển hàng hóa hiện có trong hệ thống"
+        title="Cài đặt hàng tạp hóa"
+        description="Quản lý danh sách từ điển hàng tạp hóa trong hệ thống"
         backPath="/hang-hoa"
         actions={<div />}
       />
@@ -443,13 +286,6 @@ const WarehouseSettingsPage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setBulkEditOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/20 text-orange-200 hover:bg-orange-500/30 transition-colors text-[13px] font-bold whitespace-nowrap"
-              >
-                <Edit2 size={14} />
-                Sửa hàng loạt
-              </button>
               <button
                 onClick={handleDeleteProducts}
                 disabled={isDeleting}
@@ -508,8 +344,6 @@ const WarehouseSettingsPage: React.FC = () => {
                   options={[
                     { value: 'nameAsc', label: 'Tên (A-Z)' },
                     { value: 'nameDesc', label: 'Tên (Z-A)' },
-                    { value: 'priceAsc', label: 'Giá (Thấp - Cao)' },
-                    { value: 'priceDesc', label: 'Giá (Cao - Thấp)' }
                   ]}
                   className="w-full md:w-auto min-w-[160px] bg-slate-50 border-slate-200 hover:bg-slate-100 font-medium"
                   align="end"
@@ -518,8 +352,7 @@ const WarehouseSettingsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 overflow-y-auto custom-scrollbar bg-slate-50/50">
-            {/* Standard Products */}
+          <div className="p-6 overflow-y-auto custom-scrollbar bg-slate-50/50 flex-1">
             <div className="flex flex-col">
               <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
                 <h3 className="text-[15px] font-bold text-slate-800 flex items-center gap-2">
@@ -527,13 +360,13 @@ const WarehouseSettingsPage: React.FC = () => {
                   Hàng tạp hóa
                 </h3>
                 <span className="text-[12px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full tabular-nums">
-                  {processedProducts.filter((p: any) => p.category !== 'vegetable').length}
+                  {standardProducts.length}
                 </span>
               </div>
 
               <div className="flex flex-col gap-1.5 mb-4 flex-1">
-                {processedProducts.filter((p: any) => p.category !== 'vegetable').map((p: any) => renderProductRow(p, false))}
-                {processedProducts.filter((p: any) => p.category !== 'vegetable').length === 0 && (
+                {standardProducts.map((p: any) => renderProductRow(p))}
+                {standardProducts.length === 0 && (
                   <div className="py-8 text-center bg-white border border-dashed border-slate-200 rounded-xl">
                     <span className="text-[13px] text-muted-foreground italic">Không có kết quả nào.</span>
                   </div>
@@ -541,41 +374,11 @@ const WarehouseSettingsPage: React.FC = () => {
               </div>
 
               <button
-                onClick={() => setProductDialog({ isOpen: true, defaultCategory: 'standard', mode: 'add' })}
-                className="w-full flex items-center justify-center gap-2 py-3 mt-auto rounded-xl border-2 border-dashed border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-400 transition-colors text-[13px] font-bold group"
+                onClick={() => setProductDialog({ isOpen: true, mode: 'add' })}
+                className="hidden md:flex w-full items-center justify-center gap-2 py-3 mt-auto rounded-xl border-2 border-dashed border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-400 transition-colors text-[13px] font-bold group"
               >
                 <Plus size={16} className="group-hover:scale-110 transition-transform" />
                 Thêm hàng tạp hóa mới
-              </button>
-            </div>
-
-            {/* Vegetable Products */}
-            <div className="flex flex-col">
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
-                <h3 className="text-[15px] font-bold text-slate-800 flex items-center gap-2">
-                  <Leaf size={18} className="text-emerald-500" />
-                  Hàng vựa rau
-                </h3>
-                <span className="text-[12px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full tabular-nums">
-                  {processedProducts.filter((p: any) => p.category === 'vegetable').length}
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-1.5 mb-4 flex-1">
-                {processedProducts.filter((p: any) => p.category === 'vegetable').map((p: any) => renderProductRow(p, true))}
-                {processedProducts.filter((p: any) => p.category === 'vegetable').length === 0 && (
-                  <div className="py-8 text-center bg-white border border-dashed border-slate-200 rounded-xl">
-                    <span className="text-[13px] text-muted-foreground italic">Không có kết quả nào.</span>
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={() => setProductDialog({ isOpen: true, defaultCategory: 'vegetable', mode: 'add' })}
-                className="w-full flex items-center justify-center gap-2 py-3 mt-auto rounded-xl border-2 border-dashed border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-400 transition-colors text-[13px] font-bold group"
-              >
-                <Plus size={16} className="group-hover:scale-110 transition-transform" />
-                Thêm hàng vựa rau mới
               </button>
             </div>
           </div>
@@ -584,29 +387,18 @@ const WarehouseSettingsPage: React.FC = () => {
 
       <InputDialog
         isOpen={productDialog.isOpen}
-        defaultCategory={productDialog.defaultCategory}
         initialName={productDialog.initialName}
-        initialPrice={productDialog.initialPrice}
-        initialWeight={productDialog.initialWeight}
-        title={productDialog.mode === 'edit' ? "Sửa Hàng Hóa" : "Thêm Hàng Hóa Mới"}
-        placeholder="VD: Cà chua Đài Loan"
+        title={productDialog.mode === 'edit' ? "Sửa Hàng Tạp Hóa" : "Thêm Hàng Tạp Hóa Mới"}
+        placeholder="VD: Nước mắm, Dầu ăn..."
         onClose={() => setProductDialog(prev => ({ ...prev, isOpen: false }))}
         onSubmit={handleDialogSubmit}
         isSubmitting={createProduct.isPending || updateProduct.isPending}
       />
 
-      <BulkEditDialog
-        isOpen={bulkEditOpen}
-        selectedCount={selectedProducts.length}
-        onClose={() => setBulkEditOpen(false)}
-        onSubmit={handleBulkEditSubmit}
-        isSubmitting={isBulkEditing}
-      />
-
       <ConfirmDialog
         isOpen={deleteConfirm}
         title="Xóa Hàng Hóa"
-        message={`Bạn có chắc chắn muốn xóa ${selectedProducts.length} hàng hóa đã chọn? Thao tác này không thể hoàn tác.`}
+        message={`Bạn có chắc chắn muốn xóa ${selectedProducts.length} hàng hóa đã chọn?`}
         isLoading={isDeleting}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteConfirm(false)}
@@ -627,8 +419,6 @@ const WarehouseSettingsPage: React.FC = () => {
             {[
               { value: 'nameAsc', label: 'Tên (A-Z)' },
               { value: 'nameDesc', label: 'Tên (Z-A)' },
-              { value: 'priceAsc', label: 'Giá (Thấp - Cao)' },
-              { value: 'priceDesc', label: 'Giá (Cao - Thấp)' }
             ].map(opt => (
               <button
                 key={opt.value}
@@ -646,9 +436,13 @@ const WarehouseSettingsPage: React.FC = () => {
           </div>
         </div>
       </MobileFilterSheet>
+
+      <DraggableFAB
+        icon={<Plus size={22} />}
+        onClick={() => setProductDialog({ isOpen: true, mode: 'add' })}
+      />
     </div>
   );
 };
 
-export default WarehouseSettingsPage;
-
+export default ProductSettingsPage;

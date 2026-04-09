@@ -11,6 +11,8 @@ export class ImportOrderService {
       let q = supabaseService
         .from(tName)
         .select(`*, profiles(full_name), warehouses(name), customers(id, name, phone, address), ${iName}(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate)))`);
+
+      q = q.is('deleted_at', null);
       
       if (filters.dateFrom) q = q.gte('order_date', filters.dateFrom);
       if (filters.dateTo) q = q.lte('order_date', filters.dateTo);
@@ -63,6 +65,7 @@ export class ImportOrderService {
       .from('import_orders')
       .select('*, profiles(full_name), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate)))')
       .eq('id', id)
+      .is('deleted_at', null)
       .maybeSingle();
 
     let isVeg = false;
@@ -72,6 +75,7 @@ export class ImportOrderService {
         .from('vegetable_orders')
         .select('*, profiles(full_name), warehouses(name), customers(id, name, phone, address), vegetable_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate)))')
         .eq('id', id)
+        .is('deleted_at', null)
         .maybeSingle();
       data = veg.data;
       error = veg.error;
@@ -150,6 +154,7 @@ export class ImportOrderService {
         quantity: item.quantity,
         weight_kg: item.weight_kg,
         package_type: item.package_type,
+        item_note: item.item_note,
         package_quantity: item.package_quantity,
         image_url: item.image_url,
         payment_status: item.payment_status || 'unpaid',
@@ -234,6 +239,7 @@ export class ImportOrderService {
           quantity: item.quantity,
           weight_kg: item.weight_kg,
           package_type: item.package_type,
+          item_note: item.item_note,
           package_quantity: item.package_quantity,
           image_url: item.image_url,
           payment_status: item.payment_status || 'unpaid',
@@ -281,48 +287,28 @@ export class ImportOrderService {
   }
 
   static async delete(id: string) {
-    // 1. Find all delivery_orders linked to this import/vegetable order
-    const { data: relatedDOs } = await supabaseService
-      .from('delivery_orders')
-      .select('id')
-      .or(`import_order_id.eq.${id},vegetable_order_id.eq.${id}`);
+    const deletedAt = new Date().toISOString();
 
-    if (relatedDOs && relatedDOs.length > 0) {
-      const doIds = relatedDOs.map(d => d.id);
-
-      // 2. Delete payment_collections referencing these delivery_orders
-      await supabaseService
-        .from('payment_collections')
-        .delete()
-        .in('delivery_order_id', doIds);
-
-      // 3. Delete delivery_vehicles (has ON DELETE CASCADE from delivery_orders, but be safe)
-      await supabaseService
-        .from('delivery_vehicles')
-        .delete()
-        .in('delivery_order_id', doIds);
-
-      // 4. Delete delivery_orders themselves
-      await supabaseService
-        .from('delivery_orders')
-        .delete()
-        .in('id', doIds);
-    }
-
-    // 5. Delete from import_orders (import_order_items has ON DELETE CASCADE)
-    const { error: importErr } = await supabaseService
+    const { data: importOrder, error: importErr } = await supabaseService
       .from('import_orders')
-      .delete()
-      .eq('id', id);
+      .update({ deleted_at: deletedAt })
+      .eq('id', id)
+      .is('deleted_at', null)
+      .select('id')
+      .maybeSingle();
 
-    if (importErr) {
-      // If not found in import_orders, try vegetable_orders
-      const { error: vegErr } = await supabaseService
-        .from('vegetable_orders')
-        .delete()
-        .eq('id', id);
+    if (importErr) throw importErr;
+    if (importOrder) return;
 
-      if (vegErr) throw vegErr;
-    }
+    const { data: vegetableOrder, error: vegErr } = await supabaseService
+      .from('vegetable_orders')
+      .update({ deleted_at: deletedAt })
+      .eq('id', id)
+      .is('deleted_at', null)
+      .select('id')
+      .maybeSingle();
+
+    if (vegErr) throw vegErr;
+    if (!vegetableOrder) throw new Error('Order not found or already deleted');
   }
 }

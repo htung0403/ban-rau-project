@@ -12,7 +12,6 @@ import { useCreateProduct, useProducts } from '../../../hooks/queries/useProduct
 import { useEmployees } from '../../../hooks/queries/useHR';
 import type { ImportOrder, ImportOrderItem } from '../../../types';
 import { uploadApi } from '../../../api/uploadApi';
-import CurrencyInput from '../../../components/shared/CurrencyInput';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { CreatableSearchableSelect } from '../../../components/ui/CreatableSearchableSelect';
 import { TimePicker24h } from '../../../components/shared/TimePicker24h';
@@ -26,6 +25,7 @@ const importOrderItemSchema = z.object({
   weight_kg: z.coerce.number().optional().nullable().catch(null),
   quantity: z.coerce.number().min(1, 'SL > 0').catch(1),
   image_url: z.string().optional().nullable().catch(null),
+  item_note: z.string().optional().nullable().catch(''),
 });
 
 const importOrderSchema = z.object({
@@ -35,8 +35,6 @@ const importOrderSchema = z.object({
   customer_id: z.string().min(1, 'Vui lòng chọn Khách hàng / Chủ hàng'),
   sender_name: z.string().optional(),
   receiver_name: z.string().optional(),
-  notes: z.string().optional(),
-  payment_status: z.enum(['paid', 'unpaid']).default('unpaid'),
   items: z.array(importOrderItemSchema).min(1, 'Vui lòng thêm ít nhất 1 mặt hàng'),
   total_amount: z.coerce.number().min(0, 'Tổng tiền không hợp lệ').catch(0),
   receipt_image_url: z.string().optional().nullable().catch(null),
@@ -50,7 +48,7 @@ interface Props {
   defaultCategory?: 'standard' | 'vegetable';
 }
 
-const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingOrder, onClose, defaultCategory = 'standard' }) => {
+const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingOrder, onClose, defaultCategory = 'vegetable' }) => {
   const { user } = useAuth();
   const isEditMode = !!editingOrder;
   const createMutation = useCreateImportOrder();
@@ -131,13 +129,11 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
     defaultValues: {
       order_date: format(new Date(), 'yyyy-MM-dd'),
       order_time: new Date().toTimeString().slice(0, 5),
-      items: [{ quantity: 1, weight_kg: '', product_id: '', image_url: null }],
-      payment_status: 'unpaid',
+      items: [{ quantity: 1, weight_kg: '', product_id: '', image_url: null, item_note: '' }],
       customer_id: '',
       sender_name: '',
       receiver_name: '',
       received_by: '',
-      notes: '',
       total_amount: 0,
       receipt_image_url: null,
     } as any,
@@ -170,7 +166,6 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
 
   const watchCustomerId = watch('customer_id');
   const watchReceivedBy = watch('received_by');
-  const watchPaymentStatus = watch('payment_status');
   useEffect(() => {
     if (editingOrder) {
       reset({
@@ -180,15 +175,14 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
         customer_id: editingOrder.customer_id || '',
         sender_name: editingOrder.sender_name || '',
         receiver_name: editingOrder.receiver_name || '',
-        notes: editingOrder.notes || '',
         items: editingOrder.import_order_items?.map((item: ImportOrderItem) => ({
           product_id: item.product_id,
           package_type: item.package_type,
           weight_kg: item.weight_kg,
           quantity: item.quantity,
           image_url: item.image_url || null,
+          item_note: item.item_note || item.package_type || '',
         })) || [],
-        payment_status: editingOrder.import_order_items?.[0]?.payment_status || 'unpaid',
         total_amount: editingOrder.total_amount || 0,
         receipt_image_url: editingOrder.receipt_image_url || null,
       });
@@ -196,13 +190,11 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
       reset({
         order_date: format(new Date(), 'yyyy-MM-dd'),
         order_time: new Date().toTimeString().slice(0, 5),
-        items: [{ quantity: 1, weight_kg: '', product_id: '', image_url: null }],
-        payment_status: 'unpaid',
+        items: [{ quantity: 1, weight_kg: '', product_id: '', image_url: null, item_note: '' }],
         customer_id: '',
         sender_name: '',
         receiver_name: '',
         received_by: user?.id || employees?.[0]?.id || '',
-        notes: '',
         total_amount: 0,
         receipt_image_url: null,
       });
@@ -288,10 +280,14 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
       console.log('--- FORM SUBMIT DATA BEGIN ---', data);
       const payload = { ...data };
       if (payload.items) {
-        payload.items = payload.items.map((item: any) => ({
-          ...item,
-          payment_status: payload.payment_status || 'unpaid',
-        }));
+        payload.items = payload.items.map((item: any) => {
+          const trimmedNote = item.item_note?.trim() || null;
+          const { item_note, ...restItem } = item;
+          return {
+            ...restItem,
+            item_note: trimmedNote,
+          };
+        });
       }
       payload.order_category = defaultCategory;
 
@@ -479,54 +475,6 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                           {employees?.find((e: any) => e.id === watchReceivedBy)?.full_name || user?.full_name || 'Tự động'}
                         </div>
                       </div>
-
-                      <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Trạng thái Tiền</label>
-                        <div className="flex bg-slate-100 p-1 rounded-xl h-[38px] border border-slate-200">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setValue('payment_status', 'unpaid', { shouldValidate: true });
-                              setValue('total_amount', 0, { shouldValidate: true });
-                            }}
-                            className={clsx(
-                              'flex-1 flex items-center justify-center rounded-lg text-[11px] font-bold transition-all',
-                              watchPaymentStatus === 'unpaid' ? 'bg-white shadow-sm text-red-500' : 'text-slate-500 hover:text-slate-700'
-                            )}
-                          >
-                            Chưa trả
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setValue('payment_status', 'paid', { shouldValidate: true })}
-                            className={clsx(
-                              'flex-1 flex items-center justify-center rounded-lg text-[11px] font-bold transition-all',
-                              watchPaymentStatus === 'paid' ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'
-                            )}
-                          >
-                            Đã trả
-                          </button>
-                        </div>
-                      </div>
-
-                      {watchPaymentStatus === 'paid' && (
-                        <div className="space-y-1.5 pt-2 border-t border-slate-100 animate-in fade-in slide-in-from-top-1">
-                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tổng số tiền</label>
-                          <Controller
-                            name="total_amount"
-                            control={control}
-                            render={({ field }) => (
-                              <CurrencyInput
-                                {...field}
-                                value={field.value as number}
-                                onChange={field.onChange}
-                                className="w-full px-3 py-2 bg-slate-50 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-bold text-primary tabular-nums"
-                                placeholder="Nhập tổng tiền..."
-                              />
-                            )}
-                          />
-                        </div>
-                      )}
                     </>
                   ) : (
                     <>
@@ -632,54 +580,6 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                           {employees?.find((e: any) => e.id === watchReceivedBy)?.full_name || user?.full_name || 'Tự động'}
                         </div>
                       </div>
-
-                      <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Trạng thái Tiền</label>
-                        <div className="flex bg-slate-100 p-1 rounded-xl h-[38px] border border-slate-200">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setValue('payment_status', 'unpaid', { shouldValidate: true });
-                              setValue('total_amount', 0, { shouldValidate: true });
-                            }}
-                            className={clsx(
-                              'flex-1 flex items-center justify-center rounded-lg text-[11px] font-bold transition-all',
-                              watchPaymentStatus === 'unpaid' ? 'bg-white shadow-sm text-red-500' : 'text-slate-500 hover:text-slate-700'
-                            )}
-                          >
-                            Chưa trả
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setValue('payment_status', 'paid', { shouldValidate: true })}
-                            className={clsx(
-                              'flex-1 flex items-center justify-center rounded-lg text-[11px] font-bold transition-all',
-                              watchPaymentStatus === 'paid' ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'
-                            )}
-                          >
-                            Đã trả
-                          </button>
-                        </div>
-                      </div>
-
-                      {watchPaymentStatus === 'paid' && (
-                        <div className="space-y-1.5 pt-2 border-t border-slate-100 animate-in fade-in slide-in-from-top-1">
-                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tổng số tiền</label>
-                          <Controller
-                            name="total_amount"
-                            control={control}
-                            render={({ field }) => (
-                              <CurrencyInput
-                                {...field}
-                                value={field.value as number}
-                                onChange={field.onChange}
-                                className="w-full px-3 py-2 bg-slate-50 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-bold text-primary tabular-nums"
-                                placeholder="Nhập tổng tiền..."
-                              />
-                            )}
-                          />
-                        </div>
-                      )}
                     </>
                   )}
 
@@ -727,11 +627,6 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                     </div>
                   </div>
                   )}
-
-                  <div className="space-y-1.5 pt-2">
-                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ghi chú thêm</label>
-                    <textarea rows={3} {...register('notes')} className="w-full px-3 py-2.5 bg-slate-50 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none" placeholder="Thông tin chi tiết thêm về kiện hàng này..." />
-                  </div>
                 </div>
               </div>
             </div>
@@ -746,7 +641,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                   </div>
                   <button
                     type="button"
-                    onClick={() => append({ quantity: 1, weight_kg: '', product_id: '', image_url: null })}
+                    onClick={() => append({ quantity: 1, weight_kg: '', product_id: '', image_url: null, item_note: '' })}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-[12px] font-bold hover:bg-primary/90 transition-all shadow-sm shadow-primary/30 active:scale-95"
                   >
                     <Plus size={14} />
@@ -822,13 +717,18 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                                   {(() => {
                                     const prod = filteredProducts.find((p: any) => p.id === watch(`items.${index}.product_id`));
                                     const price = prod?.base_price || 0;
-                                    const perWeight = prod?.price_per_weight || 0;
-                                    if (price > 0 && perWeight > 0) return <span className="text-[9px] text-slate-400 mt-0.5 ml-1">{new Intl.NumberFormat('vi-VN').format(price)}đ / {perWeight}kg</span>;
+                                    if (price > 0) return <span className="text-[9px] text-slate-400 mt-0.5 ml-1">{new Intl.NumberFormat('vi-VN').format(price)}đ</span>;
                                     return null;
                                   })()}
                                   {(errors.items as any)?.[index]?.product_id && (
                                     <span className="absolute bottom-[-16px] left-2 text-[10px] text-red-500">Thiếu</span>
                                   )}
+                                  <input
+                                    type="text"
+                                    {...register(`items.${index}.item_note` as const)}
+                                    className="mt-1 h-8 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none"
+                                    placeholder="Ghi chú cho sản phẩm này..."
+                                  />
                                 </div>
 
                                 {/* Col 3: Tổng tiền */}
@@ -880,8 +780,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                                     {(() => {
                                       const prod = filteredProducts.find((p: any) => p.id === watch(`items.${index}.product_id`));
                                       const price = prod?.base_price || 0;
-                                      const perWeight = prod?.price_per_weight || 0;
-                                      if (price > 0 && perWeight > 0) return <span className="text-[9px] text-slate-400 mt-0.5">{new Intl.NumberFormat('vi-VN').format(price)}đ / {perWeight}kg</span>;
+                                      if (price > 0) return <span className="text-[9px] text-slate-400 mt-0.5">{new Intl.NumberFormat('vi-VN').format(price)}đ</span>;
                                       return null;
                                     })()}
                                   </div>
@@ -930,6 +829,15 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                                         </>
                                       );
                                     })()}
+                                  </div>
+                                  <div className="flex flex-col space-y-1 col-span-2">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase">Ghi chú</label>
+                                    <input
+                                      type="text"
+                                      {...register(`items.${index}.item_note` as const)}
+                                      className="w-full h-9 px-2.5 bg-white border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none"
+                                      placeholder="Ghi chú cho sản phẩm này..."
+                                    />
                                   </div>
                                 </div>
                               </>
@@ -1116,4 +1024,4 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
   );
 };
 
-export default AddEditImportOrderDialog;
+export default AddEditVegetableImportOrderDialog;

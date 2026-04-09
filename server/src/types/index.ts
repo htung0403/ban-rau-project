@@ -52,6 +52,7 @@ export interface PaymentCollection {
   confirmedAt?: string;
   selfConfirmReason?: string;
   notes?: string;
+  imageUrl?: string;
 }
 
 export interface CreatePaymentCollectionDto {
@@ -59,6 +60,7 @@ export interface CreatePaymentCollectionDto {
   collectedAmount: number;
   collectedAt: string;
   notes?: string;
+  imageUrl?: string;
 }
 
 export interface SubmitPaymentDto {

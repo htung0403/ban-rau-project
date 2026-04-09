@@ -86,6 +86,7 @@ export class PaymentCollectionsService {
         collected_amount: data.collectedAmount,
         collected_at: data.collectedAt,
         notes: data.notes,
+        image_url: data.imageUrl,
         status: 'draft'
       })
       .select()
@@ -119,6 +120,7 @@ export class PaymentCollectionsService {
     if (data.collectedAmount !== undefined) updatePayload.collected_amount = data.collectedAmount;
     if (data.collectedAt !== undefined) updatePayload.collected_at = data.collectedAt;
     if (data.notes !== undefined) updatePayload.notes = data.notes;
+    if (data.imageUrl !== undefined) updatePayload.image_url = data.imageUrl;
 
     const { error } = await supabaseService
       .from('payment_collections')
@@ -354,7 +356,8 @@ export class PaymentCollectionsService {
       receiverType: pc.receiver_type,
       confirmedAt: pc.confirmed_at,
       selfConfirmReason: pc.self_confirm_reason,
-      notes: pc.notes
+      notes: pc.notes,
+      imageUrl: pc.image_url,
     };
   }
 }

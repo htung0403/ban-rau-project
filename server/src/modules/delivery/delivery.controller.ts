@@ -50,6 +50,7 @@ export class DeliveryController {
       const singleSchema = z.object({
         vehicle_id: z.string().uuid(),
         driver_id: z.string().uuid(),
+        loader_name: z.string().optional().nullable(),
         assigned_quantity: z.number().positive().optional(),
         quantity: z.number().positive().optional(),
         expected_amount: z.number().nonnegative().optional(),
@@ -57,22 +58,32 @@ export class DeliveryController {
 
       const body = req.body;
       let assignments: any[] = [];
+      let image_url: string | null | undefined = undefined;
 
       if (Array.isArray(body)) {
         assignments = z.array(singleSchema).parse(body);
+      } else if (body && body.assignments && Array.isArray(body.assignments)) {
+        assignments = z.array(singleSchema).parse(body.assignments);
+        if (Object.prototype.hasOwnProperty.call(body, 'image_url')) {
+          image_url = body.image_url ?? null;
+        }
       } else {
         assignments = [singleSchema.parse(body)];
+        if (body && Object.prototype.hasOwnProperty.call(body, 'image_url')) {
+          image_url = body.image_url ?? null;
+        }
       }
 
       // Normalize fields for service (use quantity)
       const normalized = assignments.map(a => ({
         vehicle_id: a.vehicle_id,
         driver_id: a.driver_id,
+        loader_name: a.loader_name,
         quantity: a.quantity || a.assigned_quantity,
         expected_amount: a.expected_amount || 0,
       }));
 
-      const data = await DeliveryService.assignVehicles(req.params.id as string, normalized);
+      const data = await DeliveryService.assignVehicles(req.params.id as string, normalized, image_url);
       return res.status(200).json(successResponse(data, 'Vehicles assigned'));
     } catch (err: any) {
       console.error('Assign vehicle error:', err);

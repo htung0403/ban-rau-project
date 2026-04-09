@@ -14,7 +14,8 @@ import ImportOrdersPage from './pages/import-orders/ImportOrdersPage';
 import ExportOrdersPage from './pages/export-orders/ExportOrdersPage';
 import DeliveryPage from './pages/delivery/DeliveryPage';
 import WarehousesPage from './pages/warehouse/WarehousesPage';
-import WarehouseSettingsPage from './pages/warehouse/WarehouseSettingsPage';
+import ProductSettingsPage from './pages/warehouse/ProductSettingsPage';
+import VegetableProductSettingsPage from './pages/warehouse/VegetableProductSettingsPage';
 import VegetableWarehousePage from './pages/warehouse/VegetableWarehousePage';
 import VegetableImportsPage from './pages/import-orders/VegetableImportsPage';
 import VegetablesPage from './pages/import-orders/VegetablesPage';
@@ -56,7 +57,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-3 border-primary/20 border-t-primary rounded-full animate-spin" />
-          <p className="text-muted-foreground text-[13px] font-medium">Dang tai...</p>
+          <p className="text-muted-foreground text-[13px] font-medium">Đang tải...</p>
         </div>
       </div>
     );
@@ -97,7 +98,8 @@ function AppRoutes() {
         <Route path="/hang-hoa/xuat-hang" element={<ExportOrdersPage />} />
         <Route path="/hang-hoa/giao-hang" element={<DeliveryPage />} />
         <Route path="/hang-hoa/kho" element={<WarehousesPage />} />
-        <Route path="/hang-hoa/cai-dat" element={<WarehouseSettingsPage />} />
+        <Route path="/hang-hoa/cai-dat" element={<ProductSettingsPage />} />
+        <Route path="/hang-hoa/cai-dat-rau" element={<VegetableProductSettingsPage />} />
 
         <Route path="/hanh-chinh-nhan-su" element={<ModulePage />} />
         <Route path="/hanh-chinh-nhan-su/nhan-su" element={<EmployeesPage />} />

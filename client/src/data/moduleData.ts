@@ -1,7 +1,7 @@
 import {
   Users,
   Warehouse, Download, Upload, Truck as DeliveryIcon,
-  Banknote, Car, CalendarDays, ClipboardList, ClipboardCheck, DollarSign, FileText, Settings2
+  Banknote, Car, CalendarDays, ClipboardList, ClipboardCheck, DollarSign, FileText, Settings2, Leaf
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
 
@@ -19,7 +19,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
         { icon: Upload, title: 'Xuất hàng', description: 'Quản lý phiếu xuất kho.', colorScheme: 'red', path: '/hang-hoa/xuat-hang' },
         { icon: Download, title: 'Nhập hàng', description: 'Quản lý phiếu nhập kho.', colorScheme: 'green', path: '/hang-hoa/nhap-hang' },
         { icon: DeliveryIcon, title: 'Hàng cần giao', description: 'Danh sách các đơn hàng cần giao.', colorScheme: 'orange', path: '/hang-hoa/giao-hang' },
-        { icon: Settings2, title: 'Cài đặt hàng hóa', description: 'Xem dữ liệu từ điển hàng hóa.', colorScheme: 'slate', path: '/hang-hoa/cai-dat' },
+        { icon: Settings2, title: 'Cài đặt hàng tạp hóa', description: 'Quản lý từ điển hàng tạp hóa.', colorScheme: 'slate', path: '/hang-hoa/cai-dat' },
       ]
     },
     {
@@ -29,6 +29,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
         { icon: Download, title: 'Nhập hàng rau', description: 'Quản lý phiếu nhập kho mặt hàng rau.', colorScheme: 'green', path: '/hang-hoa/nhap-hang-rau' },
         { icon: ClipboardList, title: 'Bảng Hàng Rau', description: 'Bảng xem chi tiết các mặt hàng rau nhập.', colorScheme: 'purple', path: '/hang-hoa/hang-rau' },
         { icon: DeliveryIcon, title: 'Giao hàng rau', description: 'Danh sách các đơn hàng rau cần giao.', colorScheme: 'orange', path: '/hang-hoa/giao-hang-rau' },
+        { icon: Settings2, title: 'Cài đặt hàng rau', description: 'Quản lý từ điển hàng vựa rau.', colorScheme: 'slate', path: '/hang-hoa/cai-dat-rau' },
       ]
     }
   ],

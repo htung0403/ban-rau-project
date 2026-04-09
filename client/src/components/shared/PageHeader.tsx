@@ -13,7 +13,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ title, description, backPath, a
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+    <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
       <div className="flex items-center gap-3">
         {backPath && (
           <button
@@ -26,7 +26,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ title, description, backPath, a
         <div>
           <h1 className="text-xl font-bold text-foreground leading-tight">{title}</h1>
           {description && (
-            <p className="text-[13px] text-muted-foreground mt-0.5">{description}</p>
+            <p className="hidden md:block text-[13px] text-muted-foreground mt-0.5">{description}</p>
           )}
         </div>
       </div>

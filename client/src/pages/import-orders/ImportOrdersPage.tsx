@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, X, ChevronLeft, ChevronRight, Edit, Trash2, Filter, Store, Truck, UserCircle } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Plus, Search, X, ChevronLeft, ChevronRight, Edit, Trash2, Filter, Store, Truck, UserCircle, Image as ImageIcon, Eye } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useImportOrders, useDeleteImportOrder } from '../../hooks/queries/useImportOrders';
 import type { ImportOrder, ImportOrderFilters, OrderStatus } from '../../types';
@@ -10,7 +11,8 @@ import ErrorState from '../../components/shared/ErrorState';
 import PageHeader from '../../components/shared/PageHeader';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
-import AddEditImportOrderDialog from './dialogs/AddEditImportOrderDialog';
+import AddEditStandardImportOrderDialog from './dialogs/AddEditStandardImportOrderDialog';
+import OrderImagesDialog from '../delivery/dialogs/OrderImagesDialog';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 import { ColumnSettings, type ColumnOption } from '../../components/shared/ColumnSettings';
@@ -85,6 +87,9 @@ const ImportOrdersPage: React.FC = () => {
   const [editingOrder, setEditingOrder] = useState<ImportOrder | null>(null);
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  
+  const [viewingImageOrder, setViewingImageOrder] = useState<any>(null);
+  const [isViewingClosing, setIsViewingClosing] = useState(false);
 
   // Build filters
   const filters: ImportOrderFilters = {};
@@ -125,6 +130,8 @@ const ImportOrdersPage: React.FC = () => {
 
   // Local search filtering (supplementary to API filters)
   const filteredOrders = (orders || []).filter((o) => {
+    if ((o as any).deleted_at) return false;
+
     const chuHang = o.customers?.name || o.sender_name;
     const receiver = (o as any).profiles?.full_name || o.receiver_name || o.received_by;
     const tai = getOrderVehicles(o);
@@ -485,65 +492,81 @@ const ImportOrdersPage: React.FC = () => {
             </div>
 
             {/* Mobile Card List */}
-            <div className="md:hidden flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-              {paginatedOrders.map((order) => (
-                <div
-                  key={order.id}
-                  onClick={() => openEditDialog(order)}
-                  className="bg-white rounded-2xl border border-border shadow-sm p-4 cursor-pointer hover:shadow-md active:bg-muted/10 transition-all"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <span className="text-[14px] font-bold text-primary">{order.order_code}</span>
-                      <span className="text-[11px] text-muted-foreground ml-2 tabular-nums">{order.order_date}</span>
-                    </div>
-                    <StatusBadge status={order.status} label={statusLabels[order.status]} />
-                  </div>
-                  <div className="space-y-1.5 mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase w-14 shrink-0">Khách</span>
-                      <span className="text-[13px] font-bold text-foreground">{order.customers?.name || order.sender_name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase w-14 shrink-0">Tài</span>
-                      <span className="text-[13px] font-medium text-foreground">{getOrderVehicles(order) || '-'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase w-14 shrink-0">Người nhận</span>
-                      <span className="text-[13px] font-medium text-foreground">{(order as any).profiles?.full_name || order.receiver_name}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                    <div className="text-[12px] text-muted-foreground">
-                      <span className="font-bold">{order.import_order_items?.length || 1}</span> mặt hàng
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {order.payment_status === 'paid' ? (
-                        <span className="text-[10px] font-bold text-emerald-600 mr-2 bg-emerald-50 px-1.5 py-0.5 rounded">Đã trả</span>
-                      ) : order.payment_status === 'partial' ? (
-                        <span className="text-[10px] font-bold text-amber-600 mr-2 bg-amber-50 px-1.5 py-0.5 rounded">1 phần</span>
+            <div className="md:hidden flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+              {paginatedOrders.map((order) => {
+                const orderImage = order.receipt_image_url || order.import_order_items?.[0]?.image_url;
+                return (
+                  <div
+                    key={order.id}
+                    onClick={() => openEditDialog(order)}
+                    className="bg-white rounded-xl border border-border shadow-sm cursor-pointer hover:shadow-md active:bg-muted/10 transition-all flex items-center gap-3 p-2.5 overflow-hidden"
+                  >
+                    {/* Left: Image */}
+                    <div className="w-[64px] h-[64px] shrink-0 bg-muted/20 rounded-lg overflow-hidden">
+                      {orderImage ? (
+                        <img src={orderImage} alt={order.order_code} className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-[10px] font-bold text-red-500 mr-2 bg-red-50 px-1.5 py-0.5 rounded">Chưa trả</span>
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon size={22} className="text-muted-foreground/30" />
+                        </div>
                       )}
-                      <span className="text-[14px] font-black text-primary tabular-nums mr-2">
-                        {formatCurrency(order.total_amount)}
-                      </span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
-                        className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
-                      >
-                        <Edit size={14} />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
-                        className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                    </div>
+
+                    {/* Right: Data */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[13px] font-bold text-foreground truncate">{order.customers?.name || order.sender_name || '-'}</span>
+                        <StatusBadge status={order.status} label={statusLabels[order.status]} />
+                      </div>
+                      <div className="mb-1.5">
+                        <span className="text-[11px] font-semibold text-primary">{order.order_code}</span>
+                        <span className="text-[10px] text-muted-foreground ml-1 tabular-nums">{order.order_date}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          {order.payment_status === 'paid' ? (
+                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Đã trả</span>
+                          ) : order.payment_status === 'partial' ? (
+                            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">1 phần</span>
+                          ) : (
+                            <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">Chưa trả</span>
+                          )}
+                          {(order.total_amount && order.total_amount > 0) ? (
+                            <span className="text-[13px] font-black text-primary tabular-nums">
+                              {formatCurrency(order.total_amount)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex items-center gap-0.5">
+                          {orderImage && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewingImageOrder(order);
+                              }}
+                              className="p-1 rounded-lg text-violet-500 hover:bg-violet-50 transition-colors"
+                            >
+                              <Eye size={13} />
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
+                            className="p-1 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
+                          >
+                            <Edit size={13} />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
+                            className="p-1 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Pagination */}
@@ -588,12 +611,11 @@ const ImportOrdersPage: React.FC = () => {
       </div>
 
       {/* Add/Edit Dialog */}
-      <AddEditImportOrderDialog
+      <AddEditStandardImportOrderDialog
         isOpen={isDialogOpen}
         isClosing={isDialogClosing}
         editingOrder={editingOrder}
         onClose={closeDialog}
-        defaultCategory="standard"
       />
 
       {/* Delete Confirm */}
@@ -606,6 +628,20 @@ const ImportOrdersPage: React.FC = () => {
         isLoading={deleteMutation.isPending}
         onConfirm={handleDelete}
         onCancel={() => setDeleteId(null)}
+      />
+
+      {/* Dialog xem ảnh chi tiết */}
+      <OrderImagesDialog
+        isOpen={!!viewingImageOrder}
+        isClosing={isViewingClosing}
+        order={viewingImageOrder}
+        onClose={() => {
+          setIsViewingClosing(true);
+          setTimeout(() => {
+            setViewingImageOrder(null);
+            setIsViewingClosing(false);
+          }, 300);
+        }}
       />
 
       {/* Mobile Floating Action Button */}

@@ -39,7 +39,7 @@
     "@types/multer": "^1.4.11",
     "@types/node": "^20.11.24",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.4.2",
+    "typescript": "^6.0.2",
     "uuid": "^9.0.1"
   },
   "pnpm": {

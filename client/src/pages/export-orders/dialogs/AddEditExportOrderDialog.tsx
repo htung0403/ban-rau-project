@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Package, Plus, ChevronRight, Truck, User, Clock, Calendar, DollarSign, ShoppingBag } from 'lucide-react';
+import { X, Package, Plus, ChevronRight, Truck, User, Clock, Calendar, DollarSign, ShoppingBag, ImagePlus, Loader2, Trash2, Camera } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { useCreateExportOrder } from '../../../hooks/queries/useExportOrders';
+import { uploadApi } from '../../../api/uploadApi';
+import toast from 'react-hot-toast';
 import { useCustomers } from '../../../hooks/queries/useCustomers';
 import { useVehicles } from '../../../hooks/queries/useVehicles';
 import { useDeliveryOrders, useAssignVehicle } from '../../../hooks/queries/useDelivery';
@@ -25,6 +27,7 @@ const exportOrderSchema = z.object({
   product_id: z.string().min(1, 'Vui lòng chọn hàng hóa'),
   quantity: z.coerce.number().min(1, 'Số lượng phải lớn hơn 0'),
   debt_amount: z.coerce.number().min(0, 'Thành tiền không được âm'),
+  image_url: z.string().optional().nullable().catch(null),
 });
 
 type ExportOrderFormData = z.infer<typeof exportOrderSchema>;
@@ -100,6 +103,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
       product_id: '',
       quantity: 1,
       debt_amount: 0,
+      image_url: null,
     },
   });
 
@@ -107,6 +111,30 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
   const productId = watch('product_id');
   const quantity = watch('quantity');
   const debtAmount = watch('debt_amount');
+  const watchImageUrl = watch('image_url');
+  const [isUploading, setIsUploading] = React.useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Chỉ hỗ trợ file ảnh');
+      return;
+    }
+    try {
+      setIsUploading(true);
+      const resp = await uploadApi.uploadFile(file, 'import-orders', 'export-orders');
+      setValue('image_url', resp.url, { shouldValidate: true });
+      toast.success('Tải ảnh lên thành công!');
+    } catch (error) {
+      console.error('File upload error:', error);
+      toast.error('Lỗi khi tải ảnh lên');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   // Tìm tên khách đang chọn (để lọc sản phẩm)
   const selectedCustomerName = useMemo(() => {
@@ -158,6 +186,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
         product_id: '',
         quantity: 1,
         debt_amount: 0,
+        image_url: null,
       });
     }
   }, [isOpen, reset, myVehicle?.id, user?.id, today]);
@@ -175,7 +204,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
   const onSubmit = async (data: ExportOrderFormData) => {
     try {
       const selectedItem = todayDeliveryItems.find(p => p.id === data.product_id);
-      const payload = {
+      const payload: any = {
         export_date: data.export_date,
         export_time: data.export_time,
         product_id: data.product_id,
@@ -186,7 +215,8 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
         payment_status: 'unpaid' as const,
         paid_amount: 0,
       };
-      await createMutation.mutateAsync(payload as any);
+      if (data.image_url) payload.image_url = data.image_url;
+      await createMutation.mutateAsync(payload);
 
       // Tự động gán xe giao cho đơn delivery tương ứng
       const deliveryOrderId = data.product_id; // product_id = delivery order ID
@@ -461,6 +491,54 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                 {errors.debt_amount && <p className="text-red-500 text-[11px] font-medium">{errors.debt_amount.message}</p>}
                 {/* <p className="text-[11px] text-slate-400">Sẽ tự động cộng dồn vào tổng công nợ của khách hàng</p> */}
               </div>
+
+              {/* Ảnh phiếu xuất / Ảnh sản phẩm */}
+              <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <Camera size={12} />
+                  Ảnh Upload
+                </label>
+                <div className="flex flex-col gap-2">
+                  {watchImageUrl ? (
+                    <div className="relative inline-block w-24 h-24 rounded-xl border border-slate-200 overflow-hidden group">
+                      <img src={watchImageUrl} alt="Receipt" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setValue('image_url', null, { shouldValidate: true })}
+                        className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef}
+                        className="hidden"
+                        onChange={handleImageUpload}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="w-full h-28 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-50/50 transition-all bg-slate-50 disabled:opacity-50"
+                      >
+                        {isUploading ? (
+                          <Loader2 size={20} className="animate-spin text-emerald-600" />
+                        ) : (
+                          <>
+                            <ImagePlus size={24} className="mb-1 text-emerald-600" />
+                            <span className="text-[11px] font-medium text-slate-500">Kéo thả hoặc nhấn để tải ảnh</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
           </div>
 

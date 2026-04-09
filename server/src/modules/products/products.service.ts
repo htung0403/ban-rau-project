@@ -24,6 +24,28 @@ export class ProductService {
   }
 
   static async create(productData: any) {
+    // Check if a soft-deleted product with the same name and category exists
+    const { data: existing } = await supabaseService
+      .from('products')
+      .select('*')
+      .eq('name', productData.name)
+      .eq('category', productData.category || 'standard')
+      .eq('is_active', false)
+      .maybeSingle();
+
+    if (existing) {
+      // Reactivate the soft-deleted product with updated data
+      const { data, error } = await supabaseService
+        .from('products')
+        .update({ ...productData, is_active: true })
+        .eq('id', existing.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    }
+
     const { data, error } = await supabaseService
       .from('products')
       .insert(productData)

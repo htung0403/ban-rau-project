@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, FileText, ChevronRight, Tag, Save, Plus } from 'lucide-react';
+import { X, FileText, ChevronRight, Tag, Save, Plus, ImagePlus, Loader2, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '../../../../context/AuthContext';
 import { useAllPendingDeliveries } from '../../../../hooks/queries/useDelivery';
@@ -8,12 +8,27 @@ import type { PaymentCollection } from '../../../../types';
 import { useCreatePaymentCollection, useUpdatePaymentCollection } from '../../../../hooks/queries/usePaymentCollections';
 import { formatCurrency } from '../../../../utils/formatters';
 import { SearchableSelect } from '../../../../components/ui/SearchableSelect';
+import { uploadApi } from '../../../../api/uploadApi';
+import toast from 'react-hot-toast';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   payment?: PaymentCollection | null;
 }
+
+const toLocalDateTimeInputValue = (value?: string | Date) => {
+  const date = value ? new Date(value) : new Date();
+  const pad = (num: number) => String(num).padStart(2, '0');
+
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
 
 const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) => {
   const { mutate: createPayment, isPending: isCreating } = useCreatePaymentCollection();
@@ -39,8 +54,8 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
           code: d.import_orders?.order_code || 'N/A',
           customer: d.import_orders?.customers?.name || 'Vô Danh',
           productName: d.product_name,
-          quantity: myAssignment?.assigned_quantity || d.total_quantity,
-          amount: myAssignment?.expected_amount || d.import_orders?.total_amount || 0
+          quantity: myAssignment?.assigned_quantity ?? d.total_quantity,
+          amount: myAssignment?.expected_amount ?? d.import_orders?.total_amount ?? 0
         };
       });
   }, [deliveries, user?.id]);
@@ -49,20 +64,48 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
   const [collectedAmount, setCollectedAmount] = useState('');
   const [collectedAt, setCollectedAt] = useState('');
   const [notes, setNotes] = useState('');
+  const [proofImageUrl, setProofImageUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const proofInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (payment) {
       setDeliveryOrderId(payment.deliveryOrderId);
       setCollectedAmount(payment.collectedAmount.toString());
-      setCollectedAt(payment.collectedAt ? payment.collectedAt.substring(0,16) : new Date().toISOString().substring(0,16));
+      setCollectedAt(toLocalDateTimeInputValue(payment.collectedAt));
       setNotes(payment.notes || '');
+      setProofImageUrl(payment.imageUrl || null);
     } else {
       setDeliveryOrderId('');
       setCollectedAmount('');
-      setCollectedAt(new Date().toISOString().substring(0,16));
+      setCollectedAt(toLocalDateTimeInputValue());
       setNotes('');
+      setProofImageUrl(null);
     }
   }, [payment, isOpen]);
+
+  const handleProofImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Chỉ hỗ trợ file ảnh');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      const resp = await uploadApi.uploadFile(file, 'import-orders', 'payment-collections');
+      setProofImageUrl(resp.url);
+      toast.success('Tải ảnh xác minh thành công');
+    } catch (error) {
+      console.error('Payment proof upload error:', error);
+      toast.error('Không thể tải ảnh xác minh');
+    } finally {
+      setIsUploading(false);
+      if (proofInputRef.current) proofInputRef.current.value = '';
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -82,7 +125,8 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
         data: {
           collectedAmount: Number(collectedAmount),
           collectedAt: new Date(collectedAt).toISOString(),
-          notes
+          notes,
+          imageUrl: proofImageUrl,
         }
       }, {
         onSuccess: onClose
@@ -92,7 +136,8 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
         deliveryOrderId,
         collectedAmount: Number(collectedAmount),
         collectedAt: new Date(collectedAt).toISOString(),
-        notes
+        notes,
+        imageUrl: proofImageUrl || undefined,
       }, {
         onSuccess: onClose
       });
@@ -161,16 +206,59 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 space-y-1">
                   <p className="text-[13px] text-slate-600">Đơn Hàng: <span className="font-bold text-slate-800">{payment.deliveryOrderCode}</span></p>
                   <p className="text-[13px] text-slate-600">Khách Hàng: <span className="font-bold text-slate-800">{payment.customerName}</span></p>
-                  <p className="text-[13px] text-slate-600">Tiền Theo Đơn: <span className="font-bold text-slate-800">{formatCurrency(payment.expectedAmount)}</span></p>
+                  <p className="text-[13px] text-slate-600">Tiền Theo Phân Xe: <span className="font-bold text-slate-800">{formatCurrency(payment.expectedAmount)}</span></p>
                 </div>
               )}
 
               {!isEdit && selectedOrder && (
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 space-y-1">
                   <p className="text-[13px] text-slate-600">Khách Hàng: <span className="font-bold text-slate-800">{selectedOrder.customer}</span></p>
-                  <p className="text-[13px] text-slate-600">Tiền Theo Đơn: <span className="font-bold text-slate-800">{formatCurrency(selectedOrder.amount)}</span></p>
+                  <p className="text-[13px] text-slate-600">Tiền Theo Phân Xe: <span className="font-bold text-slate-800">{formatCurrency(selectedOrder.amount)}</span></p>
                 </div>
               )}
+
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-bold text-foreground">Ảnh xác minh giao hàng / nhận tiền</label>
+                <div className="flex flex-col gap-2">
+                  {proofImageUrl ? (
+                    <div className="relative inline-block w-28 h-28 rounded-xl border border-slate-200 overflow-hidden group">
+                      <img src={proofImageUrl} alt="Ảnh xác minh" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setProofImageUrl(null)}
+                        className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={proofInputRef}
+                        className="hidden"
+                        onChange={handleProofImageUpload}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => proofInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="w-full h-20 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-slate-50 disabled:opacity-50"
+                      >
+                        {isUploading ? (
+                          <Loader2 size={18} className="animate-spin text-primary" />
+                        ) : (
+                          <>
+                            <ImagePlus size={18} className="mb-1 text-primary" />
+                            <span className="text-[11px] font-medium text-slate-500">Tải ảnh xác minh</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               <div className="space-y-1.5">
                 <label className="text-[13px] font-bold text-foreground">Tiền Thu Thực Tế (VNĐ) <span className="text-red-500">*</span></label>

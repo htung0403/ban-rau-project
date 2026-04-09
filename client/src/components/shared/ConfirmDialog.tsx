@@ -19,8 +19,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   isOpen,
   title,
   message,
-  confirmLabel = 'Xac nhan',
-  cancelLabel = 'Huy',
+  confirmLabel = 'Xác nhận',
+  cancelLabel = 'Hủy',
   variant = 'danger',
   isLoading = false,
   onConfirm,
@@ -88,7 +88,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             {isLoading ? (
               <span className="flex items-center gap-2">
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Dang xu ly...
+                Đang xử lý...
               </span>
             ) : confirmLabel}
           </button>

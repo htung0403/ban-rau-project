@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import PageHeader from '../../components/shared/PageHeader';
 import { useExportOrders } from '../../hooks/queries/useExportOrders';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import StatusBadge from '../../components/shared/StatusBadge';
-import { Plus, Search, X, Filter } from 'lucide-react';
+import { Plus, Search, X, Filter, Image as ImageIcon, Eye } from 'lucide-react';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import { clsx } from 'clsx';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
@@ -35,6 +36,8 @@ const ExportOrdersPage: React.FC = () => {
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
+
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
 
   const closeFilter = () => {
     setIsFilterClosing(true);
@@ -153,6 +156,7 @@ const ExportOrdersPage: React.FC = () => {
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Ngày</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Giờ</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Khách hàng</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Ảnh</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Mặt hàng</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">SL</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Số tiền</th>
@@ -165,6 +169,23 @@ const ExportOrdersPage: React.FC = () => {
                     <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{o.export_date}</td>
                     <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{(o as any).export_time || '—'}</td>
                     <td className="px-4 py-3 text-[13px] font-semibold text-foreground">{(o as any).customers?.name || '—'}</td>
+                    <td className="px-4 py-3 text-center">
+                      {o.image_url ? (
+                        <div 
+                          className="w-10 h-10 rounded-lg bg-muted/30 overflow-hidden cursor-pointer mx-auto border border-border group relative flex items-center justify-center"
+                          onClick={(e) => { e.stopPropagation(); setViewingImageOrder(o); }}
+                        >
+                          <img src={o.image_url} alt="Receipt" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Eye size={16} className="text-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-muted/30 flex items-center justify-center text-muted-foreground mx-auto">
+                          <ImageIcon size={16} className="opacity-30" />
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-[13px] font-bold text-foreground">{(o as any).product_name}</td>
                     <td className="px-4 py-3 text-[13px] font-bold text-foreground text-right tabular-nums">{o.quantity}</td>
                     <td className="px-4 py-3 text-[13px] font-bold text-primary text-right tabular-nums">{formatCurrency(o.debt_amount)}</td>
@@ -176,32 +197,68 @@ const ExportOrdersPage: React.FC = () => {
           </div>
 
           {/* Mobile Card List */}
-          <div className="md:hidden flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+          <div className="md:hidden flex-1 overflow-y-auto p-3 flex flex-col gap-2">
             {filteredOrders.map((o) => (
               <div
                 key={o.id}
-                className="bg-white rounded-2xl border border-border shadow-sm p-4 cursor-pointer hover:shadow-md active:bg-muted/10 transition-all flex flex-col gap-3"
+                className="bg-white rounded-2xl border border-border shadow-sm p-3 hover:shadow-md active:bg-muted/10 transition-all flex flex-col gap-2"
               >
-                <div className="flex items-start justify-between">
-                   <div className="flex flex-col">
-                      <span className="text-[14px] font-bold flex items-center gap-2">
-                        <span className="text-foreground">{(o as any).product_name}</span>
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted px-1.5 py-0.5 rounded">SL: {o.quantity}</span>
+                <div className="flex gap-3">
+                  {/* Left: Image Thumbnail */}
+                  <div 
+                    className="w-[64px] h-[64px] shrink-0 bg-muted/20 rounded-lg overflow-hidden border border-border/50 self-center"
+                    onClick={(e) => {
+                       if (o.image_url) {
+                          e.stopPropagation();
+                          setViewingImageOrder(o);
+                       }
+                    }}
+                  >
+                    {o.image_url ? (
+                      <div className="w-full h-full relative group cursor-pointer">
+                        <img
+                          src={o.image_url}
+                          alt="Receipt"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                          <Eye size={20} className="text-white drop-shadow-md" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+                         <ImageIcon size={20} className="opacity-30 mb-0.5" />
+                         <span className="text-[9px] font-medium opacity-50">NO IMG</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Right: Data */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <div className="flex items-start justify-between gap-2 mb-0.5">
+                      <span className="text-[13px] font-bold text-foreground leading-tight truncate">
+                        {(o as any).customers?.name || '—'}
                       </span>
-                      <span className="text-[12px] font-semibold text-slate-600 mt-0.5">{(o as any).customers?.name || '—'}</span>
-                      <span className="text-[11px] text-muted-foreground mt-0.5 tabular-nums">{o.export_date}</span>
-                   </div>
-                   <StatusBadge status={o.payment_status} label={paymentLabels[o.payment_status]} />
+                      <StatusBadge status={o.payment_status} label={paymentLabels[o.payment_status]} />
+                    </div>
+                    
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[12px] font-bold text-slate-700">{(o as any).product_name}</span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted px-1.5 py-0.5 rounded">SL: {o.quantity.toLocaleString('vi-VN')}</span>
+                        <span className="text-[11px] text-muted-foreground tabular-nums">{o.export_date}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                   <div className="flex flex-col">
-                     <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Số tiền</span>
-                     <span className="text-[13px] font-bold text-primary tabular-nums">
-                      {formatCurrency(o.debt_amount)}
-                    </span>
-                   </div>
-                </div>
+                 {(o.debt_amount && o.debt_amount > 0) ? (
+                  <div className="flex items-center justify-end">
+                      <span className="text-[13px] font-black text-primary tabular-nums">
+                        {formatCurrency(o.debt_amount)}
+                      </span>
+                  </div>
+                 ) : null}
               </div>
             ))}
           </div>
@@ -234,6 +291,29 @@ const ExportOrdersPage: React.FC = () => {
         }}
         dateLabel="Khoảng thời gian"
       />
+
+      {/* Fullscreen Image Viewer */}
+      {viewingImage && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] bg-black/95 flex flex-col items-center justify-center animate-in fade-in duration-200"
+          onClick={() => setViewingImage(null)}
+        >
+          <button
+            onClick={() => setViewingImage(null)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors z-10"
+          >
+            <X size={20} />
+          </button>
+          
+          <img
+            src={viewingImage}
+            alt="View full"
+            className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

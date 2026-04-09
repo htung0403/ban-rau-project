@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Truck, Package, User, AlertCircle, Trash2, CheckCircle } from 'lucide-react';
+import { X, Truck, Package, User, AlertCircle, Trash2, CheckCircle, ImagePlus, Loader2, Camera } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,16 +11,20 @@ import { useEmployees } from '../../../hooks/queries/useHR';
 import type { DeliveryOrder } from '../../../types';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { useAuth } from '../../../context/AuthContext';
+import { uploadApi } from '../../../api/uploadApi';
+import toast from 'react-hot-toast';
 
 const assignmentSchema = z.object({
   vehicle_id: z.string().min(1, 'Vui lòng chọn xe'),
   driver_id: z.string().min(1, 'Vui lòng chọn tài xế'),
+  loader_name: z.string().optional().nullable(),
   quantity: z.coerce.number().min(0.01, 'SL phải > 0'),
   expected_amount: z.coerce.number().min(0).optional().default(0),
 });
 
 const schema = z.object({
   assignments: z.array(assignmentSchema).min(1, 'Cần ít nhất một sự phân bổ'),
+  image_url: z.string().optional().nullable().catch(null),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -38,7 +42,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const { data: employees } = useEmployees(isOpen);
   const assignMutation = useAssignVehicle();
   const { user } = useAuth();
-  
+
   const isDriver = user?.role === 'driver';
   const myVehicle = vehicles?.find(v => v.driver_id === user?.id);
 
@@ -54,6 +58,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
     resolver: zodResolver(schema) as any,
     defaultValues: {
       assignments: [],
+      image_url: null,
     },
   });
 
@@ -63,8 +68,35 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   });
 
   const watchAssignments = watch('assignments') || [];
+  const watchImageUrl = watch('image_url');
   const totalAssignedQuantity = watchAssignments.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0);
-  const currentAvailable = order ? Math.max(0, order.total_quantity - totalAssignedQuantity) : 0;
+  const persistedAssignedQuantity = (order?.delivery_vehicles || []).reduce((acc: number, dv: any) => acc + (Number(dv.assigned_quantity) || 0), 0);
+  const currentAvailable = order ? Math.max(0, order.total_quantity - persistedAssignedQuantity) : 0;
+  const isStandardOrder = (order?.order_category ?? 'standard') === 'standard';
+
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Chỉ hỗ trợ file ảnh');
+      return;
+    }
+    try {
+      setIsUploading(true);
+      const resp = await uploadApi.uploadFile(file, 'import-orders', 'delivery-orders');
+      setValue('image_url', resp.url, { shouldValidate: true });
+      toast.success('Tải ảnh lên thành công!');
+    } catch (error) {
+      console.error('File upload error:', error);
+      toast.error('Lỗi khi tải ảnh lên');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   useEffect(() => {
     if (order && isOpen) {
@@ -77,6 +109,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           initialAssignments.push({
             vehicle_id: dv.vehicle_id,
             driver_id: dv.driver_id || '',
+            loader_name: dv.loader_name || '',
             quantity: dv.assigned_quantity,
             expected_amount: dv.expected_amount || (dv.assigned_quantity * (order.unit_price || 0))
           });
@@ -99,6 +132,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         initialAssignments.push({
           vehicle_id: initialVid,
           driver_id: vehicle?.driver_id || (isDriver ? user?.id : ''),
+          loader_name: '',
           quantity: remainingForThis,
           expected_amount: remainingForThis * (order.unit_price || 0),
         });
@@ -109,12 +143,13 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         initialAssignments.push({
           vehicle_id: '',
           driver_id: '',
-          quantity: order.total_quantity,
-          expected_amount: order.total_quantity * (order.unit_price || 0),
+          loader_name: '',
+          quantity: '',
+          expected_amount: 0,
         });
       }
 
-      reset({ assignments: initialAssignments });
+      reset({ assignments: initialAssignments, image_url: (order as any).image_url || null });
     }
   }, [order, initialVehicleId, isOpen, reset, vehicles]);
 
@@ -123,9 +158,14 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const onSubmit = async (data: FormValues) => {
     if (!order) return;
     try {
+      const payload: any = {
+        assignments: data.assignments
+      };
+      if (data.image_url) payload.image_url = data.image_url;
+
       await assignMutation.mutateAsync({
         id: order.id,
-        payload: data.assignments as any,
+        payload
       });
       onClose();
     } catch (error) {
@@ -152,9 +192,9 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           'relative w-full bg-white flex flex-col transition-all duration-350',
           'h-[100dvh] sm:h-auto sm:max-h-[90vh] sm:max-w-[800px]',
           'rounded-none sm:rounded-3xl shadow-2xl',
-          isClosing 
-             ? 'translate-y-full sm:translate-y-0 sm:scale-95 opacity-0' 
-             : 'animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300'
+          isClosing
+            ? 'translate-y-full sm:translate-y-0 sm:scale-95 opacity-0'
+            : 'animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300'
         )}
       >
         {/* Header */}
@@ -264,7 +304,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                         <User size={12} className={isPaid ? "text-green-500" : "text-primary"} /> Tài xế
                       </label>
                       <SearchableSelect
-                        options={(employees || []).filter(e => e.role === 'driver').map(e => ({ value: e.id, label: e.full_name }))}
+                        options={(employees || []).filter(e => e.role === 'driver' || e.role?.toLowerCase().includes('tài xế') || e.role?.toLowerCase().includes('tai xe') || e.role?.toLowerCase().includes('tai_xe')).map(e => ({ value: e.id, label: e.full_name }))}
                         value={watchAssignments[index]?.driver_id || ''}
                         onValueChange={(val) => {
                           if (isRowDisabled) return;
@@ -297,6 +337,45 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       {errors.assignments?.[index]?.quantity && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.quantity?.message}</p>}
                     </div>
 
+                    {/* Tiền thu (chỉ đơn tạp hóa/standard) */}
+                    {isStandardOrder && (
+                      <div className="w-full md:w-44 space-y-1.5 mt-2 md:mt-0">
+                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Tiền thu (VND)</label>
+                        <input
+                          type="text"
+                          value={watchAssignments[index]?.expected_amount ? new Intl.NumberFormat('vi-VN').format(Number(watchAssignments[index]?.expected_amount || 0)) : ''}
+                          onChange={(e) => {
+                            if (isRowDisabled) return;
+                            const rawValue = e.target.value.replace(/\D/g, '');
+                            setValue(`assignments.${index}.expected_amount`, Number(rawValue || 0), { shouldValidate: true });
+                          }}
+                          disabled={isRowDisabled}
+                          placeholder="Nhập tiền thu"
+                          className={clsx(
+                            "w-full h-[42px] px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums",
+                            isRowDisabled && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed"
+                          )}
+                        />
+                      </div>
+                    )}
+
+                    {/* Người bốc xếp (chỉ đơn rau) */}
+                    {!isStandardOrder && (
+                      <div className="w-full md:w-52 space-y-1.5 mt-2 md:mt-0">
+                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Người bốc xếp</label>
+                        <input
+                          type="text"
+                          {...register(`assignments.${index}.loader_name` as const)}
+                          disabled={isRowDisabled}
+                          placeholder="Nhập tên người bốc xếp"
+                          className={clsx(
+                            "w-full h-[42px] px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-semibold",
+                            isRowDisabled && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed"
+                          )}
+                        />
+                      </div>
+                    )}
+
                     {/* Nút xóa */}
                     {fields.length > 1 && !isRowDisabled && (
                       <button
@@ -319,6 +398,54 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                 <p className="text-[12px] font-medium italic">Tổng số lượng đã phân ({totalAssignedQuantity.toLocaleString()}) đang vượt quá yêu cầu của đơn hàng ({order.total_quantity.toLocaleString()}).</p>
               </div>
             )}
+
+            {/* Upload Image Section */}
+            <div className="space-y-1.5 pt-4 border-t border-slate-100 mt-2">
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <Camera size={12} />
+                Ảnh xuất hàng / Giao hàng
+              </label>
+              <div className="flex flex-col gap-2">
+                {watchImageUrl ? (
+                  <div className="relative inline-block w-24 h-24 rounded-xl border border-slate-200 overflow-hidden group">
+                    <img src={watchImageUrl} alt="Receipt" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setValue('image_url', null, { shouldValidate: true })}
+                      className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={fileInputRef}
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="w-full h-20 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-slate-50 disabled:opacity-50"
+                    >
+                      {isUploading ? (
+                        <Loader2 size={18} className="animate-spin text-primary" />
+                      ) : (
+                        <>
+                          <ImagePlus size={20} className="mb-1 text-primary" />
+                          <span className="text-[11px] font-medium text-slate-500">Tải ảnh lên (nếu có)</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
           </div>
         </form>
 
@@ -346,7 +473,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               ) : (
                 <Truck size={18} />
               )}
-              Xác nhận thông tin
+              {isStandardOrder ? 'Xác nhận thông tin' : 'Xuất hàng'}
             </button>
           </div>
         </div>

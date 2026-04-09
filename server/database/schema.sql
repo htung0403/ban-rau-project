@@ -69,6 +69,7 @@ CREATE TABLE public.import_orders (
   status VARCHAR(30) DEFAULT 'pending' CHECK (status IN ('pending','processing','delivered','returned')),
   customer_id UUID REFERENCES public.customers(id),
   notes TEXT,
+  deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -79,6 +80,7 @@ CREATE TABLE public.import_order_items (
   import_order_id UUID REFERENCES public.import_orders(id) ON DELETE CASCADE,
   product_id UUID REFERENCES public.products(id),
   package_type VARCHAR(50),
+  item_note TEXT,
   package_quantity INTEGER,
   weight_kg NUMERIC(10,2),
   quantity INTEGER,
@@ -112,6 +114,7 @@ CREATE TABLE public.vegetable_orders (
   status VARCHAR(30) DEFAULT 'pending' CHECK (status IN ('pending','processing','delivered','returned')),
   customer_id UUID REFERENCES public.customers(id),
   notes TEXT,
+  deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -122,6 +125,7 @@ CREATE TABLE public.vegetable_order_items (
   vegetable_order_id UUID REFERENCES public.vegetable_orders(id) ON DELETE CASCADE,
   product_id UUID REFERENCES public.products(id),
   package_type VARCHAR(50),
+  item_note TEXT,
   package_quantity INTEGER,
   weight_kg NUMERIC(10,2),
   quantity INTEGER,
@@ -181,6 +185,7 @@ CREATE TABLE public.delivery_vehicles (
   delivery_order_id UUID REFERENCES public.delivery_orders(id) ON DELETE CASCADE,
   vehicle_id UUID REFERENCES public.vehicles(id),
   driver_id UUID REFERENCES public.profiles(id),
+  loader_name TEXT,
   assigned_quantity INTEGER,
   expected_amount NUMERIC(15,2) DEFAULT 0,
   status VARCHAR(20) DEFAULT 'assigned' CHECK (status IN ('assigned','in_transit','completed')),
@@ -218,6 +223,7 @@ CREATE TABLE public.payment_collections (
   confirmed_at TIMESTAMPTZ,
   self_confirm_reason TEXT,
   notes TEXT,
+  image_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -166,7 +166,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
               <div className="space-y-1.5">
                 <label className="text-[13px] font-bold text-foreground">Tài xế phụ trách</label>
                 <SearchableSelect
-                  options={(employees || []).filter(e => e.role === 'driver').map(e => ({ value: e.id, label: `${e.full_name} (${e.phone || 'Chưa cập nhật'})` }))}
+                  options={(employees || []).filter(e => e.role === 'driver' || e.role?.toLowerCase().includes('tài xế') || e.role?.toLowerCase().includes('tai xe') || e.role?.toLowerCase().includes('tai_xe')).map(e => ({ value: e.id, label: `${e.full_name} (${e.phone || 'Chưa cập nhật'})` }))}
                   value={driverId || ''}
                   onValueChange={(val) => setValue('driver_id', val, { shouldValidate: true })}
                   placeholder="Chọn tài xế (tùy chọn)..."

@@ -7,13 +7,15 @@ const createSchema = z.object({
   deliveryOrderId: z.string().uuid(),
   collectedAmount: z.number().min(0),
   collectedAt: z.string(),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  imageUrl: z.string().optional()
 });
 
 const updateSchema = z.object({
   collectedAmount: z.number().min(0).optional(),
   collectedAt: z.string().optional(),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  imageUrl: z.string().nullable().optional()
 });
 
 const submitSchema = z.object({

@@ -5,7 +5,6 @@ import { useProducts, useCreateProduct, useDeleteProduct, useUpdateProduct } fro
 import { Database, Box, Plus, X, Trash2, Edit2, Search, ArrowUpDown, Filter, Check } from 'lucide-react';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
-import CurrencyInput from '../../components/shared/CurrencyInput';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import DraggableFAB from '../../components/shared/DraggableFAB';

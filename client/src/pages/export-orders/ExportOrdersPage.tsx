@@ -173,7 +173,7 @@ const ExportOrdersPage: React.FC = () => {
                       {o.image_url ? (
                         <div 
                           className="w-10 h-10 rounded-lg bg-muted/30 overflow-hidden cursor-pointer mx-auto border border-border group relative flex items-center justify-center"
-                          onClick={(e) => { e.stopPropagation(); setViewingImageOrder(o); }}
+                          onClick={(e) => { e.stopPropagation(); setViewingImage(o.image_url!); }}
                         >
                           <img src={o.image_url} alt="Receipt" className="w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -210,7 +210,7 @@ const ExportOrdersPage: React.FC = () => {
                     onClick={(e) => {
                        if (o.image_url) {
                           e.stopPropagation();
-                          setViewingImageOrder(o);
+                          setViewingImage(o.image_url!);
                        }
                     }}
                   >

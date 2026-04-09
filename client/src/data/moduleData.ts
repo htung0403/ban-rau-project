@@ -1,7 +1,7 @@
 import {
   Users,
   Warehouse, Download, Upload, Truck as DeliveryIcon,
-  Banknote, Car, CalendarDays, ClipboardList, ClipboardCheck, DollarSign, FileText, Settings2, Leaf
+  Banknote, Car, CalendarDays, ClipboardList, ClipboardCheck, DollarSign, FileText, Settings2
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
 

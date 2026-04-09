@@ -4,7 +4,7 @@ import { useDeliveryOrders } from '../../hooks/queries/useDelivery';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Leaf, Search, Box, Calendar, User, Truck } from 'lucide-react';
+import { Leaf, Search, Calendar, User, Truck } from 'lucide-react';
 import AssignVehicleDialog from '../delivery/dialogs/AssignVehicleDialog';
 
 const formatNumber = (val?: number) => {

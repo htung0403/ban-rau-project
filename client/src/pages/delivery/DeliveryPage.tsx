@@ -603,7 +603,6 @@ const DeliveryPage: React.FC = () => {
                         0
                       );
                       const remainingQty = o.total_quantity - totalAssigned;
-                      const statusColor = STATUS_COLORS[o.status] || STATUS_COLORS.can_giao;
 
                       return (
                         <div

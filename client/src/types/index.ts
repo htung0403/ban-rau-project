@@ -193,7 +193,7 @@ export interface ExportOrder {
 }
 
 // --- Delivery Orders ---
-export type DeliveryStatus = 'pending' | 'in_progress' | 'completed';
+export type DeliveryStatus = 'hang_o_sg' | 'can_giao' | 'da_giao';
 
 export interface DeliveryOrder {
   id: string;

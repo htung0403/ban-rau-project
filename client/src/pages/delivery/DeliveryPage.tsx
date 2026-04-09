@@ -596,6 +596,7 @@ const DeliveryPage: React.FC = () => {
                     </span>
                   </div>
 
+
                   <div className="flex flex-col gap-2.5 px-0.5">
                     {groupedOrders[date].map((o: any) => {
                       const totalAssigned = (o.delivery_vehicles || []).reduce(

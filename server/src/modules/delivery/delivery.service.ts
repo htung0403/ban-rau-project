@@ -35,7 +35,7 @@ export class DeliveryService {
       .insert({
         ...orderData,
         order_category: orderData.order_category || 'standard',
-        status: (vehicles && vehicles.length > 0) ? 'in_progress' : 'pending'
+        status: (vehicles && vehicles.length > 0) ? 'can_giao' : 'hang_o_sg'
       })
       .select()
       .single();
@@ -92,6 +92,27 @@ export class DeliveryService {
         .in('id', vehicleIds);
     }
 
+    // Auto-check: if all quantity assigned → set status to 'da_giao'
+    const { data: allDvs } = await supabaseService
+      .from('delivery_vehicles')
+      .select('assigned_quantity')
+      .eq('delivery_order_id', deliveryId);
+
+    const totalAssigned = (allDvs || []).reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
+
+    const { data: doData } = await supabaseService
+      .from('delivery_orders')
+      .select('total_quantity, status')
+      .eq('id', deliveryId)
+      .single();
+
+    if (doData && totalAssigned >= doData.total_quantity && doData.status === 'can_giao') {
+      await supabaseService
+        .from('delivery_orders')
+        .update({ status: 'da_giao' })
+        .eq('id', deliveryId);
+    }
+
     return data;
   }
 
@@ -107,7 +128,7 @@ export class DeliveryService {
 
     const newDelivered = (order.delivered_quantity || 0) + deliveredQty;
     const remaining = order.total_quantity - newDelivered;
-    const status = remaining <= 0 ? 'completed' : 'in_progress';
+    const status = remaining <= 0 ? 'da_giao' : 'can_giao';
 
     // 2. Update with status logic
     const { data, error } = await supabaseService
@@ -120,6 +141,18 @@ export class DeliveryService {
       .select()
       .single();
     
+    if (error) throw error;
+    return data;
+  }
+
+  static async confirmOrders(ids: string[]) {
+    const { data, error } = await supabaseService
+      .from('delivery_orders')
+      .update({ status: 'can_giao' })
+      .in('id', ids)
+      .eq('status', 'hang_o_sg')
+      .select();
+
     if (error) throw error;
     return data;
   }

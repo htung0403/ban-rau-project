@@ -25,6 +25,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
     {
       section: 'Hàng Rau',
       items: [
+        { icon: Warehouse, title: 'Tồn kho hàng rau', description: 'Hàng rau tồn kho chờ giao hàng.', colorScheme: 'teal', path: '/hang-hoa/kho-rau' },
         { icon: Download, title: 'Nhập hàng rau', description: 'Quản lý phiếu nhập kho mặt hàng rau.', colorScheme: 'green', path: '/hang-hoa/nhap-hang-rau' },
         { icon: ClipboardList, title: 'Bảng Hàng Rau', description: 'Bảng xem chi tiết các mặt hàng rau nhập.', colorScheme: 'purple', path: '/hang-hoa/hang-rau' },
         { icon: DeliveryIcon, title: 'Giao hàng rau', description: 'Danh sách các đơn hàng rau cần giao.', colorScheme: 'orange', path: '/hang-hoa/giao-hang-rau' },

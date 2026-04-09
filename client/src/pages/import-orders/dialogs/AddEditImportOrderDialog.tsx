@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { useCreateImportOrder, useUpdateImportOrder } from '../../../hooks/queries/useImportOrders';
-import { useCustomers } from '../../../hooks/queries/useCustomers';
+import { useCustomers, useCreateCustomer } from '../../../hooks/queries/useCustomers';
 import { useCreateProduct, useProducts } from '../../../hooks/queries/useProducts';
 import { useEmployees } from '../../../hooks/queries/useHR';
 import type { ImportOrder, ImportOrderItem } from '../../../types';
@@ -56,9 +56,39 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
   const createMutation = useCreateImportOrder();
   const updateMutation = useUpdateImportOrder();
   const createProductMutation = useCreateProduct();
+  const createCustomerMutation = useCreateCustomer();
   const { data: products } = useProducts(isOpen);
   const { data: customers } = useCustomers(undefined, isOpen);
   const { data: employees } = useEmployees(isOpen);
+
+  // Inline add-new-customer state
+  const [showNewCustomerForm, setShowNewCustomerForm] = React.useState(false);
+  const [newCustomerName, setNewCustomerName] = React.useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = React.useState('');
+
+  const handleCreateCustomer = async () => {
+    if (!newCustomerName.trim()) {
+      toast.error('Vui lòng nhập tên khách hàng');
+      return;
+    }
+    try {
+      const customerType = defaultCategory === 'vegetable' ? 'vegetable' : 'grocery';
+      const resp = await createCustomerMutation.mutateAsync({
+        name: newCustomerName.trim(),
+        phone: newCustomerPhone.trim() || undefined,
+        customer_type: customerType,
+      });
+      const newId = (resp as any)?.id || (resp as any)?.data?.id;
+      if (newId) {
+        setValue('customer_id', newId, { shouldValidate: true });
+      }
+      setNewCustomerName('');
+      setNewCustomerPhone('');
+      setShowNewCustomerForm(false);
+    } catch {
+      // error handled by mutation
+    }
+  };
 
   const filteredProducts = React.useMemo(() => {
     const list = products?.filter((p: any) => p.category === defaultCategory || (!p.category && defaultCategory === 'standard')) || [];
@@ -122,9 +152,8 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
     watchItems.forEach((item: any) => {
       const product = filteredProducts.find((p: any) => p.id === item.product_id);
       if (product && product.base_price) {
-        const kg = Number(item.weight_kg) || 0;
         const qty = Number(item.quantity) || 0;
-        const amount = Math.round((qty * kg / 1000) * product.base_price);
+        const amount = Math.round(qty * product.base_price);
         sum += amount;
       }
     });
@@ -370,14 +399,78 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Người nhận <span className="text-red-500">*</span></label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Người nhận <span className="text-red-500">*</span></label>
+                          <button
+                            type="button"
+                            onClick={() => setShowNewCustomerForm(!showNewCustomerForm)}
+                            className={clsx(
+                              'flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all active:scale-95',
+                              showNewCustomerForm
+                                ? 'bg-red-50 text-red-500 hover:bg-red-100 border border-red-200'
+                                : 'bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20'
+                            )}
+                          >
+                            {showNewCustomerForm ? <X size={12} /> : <Plus size={12} />}
+                            {showNewCustomerForm ? 'Đóng' : 'Thêm mới'}
+                          </button>
+                        </div>
                         <SearchableSelect
                           options={filteredCustomers.map((c: any) => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}` }))}
                           value={watchCustomerId}
                           onValueChange={(val) => setValue('customer_id', val, { shouldValidate: true })}
                           placeholder="Nhập tên người nhận hàng"
+                          disabled={showNewCustomerForm}
                         />
                         {errors.customer_id && <p className="text-red-500 text-[11px] font-medium">{errors.customer_id.message as string}</p>}
+
+                        {/* Inline Add Customer Form */}
+                        {showNewCustomerForm && (
+                          <div className="mt-2 p-3 bg-primary/5 border border-primary/15 rounded-xl space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <p className="text-[11px] font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                              <UserCircle size={14} />
+                              Thêm khách hàng mới
+                            </p>
+                            <input
+                              type="text"
+                              value={newCustomerName}
+                              onChange={(e) => setNewCustomerName(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              placeholder="Tên khách hàng *"
+                            />
+                            <input
+                              type="tel"
+                              value={newCustomerPhone}
+                              onChange={(e) => setNewCustomerPhone(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              placeholder="Số điện thoại (không bắt buộc)"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => { setShowNewCustomerForm(false); setNewCustomerName(''); setNewCustomerPhone(''); }}
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-[12px] font-bold hover:bg-slate-50 transition-all active:scale-[0.98]"
+                              >
+                                Hủy
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCreateCustomer}
+                                disabled={createCustomerMutation.isPending || !newCustomerName.trim()}
+                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white text-[12px] font-bold hover:bg-primary/90 transition-all shadow-sm shadow-primary/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {createCustomerMutation.isPending ? (
+                                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                  <>
+                                    <CheckCircle2 size={14} />
+                                    Lưu & Chọn
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-1.5">
@@ -459,14 +552,78 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tên vựa (Người nhận) <span className="text-red-500">*</span></label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tên vựa (Người nhận) <span className="text-red-500">*</span></label>
+                          <button
+                            type="button"
+                            onClick={() => setShowNewCustomerForm(!showNewCustomerForm)}
+                            className={clsx(
+                              'flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all active:scale-95',
+                              showNewCustomerForm
+                                ? 'bg-red-50 text-red-500 hover:bg-red-100 border border-red-200'
+                                : 'bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20'
+                            )}
+                          >
+                            {showNewCustomerForm ? <X size={12} /> : <Plus size={12} />}
+                            {showNewCustomerForm ? 'Đóng' : 'Thêm mới'}
+                          </button>
+                        </div>
                         <SearchableSelect
                           options={filteredCustomers.map((c: any) => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}` }))}
                           value={watchCustomerId}
                           onValueChange={(val) => setValue('customer_id', val, { shouldValidate: true })}
                           placeholder="Tìm vựa rau hoặc KH Rau..."
+                          disabled={showNewCustomerForm}
                         />
                         {errors.customer_id && <p className="text-red-500 text-[11px] font-medium">{errors.customer_id.message as string}</p>}
+
+                        {/* Inline Add Customer Form */}
+                        {showNewCustomerForm && (
+                          <div className="mt-2 p-3 bg-primary/5 border border-primary/15 rounded-xl space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <p className="text-[11px] font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                              <UserCircle size={14} />
+                              Thêm khách hàng mới
+                            </p>
+                            <input
+                              type="text"
+                              value={newCustomerName}
+                              onChange={(e) => setNewCustomerName(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              placeholder="Tên khách hàng / vựa *"
+                            />
+                            <input
+                              type="tel"
+                              value={newCustomerPhone}
+                              onChange={(e) => setNewCustomerPhone(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              placeholder="Số điện thoại (không bắt buộc)"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => { setShowNewCustomerForm(false); setNewCustomerName(''); setNewCustomerPhone(''); }}
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-[12px] font-bold hover:bg-slate-50 transition-all active:scale-[0.98]"
+                              >
+                                Hủy
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCreateCustomer}
+                                disabled={createCustomerMutation.isPending || !newCustomerName.trim()}
+                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white text-[12px] font-bold hover:bg-primary/90 transition-all shadow-sm shadow-primary/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {createCustomerMutation.isPending ? (
+                                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                  <>
+                                    <CheckCircle2 size={14} />
+                                    Lưu & Chọn
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-1.5">
@@ -609,10 +766,9 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                         <div></div>
                       </div>
                     ) : (
-                      <div className="hidden md:grid grid-cols-[60px_minmax(150px,3fr)_70px_100px_36px] gap-3 px-4 py-3 bg-white border-b border-border sticky top-0 z-10 md:items-center">
+                      <div className="hidden md:grid grid-cols-[60px_minmax(150px,3fr)_100px_36px] gap-3 px-4 py-3 bg-white border-b border-border sticky top-0 z-10 md:items-center">
                         <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">SL</div>
                         <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tên Hàng</div>
-                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Số Kg</div>
                         <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Tổng Tiền</div>
                         <div></div>
                       </div>
@@ -626,7 +782,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                             "grid gap-2 md:gap-3 p-3 md:px-4 md:py-2 md:items-center bg-white rounded-xl md:rounded-none border border-slate-200 md:border-none shadow-sm md:shadow-none hover:bg-slate-50/50 transition-all group relative",
                             defaultCategory === 'standard' 
                               ? "grid-cols-1 md:grid-cols-[1fr_80px_80px_36px]" 
-                              : "grid-cols-1 md:grid-cols-[60px_minmax(150px,3fr)_70px_100px_36px]"
+                              : "grid-cols-1 md:grid-cols-[60px_minmax(150px,3fr)_100px_36px]"
                           )}>
 
                             {/* Vegetable order: SL first, then Tên hàng */}
@@ -663,38 +819,26 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                                     placeholder="Gõ tên hàng..."
                                     className="h-9 border-slate-200 bg-white"
                                   />
+                                  {(() => {
+                                    const prod = filteredProducts.find((p: any) => p.id === watch(`items.${index}.product_id`));
+                                    const price = prod?.base_price || 0;
+                                    const perWeight = prod?.price_per_weight || 0;
+                                    if (price > 0 && perWeight > 0) return <span className="text-[9px] text-slate-400 mt-0.5 ml-1">{new Intl.NumberFormat('vi-VN').format(price)}đ / {perWeight}kg</span>;
+                                    return null;
+                                  })()}
                                   {(errors.items as any)?.[index]?.product_id && (
                                     <span className="absolute bottom-[-16px] left-2 text-[10px] text-red-500">Thiếu</span>
                                   )}
                                 </div>
 
-                                {/* Col 3: Số Kg */}
-                                <div className="hidden md:flex flex-col justify-center">
-                                  <Controller
-                                    name={`items.${index}.weight_kg` as const}
-                                    control={control}
-                                    render={({ field }) => (
-                                      <input
-                                        type="number"
-                                        placeholder="VD: 5"
-                                        value={field.value ?? ''}
-                                        onChange={(e) => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
-                                        onBlur={field.onBlur}
-                                        className="w-full h-9 px-2 bg-white border border-slate-200 rounded-lg text-[13px] font-medium text-center text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none tabular-nums transition-all"
-                                      />
-                                    )}
-                                  />
-                                </div>
-
-                                {/* Col 4: Tổng tiền */}
+                                {/* Col 3: Tổng tiền */}
                                 <div className="hidden md:flex flex-col justify-center text-right">
                                   {(() => {
                                     const productId = watch(`items.${index}.product_id`);
-                                    const kg = Number(watch(`items.${index}.weight_kg`) || 0);
                                     const qty = Number(watch(`items.${index}.quantity`) || 0);
                                     const prod = filteredProducts.find((p: any) => p.id === productId);
                                     const price = prod?.base_price || 0;
-                                    const total = Math.round((qty * kg / 1000) * price);
+                                    const total = Math.round(qty * price);
                                     return (
                                       <span className="text-[13px] font-bold text-primary tabular-nums flex items-center justify-end">
                                         {total > 0 ? new Intl.NumberFormat('vi-VN').format(total) : '-'}
@@ -716,7 +860,7 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                                 </div>
 
                                 {/* Mobile layout */}
-                                <div className="md:hidden flex items-end gap-2">
+                                <div className="md:hidden flex items-start gap-2">
                                   <div className="flex-1 flex flex-col space-y-1 relative">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase">Tên hàng</label>
                                     <CreatableSearchableSelect
@@ -733,11 +877,18 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                                     {(errors.items as any)?.[index]?.product_id && (
                                       <span className="text-[10px] text-red-500">Thiếu</span>
                                     )}
+                                    {(() => {
+                                      const prod = filteredProducts.find((p: any) => p.id === watch(`items.${index}.product_id`));
+                                      const price = prod?.base_price || 0;
+                                      const perWeight = prod?.price_per_weight || 0;
+                                      if (price > 0 && perWeight > 0) return <span className="text-[9px] text-slate-400 mt-0.5">{new Intl.NumberFormat('vi-VN').format(price)}đ / {perWeight}kg</span>;
+                                      return null;
+                                    })()}
                                   </div>
                                   <button
                                     type="button"
                                     onClick={() => remove(index)}
-                                    className="shrink-0 h-9 w-9 mt-auto flex items-center justify-center text-red-500 hover:bg-red-100 hover:text-red-600 rounded-xl transition-all bg-red-50/50 border border-red-100 hover:border-red-200"
+                                    className="shrink-0 h-9 w-9 mt-[18px] flex items-center justify-center text-red-500 hover:bg-red-100 hover:text-red-600 rounded-xl transition-all bg-red-50/50 border border-red-100 hover:border-red-200"
                                     title="Xóa dòng"
                                   >
                                     <Trash2 size={16} />
@@ -762,35 +913,16 @@ const AddEditImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingO
                                     />
                                   </div>
                                   <div className="flex flex-col space-y-1 col-span-1">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase">Số Kg</label>
-                                    <Controller
-                                      name={`items.${index}.weight_kg` as const}
-                                      control={control}
-                                      render={({ field }) => (
-                                        <input
-                                          type="number"
-                                          placeholder="VD: 5"
-                                          value={field.value ?? ''}
-                                          onChange={(e) => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
-                                          onBlur={field.onBlur}
-                                          className="w-full h-9 px-2 bg-white border border-slate-200 rounded-lg text-[13px] font-medium text-center text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none tabular-nums transition-all"
-                                        />
-                                      )}
-                                    />
-                                  </div>
-                                  <div className="flex flex-col space-y-1 col-span-2">
                                     {(() => {
                                       const productId = watch(`items.${index}.product_id`);
-                                      const kg = Number(watch(`items.${index}.weight_kg`) || 0);
                                       const qty = Number(watch(`items.${index}.quantity`) || 0);
                                       const prod = filteredProducts.find((p: any) => p.id === productId);
                                       const price = prod?.base_price || 0;
-                                      const total = Math.round((qty * kg / 1000) * price);
+                                      const total = Math.round(qty * price);
                                       return (
                                         <>
-                                          <label className="text-[11px] font-bold text-slate-500 uppercase flex justify-between items-center pr-2">
-                                            <span>Tổng tiền</span>
-                                            {price > 0 && <span className="text-[9px] text-slate-400 normal-case">(Cước: {new Intl.NumberFormat('vi-VN').format(price)}/Tấn)</span>}
+                                          <label className="text-[11px] font-bold text-slate-500 uppercase">
+                                            Tổng tiền
                                           </label>
                                           <span className="text-[13px] font-bold text-primary tabular-nums h-9 flex items-center bg-slate-50 px-3 rounded-lg border border-slate-200">
                                             {total > 0 ? new Intl.NumberFormat('vi-VN').format(total) : '-'}

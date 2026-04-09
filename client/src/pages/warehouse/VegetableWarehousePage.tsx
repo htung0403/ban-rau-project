@@ -4,7 +4,7 @@ import { useDeliveryOrders } from '../../hooks/queries/useDelivery';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Package, Search, Box, Calendar, User, Truck } from 'lucide-react';
+import { Leaf, Search, Box, Calendar, User, Truck } from 'lucide-react';
 import AssignVehicleDialog from '../delivery/dialogs/AssignVehicleDialog';
 
 const formatNumber = (val?: number) => {
@@ -12,8 +12,9 @@ const formatNumber = (val?: number) => {
   return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
 };
 
-const WarehousesPage: React.FC = () => {
-  const { data: deliveries, isLoading, isError, refetch } = useDeliveryOrders(undefined, undefined, 'standard');
+const VegetableWarehousePage: React.FC = () => {
+  // Fetch only vegetable delivery orders (no date filter => all pending)
+  const { data: deliveries, isLoading, isError, refetch } = useDeliveryOrders(undefined, undefined, 'vegetable');
   const [searchQuery, setSearchQuery] = useState('');
 
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
@@ -63,8 +64,8 @@ const WarehousesPage: React.FC = () => {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
       <div className="hidden md:block">
         <PageHeader
-          title="Tồn kho thực tế"
-          description="Sản phẩm tồn kho chờ giao hàng (Còn lại > 0)"
+          title="Tồn kho hàng rau"
+          description="Hàng rau tồn kho chờ giao hàng (Còn lại > 0)"
           backPath="/hang-hoa"
         />
       </div>
@@ -76,15 +77,15 @@ const WarehousesPage: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" size={15} />
             <input
               type="text"
-              placeholder="Tìm kiếm sản phẩm, mã đơn..."
-              className="w-full pl-9 pr-4 py-2 bg-muted/20 border border-border/80 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+              placeholder="Tìm kiếm hàng rau, mã đơn..."
+              className="w-full pl-9 pr-4 py-2 bg-muted/20 border border-border/80 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <div className="flex shrink-0 items-center gap-1.5 px-3 py-2 bg-primary/5 text-primary border border-primary/10 rounded-xl text-[12px] font-bold">
-            <Package size={14} />
-            <span className="hidden sm:inline">Tổng cộng: {filteredItems.length} mặt hàng</span>
+          <div className="flex shrink-0 items-center gap-1.5 px-3 py-2 bg-emerald-500/5 text-emerald-600 border border-emerald-500/10 rounded-xl text-[12px] font-bold">
+            <Leaf size={14} />
+            <span className="hidden sm:inline">Tổng cộng: {filteredItems.length} mặt hàng rau</span>
             <span className="sm:hidden">{filteredItems.length} MH</span>
           </div>
         </div>
@@ -95,8 +96,8 @@ const WarehousesPage: React.FC = () => {
           <ErrorState onRetry={() => refetch()} />
         ) : filteredItems.length === 0 ? (
           <EmptyState
-            title="Không có hàng tồn kho"
-            description={searchQuery ? "Không tìm thấy hàng khớp với từ khóa." : "Tất cả các đơn hàng đã được gán hết xe."}
+            title="Không có hàng rau tồn kho"
+            description={searchQuery ? "Không tìm thấy hàng rau khớp với từ khóa." : "Tất cả đơn hàng rau đã được gán hết xe."}
           />
         ) : (
           <>
@@ -104,7 +105,7 @@ const WarehousesPage: React.FC = () => {
             <div className="hidden md:block flex-1 overflow-auto custom-scrollbar">
               <table className="w-full border-collapse min-w-[1000px]">
                 <thead className="sticky top-0 z-10">
-                  <tr className="bg-muted/30 border-b border-border">
+                  <tr className="bg-emerald-50/60 border-b border-border">
                     <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-left">Thông tin sản phẩm</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">Thao tác</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-left">Người nhận</th>
@@ -117,15 +118,15 @@ const WarehousesPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-border/50">
                   {filteredItems.map((item) => (
-                    <tr key={item.id} className="hover:bg-muted/5 transition-colors group">
+                    <tr key={item.id} className="hover:bg-emerald-50/30 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 group-hover:scale-110 transition-transform">
-                            <Box size={20} />
+                          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+                            <Leaf size={20} />
                           </div>
                           <div>
                             <h4 className="text-[14px] font-bold text-foreground">{item.product_name}</h4>
-                            <span className="text-[11px] font-medium text-primary bg-primary/5 px-2 py-0.5 rounded-full inline-block mt-1 uppercase tracking-tight">
+                            <span className="text-[11px] font-medium text-emerald-600 bg-emerald-500/5 px-2 py-0.5 rounded-full inline-block mt-1 uppercase tracking-tight">
                               {(item.vegetable_orders || item.import_orders)?.order_code || 'N/A'}
                             </span>
                           </div>
@@ -172,12 +173,12 @@ const WarehousesPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="inline-flex flex-col items-center">
-                          <span className="text-[16px] font-black text-orange-600 tabular-nums">
+                          <span className="text-[16px] font-black text-emerald-600 tabular-nums">
                             {formatNumber(item.remaining)}
                           </span>
-                          <div className="w-16 h-1 bg-orange-100 rounded-full mt-1 overflow-hidden">
+                          <div className="w-16 h-1 bg-emerald-100 rounded-full mt-1 overflow-hidden">
                             <div
-                              className="h-full bg-orange-500 rounded-full"
+                              className="h-full bg-emerald-500 rounded-full"
                               style={{ width: `${Math.min(100, (item.remaining / item.total_quantity) * 100)}%` }}
                             />
                           </div>
@@ -186,7 +187,7 @@ const WarehousesPage: React.FC = () => {
                       <td className="px-6 py-4 text-center">
                         <div className="flex flex-col items-center gap-1">
                           <span className="text-[12px] font-bold text-foreground inline-flex items-center gap-1.5">
-                            <Calendar size={14} className="text-primary" />
+                            <Calendar size={14} className="text-emerald-500" />
                             {item.delivery_date ? new Date(item.delivery_date).toLocaleDateString('vi-VN') : '-'}
                           </span>
                           <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Ngày giao</span>
@@ -207,7 +208,7 @@ const WarehousesPage: React.FC = () => {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-teal-500/10 flex shrink-0 items-center justify-center text-teal-600 group-hover:scale-110 transition-transform">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex shrink-0 items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
                         <User size={20} />
                       </div>
                       <div>
@@ -217,7 +218,7 @@ const WarehousesPage: React.FC = () => {
                             return o.receiver_name?.trim() || o.customers?.name || '-';
                           })()}
                         </h4>
-                        <span className="text-[11px] font-medium text-primary bg-primary/5 px-2 py-0.5 rounded-full inline-block mt-1 uppercase tracking-tight">
+                        <span className="text-[11px] font-medium text-emerald-600 bg-emerald-500/5 px-2 py-0.5 rounded-full inline-block mt-1 uppercase tracking-tight">
                           {(item.vegetable_orders || item.import_orders)?.order_code || 'N/A'}
                         </span>
                       </div>
@@ -230,9 +231,9 @@ const WarehousesPage: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="space-y-1.5 p-3 bg-muted/20 rounded-xl">
+                  <div className="space-y-1.5 p-3 bg-emerald-50/40 rounded-xl">
                     <div className="flex items-center gap-2">
-                      <Box size={12} className="text-teal-500 shrink-0" />
+                      <Leaf size={12} className="text-emerald-500 shrink-0" />
                       <span className="text-[13px] font-bold text-slate-700">{item.product_name}</span>
                     </div>
                     {(() => {
@@ -267,7 +268,7 @@ const WarehousesPage: React.FC = () => {
 
                     <div className="flex flex-col items-center">
                       <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Còn lại</span>
-                      <span className="text-[14px] font-black text-orange-600 tabular-nums">
+                      <span className="text-[14px] font-black text-emerald-600 tabular-nums">
                         {formatNumber(item.remaining)}
                       </span>
                     </div>
@@ -275,7 +276,7 @@ const WarehousesPage: React.FC = () => {
                     <div className="flex flex-col items-end">
                       <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Ngày giao</span>
                       <span className="text-[12px] font-bold text-foreground inline-flex items-center gap-1">
-                        <Calendar size={12} className="text-primary" />
+                        <Calendar size={12} className="text-emerald-500" />
                         {item.delivery_date ? new Date(item.delivery_date).toLocaleDateString('vi-VN') : '-'}
                       </span>
                     </div>
@@ -297,4 +298,4 @@ const WarehousesPage: React.FC = () => {
   );
 };
 
-export default WarehousesPage;
+export default VegetableWarehousePage;

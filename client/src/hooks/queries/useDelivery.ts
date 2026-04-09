@@ -55,3 +55,15 @@ export function useAssignVehicle() {
     onError: () => toast.error('Lỗi khi gắn xe'),
   });
 }
+
+export function useConfirmDelivery() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => deliveryApi.confirmOrders(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: deliveryKeys.all });
+      toast.success('Đã xác nhận giao hàng');
+    },
+    onError: () => toast.error('Lỗi khi xác nhận'),
+  });
+}

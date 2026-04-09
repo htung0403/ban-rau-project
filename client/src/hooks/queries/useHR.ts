@@ -54,6 +54,18 @@ export function useUpdateEmployeeStatus() {
   });
 }
 
+export function useDeleteEmployee() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => hrApi.deleteEmployee(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: hrKeys.all });
+      toast.success('Đã xóa nhân sự thành công');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Lỗi khi xóa nhân sự'),
+  });
+}
+
 export function useLeaveRequests(employeeId?: string) {
   return useQuery({
     queryKey: hrKeys.leaveRequests(),

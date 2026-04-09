@@ -23,6 +23,11 @@ export const hrApi = {
     return data;
   },
 
+  deleteEmployee: async (id: string) => {
+    const { data } = await axiosClient.delete(`/hr/employees/${id}`);
+    return data;
+  },
+
   // Leave Requests
   getLeaveRequests: async (employeeId?: string) => {
     const { data } = await axiosClient.get<LeaveRequest[]>('/hr/leave-requests', { params: employeeId ? { employee_id: employeeId } : undefined });

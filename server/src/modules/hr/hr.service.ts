@@ -80,6 +80,50 @@ export class HRService {
     return data;
   }
 
+  static async deleteEmployee(id: string) {
+    // Nullify all FK references to this profile across the database
+    const nullifyTasks = [
+      supabaseService.from('warehouses').update({ manager_id: null }).eq('manager_id', id),
+      supabaseService.from('price_settings').update({ updated_by: null }).eq('updated_by', id),
+      supabaseService.from('vehicles').update({ driver_id: null }).eq('driver_id', id),
+      supabaseService.from('delivery_vehicles').update({ driver_id: null }).eq('driver_id', id),
+      supabaseService.from('import_orders').update({ received_by: null }).eq('received_by', id),
+      supabaseService.from('vegetable_orders').update({ received_by: null }).eq('received_by', id),
+      supabaseService.from('export_orders').update({ created_by: null }).eq('created_by', id),
+      supabaseService.from('payment_collections').update({ driver_id: null as any }).eq('driver_id', id),
+      supabaseService.from('payment_collections').update({ receiver_id: null }).eq('receiver_id', id),
+      supabaseService.from('vehicle_checkins').update({ driver_id: null }).eq('driver_id', id),
+      supabaseService.from('leave_requests').update({ employee_id: null }).eq('employee_id', id),
+      supabaseService.from('leave_requests').update({ reviewed_by: null }).eq('reviewed_by', id),
+      supabaseService.from('salary_advances').update({ employee_id: null }).eq('employee_id', id),
+      supabaseService.from('salary_advances').update({ approved_by: null }).eq('approved_by', id),
+      supabaseService.from('attendance').update({ employee_id: null as any }).eq('employee_id', id),
+      supabaseService.from('compensatory_attendances').update({ employee_id: null as any }).eq('employee_id', id),
+      supabaseService.from('compensatory_attendances').update({ approved_by: null }).eq('approved_by', id),
+      supabaseService.from('payroll').update({ employee_id: null }).eq('employee_id', id),
+      supabaseService.from('payroll').update({ created_by: null }).eq('created_by', id),
+      supabaseService.from('payroll').update({ approved_by: null }).eq('approved_by', id),
+      supabaseService.from('receipts').update({ created_by: null }).eq('created_by', id),
+    ];
+
+    await Promise.all(nullifyTasks);
+
+    // Delete profile row
+    const { error: profileError } = await supabaseService
+      .from('profiles')
+      .delete()
+      .eq('id', id);
+    if (profileError) throw profileError;
+
+    // Delete auth user
+    const { error: authError } = await (supabaseService.auth as any).admin.deleteUser(id);
+    if (authError) {
+      console.error('Failed to delete auth user (profile already removed):', authError);
+    }
+
+    return { success: true };
+  }
+
   static async getEmployeeById(id: string) {
     const { data, error } = await supabaseService.from('profiles').select('*').eq('id', id).single();
     if (error) throw error;

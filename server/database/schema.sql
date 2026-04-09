@@ -159,7 +159,7 @@ CREATE TABLE public.delivery_orders (
   unit_price NUMERIC(15,2),
   import_cost NUMERIC(15,2),
   order_category VARCHAR(50) DEFAULT 'standard' CHECK (order_category IN ('standard','vegetable')),
-  status VARCHAR(30) DEFAULT 'pending' CHECK (status IN ('pending','in_progress','completed')),
+  status VARCHAR(30) DEFAULT 'hang_o_sg' CHECK (status IN ('hang_o_sg','can_giao','da_giao')),
   delivery_date DATE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

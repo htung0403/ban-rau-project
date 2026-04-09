@@ -15,6 +15,7 @@ import ExportOrdersPage from './pages/export-orders/ExportOrdersPage';
 import DeliveryPage from './pages/delivery/DeliveryPage';
 import WarehousesPage from './pages/warehouse/WarehousesPage';
 import WarehouseSettingsPage from './pages/warehouse/WarehouseSettingsPage';
+import VegetableWarehousePage from './pages/warehouse/VegetableWarehousePage';
 import VegetableImportsPage from './pages/import-orders/VegetableImportsPage';
 import VegetablesPage from './pages/import-orders/VegetablesPage';
 import VegetableDeliveryPage from './pages/delivery/VegetableDeliveryPage';
@@ -92,6 +93,7 @@ function AppRoutes() {
         <Route path="/hang-hoa/nhap-hang-rau" element={<VegetableImportsPage />} />
         <Route path="/hang-hoa/hang-rau" element={<VegetablesPage />} />
         <Route path="/hang-hoa/giao-hang-rau" element={<VegetableDeliveryPage />} />
+        <Route path="/hang-hoa/kho-rau" element={<VegetableWarehousePage />} />
         <Route path="/hang-hoa/xuat-hang" element={<ExportOrdersPage />} />
         <Route path="/hang-hoa/giao-hang" element={<DeliveryPage />} />
         <Route path="/hang-hoa/kho" element={<WarehousesPage />} />

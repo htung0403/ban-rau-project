@@ -77,6 +77,7 @@ export interface Product {
   name: string;
   category?: string;
   base_price: number;
+  price_per_weight: number; // kg unit for the price (e.g. 10 = "per 10kg")
   description?: string;
   image_url?: string;
   is_active: boolean;

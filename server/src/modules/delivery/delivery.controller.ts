@@ -90,6 +90,16 @@ export class DeliveryController {
     }
   }
 
+  static async confirmOrders(req: Request, res: Response) {
+    try {
+      const { ids } = z.object({ ids: z.array(z.string().uuid()) }).parse(req.body);
+      const data = await DeliveryService.confirmOrders(ids);
+      return res.status(200).json(successResponse(data, 'Đã xác nhận giao hàng'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
   static async getInventory(req: Request, res: Response) {
     try {
       const { order_category } = req.query as { order_category?: string };

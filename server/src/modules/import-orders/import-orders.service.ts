@@ -172,7 +172,7 @@ export class ImportOrderService {
           total_quantity: item.quantity || 1,
           order_category: order_category || 'standard',
           delivery_date: orderDate,
-          status: 'pending'
+          status: 'hang_o_sg'
         }));
         const { error: doError } = await supabaseService.from('delivery_orders').insert(doInsert);
         if (doError) console.error("Failed to auto-create delivery orders:", doError);
@@ -269,7 +269,7 @@ export class ImportOrderService {
           total_quantity: item.quantity || 1,
           order_category: order_category || 'standard',
           delivery_date: mainData.order_date || format(new Date(), 'yyyy-MM-dd'),
-          status: 'pending'
+          status: 'hang_o_sg'
         }));
         const { error: doError } = await supabaseService.from('delivery_orders').insert(newDoInsert);
         if (doError) console.error("Failed to sync delivery orders on update:", doError);
@@ -281,10 +281,48 @@ export class ImportOrderService {
   }
 
   static async delete(id: string) {
-    // Delete order (cascade will delete items)
-    let { error } = await supabaseService.from('import_orders').delete().eq('id', id);
-    if (!error) {
-       await supabaseService.from('vegetable_orders').delete().eq('id', id);
+    // 1. Find all delivery_orders linked to this import/vegetable order
+    const { data: relatedDOs } = await supabaseService
+      .from('delivery_orders')
+      .select('id')
+      .or(`import_order_id.eq.${id},vegetable_order_id.eq.${id}`);
+
+    if (relatedDOs && relatedDOs.length > 0) {
+      const doIds = relatedDOs.map(d => d.id);
+
+      // 2. Delete payment_collections referencing these delivery_orders
+      await supabaseService
+        .from('payment_collections')
+        .delete()
+        .in('delivery_order_id', doIds);
+
+      // 3. Delete delivery_vehicles (has ON DELETE CASCADE from delivery_orders, but be safe)
+      await supabaseService
+        .from('delivery_vehicles')
+        .delete()
+        .in('delivery_order_id', doIds);
+
+      // 4. Delete delivery_orders themselves
+      await supabaseService
+        .from('delivery_orders')
+        .delete()
+        .in('id', doIds);
+    }
+
+    // 5. Delete from import_orders (import_order_items has ON DELETE CASCADE)
+    const { error: importErr } = await supabaseService
+      .from('import_orders')
+      .delete()
+      .eq('id', id);
+
+    if (importErr) {
+      // If not found in import_orders, try vegetable_orders
+      const { error: vegErr } = await supabaseService
+        .from('vegetable_orders')
+        .delete()
+        .eq('id', id);
+
+      if (vegErr) throw vegErr;
     }
   }
 }

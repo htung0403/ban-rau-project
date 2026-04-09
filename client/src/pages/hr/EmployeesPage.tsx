@@ -1,13 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/shared/PageHeader';
-import { useEmployees, useCreateEmployee, useUpdateEmployeeStatus } from '../../hooks/queries/useHR';
+import { useEmployees, useCreateEmployee, useDeleteEmployee } from '../../hooks/queries/useHR';
 import { useRoleSalaries } from '../../hooks/queries/usePriceSettings';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import DraggableFAB from '../../components/shared/DraggableFAB';
-import { Users, Plus, X, UserPlus, Mail, Lock, Phone, ShieldCheck, ChevronRight, Loader2 } from 'lucide-react';
+import { Users, Plus, X, UserPlus, Mail, Lock, Phone, ShieldCheck, ChevronRight, Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { CreatableSearchableSelect } from '../../components/ui/CreatableSearchableSelect';
@@ -18,7 +18,8 @@ const EmployeesPage: React.FC = () => {
   const { data: employees, isLoading, isError, refetch } = useEmployees();
   const { data: roles } = useRoleSalaries();
   const createMutation = useCreateEmployee();
-  const updateStatusMutation = useUpdateEmployeeStatus();
+  const deleteMutation = useDeleteEmployee();
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const upsertRoleMutation = useUpsertRoleSalary();
 
   const roleOptions = useMemo(() => 
@@ -76,8 +77,15 @@ const EmployeesPage: React.FC = () => {
     });
   };
 
-  const toggleStatus = (id: string, currentStatus: boolean) => {
-    updateStatusMutation.mutate({ id, is_active: !currentStatus });
+  const handleDelete = (id: string, name: string) => {
+    setDeleteConfirm({ id, name });
+  };
+
+  const confirmDelete = () => {
+    if (!deleteConfirm) return;
+    deleteMutation.mutate(deleteConfirm.id, {
+      onSuccess: () => setDeleteConfirm(null),
+    });
   };
 
   return (
@@ -150,9 +158,7 @@ const EmployeesPage: React.FC = () => {
                   {/* Action (right) */}
                   <div className="flex items-center gap-4 shrink-0 w-full md:w-auto justify-between md:justify-end pt-4 md:pt-0 border-t md:border-t-0 border-border/50 text-[13px]">
                     <span className={`flex items-center justify-center w-24 gap-1.5 text-[12px] font-bold ${e.is_active ? 'text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg py-1.5' : 'text-red-500 bg-red-50 border border-red-100 rounded-lg py-1.5'}`}>
-                      {updateStatusMutation.isPending && updateStatusMutation.variables?.id === e.id ? (
-                        <Loader2 size={13} className="animate-spin" />
-                      ) : e.is_active ? (
+                      {e.is_active ? (
                         <ShieldCheck size={13} />
                       ) : (
                         <Lock size={13} />
@@ -160,15 +166,11 @@ const EmployeesPage: React.FC = () => {
                       {e.is_active ? 'Hoạt động' : 'Đã khóa'}
                     </span>
                     <button
-                        onClick={(ev) => { ev.stopPropagation(); toggleStatus(e.id, e.is_active); }}
-                        disabled={updateStatusMutation.isPending}
-                        className={`text-[12px] font-bold px-3 py-1.5 rounded-lg transition-all ${
-                          e.is_active 
-                            ? 'text-red-600 hover:bg-red-50 border border-border/50 hover:border-red-200' 
-                            : 'text-primary hover:bg-primary/5 border border-border/50 hover:border-primary/30'
-                        }`}
+                        onClick={(ev) => { ev.stopPropagation(); handleDelete(e.id, e.full_name); }}
+                        className="text-[12px] font-bold px-3 py-1.5 rounded-lg transition-all text-red-600 hover:bg-red-50 border border-border/50 hover:border-red-200 flex items-center gap-1.5"
                       >
-                        {e.is_active ? 'Khóa thẻ' : 'Mở khóa'}
+                        <Trash2 size={13} />
+                        Xóa
                     </button>
                   </div>
                 </div>
@@ -297,6 +299,44 @@ const EmployeesPage: React.FC = () => {
                 {createMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={18} />}
                 Thêm nhân sự
                 <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center">
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm animate-in fade-in" onClick={() => !deleteMutation.isPending && setDeleteConfirm(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl border border-border w-full max-w-[400px] mx-4 animate-in zoom-in-95 fade-in duration-200">
+            <div className="p-6 text-center">
+              <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle size={28} className="text-red-500" />
+              </div>
+              <h3 className="text-[17px] font-bold text-foreground mb-2">Xác nhận xóa nhân sự</h3>
+              <p className="text-[13px] text-muted-foreground leading-relaxed">
+                Bạn có chắc muốn <span className="font-bold text-red-600">xóa vĩnh viễn</span> nhân viên{' '}
+                <span className="font-bold text-foreground">{deleteConfirm.name}</span>?
+                <br />Hành động này không thể hoàn tác.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 px-6 pb-6">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleteMutation.isPending}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-border hover:bg-muted text-foreground text-[13px] font-bold transition-all"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleteMutation.isPending}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white text-[13px] font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 flex items-center justify-center gap-2"
+              >
+                {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                Xóa vĩnh viễn
               </button>
             </div>
           </div>

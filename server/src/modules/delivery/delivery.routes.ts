@@ -10,6 +10,7 @@ router.use(authMiddleware);
 router.get('/', DeliveryController.getAllToday);
 router.get('/inventory', DeliveryController.getInventory);
 router.post('/', requireRole('manager', 'staff'), DeliveryController.create);
+router.put('/confirm', requireRole('admin', 'manager'), DeliveryController.confirmOrders);
 router.put('/:id/assign-vehicle', requireRole('admin', 'manager', 'staff', 'driver'), DeliveryController.assignVehicle);
 router.put('/:id/update-qty', requireRole('admin', 'manager', 'staff', 'driver'), DeliveryController.updateQty);
 

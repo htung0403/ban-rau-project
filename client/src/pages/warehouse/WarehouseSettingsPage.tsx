@@ -16,18 +16,21 @@ const InputDialog: React.FC<{
   defaultCategory?: string;
   initialName?: string;
   initialPrice?: number;
+  initialWeight?: number;
   onClose: () => void;
-  onSubmit: (data: { name: string, category: string, base_price: number }) => void;
+  onSubmit: (data: { name: string, category: string, base_price: number, price_per_weight: number }) => void;
   isSubmitting?: boolean;
-}> = ({ isOpen, title, placeholder, defaultCategory = 'standard', initialName = '', initialPrice = 0, onClose, onSubmit, isSubmitting }) => {
+}> = ({ isOpen, title, placeholder, defaultCategory = 'standard', initialName = '', initialPrice = 0, initialWeight, onClose, onSubmit, isSubmitting }) => {
   const [val, setVal] = useState(initialName);
   const [basePrice, setBasePrice] = useState<number | ''>(initialPrice || '');
+  const [priceWeight, setPriceWeight] = useState<number | ''>(initialWeight || '');
   const [category, setCategory] = useState(defaultCategory);
 
   React.useEffect(() => {
     if (isOpen) {
       setVal(initialName);
       setBasePrice(initialPrice || '');
+      setPriceWeight(initialWeight || '');
       setCategory(defaultCategory);
     }
   }, [isOpen, defaultCategory, initialName, initialPrice]);
@@ -54,13 +57,26 @@ const InputDialog: React.FC<{
             placeholder={placeholder}
             className="w-full px-3 py-2.5 mb-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-700"
           />
-          <label className="text-[12px] font-medium text-slate-700 mb-1 block">Cước phí / 1 Tấn (VNĐ)</label>
-          <CurrencyInput
-            value={typeof basePrice === 'number' ? basePrice : 0}
-            onChange={(val) => setBasePrice(val || '')}
-            placeholder="VD: 25.000"
-            className="w-full px-3 py-2.5 mb-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-700 tabular-nums"
-          />
+          {category === 'vegetable' && (
+            <>
+              <label className="text-[12px] font-medium text-slate-700 mb-1 block">Giá (VNĐ)</label>
+              <CurrencyInput
+                value={typeof basePrice === 'number' ? basePrice : 0}
+                onChange={(val) => setBasePrice(val || '')}
+                placeholder="VD: 14.000"
+                className="w-full px-3 py-2.5 mb-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-700 tabular-nums"
+              />
+              <label className="text-[12px] font-medium text-slate-700 mb-1 block">Trên số kg</label>
+              <input
+                type="number"
+                value={priceWeight === '' ? '' : priceWeight}
+                onChange={e => setPriceWeight(e.target.value ? Number(e.target.value) : '')}
+                placeholder="VD: 10"
+                min={1}
+                className="w-full px-3 py-2.5 mb-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-700 tabular-nums"
+              />
+            </>
+          )}
           <div className="flex flex-col gap-2">
             <label className="text-[12px] font-medium text-slate-700">Loại hàng hóa</label>
             <div className="flex gap-4">
@@ -83,7 +99,7 @@ const InputDialog: React.FC<{
             disabled={!val.trim() || isSubmitting}
             onClick={() => {
               if (val.trim()) {
-                onSubmit({ name: val.trim(), category, base_price: Number(basePrice) || 0 });
+                onSubmit({ name: val.trim(), category, base_price: Number(basePrice) || 0, price_per_weight: Number(priceWeight) || 1 });
                 setVal('');
                 setBasePrice('');
               }
@@ -177,7 +193,7 @@ const BulkEditDialog: React.FC<{
         </div>
         <div className="p-5">
           <p className="text-[12px] text-muted-foreground mb-4">Chỉ điền thông tin bạn muốn đổi hàng loạt. Để trống nếu muốn giữ nguyên giá trị cũ từng món.</p>
-          <label className="text-[12px] font-medium text-slate-700 mb-1 block">Cước phí / 1 Tấn mới (VNĐ)</label>
+          <label className="text-[12px] font-medium text-slate-700 mb-1 block">Giá / kg mới (VNĐ)</label>
           <CurrencyInput
             value={typeof basePrice === 'number' ? basePrice : 0}
             onChange={(val) => setBasePrice(val || '')}
@@ -238,6 +254,7 @@ const WarehouseSettingsPage: React.FC = () => {
     defaultCategory: string,
     initialName?: string,
     initialPrice?: number,
+    initialWeight?: number,
     mode: 'add' | 'edit',
     editingId?: string
   }>({ isOpen: false, defaultCategory: 'standard', mode: 'add' });
@@ -284,12 +301,12 @@ const WarehouseSettingsPage: React.FC = () => {
     return p;
   }, [products, searchTerm, sortBy]);
 
-  const handleDialogSubmit = async (data: { name: string, category: string, base_price: number }) => {
+  const handleDialogSubmit = async (data: { name: string, category: string, base_price: number, price_per_weight: number }) => {
     if (productDialog.mode === 'edit' && productDialog.editingId) {
       await updateProduct.mutateAsync({ id: productDialog.editingId, data });
       setSelectedProducts([]);
     } else {
-      await createProduct.mutateAsync({ name: data.name, category: data.category, base_price: data.base_price });
+      await createProduct.mutateAsync({ name: data.name, category: data.category, base_price: data.base_price, price_per_weight: data.price_per_weight });
     }
     setProductDialog(prev => ({ ...prev, isOpen: false }));
   };
@@ -338,7 +355,7 @@ const WarehouseSettingsPage: React.FC = () => {
         className={`group flex items-center justify-between p-3 rounded-xl border transition-all ${isSelected ? (isVeg ? 'bg-emerald-50/50 border-emerald-200' : 'bg-blue-50/50 border-blue-200') : 'bg-white border-transparent hover:border-slate-200 hover:bg-slate-50 shadow-sm hover:shadow-md'}`}
       >
         <div className="flex items-center gap-3">
-          <label className="flex items-center justify-center p-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+          <label className="hidden md:flex items-center justify-center p-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
             <input
               type="checkbox"
               checked={isSelected}
@@ -353,28 +370,32 @@ const WarehouseSettingsPage: React.FC = () => {
               defaultCategory: p.category || 'standard',
               initialName: p.name,
               initialPrice: p.base_price || 0,
+              initialWeight: p.price_per_weight || 1,
               mode: 'edit',
               editingId: p.id
             })}
           >
             <span className="text-[14px] font-bold text-slate-800 group-hover:text-primary transition-colors">{p.name}</span>
-            <span className="text-[12px] font-medium text-slate-500">
-              {Number(p.base_price) > 0 ? (
-                <span className="text-orange-600 font-bold">{new Intl.NumberFormat('vi-VN').format(p.base_price)} đ/Tấn</span>
-              ) : (
-                <span className="italic opacity-60">Chưa có cước phí</span>
-              )}
-            </span>
+            {isVeg && (
+              <span className="text-[12px] font-medium text-slate-500">
+                {Number(p.base_price) > 0 ? (
+                  <span className="text-orange-600 font-bold">{new Intl.NumberFormat('vi-VN').format(p.base_price)}đ / {p.price_per_weight || 1}kg</span>
+                ) : (
+                  <span className="italic opacity-60">Chưa có giá</span>
+                )}
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => setProductDialog({
               isOpen: true,
               defaultCategory: p.category || 'standard',
               initialName: p.name,
               initialPrice: p.base_price || 0,
+              initialWeight: p.price_per_weight || 1,
               mode: 'edit',
               editingId: p.id
             })}
@@ -412,7 +433,7 @@ const WarehouseSettingsPage: React.FC = () => {
 
       {/* Floating Action Bar */}
       {selectedProducts.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in zoom-in-95 duration-200">
+        <div className="hidden md:block fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in zoom-in-95 duration-200">
           <div className="flex items-center gap-3 bg-slate-800 text-white px-4 py-3 rounded-2xl shadow-2xl border border-white/10">
             <div className="flex items-center gap-2 pr-4 border-r border-slate-600">
               <span className="flex items-center justify-center w-5 h-5 bg-blue-500 rounded-full text-[10px] font-bold text-white">
@@ -566,6 +587,7 @@ const WarehouseSettingsPage: React.FC = () => {
         defaultCategory={productDialog.defaultCategory}
         initialName={productDialog.initialName}
         initialPrice={productDialog.initialPrice}
+        initialWeight={productDialog.initialWeight}
         title={productDialog.mode === 'edit' ? "Sửa Hàng Hóa" : "Thêm Hàng Hóa Mới"}
         placeholder="VD: Cà chua Đài Loan"
         onClose={() => setProductDialog(prev => ({ ...prev, isOpen: false }))}

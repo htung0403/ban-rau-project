@@ -94,6 +94,18 @@ export class HRController {
     }
   }
 
+  static async deleteEmployee(req: Request, res: Response) {
+    try {
+      if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
+        throw new Error('Unauthorized to delete employee');
+      }
+      const data = await HRService.deleteEmployee(req.params.id as string);
+      return res.status(200).json(successResponse(data, 'Employee deleted'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
   static async createLeaveRequest(req: Request, res: Response) {
     try {
       const validated = createLeaveRequestSchema.parse(req.body);

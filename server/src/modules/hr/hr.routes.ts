@@ -11,6 +11,7 @@ router.get('/employees', HRController.getEmployees);
 router.post('/employees', requireRole('admin', 'manager'), HRController.createEmployee);
 router.get('/employees/:id', HRController.getEmployeeById);
 router.put('/employees/:id/status', requireRole('admin', 'manager'), HRController.updateEmployeeStatus);
+router.delete('/employees/:id', requireRole('admin', 'manager'), HRController.deleteEmployee);
 
 router.get('/leave-requests', HRController.getLeaveRequests);
 router.post('/leave-requests', HRController.createLeaveRequest);

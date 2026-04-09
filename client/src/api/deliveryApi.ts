@@ -44,4 +44,9 @@ export const deliveryApi = {
     const { data } = await axiosClient.put(`/delivery/${id}/update-qty`, payload);
     return data;
   },
+
+  confirmOrders: async (ids: string[]) => {
+    const { data } = await axiosClient.put('/delivery/confirm', { ids });
+    return data;
+  },
 };

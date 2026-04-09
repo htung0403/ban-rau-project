@@ -29,7 +29,7 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
     if (!deliveries) return [];
     return deliveries
       .filter(d => 
-        d.status !== 'completed' && 
+        d.status !== 'da_giao' && 
         d.delivery_vehicles?.some(v => v.driver_id === user?.id)
       )
       .map(d => {

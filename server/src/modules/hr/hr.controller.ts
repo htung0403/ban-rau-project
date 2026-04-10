@@ -46,7 +46,7 @@ const createEmployeeSchema = z.object({
   password: z.string().min(6),
   full_name: z.string().min(2),
   phone: z.string().optional(),
-  role: z.string().min(1, 'Role is required'),
+  role: z.enum(['admin', 'manager', 'staff', 'driver']),
 });
 
 export class HRController {

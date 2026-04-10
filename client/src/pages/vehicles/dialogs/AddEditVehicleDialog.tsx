@@ -2,17 +2,26 @@ import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Car, Info, User, Plus, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
+import type { Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCreateVehicle, useUpdateVehicle } from '../../../hooks/queries/useVehicles';
 import { useEmployees } from '../../../hooks/queries/useHR';
+import { useVehicles } from '../../../hooks/queries/useVehicles';
+import { CreatableSearchableSelect } from '../../../components/ui/CreatableSearchableSelect';
+import { MultiSearchableSelect } from '../../../components/ui/MultiSearchableSelect';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import type { Vehicle } from '../../../types';
 
 const vehicleSchema = z.object({
   license_plate: z.string().min(5, 'Biển số phải từ 5 ký tự'),
   vehicle_type: z.string().optional(),
+  load_capacity_ton: z.preprocess(
+    (value) => (value === '' || value == null ? undefined : Number(value)),
+    z.number().positive('Tải trọng phải lớn hơn 0').optional()
+  ),
+  goods_categories: z.array(z.enum(['grocery', 'vegetable'])).min(1, 'Vui lòng chọn ít nhất một loại hàng'),
   driver_id: z.string().optional(),
 });
 
@@ -29,24 +38,59 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
   const createMutation = useCreateVehicle();
   const updateMutation = useUpdateVehicle();
   const { data: employees } = useEmployees();
+  const { data: vehicles } = useVehicles(isOpen);
 
   const {
     register,
     handleSubmit,
     setValue,
-    watch,
+    control,
     reset,
     formState: { errors },
   } = useForm<VehicleFormData>({
-    resolver: zodResolver(vehicleSchema) as any,
+    resolver: zodResolver(vehicleSchema) as Resolver<VehicleFormData>,
     defaultValues: {
       license_plate: '',
       vehicle_type: '',
+      load_capacity_ton: undefined,
+      goods_categories: ['grocery', 'vegetable'],
       driver_id: '',
     },
   });
 
-  const driverId = watch('driver_id');
+  const vehicleType = useWatch({ control, name: 'vehicle_type' });
+  const goodsCategories = useWatch({ control, name: 'goods_categories' });
+  const driverId = useWatch({ control, name: 'driver_id' });
+
+  const [customVehicleTypes, setCustomVehicleTypes] = React.useState<string[]>([]);
+
+  const vehicleTypeOptions = React.useMemo(() => {
+    const set = new Set<string>();
+
+    (vehicles || []).forEach((item) => {
+      const type = item.vehicle_type?.trim();
+      if (type) set.add(type);
+    });
+
+    customVehicleTypes.forEach((type) => {
+      if (type.trim()) set.add(type.trim());
+    });
+
+    const current = vehicleType?.trim();
+    if (current) set.add(current);
+
+    return Array.from(set)
+      .sort((a, b) => a.localeCompare(b, 'vi'))
+      .map((type) => ({ value: type, label: type }));
+  }, [vehicles, customVehicleTypes, vehicleType]);
+
+  const goodsCategoryOptions = React.useMemo(
+    () => [
+      { value: 'grocery', label: 'Hàng tạp hóa' },
+      { value: 'vegetable', label: 'Hàng rau' },
+    ],
+    []
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -54,12 +98,16 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
         reset({
           license_plate: vehicle.license_plate,
           vehicle_type: vehicle.vehicle_type || '',
+          load_capacity_ton: vehicle.load_capacity_ton,
+          goods_categories: vehicle.goods_categories?.length ? vehicle.goods_categories : ['grocery', 'vegetable'],
           driver_id: vehicle.driver_id || '',
         });
       } else {
         reset({
           license_plate: '',
           vehicle_type: '',
+          load_capacity_ton: undefined,
+          goods_categories: ['grocery', 'vegetable'],
           driver_id: '',
         });
       }
@@ -71,6 +119,8 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
       const payload = {
         license_plate: data.license_plate,
         vehicle_type: data.vehicle_type || undefined,
+        load_capacity_ton: data.load_capacity_ton,
+        goods_categories: data.goods_categories,
         driver_id: data.driver_id || undefined,
       };
       if (vehicle) {
@@ -79,7 +129,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
         await createMutation.mutateAsync(payload);
       }
       onClose();
-    } catch (error) {
+    } catch {
       // Error handled by mutation
     }
   };
@@ -87,7 +137,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
   if (!isOpen && !isClosing) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex justify-end">
+    <div className="fixed inset-0 z-9999 flex justify-end">
       {/* Backdrop */}
       <div
         className={clsx(
@@ -100,7 +150,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
       {/* Panel */}
       <div
         className={clsx(
-          'relative w-full max-w-[500px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
+          'relative w-full max-w-125 bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
           isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
         )}
       >
@@ -144,14 +194,49 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
               
               <div className="space-y-1.5">
                 <label className="text-[13px] font-bold text-foreground">Loại xe</label>
+                <CreatableSearchableSelect
+                  options={vehicleTypeOptions}
+                  value={vehicleType || ''}
+                  onValueChange={(val) => setValue('vehicle_type', val, { shouldValidate: true })}
+                  onCreate={(val) => {
+                    const trimmed = val.trim();
+                    if (!trimmed) return;
+                    setCustomVehicleTypes((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+                    setValue('vehicle_type', trimmed, { shouldValidate: true });
+                  }}
+                  placeholder="VD: Xe tải 10 tấn, Container..."
+                  searchPlaceholder="Tìm hoặc nhập loại xe..."
+                  createMessage="Thêm loại xe"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-bold text-foreground">Tải trọng (tấn)</label>
                 <div className="relative">
                   <input
-                    type="text"
-                    {...register('vehicle_type')}
-                    placeholder="VD: Xe tải 10 tấn, Container..."
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    {...register('load_capacity_ton')}
+                    placeholder="VD: 10"
                     className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
                   />
+                  {errors.load_capacity_ton && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.load_capacity_ton.message}</p>}
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-bold text-foreground">Loại hàng có thể giao</label>
+                <MultiSearchableSelect
+                  options={goodsCategoryOptions}
+                  value={goodsCategories || []}
+                  onValueChange={(val) => {
+                    setValue('goods_categories', val as Array<'grocery' | 'vegetable'>, { shouldValidate: true });
+                  }}
+                  placeholder="Chọn loại hàng..."
+                  searchPlaceholder="Tìm loại hàng..."
+                />
+                {errors.goods_categories && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.goods_categories.message}</p>}
               </div>
             </div>
           </div>

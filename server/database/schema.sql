@@ -174,8 +174,15 @@ CREATE TABLE public.vehicles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   license_plate VARCHAR(20) UNIQUE NOT NULL,
   vehicle_type VARCHAR(50),
+  load_capacity_ton NUMERIC(10,2),
+  goods_categories TEXT[] DEFAULT ARRAY['grocery','vegetable'],
   driver_id UUID REFERENCES public.profiles(id),
   status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available','in_transit','maintenance')),
+  CONSTRAINT vehicles_goods_categories_check CHECK (
+    goods_categories IS NOT NULL
+    AND cardinality(goods_categories) > 0
+    AND goods_categories <@ ARRAY['grocery','vegetable']::TEXT[]
+  ),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

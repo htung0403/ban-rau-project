@@ -5,7 +5,7 @@ export class DeliveryService {
   static async getAllToday(startDate?: string, endDate?: string, orderCategory?: string) {
     let query = supabaseService
       .from('delivery_orders')
-      .select('*, import_orders(order_code, sender_name, receiver_name, customers(name), total_amount, profiles:received_by(full_name), receipt_image_url, import_order_items(image_url)), vegetable_orders(order_code, sender_name, receiver_name, customers(name), total_amount, profiles:received_by(full_name), receipt_image_url, vegetable_order_items(image_url)), delivery_vehicles(*, vehicles(license_plate)), payment_collections(id, status, vehicle_id, image_url)')
+      .select('*, import_orders(order_code, sender_name, receiver_name, license_plate, customers(name), total_amount, profiles:received_by(full_name), receipt_image_url, import_order_items(image_url)), vegetable_orders(order_code, sender_name, receiver_name, license_plate, customers(name), total_amount, profiles:received_by(full_name), receipt_image_url, vegetable_order_items(image_url)), delivery_vehicles(*, vehicles(license_plate)), payment_collections(id, status, vehicle_id, image_url)')
       .order('delivery_date', { ascending: false });
 
     if (orderCategory) query = query.eq('order_category', orderCategory);

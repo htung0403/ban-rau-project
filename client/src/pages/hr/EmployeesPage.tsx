@@ -2,30 +2,62 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/shared/PageHeader';
 import { useEmployees, useCreateEmployee, useDeleteEmployee } from '../../hooks/queries/useHR';
-import { useRoleSalaries } from '../../hooks/queries/usePriceSettings';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import DraggableFAB from '../../components/shared/DraggableFAB';
-import { Users, Plus, X, UserPlus, Mail, Lock, Phone, ShieldCheck, ChevronRight, Loader2, Trash2, AlertTriangle } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { Users, Plus, X, UserPlus, Mail, Lock, Phone, ShieldCheck, ChevronRight, Loader2, Trash2, AlertTriangle, UserCog } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { CreatableSearchableSelect } from '../../components/ui/CreatableSearchableSelect';
-import { useUpsertRoleSalary } from '../../hooks/queries/usePriceSettings';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
+import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
+import { useAppRoles, useAssignUserRoles, useUserRoles } from '../../hooks/queries/useRoles';
+
+const getRoleDisplayName = (roleName: string, roleKey?: string) => {
+  if (roleKey === 'customer' || roleName.trim().toLowerCase() === 'customer') {
+    return 'Khách hàng';
+  }
+  return roleName;
+};
+
+const HR_LEVEL_OPTIONS = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'manager', label: 'Quản lý' },
+  { value: 'staff', label: 'Nhân viên' },
+  { value: 'driver', label: 'Tài xế' },
+];
 
 const EmployeesPage: React.FC = () => {
   const navigate = useNavigate();
   const { data: employees, isLoading, isError, refetch } = useEmployees();
-  const { data: roles } = useRoleSalaries();
+  const { data: appRoles } = useAppRoles();
   const createMutation = useCreateEmployee();
   const deleteMutation = useDeleteEmployee();
+  const assignUserRolesMutation = useAssignUserRoles();
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
-  const upsertRoleMutation = useUpsertRoleSalary();
+  const [assignRoleModal, setAssignRoleModal] = useState<{ id: string; name: string } | null>(null);
+  const [assignRoleIds, setAssignRoleIds] = useState<string[]>([]);
 
-  const roleOptions = useMemo(() => 
-    roles?.map(r => ({ value: r.role_key, label: r.role_name })) || [], 
-    [roles]
+  const { data: userRolesData } = useUserRoles(assignRoleModal?.id || '', !!assignRoleModal);
+
+  useEffect(() => {
+    if (userRolesData?.role_ids) {
+      setAssignRoleIds(userRolesData.role_ids);
+    }
+  }, [userRolesData]);
+
+  const roleOptions = useMemo(() =>
+    appRoles?.map((role) => ({ value: role.id, label: getRoleDisplayName(role.role_name, role.role_key) })) || [],
+    [appRoles]
   );
+
+  const roleNameByKey = useMemo(() => {
+    const map: Record<string, string> = {};
+    (appRoles || []).forEach((role) => {
+      map[role.role_key] = getRoleDisplayName(role.role_name, role.role_key);
+    });
+    return map;
+  }, [appRoles]);
 
   const [isAdding, setIsAdding] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -33,32 +65,14 @@ const EmployeesPage: React.FC = () => {
     password: '',
     full_name: '',
     phone: '',
-    role: 'staff'
+    levelRole: 'staff',
+    roleIds: [] as string[]
   });
 
   const handleOpenAdd = () => {
-    setFormData({ password: '', full_name: '', phone: '', role: 'staff' });
+    setFormData({ password: '', full_name: '', phone: '', levelRole: 'staff', roleIds: [] });
     setIsAdding(true);
     setIsClosing(false);
-  };
-
-  const handleCreateRole = (name: string) => {
-    const key = name.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/đ/g, 'd').replace(/Đ/g, 'D')
-      .replace(/[^a-z0-9 ]/g, '')
-      .replace(/\s+/g, '_');
-
-    upsertRoleMutation.mutate({
-      role_key: key,
-      role_name: name,
-      daily_wage: 0,
-      description: 'Role mới được tạo từ trang nhân sự'
-    } as any, {
-      onSuccess: () => {
-        setFormData(prev => ({ ...prev, role: key }));
-      }
-    });
   };
 
   const handleCloseAdd = () => {
@@ -71,10 +85,47 @@ const EmployeesPage: React.FC = () => {
 
   const handleCreate = () => {
     if (!formData.phone || !formData.password || !formData.full_name) return;
+
     const loginEmail = formData.phone.includes('@') ? formData.phone : `${formData.phone}@vuarau.com`;
-    createMutation.mutate({ ...formData, email: loginEmail }, {
-      onSuccess: () => handleCloseAdd()
-    });
+
+    createMutation.mutate(
+      {
+        email: loginEmail,
+        password: formData.password,
+        full_name: formData.full_name,
+        phone: formData.phone,
+        role: formData.levelRole,
+      },
+      {
+        onSuccess: (createdUser) => {
+          if (formData.roleIds.length > 0) {
+            assignUserRolesMutation.mutate(
+              { userId: createdUser.id, roleIds: formData.roleIds },
+              { onSuccess: () => handleCloseAdd() }
+            );
+            return;
+          }
+          handleCloseAdd();
+        },
+      }
+    );
+  };
+
+  const handleOpenAssignRoles = (id: string, name: string) => {
+    setAssignRoleModal({ id, name });
+  };
+
+  const handleSaveAssignedRoles = () => {
+    if (!assignRoleModal) return;
+    assignUserRolesMutation.mutate(
+      { userId: assignRoleModal.id, roleIds: assignRoleIds },
+      {
+        onSuccess: () => {
+          setAssignRoleModal(null);
+          setAssignRoleIds([]);
+        },
+      }
+    );
   };
 
   const handleDelete = (id: string, name: string) => {
@@ -134,7 +185,7 @@ const EmployeesPage: React.FC = () => {
                         {e.full_name}
                       </h3>
                       <span className="w-fit mt-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-muted/10 text-muted-foreground border border-border/50 whitespace-nowrap">
-                        {roles?.find(r => r.role_key === e.role)?.role_name || e.role}
+                        {roleNameByKey[e.role] || e.role}
                       </span>
                     </div>
                   </div>
@@ -166,6 +217,13 @@ const EmployeesPage: React.FC = () => {
                       {e.is_active ? 'Hoạt động' : 'Đã khóa'}
                     </span>
                     <button
+                        onClick={(ev) => { ev.stopPropagation(); handleOpenAssignRoles(e.id, e.full_name); }}
+                        className="text-[12px] font-bold px-3 py-1.5 rounded-lg transition-all text-primary hover:bg-primary/10 border border-border/50 hover:border-primary/30 flex items-center gap-1.5"
+                      >
+                        <UserCog size={13} />
+                        Phân quyền
+                    </button>
+                    <button
                         onClick={(ev) => { ev.stopPropagation(); handleDelete(e.id, e.full_name); }}
                         className="text-[12px] font-bold px-3 py-1.5 rounded-lg transition-all text-red-600 hover:bg-red-50 border border-border/50 hover:border-red-200 flex items-center gap-1.5"
                       >
@@ -182,13 +240,13 @@ const EmployeesPage: React.FC = () => {
 
       {/* Right Side Panel - Add Employee */}
       {(isAdding || isClosing) && createPortal(
-        <div className="fixed inset-0 z-[9999] flex justify-end overflow-hidden">
+        <div className="fixed inset-0 z-9999 flex justify-end overflow-hidden">
           <div 
             className={`fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 ${isClosing ? 'opacity-0' : 'opacity-100 animate-in fade-in'}`} 
             onClick={handleCloseAdd} 
           />
           
-          <div className={`relative w-full max-w-[500px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border transition-transform duration-300 ${isClosing ? 'translate-x-full' : 'translate-x-0 animate-in slide-in-from-right'}`}>
+          <div className={`relative w-full max-w-125 bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border transition-transform duration-300 ${isClosing ? 'translate-x-full' : 'translate-x-0 animate-in slide-in-from-right'}`}>
             <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -261,16 +319,29 @@ const EmployeesPage: React.FC = () => {
 
 
                   <div className="space-y-1.5">
-                    <label className="text-[13px] font-bold text-foreground">Vai trò hệ thống <span className="text-red-500">*</span></label>
+                    <label className="text-[13px] font-bold text-foreground">Cấp bậc nhân sự (tính lương)</label>
                     <div className="relative">
                       <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 z-10" size={16} />
-                      <CreatableSearchableSelect
+                      <SearchableSelect
+                        options={HR_LEVEL_OPTIONS}
+                        value={formData.levelRole}
+                        onValueChange={(val) => setFormData({ ...formData, levelRole: val || 'staff' })}
+                        placeholder="Chọn cấp bậc"
+                        className="pl-10"
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Cấp bậc này dùng cho chấm công, bảng lương và nghiệp vụ nhân sự.</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-foreground">Quyền được cấp</label>
+                    <div className="relative">
+                      <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 z-10" size={16} />
+                      <MultiSearchableSelect
                         options={roleOptions}
-                        value={formData.role}
-                        onValueChange={(val) => setFormData({...formData, role: val})}
-                        onCreate={handleCreateRole}
-                        placeholder="Chọn hoặc nhập vai trò mới..."
-                        createMessage="Tạo vai trò"
+                        value={formData.roleIds}
+                        onValueChange={(val) => setFormData({...formData, roleIds: val})}
+                        placeholder="Chọn một hoặc nhiều quyền"
                         className="pl-10"
                       />
                     </div>
@@ -291,12 +362,12 @@ const EmployeesPage: React.FC = () => {
                 onClick={handleCreate}
                 disabled={createMutation.isPending || !formData.phone || !formData.password || !formData.full_name}
                 className={`flex items-center gap-2 px-8 py-2 rounded-xl text-[13px] font-bold shadow-lg transition-all active:scale-95 group ${
-                  createMutation.isPending || !formData.phone || !formData.password || !formData.full_name
+                  createMutation.isPending || assignUserRolesMutation.isPending || !formData.phone || !formData.password || !formData.full_name
                     ? "bg-primary/50 text-white/60 cursor-not-allowed"
                     : "bg-primary text-white hover:bg-primary/90 shadow-primary/20"
                 }`}
               >
-                {createMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={18} />}
+                {createMutation.isPending || assignUserRolesMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={18} />}
                 Thêm nhân sự
                 <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
               </button>
@@ -306,11 +377,55 @@ const EmployeesPage: React.FC = () => {
         document.body
       )}
 
+      {/* Role Assignment Dialog */}
+      {assignRoleModal && createPortal(
+        <div className="fixed inset-0 z-99999 flex items-center justify-center">
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm animate-in fade-in" onClick={() => !assignUserRolesMutation.isPending && setAssignRoleModal(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl border border-border w-full max-w-130 mx-4 animate-in zoom-in-95 fade-in duration-200">
+            <div className="p-6 border-b border-border">
+              <h3 className="text-[17px] font-bold text-foreground">Cài đặt quyền nhân sự</h3>
+              <p className="text-[13px] text-muted-foreground mt-1">Nhân sự: <span className="font-bold text-foreground">{assignRoleModal.name}</span></p>
+            </div>
+
+            <div className="p-6">
+              <label className="text-[13px] font-bold text-foreground">Danh sách quyền</label>
+              <div className="mt-2">
+                <MultiSearchableSelect
+                  options={roleOptions}
+                  value={assignRoleIds}
+                  onValueChange={setAssignRoleIds}
+                  placeholder="Chọn quyền cho nhân sự"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 px-6 pb-6">
+              <button
+                onClick={() => setAssignRoleModal(null)}
+                disabled={assignUserRolesMutation.isPending}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-border hover:bg-muted text-foreground text-[13px] font-bold transition-all"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSaveAssignedRoles}
+                disabled={assignUserRolesMutation.isPending}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+              >
+                {assignUserRolesMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <UserCog size={16} />}
+                Lưu quyền
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Delete Confirmation Dialog */}
       {deleteConfirm && createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center">
+        <div className="fixed inset-0 z-99999 flex items-center justify-center">
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm animate-in fade-in" onClick={() => !deleteMutation.isPending && setDeleteConfirm(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl border border-border w-full max-w-[400px] mx-4 animate-in zoom-in-95 fade-in duration-200">
+          <div className="relative bg-white rounded-2xl shadow-2xl border border-border w-full max-w-100 mx-4 animate-in zoom-in-95 fade-in duration-200">
             <div className="p-6 text-center">
               <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle size={28} className="text-red-500" />

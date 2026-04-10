@@ -6,18 +6,29 @@ import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
-import { useCreateImportOrder, useUpdateImportOrder } from '../../../hooks/queries/useImportOrders';
+import { useQueryClient } from '@tanstack/react-query';
+import { importOrderKeys, useCreateImportOrder, useUpdateImportOrder } from '../../../hooks/queries/useImportOrders';
+import { useVehicles } from '../../../hooks/queries/useVehicles';
 import { useCustomers, useCreateCustomer } from '../../../hooks/queries/useCustomers';
 import { useCreateProduct, useProducts } from '../../../hooks/queries/useProducts';
 import { useEmployees } from '../../../hooks/queries/useHR';
-import type { ImportOrder, ImportOrderItem } from '../../../types';
+import type { DeliveryOrder, ImportOrder, ImportOrderItem, Vehicle } from '../../../types';
 import { uploadApi } from '../../../api/uploadApi';
+import { deliveryApi } from '../../../api/deliveryApi';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { CreatableSearchableSelect } from '../../../components/ui/CreatableSearchableSelect';
 import { TimePicker24h } from '../../../components/shared/TimePicker24h';
 import { DatePicker } from '../../../components/shared/DatePicker';
 import { useAuth } from '../../../context/AuthContext';
 import toast from 'react-hot-toast';
+
+const vehicleSupportsCategory = (vehicle: Vehicle, category: 'standard' | 'vegetable') => {
+  if (!vehicle.goods_categories || vehicle.goods_categories.length === 0) return true;
+  const target = category === 'vegetable' ? 'vegetable' : 'grocery';
+  return vehicle.goods_categories.includes(target);
+};
+
+const waitFor = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const importOrderItemSchema = z.object({
   product_id: z.string().min(1, 'Chọn hàng hóa'),
@@ -50,11 +61,13 @@ interface Props {
 
 const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, editingOrder, onClose, defaultCategory = 'vegetable' }) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const isEditMode = !!editingOrder;
   const createMutation = useCreateImportOrder();
   const updateMutation = useUpdateImportOrder();
   const createProductMutation = useCreateProduct();
   const createCustomerMutation = useCreateCustomer();
+  const { data: vehicles } = useVehicles(isOpen);
   const { data: products } = useProducts(isOpen);
   const { data: customers } = useCustomers(undefined, isOpen);
   const { data: employees } = useEmployees(isOpen);
@@ -63,6 +76,28 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
   const [showNewCustomerForm, setShowNewCustomerForm] = React.useState(false);
   const [newCustomerName, setNewCustomerName] = React.useState('');
   const [newCustomerPhone, setNewCustomerPhone] = React.useState('');
+  const [selectedDriverVehicleId, setSelectedDriverVehicleId] = React.useState('');
+
+  const isDriverUser = user?.role === 'driver';
+  const canAutoAssignDriverVehicle = !isEditMode && defaultCategory === 'vegetable' && isDriverUser;
+  const driverVehicles = React.useMemo(
+    () => (vehicles || []).filter((v) => v.driver_id === user?.id && vehicleSupportsCategory(v, defaultCategory)),
+    [vehicles, user?.id, defaultCategory]
+  );
+  const selectedDriverVehicle = React.useMemo(
+    () => driverVehicles.find((v) => v.id === selectedDriverVehicleId) || null,
+    [driverVehicles, selectedDriverVehicleId]
+  );
+  const dialogVehiclePlateText = React.useMemo(() => {
+    if (editingOrder?.license_plate) return editingOrder.license_plate;
+
+    if (canAutoAssignDriverVehicle) {
+      if (selectedDriverVehicle?.license_plate) return selectedDriverVehicle.license_plate;
+      if (driverVehicles.length === 1) return driverVehicles[0].license_plate;
+    }
+
+    return '';
+  }, [editingOrder?.license_plate, canAutoAssignDriverVehicle, selectedDriverVehicle, driverVehicles]);
 
   const handleCreateCustomer = async () => {
     if (!newCustomerName.trim()) {
@@ -166,6 +201,64 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
   const watchCustomerId = watch('customer_id');
   const watchReceivedBy = watch('received_by');
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    if (!canAutoAssignDriverVehicle) {
+      setSelectedDriverVehicleId('');
+      return;
+    }
+
+    setSelectedDriverVehicleId((prev) => {
+      if (driverVehicles.length === 1) return driverVehicles[0].id;
+      if (prev && driverVehicles.some((v) => v.id === prev)) return prev;
+      return '';
+    });
+  }, [isOpen, canAutoAssignDriverVehicle, driverVehicles]);
+
+  const autoAssignVehicleForDriver = async (createdOrder: ImportOrder, vehicleId: string) => {
+    const attempts = 3;
+    let relatedDeliveryRows: DeliveryOrder[] = [];
+
+    for (let i = 0; i < attempts; i += 1) {
+      const rows = await deliveryApi.getAllToday(createdOrder.order_date, createdOrder.order_date, 'vegetable');
+      relatedDeliveryRows = rows.filter(
+        (row) => row.import_order_id === createdOrder.id || row.vegetable_order_id === createdOrder.id
+      );
+      if (relatedDeliveryRows.length > 0) break;
+      await waitFor(350);
+    }
+
+    if (relatedDeliveryRows.length === 0) {
+      toast.error('Đã tạo phiếu nhưng chưa tìm thấy đơn giao để tự gán xe.');
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      relatedDeliveryRows.map((row) =>
+        deliveryApi.assignVehicle(row.id, {
+          assignments: [
+            {
+              vehicle_id: vehicleId,
+              driver_id: user?.id || '',
+              loader_name: '',
+              quantity: row.total_quantity,
+            },
+          ],
+        })
+      )
+    );
+
+    const successCount = results.filter((r) => r.status === 'fulfilled').length;
+    if (successCount > 0) {
+      toast.success('Đã tự động gán xe giao hàng rau cho phiếu mới.');
+      await queryClient.invalidateQueries({ queryKey: importOrderKeys.all });
+    }
+    if (successCount < relatedDeliveryRows.length) {
+      toast.error('Một số dòng giao hàng chưa gán xe thành công, vui lòng kiểm tra lại trang giao hàng rau.');
+    }
+  };
+
   useEffect(() => {
     if (editingOrder) {
       reset({
@@ -277,6 +370,11 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
   const onSubmit = async (data: Record<string, any>) => {
     try {
+      if (canAutoAssignDriverVehicle && driverVehicles.length > 1 && !selectedDriverVehicleId) {
+        toast.error('Bạn có nhiều xe. Vui lòng chọn xe để tự động gán khi lưu phiếu.');
+        return;
+      }
+
       console.log('--- FORM SUBMIT DATA BEGIN ---', data);
       const payload = { ...data };
       if (payload.items) {
@@ -295,7 +393,8 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
       payload.is_custom_amount = true;
 
       // Auto-convert shorthand 'k' inputs (e.g 200 -> 200,000)
-      if (payload.total_amount && payload.total_amount > 0 && payload.total_amount < 100000) {
+      // Only apply to standard imports where users may type shorthand manually.
+      if (defaultCategory === 'standard' && payload.total_amount && payload.total_amount > 0 && payload.total_amount < 100000) {
         payload.total_amount = payload.total_amount * 1000;
       }
 
@@ -307,8 +406,26 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
         console.log('--- DISPATCH UPDATE_MUTATION ---', payload);
         await updateMutation.mutateAsync({ id: editingOrder.id, payload: payload as any });
       } else {
+        const autoVehicle = canAutoAssignDriverVehicle
+          ? driverVehicles.find((v) => v.id === (selectedDriverVehicleId || (driverVehicles.length === 1 ? driverVehicles[0].id : '')))
+          : null;
+
+        if (autoVehicle) {
+          payload.license_plate = autoVehicle.license_plate;
+          payload.driver_name = user?.full_name || payload.driver_name;
+        }
+
         console.log('--- DISPATCH CREATE_MUTATION ---', payload);
-        await createMutation.mutateAsync(payload as any);
+        const createdOrder = await createMutation.mutateAsync(payload as any);
+
+        if (canAutoAssignDriverVehicle) {
+          const autoVehicleId = selectedDriverVehicleId || (driverVehicles.length === 1 ? driverVehicles[0].id : '');
+          if (autoVehicleId) {
+            await autoAssignVehicleForDriver(createdOrder as ImportOrder, autoVehicleId);
+          } else {
+            toast.error('Không tìm thấy xe của tài xế để tự động gán cho giao hàng rau.');
+          }
+        }
       }
       onClose();
     } catch {
@@ -473,8 +590,37 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nhân viên nhận</label>
                         <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[13px] font-semibold text-amber-800">
                           {employees?.find((e: any) => e.id === watchReceivedBy)?.full_name || user?.full_name || 'Tự động'}
+                          {dialogVehiclePlateText && (
+                            <p className="mt-0.5 text-[11px] font-medium text-amber-700">
+                              Biển số xe: {dialogVehiclePlateText}
+                            </p>
+                          )}
                         </div>
                       </div>
+
+                      {canAutoAssignDriverVehicle && (
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Xe tự gán khi lưu</label>
+                          {driverVehicles.length === 0 ? (
+                            <div className="w-full px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl text-[12px] font-semibold text-red-700">
+                              Tài khoản chưa có xe rau phù hợp. Phiếu vẫn tạo được nhưng sẽ không tự gán xe.
+                            </div>
+                          ) : (
+                            <select
+                              value={selectedDriverVehicleId}
+                              onChange={(e) => setSelectedDriverVehicleId(e.target.value)}
+                              className="w-full px-3 py-2.5 bg-slate-50 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                            >
+                              <option value="">Chọn xe để tự gán...</option>
+                              {driverVehicles.map((vehicle) => (
+                                <option key={vehicle.id} value={vehicle.id}>
+                                  {vehicle.license_plate}{vehicle.vehicle_type ? ` - ${vehicle.vehicle_type}` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      )}
                     </>
                   ) : (
                     <>
@@ -578,6 +724,11 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nhân viên nhận</label>
                         <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[13px] font-semibold text-amber-800">
                           {employees?.find((e: any) => e.id === watchReceivedBy)?.full_name || user?.full_name || 'Tự động'}
+                          {dialogVehiclePlateText && (
+                            <p className="mt-0.5 text-[11px] font-medium text-amber-700">
+                              Biển số xe: {dialogVehiclePlateText}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </>

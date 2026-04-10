@@ -31,6 +31,8 @@ const formatCurrency = (value?: number | null) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
+const getSupplierName = (order: ImportOrder) => order.customers?.name || order.sender_name || 'Chưa rõ chủ vựa';
+
 const getOrderVehicles = (order: any) => {
   const plates = new Set<string>();
   if (order.license_plate) plates.add(order.license_plate);
@@ -46,12 +48,36 @@ const getOrderVehicles = (order: any) => {
   return plates.size > 0 ? Array.from(plates).join(', ') : '';
 };
 
+const getOrderDriverName = (order: any) => {
+  const names = new Set<string>();
+
+  if (order.delivery_orders) {
+    order.delivery_orders.forEach((d: any) => {
+      d.delivery_vehicles?.forEach((dv: any) => {
+        if (dv.profiles?.full_name) names.add(dv.profiles.full_name);
+      });
+    });
+  }
+
+  if (names.size > 0) return Array.from(names).join(', ');
+  if (order.driver_name) return order.driver_name;
+  if (order.profiles?.role === 'driver') return order.profiles.full_name || '';
+  return '';
+};
+
+const getOrderReceiverName = (order: any) => {
+  if (order.receiver_name) return order.receiver_name;
+  if (order.profiles?.role && order.profiles.role !== 'driver') return order.profiles.full_name || '';
+  return '-';
+};
+
 const defaultColumns: ColumnOption[] = [
-  { id: 'order_code', label: 'Mã đơn', isVisible: true },
   { id: 'order_date', label: 'Ngày', isVisible: true },
   { id: 'order_time', label: 'Giờ', isVisible: true },
   { id: 'sender', label: 'Chủ hàng', isVisible: true },
-  { id: 'vehicle', label: 'Biển số xe / Tài xế', isVisible: true },
+  { id: 'tai_rank', label: 'Tài', isVisible: true },
+  { id: 'vehicle', label: 'Biển số xe', isVisible: true },
+  { id: 'driver', label: 'Tài xế', isVisible: true },
   { id: 'sheet_number', label: 'Số tờ', isVisible: true },
   { id: 'payment_status', label: 'Tình trạng', isVisible: true },
   { id: 'total_amount', label: 'Tổng tiền', isVisible: true },
@@ -115,7 +141,7 @@ const VegetableImportsPage: React.FC = () => {
         tai.split(', ').forEach((t: string) => taiSet.add(t));
       }
 
-      const receiver = (order as any).profiles?.full_name || order.receiver_name || order.received_by;
+      const receiver = getOrderReceiverName(order);
       if (receiver) receiverSet.add(receiver);
     });
 
@@ -131,7 +157,8 @@ const VegetableImportsPage: React.FC = () => {
     if ((o as any).deleted_at) return false;
 
     const chuHang = o.customers?.name || o.sender_name;
-    const receiver = (o as any).profiles?.full_name || o.receiver_name || o.received_by;
+    const receiver = getOrderReceiverName(o);
+    const driverName = getOrderDriverName(o);
     const tai = getOrderVehicles(o);
 
     let matches = true;
@@ -140,6 +167,7 @@ const VegetableImportsPage: React.FC = () => {
       matches = (
         o.order_code?.toLowerCase().includes(q) ||
         chuHang?.toLowerCase().includes(q) ||
+        driverName?.toLowerCase().includes(q) ||
         receiver?.toLowerCase().includes(q) ||
         o.receiver_phone?.includes(q)
       );
@@ -162,6 +190,61 @@ const VegetableImportsPage: React.FC = () => {
   const totalItems = filteredOrders.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const paginatedOrders = filteredOrders.slice((page - 1) * pageSize, page * pageSize);
+
+  const taiRankByOrderId = useMemo(() => {
+    const rankMap = new Map<string, number>();
+    const ordersBySupplier = new Map<string, ImportOrder[]>();
+
+    filteredOrders.forEach((order) => {
+      const supplierName = getSupplierName(order);
+      const current = ordersBySupplier.get(supplierName) || [];
+      current.push(order);
+      ordersBySupplier.set(supplierName, current);
+    });
+
+    ordersBySupplier.forEach((supplierOrders) => {
+      const sorted = [...supplierOrders].sort((a, b) => {
+        const timeA = new Date(a.created_at || 0).getTime();
+        const timeB = new Date(b.created_at || 0).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        return a.id.localeCompare(b.id);
+      });
+
+      sorted.forEach((order, index) => {
+        rankMap.set(order.id, index + 1);
+      });
+    });
+
+    return rankMap;
+  }, [filteredOrders]);
+
+  const groupedPaginatedOrders = useMemo(() => {
+    const grouped = new Map<string, ImportOrder[]>();
+    paginatedOrders.forEach((order) => {
+      const supplierName = getSupplierName(order);
+      const current = grouped.get(supplierName) || [];
+      current.push(order);
+      grouped.set(supplierName, current);
+    });
+
+    grouped.forEach((supplierOrders, supplierName) => {
+      const sortedByTai = [...supplierOrders].sort((a, b) => {
+        const rankA = taiRankByOrderId.get(a.id) || 1;
+        const rankB = taiRankByOrderId.get(b.id) || 1;
+        if (rankA !== rankB) return rankA - rankB;
+
+        const timeA = new Date(a.created_at || 0).getTime();
+        const timeB = new Date(b.created_at || 0).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+
+        return a.id.localeCompare(b.id);
+      });
+
+      grouped.set(supplierName, sortedByTai);
+    });
+
+    return Array.from(grouped.entries());
+  }, [paginatedOrders, taiRankByOrderId]);
 
   const openAddDialog = () => {
     setEditingOrder(null);
@@ -375,11 +458,12 @@ const VegetableImportsPage: React.FC = () => {
                   <tr className="bg-muted/30 border-b border-border">
                     {columns.filter(c => c.isVisible).map((col) => {
                       switch (col.id) {
-                        case 'order_code': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-34">Mã đơn</th>;
                         case 'order_date': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-28">Ngày</th>;
                         case 'order_time': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-20">Giờ</th>;
                         case 'sender': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left min-w-[100px]">Chủ hàng</th>;
-                        case 'vehicle': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-36">Biển số xe / Tài xế</th>;
+                        case 'tai_rank': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-16">Tài</th>;
+                        case 'vehicle': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-36">Biển số xe</th>;
+                        case 'driver': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-36">Tài xế</th>;
                         case 'sheet_number': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-24">Số tờ</th>;
                         case 'payment_status': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-24">Tình trạng</th>;
                         case 'total_amount': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-36">Tổng tiền</th>;
@@ -392,98 +476,118 @@ const VegetableImportsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
-                  {paginatedOrders.map((order) => (
-                    <tr
-                      key={order.id}
-                      onClick={() => openEditDialog(order)}
-                      className="hover:bg-muted/20 transition-colors cursor-pointer"
-                    >
-                      {columns.filter(c => c.isVisible).map((col) => {
-                        switch (col.id) {
-                          case 'order_code': return (
-                            <td key={col.id} className="px-4 py-3">
-                              <span className="text-[13px] font-bold text-primary">{order.order_code}</span>
-                            </td>
-                          );
-                          case 'order_date': return (
-                            <td key={col.id} className="px-4 py-3">
-                              <span className="text-[12px] text-muted-foreground font-medium tabular-nums">{order.order_date}</span>
-                            </td>
-                          );
-                          case 'order_time': return (
-                            <td key={col.id} className="px-4 py-3">
-                              <span className="text-[12px] text-muted-foreground font-medium tabular-nums">{order.order_time || '-'}</span>
-                            </td>
-                          );
-                          case 'sender': return (
-                            <td key={col.id} className="px-4 py-3">
-                              <span className="text-[13px] font-bold text-foreground">{order.customers?.name || order.sender_name || '-'}</span>
-                            </td>
-                          );
-                          case 'vehicle': {
-                            const taiStr = getOrderVehicles(order);
-                            return (
-                              <td key={col.id} className="px-4 py-3">
-                                <span className="text-[12px] font-medium text-foreground tabular-nums">
-                                  {taiStr ? <span className="font-bold text-amber-700 block">{taiStr}</span> : '-'}
-                                  {order.driver_name ? <span className="text-muted-foreground block">{order.driver_name}</span> : null}
-                                </span>
-                              </td>
-                            );
-                          }
-                          case 'sheet_number': return (
-                            <td key={col.id} className="px-4 py-3">
-                              <span className="text-[13px] font-bold text-muted-foreground">{order.sheet_number || '-'}</span>
-                            </td>
-                          );
-                          case 'payment_status': return (
-                            <td key={col.id} className="px-4 py-3 text-right">
-                              {order.payment_status === 'paid' ? (
-                                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Đã trả</span>
-                              ) : order.payment_status === 'partial' ? (
-                                <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">1 phần</span>
-                              ) : (
-                                <span className="text-[11px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md">Chưa trả</span>
-                              )}
-                            </td>
-                          );
-                          case 'total_amount': return (
-                            <td key={col.id} className="px-4 py-3 text-right text-[13px] font-black text-primary tabular-nums">
-                              {formatCurrency(order.total_amount)}
-                            </td>
-                          );
-                          case 'receiver': return (
-                            <td key={col.id} className="px-4 py-3">
-                              <span className="text-[13px] font-medium text-foreground">{(order as any).profiles?.full_name || order.receiver_name || '-'}</span>
-                            </td>
-                          );
-                          case 'status': return (
-                            <td key={col.id} className="px-4 py-3 text-center">
-                              <StatusBadge status={order.status} label={statusLabels[order.status]} />
-                            </td>
-                          );
-                          case 'actions': return (
-                            <td key={col.id} className="px-4 py-3 flex items-center justify-center gap-1">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
-                                className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
-                                title="Sửa"
-                              >
-                                <Edit size={14} />
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
-                                className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
-                                title="Xóa"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </td>
-                          );
-                          default: return null;
-                        }
-                      })}
-                    </tr>
+                  {groupedPaginatedOrders.map(([supplierName, ordersInSupplier]) => (
+                    <React.Fragment key={`supplier-${supplierName}`}>
+                      <tr className="bg-primary/5">
+                        <td colSpan={columns.filter(c => c.isVisible).length} className="px-4 py-2">
+                          <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Chủ vựa: {supplierName}</span>
+                        </td>
+                      </tr>
+                      {ordersInSupplier.map((order) => (
+                        <tr
+                          key={order.id}
+                          onClick={() => openEditDialog(order)}
+                          className="hover:bg-muted/20 transition-colors cursor-pointer"
+                        >
+                          {columns.filter(c => c.isVisible).map((col) => {
+                            switch (col.id) {
+                              case 'order_date': return (
+                                <td key={col.id} className="px-4 py-3">
+                                  <span className="text-[12px] text-muted-foreground font-medium tabular-nums">{order.order_date}</span>
+                                </td>
+                              );
+                              case 'order_time': return (
+                                <td key={col.id} className="px-4 py-3">
+                                  <span className="text-[12px] text-muted-foreground font-medium tabular-nums">{order.order_time || '-'}</span>
+                                </td>
+                              );
+                              case 'sender': return (
+                                <td key={col.id} className="px-4 py-3">
+                                  <span className="text-[13px] font-bold text-foreground">{getSupplierName(order)}</span>
+                                </td>
+                              );
+                              case 'tai_rank': return (
+                                <td key={col.id} className="px-4 py-3 text-center">
+                                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-50 text-amber-700 text-[12px] font-black">
+                                    {taiRankByOrderId.get(order.id) || 1}
+                                  </span>
+                                </td>
+                              );
+                              case 'vehicle': {
+                                const taiStr = getOrderVehicles(order);
+                                return (
+                                  <td key={col.id} className="px-4 py-3">
+                                    <span className="text-[12px] font-bold text-amber-700 tabular-nums">
+                                      {taiStr || '-'}
+                                    </span>
+                                  </td>
+                                );
+                              }
+                              case 'driver': {
+                                const driverName = getOrderDriverName(order);
+                                return (
+                                  <td key={col.id} className="px-4 py-3">
+                                    <span className="text-[12px] font-medium text-foreground">
+                                      {driverName || '-'}
+                                    </span>
+                                  </td>
+                                );
+                              }
+                              case 'sheet_number': return (
+                                <td key={col.id} className="px-4 py-3">
+                                  <span className="text-[13px] font-bold text-muted-foreground">{order.sheet_number || '-'}</span>
+                                </td>
+                              );
+                              case 'payment_status': return (
+                                <td key={col.id} className="px-4 py-3 text-right">
+                                  {order.payment_status === 'paid' ? (
+                                    <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Đã trả</span>
+                                  ) : order.payment_status === 'partial' ? (
+                                    <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">1 phần</span>
+                                  ) : (
+                                    <span className="text-[11px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md">Chưa trả</span>
+                                  )}
+                                </td>
+                              );
+                              case 'total_amount': return (
+                                <td key={col.id} className="px-4 py-3 text-right text-[13px] font-black text-primary tabular-nums">
+                                  {formatCurrency(order.total_amount)}
+                                </td>
+                              );
+                              case 'receiver': return (
+                                <td key={col.id} className="px-4 py-3">
+                                  <span className="text-[13px] font-medium text-foreground">{getOrderReceiverName(order)}</span>
+                                </td>
+                              );
+                              case 'status': return (
+                                <td key={col.id} className="px-4 py-3 text-center">
+                                  <StatusBadge status={order.status} label={statusLabels[order.status]} />
+                                </td>
+                              );
+                              case 'actions': return (
+                                <td key={col.id} className="px-4 py-3 flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
+                                    className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
+                                    title="Sửa"
+                                  >
+                                    <Edit size={14} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
+                                    className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
+                                    title="Xóa"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </td>
+                              );
+                              default: return null;
+                            }
+                          })}
+                        </tr>
+                      ))}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -491,83 +595,101 @@ const VegetableImportsPage: React.FC = () => {
 
             {/* Mobile Card List */}
             <div className="md:hidden flex-1 overflow-y-auto p-3 flex flex-col gap-2">
-              {paginatedOrders.map((order) => {
-                const orderImage = order.receipt_image_url || order.import_order_items?.[0]?.image_url;
-                return (
-                  <div
-                    key={order.id}
-                    onClick={() => openEditDialog(order)}
-                    className="bg-white rounded-xl border border-border shadow-sm cursor-pointer hover:shadow-md active:bg-muted/10 transition-all flex items-center gap-3 p-2.5 overflow-hidden"
-                  >
-                    {/* Left: Image */}
-                    <div className="w-[64px] h-[64px] shrink-0 bg-muted/20 rounded-lg overflow-hidden">
-                      {orderImage ? (
-                        <img src={orderImage} alt={order.order_code} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <ImageIcon size={22} className="text-muted-foreground/30" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Right: Data */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[13px] font-bold text-foreground truncate">{order.customers?.name || order.sender_name || '-'}</span>
-                        <StatusBadge status={order.status} label={statusLabels[order.status]} />
-                      </div>
-                      <div className="mb-1.5">
-                        <span className="text-[11px] font-semibold text-primary">{order.order_code}</span>
-                        <span className="text-[10px] text-muted-foreground ml-1 tabular-nums">{order.order_date}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          {order.payment_status === 'paid' ? (
-                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Đã trả</span>
-                          ) : order.payment_status === 'partial' ? (
-                            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">1 phần</span>
-                          ) : (
-                            <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">Chưa trả</span>
-                          )}
-                          {(order.total_amount && order.total_amount > 0) ? (
-                            <span className="text-[13px] font-black text-primary tabular-nums">
-                              {formatCurrency(order.total_amount)}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="flex items-center gap-0.5">
-                          {orderImage && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const imgs: string[] = [];
-                                if (order.receipt_image_url) imgs.push(order.receipt_image_url);
-                                order.import_order_items?.forEach(item => { if (item.image_url && !imgs.includes(item.image_url)) imgs.push(item.image_url); });
-                                if (imgs.length > 0) { setViewingImages(imgs); setViewingImageIndex(0); }
-                              }}
-                              className="p-1 rounded-lg text-violet-500 hover:bg-violet-50 transition-colors"
-                            >
-                              <Eye size={13} />
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
-                            className="p-1 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
-                          >
-                            <Edit size={13} />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
-                            className="p-1 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+              {groupedPaginatedOrders.map(([supplierName, ordersInSupplier]) => (
+                <div key={`mobile-${supplierName}`} className="flex flex-col gap-2">
+                  <div className="px-2 py-1.5 rounded-lg bg-primary/5 border border-primary/10">
+                    <span className="text-[11px] font-bold text-primary uppercase tracking-wider">Chủ vựa: {supplierName}</span>
                   </div>
-                );
-              })}
+
+                  {ordersInSupplier.map((order) => {
+                    const orderImage = order.receipt_image_url || order.import_order_items?.[0]?.image_url;
+                    const taiRank = taiRankByOrderId.get(order.id) || 1;
+
+                    return (
+                      <div
+                        key={order.id}
+                        onClick={() => openEditDialog(order)}
+                        className="bg-white rounded-xl border border-border shadow-sm cursor-pointer hover:shadow-md active:bg-muted/10 transition-all flex items-center gap-3 p-2.5 overflow-hidden"
+                      >
+                        {/* Left: Image */}
+                        <div className="w-[64px] h-[64px] shrink-0 bg-muted/20 rounded-lg overflow-hidden">
+                          {orderImage ? (
+                            <img src={orderImage} alt={supplierName} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ImageIcon size={22} className="text-muted-foreground/30" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Right: Data */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-0.5 gap-2">
+                            <span className="text-[13px] font-bold text-foreground truncate">{getSupplierName(order)}</span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-50 text-amber-700 text-[11px] font-black">{taiRank}</span>
+                              <StatusBadge status={order.status} label={statusLabels[order.status]} />
+                            </div>
+                          </div>
+                          <div className="mb-1.5">
+                            <span className="text-[10px] text-muted-foreground tabular-nums">{order.order_date}</span>
+                          </div>
+                          <div className="mb-1">
+                            <span className="text-[10px] text-muted-foreground">Tài xế: {getOrderDriverName(order) || '-'}</span>
+                          </div>
+                          <div className="mb-1.5">
+                            <span className="text-[10px] text-amber-700">Biển số: {getOrderVehicles(order) || '-'}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              {order.payment_status === 'paid' ? (
+                                <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Đã trả</span>
+                              ) : order.payment_status === 'partial' ? (
+                                <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">1 phần</span>
+                              ) : (
+                                <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">Chưa trả</span>
+                              )}
+                              {(order.total_amount && order.total_amount > 0) ? (
+                                <span className="text-[13px] font-black text-primary tabular-nums">
+                                  {formatCurrency(order.total_amount)}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="flex items-center gap-0.5">
+                              {orderImage && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const imgs: string[] = [];
+                                    if (order.receipt_image_url) imgs.push(order.receipt_image_url);
+                                    order.import_order_items?.forEach(item => { if (item.image_url && !imgs.includes(item.image_url)) imgs.push(item.image_url); });
+                                    if (imgs.length > 0) { setViewingImages(imgs); setViewingImageIndex(0); }
+                                  }}
+                                  className="p-1 rounded-lg text-violet-500 hover:bg-violet-50 transition-colors"
+                                >
+                                  <Eye size={13} />
+                                </button>
+                              )}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
+                                className="p-1 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
+                              >
+                                <Edit size={13} />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
+                                className="p-1 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
 
             {/* Pagination */}

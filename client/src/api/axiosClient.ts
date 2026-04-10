@@ -14,6 +14,11 @@ axiosClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Send current app page so backend can authorize by page permission.
+    if (typeof window !== 'undefined' && window.location?.pathname) {
+      config.headers['x-page-path'] = window.location.pathname;
+    }
     return config;
   },
   (error) => Promise.reject(error),

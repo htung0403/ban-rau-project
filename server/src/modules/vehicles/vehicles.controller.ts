@@ -6,6 +6,8 @@ import { z } from 'zod';
 const createVehicleSchema = z.object({
   license_plate: z.string().min(1),
   vehicle_type: z.string().optional(),
+  load_capacity_ton: z.number().positive().optional(),
+  goods_categories: z.array(z.enum(['grocery', 'vegetable'])).min(1).optional(),
   driver_id: z.string().uuid().optional(),
 });
 

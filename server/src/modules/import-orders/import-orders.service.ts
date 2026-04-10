@@ -10,7 +10,7 @@ export class ImportOrderService {
     const buildQuery = (tName: string, iName: string) => {
       let q = supabaseService
         .from(tName)
-        .select(`*, profiles(full_name), warehouses(name), customers(id, name, phone, address), ${iName}(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate)))`);
+        .select(`*, profiles(full_name, role), warehouses(name), customers(id, name, phone, address), ${iName}(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))`);
 
       q = q.is('deleted_at', null);
       
@@ -63,7 +63,7 @@ export class ImportOrderService {
   static async getById(id: string) {
     let { data, error } = await supabaseService
       .from('import_orders')
-      .select('*, profiles(full_name), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate)))')
+      .select('*, profiles(full_name, role), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))')
       .eq('id', id)
       .is('deleted_at', null)
       .maybeSingle();
@@ -73,7 +73,7 @@ export class ImportOrderService {
       // Try vegetable_orders
       const veg = await supabaseService
         .from('vegetable_orders')
-        .select('*, profiles(full_name), warehouses(name), customers(id, name, phone, address), vegetable_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate)))')
+        .select('*, profiles(full_name, role), warehouses(name), customers(id, name, phone, address), vegetable_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))')
         .eq('id', id)
         .is('deleted_at', null)
         .maybeSingle();

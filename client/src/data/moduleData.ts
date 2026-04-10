@@ -44,6 +44,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
         { icon: Banknote, title: 'Ứng lương', description: 'Tạo đơn ứng lương.', colorScheme: 'red', path: '/hanh-chinh-nhan-su/ung-luong' },
         { icon: DollarSign, title: 'Bảng lương', description: 'Tính lương và chốt lương.', colorScheme: 'green', path: '/hanh-chinh-nhan-su/luong' },
         { icon: Settings2, title: 'Cài đặt lương', description: 'Cấu hình mức lương cơ bản.', colorScheme: 'orange', path: '/hanh-chinh-nhan-su/cai-dat-luong' },
+        { icon: Settings2, title: 'Phân quyền', description: 'Tạo quyền và cấp quyền theo trang cho nhân sự.', colorScheme: 'slate', path: '/hanh-chinh-nhan-su/phan-quyen' },
       ]
     }
   ],

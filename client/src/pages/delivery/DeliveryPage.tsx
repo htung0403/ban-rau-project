@@ -15,7 +15,7 @@ import OrderImagesDialog from './dialogs/OrderImagesDialog';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { Filter, X } from 'lucide-react';
-import type { DeliveryOrder } from '../../types';
+import type { DeliveryOrder, Vehicle } from '../../types';
 
 const formatNumber = (val?: number) => {
   if (val == null) return '0.00';
@@ -51,6 +51,11 @@ type VehicleAssignment = {
 };
 
 const isPaidCollectionStatus = (status?: string) => status === 'confirmed' || status === 'self_confirmed';
+
+const vehicleSupportsGoodsCategory = (vehicle: Vehicle, category: 'grocery' | 'vegetable') => {
+  if (!vehicle.goods_categories || vehicle.goods_categories.length === 0) return true;
+  return vehicle.goods_categories.includes(category);
+};
 
 const getDisplayProductName = (order: DeliveryOrder) =>
   order.product_name.includes(' - ') ? order.product_name.split(' - ').slice(1).join(' - ') : order.product_name;
@@ -120,8 +125,16 @@ const DeliveryPage: React.FC = () => {
   const isLoading = ordersLoading;
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
   const isDriver = user?.role === 'driver';
-  const myVehicle = vehicles?.find(v => v.driver_id === user?.id);
-  const myVehicleId = myVehicle?.id;
+  const eligibleVehicles = React.useMemo(
+    () => (vehicles || []).filter((vehicle) => vehicleSupportsGoodsCategory(vehicle, 'grocery')),
+    [vehicles]
+  );
+  const myVehicleIds = React.useMemo(
+    () => eligibleVehicles.filter((v) => v.driver_id === user?.id).map((v) => v.id),
+    [eligibleVehicles, user?.id]
+  );
+  const myVehicleIdSet = React.useMemo(() => new Set(myVehicleIds), [myVehicleIds]);
+  const myPrimaryVehicleId = myVehicleIds[0];
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
@@ -157,16 +170,18 @@ const DeliveryPage: React.FC = () => {
   };
 
   const handleOrderClick = async (order: DeliveryOrder, vehicleId?: string) => {
+    if (isDriver && myVehicleIds.length === 0) return;
+
     const existingDvs = order.delivery_vehicles || [];
     const totalAssigned = existingDvs.reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
     const remainingQty = order.total_quantity - totalAssigned;
 
-    const clickedVehicleId = vehicleId || myVehicleId;
+    const clickedVehicleId = vehicleId || (myVehicleIds.length === 1 ? myPrimaryVehicleId : undefined);
 
     if (
       isDriver &&
       clickedVehicleId &&
-      myVehicleId === clickedVehicleId &&
+      myVehicleIdSet.has(clickedVehicleId) &&
       existingDvs.length > 0 &&
       remainingQty > 0
     ) {
@@ -259,6 +274,10 @@ const DeliveryPage: React.FC = () => {
     filteredOrders = filteredOrders.filter(o => o.status === statusFilter);
   }
 
+  if (isDriver && myVehicleIds.length === 0) {
+    filteredOrders = [];
+  }
+
     // Driver / Hiding logic (only for can_giao tab)
   if (statusFilter === 'can_giao' || statusFilter === 'all') {
     filteredOrders = filteredOrders.filter(o => {
@@ -266,7 +285,10 @@ const DeliveryPage: React.FC = () => {
         if (statusFilter === 'all' && o.status !== 'can_giao') return true;
         const totalAssigned = (o.delivery_vehicles || []).reduce((s, dv) => s + (dv.assigned_quantity || 0), 0);
         const remainingQty = o.total_quantity - totalAssigned;
-        const myAssigned = (o.delivery_vehicles || []).find((dv) => dv.vehicle_id === myVehicleId)?.assigned_quantity || 0;
+        const myAssigned = (o.delivery_vehicles || []).reduce(
+          (sum, dv) => (dv.vehicle_id && myVehicleIdSet.has(dv.vehicle_id) ? sum + (dv.assigned_quantity || 0) : sum),
+          0
+        );
         if (myAssigned > 0 || remainingQty > 0) return true;
         return false;
       }
@@ -483,15 +505,15 @@ const DeliveryPage: React.FC = () => {
                     <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-100">SL Tổng</th>
                     <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-100">Còn lại</th>
                     <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-200">Dư</th>
-                    {vehicles?.map(v => (
+                    {eligibleVehicles.map(v => (
                       <th key={v.id} className={clsx(
                         "px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-28 border-r border-slate-100 last:border-r-0",
-                        v.id === myVehicleId && "bg-primary/5 text-primary"
+                        myVehicleIdSet.has(v.id) && "bg-primary/5 text-primary"
                       )}>
                         {v.license_plate}
                       </th>
                     ))}
-                    {(!vehicles || vehicles.length === 0) && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => (
+                    {eligibleVehicles.length === 0 && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => (
                       <th key={col} className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-12 border-r border-slate-100 last:border-r-0">
                         {col}
                       </th>
@@ -503,7 +525,7 @@ const DeliveryPage: React.FC = () => {
                     <React.Fragment key={date}>
                       {/* Date separator row */}
                       <tr className="bg-slate-100/80 border-y border-slate-200 shadow-sm overflow-hidden">
-                        <td colSpan={9 + (vehicles?.length || 10)} className="px-4 py-2.5">    
+                        <td colSpan={9 + (eligibleVehicles.length || 10)} className="px-4 py-2.5">    
                           <div className="flex items-center gap-2">
                             <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 text-primary">
                               <Calendar size={14} />
@@ -608,10 +630,10 @@ const DeliveryPage: React.FC = () => {
                             <td className="px-2 py-3 text-[13px] font-black text-red-600 text-center tabular-nums border-r border-slate-200">
                               {remainingQty < 0 ? formatNumber(remainingQty) : '-'}
                             </td>
-                            {vehicles?.map(v => {
+                            {eligibleVehicles.map(v => {
                               const dv = (o.delivery_vehicles || []).find((deliveryVehicle) => deliveryVehicle.vehicle_id === v.id);
                               const qty = dv?.assigned_quantity || 0;
-                              const isEditableByMe = v.id === myVehicleId;
+                              const isEditableByMe = myVehicleIdSet.has(v.id);
                               const canEdit = isEditableByMe || isAdmin;
 
                               const isPaid = (o.payment_collections || []).some(
@@ -646,7 +668,7 @@ const DeliveryPage: React.FC = () => {
                                 </td>
                               );
                             })}
-                            {(!vehicles || vehicles.length === 0) && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => {
+                            {eligibleVehicles.length === 0 && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => {
                               const getQtyForCol = (col: string) => {
                                 const matches = (o.delivery_vehicles || []).filter((dv) => {
                                   const plate = (dv.vehicles?.license_plate || '').toLowerCase();

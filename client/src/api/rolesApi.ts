@@ -1,0 +1,44 @@
+import axiosClient from './axiosClient';
+import type { AppPermission, AppRole } from '../types';
+
+interface UserRolesResponse {
+  user_id: string;
+  role_ids: string[];
+  roles: AppRole[];
+}
+
+export const rolesApi = {
+  getPermissions: async () => {
+    const { data } = await axiosClient.get<AppPermission[]>('/roles/permissions');
+    return data;
+  },
+
+  getRoles: async () => {
+    const { data } = await axiosClient.get<AppRole[]>('/roles');
+    return data;
+  },
+
+  createRole: async (payload: { role_name: string; role_key?: string; description?: string }) => {
+    const { data } = await axiosClient.post<AppRole>('/roles', payload);
+    return data;
+  },
+
+  updateRolePermissions: async (roleId: string, permissionKeys: string[]) => {
+    const { data } = await axiosClient.put(`/roles/${roleId}/permissions`, {
+      permission_keys: permissionKeys,
+    });
+    return data;
+  },
+
+  getUserRoles: async (userId: string) => {
+    const { data } = await axiosClient.get<UserRolesResponse>(`/roles/users/${userId}`);
+    return data;
+  },
+
+  assignUserRoles: async (userId: string, roleIds: string[]) => {
+    const { data } = await axiosClient.put(`/roles/users/${userId}`, {
+      role_ids: roleIds,
+    });
+    return data;
+  },
+};

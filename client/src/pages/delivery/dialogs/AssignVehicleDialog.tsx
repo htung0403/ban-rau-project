@@ -13,6 +13,7 @@ import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { useAuth } from '../../../context/AuthContext';
 import { uploadApi } from '../../../api/uploadApi';
 import toast from 'react-hot-toast';
+import type { Vehicle } from '../../../types';
 
 const assignmentSchema = z.object({
   vehicle_id: z.string().min(1, 'Vui lòng chọn xe'),
@@ -29,6 +30,11 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+const vehicleSupportsGoodsCategory = (vehicle: Vehicle, category: 'grocery' | 'vegetable') => {
+  if (!vehicle.goods_categories || vehicle.goods_categories.length === 0) return true;
+  return vehicle.goods_categories.includes(category);
+};
+
 interface Props {
   isOpen: boolean;
   isClosing: boolean;
@@ -43,8 +49,14 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const assignMutation = useAssignVehicle();
   const { user } = useAuth();
 
+  const targetCategory = (order?.order_category ?? 'standard') === 'vegetable' ? 'vegetable' : 'grocery';
+  const eligibleVehicles = React.useMemo(
+    () => (vehicles || []).filter((vehicle) => vehicleSupportsGoodsCategory(vehicle, targetCategory)),
+    [vehicles, targetCategory]
+  );
+
   const isDriver = user?.role === 'driver';
-  const myVehicle = vehicles?.find(v => v.driver_id === user?.id);
+  const myVehicle = eligibleVehicles.find(v => v.driver_id === user?.id);
 
   const {
     register,
@@ -125,7 +137,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       // Mở dialog ở chế độ general nhưng có xe rồi thì không cần thêm rỗng
       // Ngược lại nếu click một xe cụ thể chưa có trong danh sách
       if (initialVid && !initialAssignments.some(a => a.vehicle_id === initialVid)) {
-        const vehicle = vehicles?.find(v => v.id === initialVid);
+        const vehicle = eligibleVehicles.find(v => v.id === initialVid);
         const alreadyAssignedSum = initialAssignments.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
         const remainingForThis = Math.max(0, order.total_quantity - alreadyAssignedSum);
 
@@ -151,7 +163,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
       reset({ assignments: initialAssignments, image_url: (order as any).image_url || null });
     }
-  }, [order, initialVehicleId, isOpen, reset, vehicles]);
+  }, [order, initialVehicleId, isOpen, reset, eligibleVehicles, isDriver, myVehicle, user?.id]);
 
   if (!isOpen && !isClosing) return null;
 
@@ -176,7 +188,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const isSubmitting = assignMutation.isPending;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4">
+    <div className="fixed inset-0 z-9999 flex items-end sm:items-center justify-center sm:p-4">
       {/* Backdrop */}
       <div
         className={clsx(
@@ -190,7 +202,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       <div
         className={clsx(
           'relative w-full bg-white flex flex-col transition-all duration-350',
-          'h-[100dvh] sm:h-auto sm:max-h-[90vh] sm:max-w-[800px]',
+          'h-dvh sm:h-auto sm:max-h-[90vh] sm:max-w-200',
           'rounded-none sm:rounded-3xl shadow-2xl',
           isClosing
             ? 'translate-y-full sm:translate-y-0 sm:scale-95 opacity-0'
@@ -228,7 +240,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                   {order?.total_quantity.toLocaleString()}
                 </span>
               </div>
-              <div className="w-[1px] h-8 bg-slate-200" />
+              <div className="w-px h-8 bg-slate-200" />
               <div className="flex flex-col items-end">
                 <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">Còn lại (Chưa phân)</span>
                 <span className="text-lg font-black text-orange-600 tabular-nums transition-all">
@@ -278,7 +290,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                         <Truck size={12} className={isPaid ? "text-green-500" : "text-primary"} /> Chọn xe
                       </label>
                       <SearchableSelect
-                        options={(vehicles || []).map(v => ({
+                        options={eligibleVehicles.map(v => ({
                           value: v.id,
                           label: `${v.license_plate} ${v.profiles?.full_name ? '(' + v.profiles.full_name + ')' : ''}`,
                           selectedLabel: v.license_plate
@@ -288,7 +300,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                           if (isRowDisabled) return;
                           setValue(`assignments.${index}.vehicle_id`, val, { shouldValidate: true });
                           // Auto fill driver
-                          const vehicle = vehicles?.find(v => v.id === val);
+                          const vehicle = eligibleVehicles.find(v => v.id === val);
                           if (vehicle?.driver_id) {
                             setValue(`assignments.${index}.driver_id`, vehicle.driver_id, { shouldValidate: true });
                           }
@@ -332,7 +344,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                         })}
                         disabled={isRowDisabled}
                         placeholder="0"
-                        className={clsx("w-full h-[42px] px-3 bg-muted/20 border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums", isRowDisabled && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed")}
+                        className={clsx("w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums", isRowDisabled && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed")}
                       />
                       {errors.assignments?.[index]?.quantity && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.quantity?.message}</p>}
                     </div>
@@ -352,7 +364,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                           disabled={isRowDisabled}
                           placeholder="Nhập tiền thu"
                           className={clsx(
-                            "w-full h-[42px] px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums",
+                            "w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums",
                             isRowDisabled && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed"
                           )}
                         />
@@ -369,7 +381,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                           disabled={isRowDisabled}
                           placeholder="Nhập tên người bốc xếp"
                           className={clsx(
-                            "w-full h-[42px] px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-semibold",
+                            "w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-semibold",
                             isRowDisabled && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed"
                           )}
                         />
@@ -381,7 +393,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       <button
                         type="button"
                         onClick={() => remove(index)}
-                        className="absolute -top-2 -right-2 md:static md:w-10 md:h-[42px] flex items-center justify-center bg-white md:bg-transparent text-red-400 hover:text-red-500 hover:bg-red-50 border border-red-100 md:border-transparent rounded-full md:rounded-lg shadow-sm md:shadow-none transition-all"
+                        className="absolute -top-2 -right-2 md:static md:w-10 md:h-10.5 flex items-center justify-center bg-white md:bg-transparent text-red-400 hover:text-red-500 hover:bg-red-50 border border-red-100 md:border-transparent rounded-full md:rounded-lg shadow-sm md:shadow-none transition-all"
                         title="Xóa xe này"
                       >
                         <Trash2 size={16} />
@@ -464,7 +476,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               form="assign-vehicle-form"
               disabled={isSubmitting}
               className={clsx(
-                "flex-[2] py-3 rounded-xl bg-primary text-white text-[14px] font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2",
+                "flex-2 py-3 rounded-xl bg-primary text-white text-[14px] font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2",
                 isSubmitting && "opacity-70 cursor-not-allowed pointer-events-none"
               )}
             >

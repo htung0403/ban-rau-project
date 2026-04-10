@@ -33,6 +33,7 @@ import GroceryCustomersPage from './pages/customers/GroceryCustomersPage';
 import VegetableCustomersPage from './pages/customers/VegetableCustomersPage';
 import WholesaleCustomersPage from './pages/customers/WholesaleCustomersPage';
 import SalarySettingsPage from './pages/hr/SalarySettingsPage';
+import RolePermissionsPage from './pages/hr/RolePermissionsPage';
 import CustomerDetailPage from './pages/customers/CustomerDetailPage';
 import CustomerDebtPage from './pages/customers/CustomerDebtPage';
 import RevenueReportPage from './pages/customers/RevenueReportPage';
@@ -110,6 +111,7 @@ function AppRoutes() {
         <Route path="/hanh-chinh-nhan-su/cai-dat-luong" element={<SalarySettingsPage />} />
         <Route path="/hanh-chinh-nhan-su/ung-luong" element={<SalaryAdvancesPage />} />
         <Route path="/hanh-chinh-nhan-su/duyet-don" element={<ApprovalsPage />} />
+        <Route path="/hanh-chinh-nhan-su/phan-quyen" element={<RolePermissionsPage />} />
 
         {/* Ke toan module */}
         <Route path="/ke-toan">

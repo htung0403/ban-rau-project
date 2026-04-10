@@ -47,7 +47,7 @@ export interface Warehouse {
   manager_id?: string;
   created_at: string;
   // Nested
-  profiles?: { full_name: string };
+  profiles?: { full_name: string; role?: string };
 }
 
 // --- Price Settings ---
@@ -69,6 +69,30 @@ export interface RoleSalary {
   description?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface AppPermission {
+  id: string;
+  permission_key: string;
+  page_path: string;
+  page_name: string;
+  module_key: string;
+  module_name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AppRole {
+  id: string;
+  role_key: string;
+  role_name: string;
+  description?: string;
+  is_system: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  permission_keys?: string[];
 }
 
 // --- Products ---
@@ -200,6 +224,7 @@ export type DeliveryStatus = 'hang_o_sg' | 'can_giao' | 'da_giao';
 export interface DeliveryOrder {
   id: string;
   import_order_id?: string;
+  vegetable_order_id?: string;
   product_name: string;
   total_quantity: number;
   delivered_quantity: number;
@@ -218,6 +243,7 @@ export interface DeliveryOrder {
     order_code: string;
     sender_name: string;
     receiver_name: string;
+    license_plate?: string;
     customers?: { name: string };
     total_amount?: number;
     profiles?: { full_name: string };
@@ -226,6 +252,7 @@ export interface DeliveryOrder {
     order_code: string;
     sender_name: string;
     receiver_name: string;
+    license_plate?: string;
     customers?: { name: string };
     total_amount?: number;
     profiles?: { full_name: string };
@@ -240,11 +267,14 @@ export interface DeliveryOrder {
 
 // --- Vehicles ---
 export type VehicleStatus = 'available' | 'in_transit' | 'maintenance';
+export type VehicleGoodsCategory = 'grocery' | 'vegetable';
 
 export interface Vehicle {
   id: string;
   license_plate: string;
   vehicle_type?: string;
+  load_capacity_ton?: number;
+  goods_categories?: VehicleGoodsCategory[];
   driver_id?: string;
   status: VehicleStatus;
   created_at: string;

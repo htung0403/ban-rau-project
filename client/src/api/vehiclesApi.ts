@@ -7,7 +7,7 @@ export const vehiclesApi = {
     return data;
   },
 
-  create: async (payload: { license_plate: string; vehicle_type?: string; driver_id?: string }) => {
+  create: async (payload: { license_plate: string; vehicle_type?: string; load_capacity_ton?: number; goods_categories?: Array<'grocery' | 'vegetable'>; driver_id?: string }) => {
     const { data } = await axiosClient.post<Vehicle>('/vehicles', payload);
     return data;
   },

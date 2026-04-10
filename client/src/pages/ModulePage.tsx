@@ -6,9 +6,13 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { moduleData } from '../data/moduleData';
 import { sidebarMenu } from '../data/sidebarMenu';
 import { useAuth } from '../context/AuthContext';
+import { useAppPermissions, useAppRoles, useUserRoles } from '../hooks/queries/useRoles';
 
 const ModulePage: React.FC = () => {
   const { user } = useAuth();
+  const { data: allPermissions } = useAppPermissions();
+  const { data: allRoles } = useAppRoles();
+  const { data: userRolesData } = useUserRoles(user?.id || '', !!user?.id);
   const [activeTab, setActiveTab] = useState<'tat-ca' | 'danh-dau'>('tat-ca');
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
@@ -16,6 +20,21 @@ const ModulePage: React.FC = () => {
 
   const data = moduleData[location.pathname] || [];
   const currentItem = sidebarMenu.find(item => item.path === location.pathname);
+
+  const permissionPathByKey = new Map((allPermissions || []).map((permission) => [permission.permission_key, permission.page_path]));
+  const roleById = new Map((allRoles || []).map((role) => [role.id, role]));
+  const effectivePermissionKeys = new Set<string>();
+
+  (userRolesData?.role_ids || []).forEach((roleId) => {
+    const role = roleById.get(roleId);
+    (role?.permission_keys || []).forEach((permissionKey) => effectivePermissionKeys.add(permissionKey));
+  });
+
+  const allowedPaths = new Set<string>();
+  effectivePermissionKeys.forEach((permissionKey) => {
+    const pagePath = permissionPathByKey.get(permissionKey);
+    if (pagePath) allowedPaths.add(pagePath);
+  });
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full pb-24 sm:pb-4">
@@ -90,12 +109,21 @@ const ModulePage: React.FC = () => {
       ) : data.length > 0 ? (
         <div className="space-y-8">
           {data.map((section, idx) => {
-            // Filter items by search query and user role
+            // Filter items by effective permission + search query.
             const filteredItems = section.items.filter(item => {
-              // Only admin/manager can see Duyet don
-              if (item.path === '/hanh-chinh-nhan-su/duyet-don' && user?.role !== 'admin' && user?.role !== 'manager') {
+              if (item.path && allowedPaths.size > 0 && !allowedPaths.has(item.path)) {
                 return false;
               }
+
+              // Backward-compatible fallback if user has no role assignments yet.
+              if (item.path === '/hanh-chinh-nhan-su/duyet-don' && allowedPaths.size === 0 && user?.role !== 'admin' && user?.role !== 'manager') {
+                return false;
+              }
+
+              if (item.path === '/hanh-chinh-nhan-su/phan-quyen' && allowedPaths.size === 0 && user?.role !== 'admin') {
+                return false;
+              }
+
               return item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                      item.description.toLowerCase().includes(searchQuery.toLowerCase());
             });

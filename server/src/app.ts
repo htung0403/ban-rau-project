@@ -22,6 +22,7 @@ import payrollRoutes from './modules/payroll/payroll.routes';
 import accountingRoutes from './modules/accounting/accounting.routes';
 import productRoutes from './modules/products/products.routes';
 import uploadRoutes from './modules/upload/upload.routes';
+import rolesRoutes from './modules/roles/roles.routes';
 
 const app = express();
 
@@ -32,7 +33,7 @@ app.use(helmet({
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-page-path']
 }));
 app.use(express.json());
 
@@ -64,6 +65,7 @@ app.use('/api/payroll', payrollRoutes);
 app.use('/api/accounting', accountingRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/roles', rolesRoutes);
 
 
 // 5. Health Check

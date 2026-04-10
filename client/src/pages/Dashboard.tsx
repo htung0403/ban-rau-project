@@ -7,6 +7,8 @@ import { clsx } from 'clsx';
 import { moduleData } from '../data/moduleData';
 import { ModuleCard } from '../components/ui/ModuleCard';
 import ZaloLogo from '../assets/zalo-seeklogo.svg';
+import { buildAllowedRouteSet, canAccessModuleRoute, canAccessRoute } from '../utils/routePermissions';
+import { useMyPermissions } from '../hooks/queries/useRoles';
 
 const dashboardModules: ActionCardProps[] = [
   {
@@ -65,8 +67,27 @@ const Dashboard: React.FC = () => {
     else setGreeting('Chào buổi tối');
   }, []);
   const [searchQuery, setSearchQuery] = useState('');
+  const { data: myPermissionsData, isSuccess: permissionsReady } = useMyPermissions(!!user);
 
   const allSections = Object.values(moduleData).flat();
+  const allowedPaths = permissionsReady
+    ? new Set(myPermissionsData?.page_paths || [])
+    : buildAllowedRouteSet(user?.role);
+  const visibleDashboardModules = dashboardModules.filter((item) => {
+    if (!item.href || item.href.startsWith('http')) return true;
+
+    const moduleSections = moduleData[item.href];
+    if (moduleSections) {
+      const childPaths = moduleSections
+        .flatMap((section) => section.items)
+        .map((moduleItem) => moduleItem.path)
+        .filter((path): path is string => Boolean(path));
+
+      return canAccessModuleRoute(item.href, childPaths, user?.role, allowedPaths);
+    }
+
+    return canAccessRoute(item.href, user?.role, allowedPaths);
+  });
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -133,7 +154,7 @@ const Dashboard: React.FC = () => {
 
       {activeTab === 'chuc-nang' && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-5">
-          {dashboardModules.map((module, idx) => (
+          {visibleDashboardModules.map((module, idx) => (
             <ActionCard
               key={idx}
               {...module}
@@ -152,10 +173,14 @@ const Dashboard: React.FC = () => {
         <div className="space-y-8 animate-in fade-in duration-500">
           <div className="space-y-8">
             {allSections.map((section, idx) => {
-              const filteredItems = section.items.filter(item =>
-                item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                item.description.toLowerCase().includes(searchQuery.toLowerCase())
-              );
+              const filteredItems = section.items.filter(item => {
+                if (!canAccessRoute(item.path, user?.role, allowedPaths)) {
+                  return false;
+                }
+
+                return item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                       item.description.toLowerCase().includes(searchQuery.toLowerCase());
+              });
 
               if (filteredItems.length === 0) return null;
 

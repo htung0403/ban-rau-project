@@ -7,6 +7,7 @@ export const rolesKeys = {
   permissions: () => [...rolesKeys.all, 'permissions'] as const,
   list: () => [...rolesKeys.all, 'list'] as const,
   userRoles: (userId: string) => [...rolesKeys.all, 'user-roles', userId] as const,
+  myPermissions: () => [...rolesKeys.all, 'my-permissions'] as const,
 };
 
 export function useAppPermissions() {
@@ -66,5 +67,13 @@ export function useAssignUserRoles() {
       toast.success('Đã cập nhật quyền cho nhân sự');
     },
     onError: (err: any) => toast.error(err.response?.data?.error || 'Không thể cập nhật quyền nhân sự'),
+  });
+}
+
+export function useMyPermissions(enabled = true) {
+  return useQuery({
+    queryKey: rolesKeys.myPermissions(),
+    queryFn: rolesApi.getMyPermissions,
+    enabled,
   });
 }

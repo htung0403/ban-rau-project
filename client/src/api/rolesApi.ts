@@ -7,6 +7,11 @@ interface UserRolesResponse {
   roles: AppRole[];
 }
 
+interface MyPermissionsResponse {
+  user_id: string;
+  page_paths: string[];
+}
+
 export const rolesApi = {
   getPermissions: async () => {
     const { data } = await axiosClient.get<AppPermission[]>('/roles/permissions');
@@ -32,6 +37,11 @@ export const rolesApi = {
 
   getUserRoles: async (userId: string) => {
     const { data } = await axiosClient.get<UserRolesResponse>(`/roles/users/${userId}`);
+    return data;
+  },
+
+  getMyPermissions: async () => {
+    const { data } = await axiosClient.get<MyPermissionsResponse>('/roles/my-permissions');
     return data;
   },
 

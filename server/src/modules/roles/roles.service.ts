@@ -1,4 +1,5 @@
 import { supabaseService } from '../../config/supabase';
+import { Role } from '../../types';
 
 const slugify = (value: string) =>
   value
@@ -11,6 +12,46 @@ const slugify = (value: string) =>
     .replace(/\s+/g, '_');
 
 export class RolesService {
+  private static async getPagePathsByRoleIds(roleIds: string[]) {
+    if (!roleIds.length) return [] as string[];
+
+    const { data: rolePermissions, error: rolePermissionsError } = await supabaseService
+      .from('app_role_permissions')
+      .select('permission_id')
+      .in('role_id', roleIds);
+
+    if (rolePermissionsError) throw rolePermissionsError;
+
+    const permissionIds = (rolePermissions || []).map((item) => item.permission_id).filter(Boolean);
+    if (!permissionIds.length) return [] as string[];
+
+    const { data: permissions, error: permissionsError } = await supabaseService
+      .from('app_permissions')
+      .select('page_path')
+      .in('id', permissionIds)
+      .eq('is_active', true);
+
+    if (permissionsError) throw permissionsError;
+
+    return Array.from(new Set((permissions || []).map((item) => item.page_path).filter(Boolean)));
+  }
+
+  private static async getPagePathsByRoleKey(roleKey: Role) {
+    const { data: role, error: roleError } = await supabaseService
+      .from('app_roles')
+      .select('id')
+      .eq('role_key', roleKey)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (roleError || !role?.id) {
+      return [] as string[];
+    }
+
+    return this.getPagePathsByRoleIds([role.id]);
+  }
+
   static async getPermissions() {
     const { data, error } = await supabaseService
       .from('app_permissions')
@@ -120,5 +161,23 @@ export class RolesService {
     if (insertError) throw insertError;
 
     return { user_id: userId, role_ids: roleIds };
+  }
+
+  static async getMyPermissions(userId: string, profileRole: Role) {
+    const { data: userRoles, error: userRolesError } = await supabaseService
+      .from('app_user_roles')
+      .select('role_id')
+      .eq('user_id', userId);
+
+    if (userRolesError) throw userRolesError;
+
+    const roleIds = (userRoles || []).map((item) => item.role_id).filter(Boolean);
+
+    // Prefer explicit role assignments; fallback to legacy profile role mapping when absent.
+    const page_paths = roleIds.length
+      ? await this.getPagePathsByRoleIds(roleIds)
+      : await this.getPagePathsByRoleKey(profileRole);
+
+    return { user_id: userId, page_paths };
   }
 }

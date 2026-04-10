@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import PageHeader from '../../components/shared/PageHeader';
 import { useImportOrders } from '../../hooks/queries/useImportOrders';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Filter, FileDown, Search, X, Store, Truck, UserCircle, CalendarDays } from 'lucide-react';
+import { Filter, FileDown, Search, X, Store, Truck, UserCircle, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
@@ -42,15 +42,65 @@ const getAssignedVehicles = (item: any) => {
   return item.order?.license_plate || '-';
 };
 
-const COL_DEF: Record<string, { thClass: string, tdClass: string, render: (item: any) => React.ReactNode }> = {
-  nguoi_nhan: { thClass: 'text-left', tdClass: '', render: (item: any) => <div className="font-bold text-[13px] text-foreground">{item.order?.receiver_name || item.order?.profiles?.full_name || item.order?.received_by || '-'}</div> },
+const getAssignedDrivers = (item: any) => {
+  const names = new Set<string>();
+
+  if (item.order?.delivery_orders) {
+    const matchedDeliveryOrders = item.order.delivery_orders.filter(
+      (doItem: any) => doItem.product_id === item.product_id
+    );
+
+    matchedDeliveryOrders.forEach((d: any) => {
+      d.delivery_vehicles?.forEach((dv: any) => {
+        if (dv.profiles?.full_name) names.add(dv.profiles.full_name);
+      });
+    });
+  }
+
+  if (names.size > 0) return Array.from(names).join(', ');
+  if (item.order?.driver_name) return item.order.driver_name;
+  if (item.order?.profiles?.role === 'driver') return item.order.profiles.full_name || '-';
+  return '-';
+};
+
+const getReceiverName = (item: any) => {
+  if (item.order?.receiver_name) return item.order.receiver_name;
+  return '-';
+};
+
+const getItemTotalAmount = (item: any) => {
+  if (typeof item.total_amount === 'number') return item.total_amount;
+  if (typeof item.quantity === 'number' && typeof item.unit_price === 'number') {
+    return item.quantity * item.unit_price;
+  }
+  if (typeof item.order?.total_amount === 'number') return item.order.total_amount;
+  return null;
+};
+
+const COL_DEF: Record<string, { thClass: string, tdClass: string, render: (item: any, taiRankByOrderId: Map<string, number>) => React.ReactNode }> = {
+  nguoi_nhan: { thClass: 'text-left', tdClass: '', render: (item: any) => <div className="font-bold text-[13px] text-foreground">{getReceiverName(item)}</div> },
   chu_hang: { thClass: 'text-left', tdClass: '', render: (item: any) => <div className="font-bold text-[13px] text-foreground">{item.order?.sender_name || item.order?.customers?.name || '-'}</div> },
-  tai: { thClass: 'text-center w-36', tdClass: 'text-center', render: (item: any) => <span className="text-[13px] font-medium text-muted-foreground">{getAssignedVehicles(item)}</span> },
+  tai: {
+    thClass: 'text-center w-20',
+    tdClass: 'text-center',
+    render: (item: any, taiRankByOrderId: Map<string, number>) => (
+      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-50 text-amber-700 text-[12px] font-black">
+        {taiRankByOrderId.get(item.order?.id) || 1}
+      </span>
+    ),
+  },
+  tai_xe: { thClass: 'text-left w-40', tdClass: '', render: (item: any) => <span className="text-[13px] font-medium text-foreground">{getAssignedDrivers(item)}</span> },
+  bien_so_xe: { thClass: 'text-left w-40', tdClass: '', render: (item: any) => <span className="text-[13px] font-medium text-muted-foreground tabular-nums">{getAssignedVehicles(item)}</span> },
   sl: { thClass: 'text-center w-24', tdClass: 'text-center', render: (item: any) => <span className="font-bold text-[13px] text-primary tabular-nums">{item.quantity}</span> },
-  so_hang: { thClass: 'text-center w-28', tdClass: 'text-center', render: (item: any) => <span className="text-[13px] font-medium text-foreground tabular-nums">{item.weight_kg ? `${item.weight_kg} Kg` : '-'}</span> },
   ten_hang: { thClass: 'text-left', tdClass: '', render: (item: any) => <div className="font-medium text-[13px] text-foreground">{item.products?.name || '-'}</div> },
-  tien: { thClass: 'text-right w-32', tdClass: 'text-right', render: (item: any) => <span className="text-[13px] font-medium text-muted-foreground tabular-nums">{item.unit_price ? formatCurrency(item.unit_price) : '-'}</span> },
-  thanh_tien: { thClass: 'text-right w-40', tdClass: 'text-right', render: (item: any) => <span className="text-[13px] font-bold text-primary tabular-nums">{item.total_amount ? formatCurrency(item.total_amount) : '-'}</span> },
+  tong_tien: {
+    thClass: 'text-right w-40',
+    tdClass: 'text-right',
+    render: (item: any) => {
+      const amount = getItemTotalAmount(item);
+      return <span className="text-[13px] font-bold text-primary tabular-nums">{amount != null ? formatCurrency(amount) : '-'}</span>;
+    },
+  },
 };
 
 const VegetablesPage: React.FC = () => {
@@ -58,11 +108,11 @@ const VegetablesPage: React.FC = () => {
     { id: 'nguoi_nhan', label: 'Người Nhận', isVisible: true },
     { id: 'chu_hang', label: 'Chủ Hàng', isVisible: true },
     { id: 'tai', label: 'Tài', isVisible: true },
+    { id: 'tai_xe', label: 'Tài Xế', isVisible: true },
+    { id: 'bien_so_xe', label: 'Biển Số Xe', isVisible: true },
     { id: 'sl', label: 'SL', isVisible: true },
-    { id: 'so_hang', label: 'Số Kg', isVisible: true },
     { id: 'ten_hang', label: 'Tên Hàng', isVisible: true },
-    { id: 'tien', label: 'Tiền', isVisible: true },
-    { id: 'thanh_tien', label: 'Thành Tiền', isVisible: true },
+    { id: 'tong_tien', label: 'Tổng Tiền', isVisible: true },
   ]);
 
   const visibleColumns = columns.filter(c => c.isVisible);
@@ -77,6 +127,9 @@ const VegetablesPage: React.FC = () => {
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
+
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
 
   const openFilter = () => setIsFilterOpen(true);
   const closeFilter = () => {
@@ -130,7 +183,7 @@ const VegetablesPage: React.FC = () => {
         tai.split(', ').forEach((t: string) => taiSet.add(t));
       }
 
-      const receiver = i.order?.profiles?.full_name || i.order?.receiver_name || i.order?.received_by;
+      const receiver = getReceiverName(i);
       if (receiver) receiverSet.add(receiver);
     });
 
@@ -145,7 +198,7 @@ const VegetablesPage: React.FC = () => {
     return flattenedItems.filter(i => {
       const chuHang = i.order?.sender_name || i.order?.customers?.name;
       const tai = getAssignedVehicles(i);
-      const receiver = i.order?.profiles?.full_name || i.order?.receiver_name || i.order?.received_by;
+      const receiver = getReceiverName(i);
 
       let matches = false;
       if (!searchQuery) {
@@ -171,31 +224,101 @@ const VegetablesPage: React.FC = () => {
     });
   }, [flattenedItems, searchQuery, filterCustomer, filterVehicle, filterReceiver]);
 
-  const totalAmount = filteredItems.reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
+  const totalItems = filteredItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const paginatedItems = useMemo(
+    () => filteredItems.slice((page - 1) * pageSize, page * pageSize),
+    [filteredItems, page]
+  );
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  const taiRankByOrderId = useMemo(() => {
+    const rankMap = new Map<string, number>();
+    const ordersBySupplier = new Map<string, any[]>();
+
+    filteredItems.forEach((item) => {
+      const order = item.order;
+      if (!order?.id) return;
+      const supplierName = order.sender_name || order.customers?.name || 'Chưa rõ chủ vựa';
+      const current = ordersBySupplier.get(supplierName) || [];
+      if (!current.some((o) => o.id === order.id)) {
+        current.push(order);
+        ordersBySupplier.set(supplierName, current);
+      }
+    });
+
+    ordersBySupplier.forEach((supplierOrders) => {
+      const sorted = [...supplierOrders].sort((a, b) => {
+        const timeA = new Date(a.created_at || 0).getTime();
+        const timeB = new Date(b.created_at || 0).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        return String(a.id).localeCompare(String(b.id));
+      });
+
+      sorted.forEach((order, index) => {
+        rankMap.set(order.id, index + 1);
+      });
+    });
+
+    return rankMap;
+  }, [filteredItems]);
+
+  const groupedPaginatedItems = useMemo(() => {
+    const grouped = new Map<string, any[]>();
+    paginatedItems.forEach((item) => {
+      const supplierName = item.order?.sender_name || item.order?.customers?.name || 'Chưa rõ chủ vựa';
+      const current = grouped.get(supplierName) || [];
+      current.push(item);
+      grouped.set(supplierName, current);
+    });
+
+    grouped.forEach((itemsInSupplier, supplierName) => {
+      const sortedByTai = [...itemsInSupplier].sort((a, b) => {
+        const rankA = taiRankByOrderId.get(a.order?.id) || 1;
+        const rankB = taiRankByOrderId.get(b.order?.id) || 1;
+        if (rankA !== rankB) return rankA - rankB;
+
+        const timeA = new Date(a.order?.created_at || 0).getTime();
+        const timeB = new Date(b.order?.created_at || 0).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+
+        return String(a.id || '').localeCompare(String(b.id || ''));
+      });
+
+      grouped.set(supplierName, sortedByTai);
+    });
+
+    return Array.from(grouped.entries());
+  }, [paginatedItems, taiRankByOrderId]);
+
+  const totalAmount = filteredItems.reduce((acc, curr) => acc + (getItemTotalAmount(curr) || 0), 0);
 
   const exportExcel = () => {
     const wsData = filteredItems.map(item => ({
-      "Người Nhận": item.order?.receiver_name || item.order?.profiles?.full_name || item.order?.received_by || '-',
+      "Người Nhận": getReceiverName(item),
       "Chủ Hàng": item.order?.sender_name || item.order?.customers?.name || '-',
-      "Tài (Xe)": getAssignedVehicles(item),
-      "Người nhập": item.order?.profiles?.full_name || item.order?.receiver_name || item.order?.received_by || '-',
+      "Tài": taiRankByOrderId.get(item.order?.id) || 1,
+      "Tài Xế": getAssignedDrivers(item),
+      "Biển Số Xe": getAssignedVehicles(item),
       "Số lượng": item.quantity,
-      "Số Kg": item.weight_kg ? `${item.weight_kg} Kg` : '-',
       "Tên Hàng": item.products?.name || '-',
-      "Đơn giá": item.unit_price || 0,
-      "Thành Tiền": item.total_amount || 0
+      "Tổng Tiền": getItemTotalAmount(item) || 0
     }));
 
     wsData.push({
       "Người Nhận": "TỔNG CỘNG",
       "Chủ Hàng": "",
-      "Tài (Xe)": "",
-      "Người nhập": "",
+      "Tài": "",
+      "Tài Xế": "",
+      "Biển Số Xe": "",
       "Số lượng": "",
-      "Số Kg": "",
       "Tên Hàng": "",
-      "Đơn giá": "",
-      "Thành Tiền": totalAmount
+      "Tổng Tiền": totalAmount
     } as any);
 
     const ws = XLSX.utils.json_to_sheet(wsData);
@@ -219,19 +342,19 @@ const VegetablesPage: React.FC = () => {
 
       <div className="bg-card flex flex-row w-full gap-2 items-center rounded-2xl shadow-sm border border-border p-2.5 md:mb-6 mb-3 overflow-x-auto custom-scrollbar">
         {/* SEARCH BAR */}
-        <div className="relative flex-1 min-w-[200px] md:max-w-full">
+        <div className="relative flex-1 min-w-50 md:max-w-full">
           <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
             <Search size={15} />
           </div>
           <input
             type="text"
-            className="w-full text-[13px] bg-muted/20 border border-border/80 rounded-xl pl-9 pr-7 py-2 h-[38px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-muted-foreground/60 font-medium"
+            className="w-full text-[13px] bg-muted/20 border border-border/80 rounded-xl pl-9 pr-7 py-2 h-9.5 focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-muted-foreground/60 font-medium"
             placeholder="Tên vựa, hàng..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <button onClick={() => { setSearchQuery(''); setPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
               <X size={14} />
             </button>
           )}
@@ -239,31 +362,31 @@ const VegetablesPage: React.FC = () => {
 
         {/* DESKTOP ADVANCED FILTERS */}
         <div className="hidden md:flex gap-2 items-center shrink-0">
-          <div className="w-[200px]">
+          <div className="w-50">
             <MultiSearchableSelect
               options={vuaOptions}
               value={filterCustomer}
-              onValueChange={setFilterCustomer}
+              onValueChange={(v) => { setFilterCustomer(v); setPage(1); }}
               placeholder="Chủ hàng"
               className="bg-transparent"
               icon={<Store size={15} />}
             />
           </div>
-          <div className="w-[200px]">
+          <div className="w-50">
             <MultiSearchableSelect
               options={taiOptions}
               value={filterVehicle}
-              onValueChange={setFilterVehicle}
+              onValueChange={(v) => { setFilterVehicle(v); setPage(1); }}
               placeholder="Tài"
               className="bg-transparent"
               icon={<Truck size={15} />}
             />
           </div>
-          <div className="w-[200px]">
+          <div className="w-50">
             <MultiSearchableSelect
               options={nguoiNhapOptions}
               value={filterReceiver}
-              onValueChange={setFilterReceiver}
+              onValueChange={(v) => { setFilterReceiver(v); setPage(1); }}
               placeholder="Người nhập"
               className="bg-transparent"
               icon={<UserCircle size={15} />}
@@ -281,6 +404,7 @@ const VegetablesPage: React.FC = () => {
               const t = range.to ? format(range.to, 'yyyy-MM-dd') : f;
               setFilterDateFrom(f);
               setFilterDateTo(t);
+              setPage(1);
             }}
             icon={<CalendarDays size={15} />}
           />
@@ -291,7 +415,7 @@ const VegetablesPage: React.FC = () => {
           {/* MOBILE FILTER BUTTON */}
           <button
             onClick={openFilter}
-            className="md:hidden flex items-center justify-center w-[38px] h-[38px] shrink-0 border border-border/80 rounded-xl transition-all bg-muted/20 text-muted-foreground hover:bg-muted"
+            className="md:hidden flex items-center justify-center w-9.5 h-9.5 shrink-0 border border-border/80 rounded-xl transition-all bg-muted/20 text-muted-foreground hover:bg-muted"
           >
             <Filter size={17} />
           </button>
@@ -303,7 +427,7 @@ const VegetablesPage: React.FC = () => {
           <button
             onClick={exportExcel}
             title="Xuất dữ liệu Excel"
-            className="flex items-center justify-center border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 h-[38px] w-[38px] md:w-auto md:px-3 rounded-xl shadow-sm transition-colors shrink-0"
+            className="flex items-center justify-center border border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 h-9.5 w-9.5 md:w-auto md:px-3 rounded-xl shadow-sm transition-colors shrink-0"
           >
             <FileDown size={17} className="md:mr-2" />
             <span className="hidden md:inline text-[13px] font-bold">Xuất Excel</span>
@@ -331,39 +455,48 @@ const VegetablesPage: React.FC = () => {
           {/* Desktop Table View */}
           <div className="hidden md:flex flex-1 bg-white rounded-2xl border border-border shadow-sm flex-col min-h-0 overflow-hidden">
             <div className="flex-1 overflow-auto custom-scrollbar">
-              <table className="w-full border-collapse min-w-[800px] border-hidden">
-                <thead className="sticky top-0 z-10 bg-muted/60">
-                  <tr>
+              <table className="w-full border-collapse min-w-225">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-muted/30 border-b border-border">
                     {visibleColumns.map((col) => (
-                      <th key={col.id} className={`px-4 py-3 border border-border text-[12px] font-bold text-muted-foreground/80 uppercase tracking-widest ${COL_DEF[col.id].thClass}`}>
+                      <th key={col.id} className={`px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight ${COL_DEF[col.id].thClass}`}>
                         {col.label}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody>
-                  {filteredItems.map((item, idx) => (
-                    <tr key={item.id || idx} className="hover:bg-muted/10 transition-colors group">
-                      {visibleColumns.map((col) => (
-                        <td key={col.id} className={`px-4 py-3 border border-border ${COL_DEF[col.id].tdClass}`}>
-                          {COL_DEF[col.id].render(item)}
+                <tbody className="divide-y divide-border/50">
+                  {groupedPaginatedItems.map(([supplierName, itemsInSupplier]) => (
+                    <React.Fragment key={`supplier-${supplierName}`}>
+                      <tr className="bg-primary/5">
+                        <td colSpan={visibleColumns.length} className="px-4 py-2">
+                          <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Chủ vựa: {supplierName}</span>
                         </td>
+                      </tr>
+                      {itemsInSupplier.map((item, idx) => (
+                        <tr key={`${item.order?.id || 'order'}-${item.id || idx}`} className="hover:bg-muted/20 transition-colors">
+                          {visibleColumns.map((col) => (
+                            <td key={col.id} className={`px-4 py-3 ${COL_DEF[col.id].tdClass}`}>
+                              {COL_DEF[col.id].render(item, taiRankByOrderId)}
+                            </td>
+                          ))}
+                        </tr>
                       ))}
-                    </tr>
+                    </React.Fragment>
                   ))}
                 </tbody>
                 <tfoot className="sticky bottom-0 z-10 bg-muted/60 shadow-[0_-2px_6px_rgba(0,0,0,0.05)]">
                   <tr>
                     {visibleColumns.map((col, idx) => {
-                      if (col.id === 'thanh_tien') {
+                      if (col.id === 'tong_tien') {
                         return (
-                          <td key={col.id} className={`px-4 py-3 border border-border text-right text-[15px] font-black text-primary tabular-nums`}>
+                          <td key={col.id} className="px-4 py-3 text-right text-[15px] font-black text-primary tabular-nums">
                             {formatCurrency(totalAmount)}
                           </td>
                         );
                       }
                       return (
-                        <td key={col.id} className={`px-4 py-3 border border-border ${COL_DEF[col.id].tdClass} text-[14px] font-black uppercase text-foreground`}>
+                        <td key={col.id} className={`${COL_DEF[col.id].tdClass} px-4 py-3 text-[14px] font-black uppercase text-foreground`}>
                           {idx === 0 ? 'Tổng' : ''}
                         </td>
                       );
@@ -377,43 +510,47 @@ const VegetablesPage: React.FC = () => {
           {/* Mobile Card View */}
           <div className="md:hidden flex-1 flex flex-col min-h-0">
             <div className="flex-1 overflow-y-auto flex flex-col gap-3 pb-2 mt-1">
-              {filteredItems.map((item, idx) => (
-                <div key={item.id || idx} className="bg-white rounded-2xl border border-border shadow-sm p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 pr-2 min-w-0">
-                      <div className="text-[14px] font-bold text-foreground mb-1 whitespace-normal leading-snug">
-                        {item.order?.receiver_name || item.order?.profiles?.full_name || item.order?.received_by || '-'}
-                      </div>
-                      <div className="text-[12px] font-medium text-muted-foreground mb-2 whitespace-normal leading-snug">
-                        Chủ hàng: {item.order?.sender_name || item.order?.customers?.name || '-'}
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-[12px] text-muted-foreground flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase w-8 shrink-0">Tài</span>
-                          <span className="font-medium text-foreground truncate">{getAssignedVehicles(item)}</span>
-                        </div>
-                        <div className="text-[12px] text-muted-foreground flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase w-8 shrink-0">Hàng</span>
-                          <span className="font-medium text-foreground truncate">{item.products?.name || '-'}</span>
-                        </div>
-                        {item.weight_kg && (
-                          <div className="text-[12px] text-muted-foreground flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase w-8 shrink-0">Số Kg</span>
-                            <span className="font-medium text-foreground truncate">{item.weight_kg} Kg</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <div className="text-[14px] font-black text-primary tabular-nums mb-1">
-                        {item.total_amount ? formatCurrency(item.total_amount) : '-'}
-                      </div>
-                      <div className="text-[12px] text-muted-foreground">
-                        <span className="font-bold text-foreground">{item.quantity}</span> x {item.unit_price ? formatCurrency(item.unit_price) : '-'}
-                      </div>
-                    </div>
+              {groupedPaginatedItems.map(([supplierName, itemsInSupplier]) => (
+                <div key={`mobile-${supplierName}`} className="flex flex-col gap-2">
+                  <div className="px-2 py-1.5 rounded-lg bg-primary/5 border border-primary/10">
+                    <span className="text-[11px] font-bold text-primary uppercase tracking-wider">Chủ vựa: {supplierName}</span>
                   </div>
+
+                  {itemsInSupplier.map((item, idx) => (
+                    <div key={`${item.order?.id || 'order'}-${item.id || idx}`} className="bg-white rounded-2xl border border-border shadow-sm p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 pr-2 min-w-0">
+                          <div className="text-[14px] font-bold text-foreground mb-1 whitespace-normal leading-snug">
+                            {getReceiverName(item)}
+                          </div>
+                          <div className="text-[12px] font-medium text-muted-foreground mb-2 whitespace-normal leading-snug">
+                            Chủ hàng: {item.order?.sender_name || item.order?.customers?.name || '-'} • Tài {taiRankByOrderId.get(item.order?.id) || 1}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-[12px] text-muted-foreground flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase w-14 shrink-0">Tài xế</span>
+                              <span className="font-medium text-foreground truncate">{getAssignedDrivers(item)}</span>
+                            </div>
+                            <div className="text-[12px] text-muted-foreground flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase w-14 shrink-0">Biển số</span>
+                              <span className="font-medium text-foreground truncate">{getAssignedVehicles(item)}</span>
+                            </div>
+                            <div className="text-[12px] text-muted-foreground flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase w-14 shrink-0">Hàng</span>
+                              <span className="font-medium text-foreground truncate">{item.products?.name || '-'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className="text-[14px] font-black text-primary tabular-nums mb-1">
+                            {getItemTotalAmount(item) != null ? formatCurrency(getItemTotalAmount(item)) : '-'}
+                          </div>
+                          <div className="text-[12px] text-muted-foreground">SL: <span className="font-bold text-foreground">{item.quantity}</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
@@ -422,6 +559,42 @@ const VegetablesPage: React.FC = () => {
             <div className="shrink-0 bg-white border border-border p-4 shadow-sm rounded-xl mt-2 flex items-center justify-between">
               <span className="text-[14px] font-black uppercase text-foreground">Tổng cộng</span>
               <span className="text-[16px] font-black text-primary tabular-nums">{formatCurrency(totalAmount)}</span>
+            </div>
+          </div>
+
+          <div className="px-4 py-3 border-t border-border flex items-center justify-between bg-muted/5 shrink-0 mt-2 rounded-xl">
+            <span className="text-[12px] text-muted-foreground font-medium">
+              {totalItems > 0 ? `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, totalItems)}` : '0'} / Tổng {totalItems}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-20 transition-colors"
+              >
+                <ChevronLeft size={15} />
+              </button>
+              {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
+                const pageNum = i + 1;
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setPage(pageNum)}
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold transition-colors ${
+                      page === pageNum ? 'bg-primary text-white' : 'text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-20 transition-colors"
+              >
+                <ChevronRight size={15} />
+              </button>
             </div>
           </div>
         </div>
@@ -434,11 +607,13 @@ const VegetablesPage: React.FC = () => {
         onApply={(filters) => {
           setFilterDateFrom(filters.dateFrom || '');
           setFilterDateTo(filters.dateTo || '');
+          setPage(1);
         }}
         onClear={() => {
           setFilterCustomer([]);
           setFilterVehicle([]);
           setFilterReceiver([]);
+          setPage(1);
         }}
         showClearButton={filterCustomer.length > 0 || filterVehicle.length > 0 || filterReceiver.length > 0}
         initialDateFrom={filterDateFrom}
@@ -450,9 +625,9 @@ const VegetablesPage: React.FC = () => {
           <MultiSearchableSelect
             options={vuaOptions}
             value={filterCustomer}
-            onValueChange={setFilterCustomer}
+            onValueChange={(v) => { setFilterCustomer(v); setPage(1); }}
             placeholder="Tất cả..."
-            className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
+            className="w-full bg-muted/10 h-10.5 border-border/80 rounded-xl"
             inline
             icon={<Store size={15} />}
           />
@@ -462,9 +637,9 @@ const VegetablesPage: React.FC = () => {
           <MultiSearchableSelect
             options={taiOptions}
             value={filterVehicle}
-            onValueChange={setFilterVehicle}
+            onValueChange={(v) => { setFilterVehicle(v); setPage(1); }}
             placeholder="Tất cả..."
-            className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
+            className="w-full bg-muted/10 h-10.5 border-border/80 rounded-xl"
             inline
             icon={<Truck size={15} />}
           />
@@ -474,9 +649,9 @@ const VegetablesPage: React.FC = () => {
           <MultiSearchableSelect
             options={nguoiNhapOptions}
             value={filterReceiver}
-            onValueChange={setFilterReceiver}
+            onValueChange={(v) => { setFilterReceiver(v); setPage(1); }}
             placeholder="Tất cả..."
-            className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
+            className="w-full bg-muted/10 h-10.5 border-border/80 rounded-xl"
             inline
             icon={<UserCircle size={15} />}
           />

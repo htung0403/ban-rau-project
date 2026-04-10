@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { PaymentCollectionsController } from './payment-collections.controller';
 import { authMiddleware } from '../../middlewares/auth';
+import { requirePolicy } from '../../middlewares/role';
 
 const router = Router();
 
 router.use(authMiddleware);
+router.use(requirePolicy('VEHICLES_PAYMENT_COLLECTIONS'));
 
 router.get('/', PaymentCollectionsController.getAll);
 router.get('/summary/by-vehicle', PaymentCollectionsController.getSummaryByVehicle);

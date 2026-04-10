@@ -18,6 +18,19 @@ const assignUserRolesSchema = z.object({
 });
 
 export class RolesController {
+  static async getMyPermissions(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json(errorResponse('Not authenticated', 'UNAUTHORIZED'));
+      }
+
+      const data = await RolesService.getMyPermissions(req.user.id, req.user.role);
+      return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
   static async getPermissions(req: Request, res: Response) {
     try {
       const data = await RolesService.getPermissions();

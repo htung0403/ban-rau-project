@@ -4,6 +4,10 @@ import { sidebarMenu, extraMenuItems } from '../../data/sidebarMenu';
 import type { SidebarItem } from '../../data/sidebarMenu';
 import { clsx } from 'clsx';
 import { Truck } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { moduleData } from '../../data/moduleData';
+import { buildAllowedRouteSet, canAccessModuleRoute, canAccessRoute } from '../../utils/routePermissions';
+import { useMyPermissions } from '../../hooks/queries/useRoles';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -11,6 +15,29 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
+  const { user } = useAuth();
+  const { data: myPermissionsData, isSuccess: permissionsReady } = useMyPermissions(!!user);
+  const allowedPaths = permissionsReady
+    ? new Set(myPermissionsData?.page_paths || [])
+    : buildAllowedRouteSet(user?.role);
+
+  const visibleSidebarMenu = sidebarMenu.filter((item) => {
+    const moduleSections = moduleData[item.path];
+
+    if (moduleSections) {
+      const childPaths = moduleSections
+        .flatMap((section) => section.items)
+        .map((moduleItem) => moduleItem.path)
+        .filter((path): path is string => Boolean(path));
+
+      return canAccessModuleRoute(item.path, childPaths, user?.role, allowedPaths);
+    }
+
+    return canAccessRoute(item.path, user?.role, allowedPaths);
+  });
+
+  const visibleExtraMenuItems = extraMenuItems.filter((item) => canAccessRoute(item.path, user?.role, allowedPaths));
+
   return (
     <>
       {/* Overlay - visible whenever sidebar is open ON MOBILE */}
@@ -49,7 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
 
         {/* Navigation Links */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-2 custom-scrollbar flex flex-col items-center lg:items-stretch">
-          {sidebarMenu.map((item) => (
+          {visibleSidebarMenu.map((item) => (
             <NavItem key={item.path} item={item} isOpen={isOpen} onClick={() => {
               if (window.innerWidth < 1024) setIsOpen(false);
             }} />
@@ -57,7 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
 
           <div className="my-4 border-t border-border w-full"></div>
 
-          {extraMenuItems.map((item) => (
+          {visibleExtraMenuItems.map((item) => (
             <NavItem key={item.path} item={item} isOpen={isOpen} onClick={() => {
               if (window.innerWidth < 1024) setIsOpen(false);
             }} />

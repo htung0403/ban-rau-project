@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { VehicleController } from './vehicles.controller';
 import { authMiddleware } from '../../middlewares/auth';
+import { requirePolicy } from '../../middlewares/role';
 
 const router = Router();
 
 router.use(authMiddleware);
+router.use(requirePolicy('VEHICLES_OPERATIONS'));
 
 router.get('/', VehicleController.getAll);
 router.post('/', VehicleController.create);

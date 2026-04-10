@@ -1,14 +1,13 @@
 import { Router } from 'express';
 import { ExportOrderController } from './export-orders.controller';
 import { authMiddleware } from '../../middlewares/auth';
-import { requireRole } from '../../middlewares/role';
 
 const router = Router();
 
 router.use(authMiddleware);
 
 router.get('/', ExportOrderController.getAll);
-router.post('/', requireRole('admin', 'manager', 'staff', 'driver'), ExportOrderController.create);
-router.put('/:id/payment', requireRole('admin', 'manager', 'staff'), ExportOrderController.updatePayment);
+router.post('/', ExportOrderController.create);
+router.put('/:id/payment', ExportOrderController.updatePayment);
 
 export default router;

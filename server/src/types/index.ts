@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'manager' | 'staff' | 'driver' | 'customer';
+export type Role = 'admin' | 'manager' | 'staff' | 'driver' | 'customer' | (string & {});
 
 export interface UserPayload {
   id: string;

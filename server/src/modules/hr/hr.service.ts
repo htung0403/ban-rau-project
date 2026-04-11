@@ -5,7 +5,7 @@ export class HRService {
   static async getEmployees() {
     const { data, error } = await supabaseService
       .from('profiles')
-      .select('*')
+      .select('*, app_user_roles(role_id, app_roles(id, role_key, role_name))')
       .neq('role', 'customer');
     if (error) throw error;
     return data;
@@ -80,6 +80,22 @@ export class HRService {
     return data;
   }
 
+  static async updateEmployee(id: string, payload: { full_name: string; phone?: string; role: string }) {
+    const { data, error } = await supabaseService
+      .from('profiles')
+      .update({
+        full_name: payload.full_name,
+        phone: payload.phone || null,
+        role: payload.role,
+      })
+      .eq('id', id)
+      .select('*, app_user_roles(role_id, app_roles(id, role_key, role_name))')
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
   static async deleteEmployee(id: string) {
     // Nullify all FK references to this profile across the database
     const nullifyTasks = [
@@ -125,7 +141,11 @@ export class HRService {
   }
 
   static async getEmployeeById(id: string) {
-    const { data, error } = await supabaseService.from('profiles').select('*').eq('id', id).single();
+    const { data, error } = await supabaseService
+      .from('profiles')
+      .select('*, app_user_roles(role_id, app_roles(id, role_key, role_name))')
+      .eq('id', id)
+      .single();
     if (error) throw error;
     return data;
   }

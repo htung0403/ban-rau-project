@@ -1,17 +1,18 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/shared/PageHeader';
-import { useEmployees, useCreateEmployee, useDeleteEmployee } from '../../hooks/queries/useHR';
+import { useEmployees, useCreateEmployee, useDeleteEmployee, useUpdateEmployee } from '../../hooks/queries/useHR';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import DraggableFAB from '../../components/shared/DraggableFAB';
-import { Users, Plus, X, UserPlus, Mail, Lock, Phone, ShieldCheck, ChevronRight, Loader2, Trash2, AlertTriangle, UserCog } from 'lucide-react';
-import { useState, useMemo, useEffect } from 'react';
+import { Users, Plus, X, UserPlus, Mail, Lock, Phone, ShieldCheck, ChevronRight, Loader2, Trash2, AlertTriangle, UserCog, Pencil } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import { useAppRoles, useAssignUserRoles, useUserRoles } from '../../hooks/queries/useRoles';
+import { useRoleSalaries } from '../../hooks/queries/usePriceSettings';
 
 const getRoleDisplayName = (roleName: string, roleKey?: string) => {
   if (roleKey === 'customer' || roleName.trim().toLowerCase() === 'customer') {
@@ -20,44 +21,101 @@ const getRoleDisplayName = (roleName: string, roleKey?: string) => {
   return roleName;
 };
 
-const HR_LEVEL_OPTIONS = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'manager', label: 'Quản lý' },
-  { value: 'staff', label: 'Nhân viên' },
-  { value: 'driver', label: 'Tài xế' },
-];
+const normalizeText = (value?: string | null) =>
+  (value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9\s_]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const DRIVER_HEAVY_ROLE_KEYS = ['tai_xe_xe_tai_lon', 'tai_xe_tai_lon'];
+const DRIVER_LIGHT_ROLE_KEYS = ['tai_xe_xe_tai_nho', 'tai_xe_tai_nho'];
+const DRIVER_HEAVY_ROLE_NAMES = ['tai xe xe tai lon', 'tai xe tai lon'];
+const DRIVER_LIGHT_ROLE_NAMES = ['tai xe xe tai nho', 'tai xe tai nho'];
+
+const isHeavyDriverRole = (roleKey?: string, roleName?: string) => {
+  const normalizedKey = normalizeText(roleKey).replace(/\s+/g, '_');
+  const normalizedName = normalizeText(roleName);
+  return (
+    DRIVER_HEAVY_ROLE_KEYS.some((key) => normalizedKey.includes(key)) ||
+    DRIVER_HEAVY_ROLE_NAMES.some((name) => normalizedName.includes(name))
+  );
+};
+
+const isLightDriverRole = (roleKey?: string, roleName?: string) => {
+  const normalizedKey = normalizeText(roleKey).replace(/\s+/g, '_');
+  const normalizedName = normalizeText(roleName);
+  return (
+    DRIVER_LIGHT_ROLE_KEYS.some((key) => normalizedKey.includes(key)) ||
+    DRIVER_LIGHT_ROLE_NAMES.some((name) => normalizedName.includes(name))
+  );
+};
+
+const inferSystemRole = (roleKeyOrName?: string): 'admin' | 'manager' | 'staff' | 'driver' => {
+  const normalized = normalizeText(roleKeyOrName).replace(/\s+/g, '_');
+  if (normalized.includes('admin')) return 'admin';
+  if (normalized.includes('manager') || normalized.includes('quan_ly')) return 'manager';
+  if (normalized.includes('driver') || normalized.includes('tai_xe')) return 'driver';
+  return 'staff';
+};
 
 const EmployeesPage: React.FC = () => {
   const navigate = useNavigate();
   const { data: employees, isLoading, isError, refetch } = useEmployees();
   const { data: appRoles } = useAppRoles();
+  const { data: salaryRoles } = useRoleSalaries();
   const createMutation = useCreateEmployee();
+  const updateMutation = useUpdateEmployee();
   const deleteMutation = useDeleteEmployee();
   const assignUserRolesMutation = useAssignUserRoles();
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [assignRoleModal, setAssignRoleModal] = useState<{ id: string; name: string } | null>(null);
   const [assignRoleIds, setAssignRoleIds] = useState<string[]>([]);
+  const [isAssignRoleDirty, setIsAssignRoleDirty] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<{ id: string; full_name: string; phone?: string; role: string } | null>(null);
+  const [isEditClosing, setIsEditClosing] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    full_name: '',
+    phone: '',
+    levelRole: '',
+  });
 
   const { data: userRolesData } = useUserRoles(assignRoleModal?.id || '', !!assignRoleModal);
 
-  useEffect(() => {
-    if (userRolesData?.role_ids) {
-      setAssignRoleIds(userRolesData.role_ids);
-    }
-  }, [userRolesData]);
+  const currentAssignRoleIds = useMemo(
+    () => (isAssignRoleDirty ? assignRoleIds : userRolesData?.role_ids || []),
+    [isAssignRoleDirty, assignRoleIds, userRolesData]
+  );
 
   const roleOptions = useMemo(() =>
     appRoles?.map((role) => ({ value: role.id, label: getRoleDisplayName(role.role_name, role.role_key) })) || [],
     [appRoles]
   );
 
+  const salaryLevelOptions = useMemo(
+    () => (salaryRoles || []).map((role) => ({ value: role.role_key, label: role.role_name })),
+    [salaryRoles]
+  );
+
+  const driverRoleOptions = useMemo(() => {
+    return (appRoles || [])
+      .filter((role) => isHeavyDriverRole(role.role_key, role.role_name) || isLightDriverRole(role.role_key, role.role_name))
+      .map((role) => ({ value: role.id, label: getRoleDisplayName(role.role_name, role.role_key) }));
+  }, [appRoles]);
+
   const roleNameByKey = useMemo(() => {
     const map: Record<string, string> = {};
     (appRoles || []).forEach((role) => {
       map[role.role_key] = getRoleDisplayName(role.role_name, role.role_key);
     });
+    (salaryRoles || []).forEach((role) => {
+      map[role.role_key] = role.role_name;
+    });
     return map;
-  }, [appRoles]);
+  }, [appRoles, salaryRoles]);
 
   const [isAdding, setIsAdding] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -65,12 +123,19 @@ const EmployeesPage: React.FC = () => {
     password: '',
     full_name: '',
     phone: '',
-    levelRole: 'staff',
+    levelRole: '',
     roleIds: [] as string[]
   });
 
+  const activeRoleOptions = useMemo(() => {
+    if (inferSystemRole(formData.levelRole) === 'driver' && driverRoleOptions.length > 0) {
+      return driverRoleOptions;
+    }
+    return roleOptions;
+  }, [formData.levelRole, driverRoleOptions, roleOptions]);
+
   const handleOpenAdd = () => {
-    setFormData({ password: '', full_name: '', phone: '', levelRole: 'staff', roleIds: [] });
+    setFormData({ password: '', full_name: '', phone: '', levelRole: salaryLevelOptions[0]?.value || '', roleIds: [] });
     setIsAdding(true);
     setIsClosing(false);
   };
@@ -83,8 +148,51 @@ const EmployeesPage: React.FC = () => {
     }, 300);
   };
 
+  const handleOpenEdit = (employee: { id: string; full_name: string; phone?: string; role: string }) => {
+    setEditingEmployee({
+      id: employee.id,
+      full_name: employee.full_name,
+      phone: employee.phone,
+      role: employee.role,
+    });
+    setEditFormData({
+      full_name: employee.full_name,
+      phone: employee.phone || '',
+      levelRole: employee.role,
+    });
+    setIsEditClosing(false);
+  };
+
+  const handleCloseEdit = () => {
+    setIsEditClosing(true);
+    setTimeout(() => {
+      setEditingEmployee(null);
+      setIsEditClosing(false);
+    }, 300);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingEmployee || !editFormData.full_name.trim() || !editFormData.levelRole) return;
+
+    updateMutation.mutate(
+      {
+        id: editingEmployee.id,
+        payload: {
+          full_name: editFormData.full_name.trim(),
+          phone: editFormData.phone.trim() || undefined,
+          role: editFormData.levelRole,
+        },
+      },
+      {
+        onSuccess: () => {
+          handleCloseEdit();
+        },
+      }
+    );
+  };
+
   const handleCreate = () => {
-    if (!formData.phone || !formData.password || !formData.full_name) return;
+    if (!formData.phone || !formData.password || !formData.full_name || !formData.levelRole) return;
 
     const loginEmail = formData.phone.includes('@') ? formData.phone : `${formData.phone}@vuarau.com`;
 
@@ -113,16 +221,19 @@ const EmployeesPage: React.FC = () => {
 
   const handleOpenAssignRoles = (id: string, name: string) => {
     setAssignRoleModal({ id, name });
+    setAssignRoleIds([]);
+    setIsAssignRoleDirty(false);
   };
 
   const handleSaveAssignedRoles = () => {
     if (!assignRoleModal) return;
     assignUserRolesMutation.mutate(
-      { userId: assignRoleModal.id, roleIds: assignRoleIds },
+      { userId: assignRoleModal.id, roleIds: currentAssignRoleIds },
       {
         onSuccess: () => {
           setAssignRoleModal(null);
           setAssignRoleIds([]);
+          setIsAssignRoleDirty(false);
         },
       }
     );
@@ -216,6 +327,13 @@ const EmployeesPage: React.FC = () => {
                       )}
                       {e.is_active ? 'Hoạt động' : 'Đã khóa'}
                     </span>
+                    <button
+                        onClick={(ev) => { ev.stopPropagation(); handleOpenEdit(e); }}
+                        className="text-[12px] font-bold px-3 py-1.5 rounded-lg transition-all text-blue-600 hover:bg-blue-50 border border-border/50 hover:border-blue-200 flex items-center gap-1.5"
+                      >
+                        <Pencil size={13} />
+                        Chỉnh sửa
+                    </button>
                     <button
                         onClick={(ev) => { ev.stopPropagation(); handleOpenAssignRoles(e.id, e.full_name); }}
                         className="text-[12px] font-bold px-3 py-1.5 rounded-lg transition-all text-primary hover:bg-primary/10 border border-border/50 hover:border-primary/30 flex items-center gap-1.5"
@@ -323,9 +441,9 @@ const EmployeesPage: React.FC = () => {
                     <div className="relative">
                       <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 z-10" size={16} />
                       <SearchableSelect
-                        options={HR_LEVEL_OPTIONS}
+                        options={salaryLevelOptions}
                         value={formData.levelRole}
-                        onValueChange={(val) => setFormData({ ...formData, levelRole: val || 'staff' })}
+                        onValueChange={(val) => setFormData({ ...formData, levelRole: val || '' })}
                         placeholder="Chọn cấp bậc"
                         className="pl-10"
                       />
@@ -338,12 +456,20 @@ const EmployeesPage: React.FC = () => {
                     <div className="relative">
                       <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 z-10" size={16} />
                       <MultiSearchableSelect
-                        options={roleOptions}
+                        options={activeRoleOptions}
                         value={formData.roleIds}
-                        onValueChange={(val) => setFormData({...formData, roleIds: val})}
+                        onValueChange={(val) =>
+                          setFormData({
+                            ...formData,
+                            roleIds: inferSystemRole(formData.levelRole) === 'driver' ? val.slice(-1) : val,
+                          })
+                        }
                         placeholder="Chọn một hoặc nhiều quyền"
                         className="pl-10"
                       />
+                      {inferSystemRole(formData.levelRole) === 'driver' && (
+                        <p className="text-[11px] text-muted-foreground">Tài xế chỉ nên gán 1 trong 2 quyền: Tài xế xe tải lớn hoặc Tài xế xe tải nhỏ.</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -360,15 +486,119 @@ const EmployeesPage: React.FC = () => {
               </button>
               <button
                 onClick={handleCreate}
-                disabled={createMutation.isPending || !formData.phone || !formData.password || !formData.full_name}
+                disabled={createMutation.isPending || !formData.phone || !formData.password || !formData.full_name || !formData.levelRole}
                 className={`flex items-center gap-2 px-8 py-2 rounded-xl text-[13px] font-bold shadow-lg transition-all active:scale-95 group ${
-                  createMutation.isPending || assignUserRolesMutation.isPending || !formData.phone || !formData.password || !formData.full_name
+                  createMutation.isPending || assignUserRolesMutation.isPending || !formData.phone || !formData.password || !formData.full_name || !formData.levelRole
                     ? "bg-primary/50 text-white/60 cursor-not-allowed"
                     : "bg-primary text-white hover:bg-primary/90 shadow-primary/20"
                 }`}
               >
                 {createMutation.isPending || assignUserRolesMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={18} />}
                 Thêm nhân sự
+                <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Right Side Panel - Edit Employee */}
+      {(editingEmployee || isEditClosing) && createPortal(
+        <div className="fixed inset-0 z-9999 flex justify-end overflow-hidden">
+          <div
+            className={`fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 ${isEditClosing ? 'opacity-0' : 'opacity-100 animate-in fade-in'}`}
+            onClick={handleCloseEdit}
+          />
+
+          <div className={`relative w-full max-w-125 bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border transition-transform duration-300 ${isEditClosing ? 'translate-x-full' : 'translate-x-0 animate-in slide-in-from-right'}`}>
+            <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                  <Pencil size={20} />
+                </div>
+                <h2 className="text-lg font-bold text-foreground">Chỉnh sửa nhân sự</h2>
+              </div>
+              <button
+                onClick={handleCloseEdit}
+                className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+              <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+                <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
+                  <Users size={16} className="text-blue-600" />
+                  <span className="text-[12px] font-bold text-blue-600 uppercase tracking-wider">Thông tin nhân sự</span>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-foreground">Họ và tên <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      value={editFormData.full_name}
+                      onChange={(e) => setEditFormData({ ...editFormData, full_name: e.target.value })}
+                      placeholder="Nhập họ và tên nhân viên"
+                      className="w-full px-4 py-2.5 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-foreground">Số điện thoại</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
+                      <input
+                        type="text"
+                        value={editFormData.phone}
+                        onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                        placeholder="VD: 0901234567"
+                        className="w-full pl-10 pr-4 py-2.5 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-foreground">Cấp bậc nhân sự</label>
+                    <div className="relative">
+                      <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 z-10" size={16} />
+                      <SearchableSelect
+                        options={salaryLevelOptions}
+                        value={editFormData.levelRole}
+                        onValueChange={(val) =>
+                          setEditFormData({
+                            ...editFormData,
+                            levelRole: val || '',
+                          })
+                        }
+                        placeholder="Chọn cấp bậc"
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
+              <button
+                onClick={handleCloseEdit}
+                className="px-6 py-2 rounded-xl border border-border hover:bg-muted text-foreground text-[13px] font-bold transition-all"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={updateMutation.isPending || !editFormData.full_name.trim() || !editFormData.levelRole}
+                className={`flex items-center gap-2 px-8 py-2 rounded-xl text-[13px] font-bold shadow-lg transition-all active:scale-95 group ${
+                  updateMutation.isPending || !editFormData.full_name.trim() || !editFormData.levelRole
+                    ? 'bg-blue-500/50 text-white/60 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20'
+                }`}
+              >
+                {updateMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Pencil size={16} />}
+                Lưu thay đổi
                 <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
               </button>
             </div>
@@ -392,8 +622,11 @@ const EmployeesPage: React.FC = () => {
               <div className="mt-2">
                 <MultiSearchableSelect
                   options={roleOptions}
-                  value={assignRoleIds}
-                  onValueChange={setAssignRoleIds}
+                  value={currentAssignRoleIds}
+                  onValueChange={(val) => {
+                    setAssignRoleIds(val);
+                    setIsAssignRoleDirty(true);
+                  }}
                   placeholder="Chọn quyền cho nhân sự"
                 />
               </div>

@@ -20,7 +20,14 @@ export const PAGE_POLICIES = {
   ACCOUNTING_REVENUE_VIEW: ['/ke-toan/doanh-thu'],
   ACCOUNTING_REPORTS_VIEW: ['/ke-toan/cong-no', '/ke-toan/doanh-thu'],
 
-  VEHICLES_OPERATIONS: ['/quan-ly-xe/danh-sach', '/quan-ly-xe/check-in'],
+  VEHICLES_OPERATIONS: [
+    '/quan-ly-xe/danh-sach',
+    '/quan-ly-xe/check-in',
+    '/hang-hoa/nhap-hang',
+    '/hang-hoa/nhap-hang-rau',
+    '/hang-hoa/giao-hang',
+    '/hang-hoa/giao-hang-rau',
+  ],
   VEHICLES_PAYMENT_COLLECTIONS: ['/quan-ly-xe/thu-tien'],
 
   HR_PERMISSIONS_MANAGE: ['/hanh-chinh-nhan-su/phan-quyen'],

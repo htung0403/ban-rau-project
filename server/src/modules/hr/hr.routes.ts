@@ -10,6 +10,7 @@ router.use(authMiddleware);
 router.get('/employees', requirePolicy('HR_EMPLOYEES_VIEW'), HRController.getEmployees);
 router.post('/employees', requirePolicy('HR_EMPLOYEES_MANAGE'), HRController.createEmployee);
 router.get('/employees/:id', requirePolicy('HR_EMPLOYEES_VIEW'), HRController.getEmployeeById);
+router.put('/employees/:id', requirePolicy('HR_EMPLOYEES_MANAGE'), HRController.updateEmployee);
 router.put('/employees/:id/status', requirePolicy('HR_EMPLOYEES_MANAGE'), HRController.updateEmployeeStatus);
 router.delete('/employees/:id', requirePolicy('HR_EMPLOYEES_MANAGE'), HRController.deleteEmployee);
 

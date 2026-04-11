@@ -46,7 +46,13 @@ const createEmployeeSchema = z.object({
   password: z.string().min(6),
   full_name: z.string().min(2),
   phone: z.string().optional(),
-  role: z.enum(['admin', 'manager', 'staff', 'driver']),
+  role: z.string().min(1),
+});
+
+const updateEmployeeSchema = z.object({
+  full_name: z.string().min(2),
+  phone: z.string().optional(),
+  role: z.string().min(1),
 });
 
 export class HRController {
@@ -89,6 +95,20 @@ export class HRController {
       const { is_active } = req.body;
       const data = await HRService.updateEmployeeStatus(req.params.id as string, is_active);
       return res.status(200).json(successResponse(data, 'Employee status updated'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async updateEmployee(req: Request, res: Response) {
+    try {
+      if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
+        throw new Error('Unauthorized to update employee');
+      }
+
+      const validated = updateEmployeeSchema.parse(req.body);
+      const data = await HRService.updateEmployee(req.params.id as string, validated);
+      return res.status(200).json(successResponse(data, 'Employee updated'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
     }

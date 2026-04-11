@@ -27,6 +27,60 @@ const vehicleSchema = z.object({
 
 type VehicleFormData = z.infer<typeof vehicleSchema>;
 
+const normalizeText = (value?: string | null) =>
+  (value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9\s_]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const inferTonnageFromVehicleType = (rawType?: string): number | undefined => {
+  if (!rawType) return undefined;
+  const normalized = rawType
+    .toLowerCase()
+    .replace(/,/g, '.')
+    .replace(/\s+/g, ' ');
+
+  const tonMatch = normalized.match(/(\d+(?:\.\d+)?)\s*t[aá]n/);
+  if (tonMatch?.[1]) {
+    const parsed = Number(tonMatch[1]);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  const numberMatch = normalized.match(/(\d+(?:\.\d+)?)/);
+  if (!numberMatch?.[1]) return undefined;
+  const parsed = Number(numberMatch[1]);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const hasDriverRoleType = (
+  roleRecords: Array<{ role_key?: string; role_name?: string }>,
+  type: 'heavy' | 'light'
+) => {
+  const heavyKeyCandidates = ['tai_xe_xe_tai_lon', 'tai_xe_tai_lon'];
+  const lightKeyCandidates = ['tai_xe_xe_tai_nho', 'tai_xe_tai_nho'];
+  const heavyNameCandidates = ['tai xe xe tai lon', 'tai xe tai lon', 'tai xe xe lon', 'xe lon'];
+  const lightNameCandidates = ['tai xe xe tai nho', 'tai xe tai nho', 'tai xe xe nho', 'xe nho'];
+
+  return roleRecords.some((role) => {
+    const normalizedKey = normalizeText(role.role_key).replace(/\s+/g, '_');
+    const normalizedName = normalizeText(role.role_name);
+
+    if (type === 'heavy') {
+      const byKey = heavyKeyCandidates.some((candidate) => normalizedKey.includes(candidate));
+      const byName = heavyNameCandidates.some((candidate) => normalizedName.includes(candidate));
+      return byKey || byName;
+    }
+
+    const byKey = lightKeyCandidates.some((candidate) => normalizedKey.includes(candidate));
+    const byName = lightNameCandidates.some((candidate) => normalizedName.includes(candidate));
+    return byKey || byName;
+  });
+};
+
 interface Props {
   vehicle?: Vehicle | null;
   isOpen: boolean;
@@ -59,6 +113,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
   });
 
   const vehicleType = useWatch({ control, name: 'vehicle_type' });
+  const loadCapacityTon = useWatch({ control, name: 'load_capacity_ton' });
   const goodsCategories = useWatch({ control, name: 'goods_categories' });
   const driverId = useWatch({ control, name: 'driver_id' });
 
@@ -91,6 +146,58 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
     ],
     []
   );
+
+  const driverOptions = React.useMemo(() => {
+    const explicitTonnage = typeof loadCapacityTon === 'number' && Number.isFinite(loadCapacityTon) ? loadCapacityTon : undefined;
+    const inferredTonnage = inferTonnageFromVehicleType(vehicleType);
+    const tonnage = explicitTonnage ?? inferredTonnage;
+    const requiredDriverType: 'heavy' | 'light' | undefined =
+      tonnage == null ? undefined : tonnage > 10 ? 'heavy' : 'light';
+
+    return (employees || [])
+      .filter((employee) => {
+        const normalizedRole = normalizeText(employee.role);
+        const isDriverByBaseRole =
+          normalizedRole === 'driver' ||
+          normalizedRole.includes('tai xe') ||
+          normalizedRole.includes('tai_xe');
+
+        if (!isDriverByBaseRole) return false;
+        if (!requiredDriverType) return true;
+
+        const assignedRoles = (employee.app_user_roles || [])
+          .map((record) => record.app_roles)
+          .filter((role): role is { id: string; role_key: string; role_name: string } => Boolean(role));
+
+        const candidateRoles = assignedRoles.length
+          ? assignedRoles
+          : [{ role_key: employee.role, role_name: employee.role }];
+
+        return hasDriverRoleType(candidateRoles, requiredDriverType);
+      })
+      .map((employee) => ({
+        value: employee.id,
+        label: `${employee.full_name} (${employee.phone || 'Chưa cập nhật'})`,
+      }));
+  }, [employees, loadCapacityTon, vehicleType]);
+
+  const driverHintText = React.useMemo(() => {
+    const explicitTonnage = typeof loadCapacityTon === 'number' && Number.isFinite(loadCapacityTon) ? loadCapacityTon : undefined;
+    const inferredTonnage = inferTonnageFromVehicleType(vehicleType);
+    const tonnage = explicitTonnage ?? inferredTonnage;
+
+    if (tonnage == null) {
+      return 'Nhập tải trọng để lọc đúng tài xế xe tải lớn/nhỏ theo quy định.';
+    }
+    if (tonnage > 10) {
+      return explicitTonnage != null
+        ? 'Đang lọc: chỉ hiển thị tài xế có quyền Tài xế xe tải lớn.'
+        : 'Đang lọc theo loại xe: chỉ hiển thị tài xế có quyền Tài xế xe tải lớn.';
+    }
+    return explicitTonnage != null
+      ? 'Đang lọc: chỉ hiển thị tài xế có quyền Tài xế xe tải nhỏ (bao gồm mốc 10 tấn).'
+      : 'Đang lọc theo loại xe: chỉ hiển thị tài xế có quyền Tài xế xe tải nhỏ (bao gồm mốc 10 tấn).';
+  }, [loadCapacityTon, vehicleType]);
 
   useEffect(() => {
     if (isOpen) {
@@ -251,11 +358,12 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
               <div className="space-y-1.5">
                 <label className="text-[13px] font-bold text-foreground">Tài xế phụ trách</label>
                 <SearchableSelect
-                  options={(employees || []).filter(e => e.role === 'driver' || e.role?.toLowerCase().includes('tài xế') || e.role?.toLowerCase().includes('tai xe') || e.role?.toLowerCase().includes('tai_xe')).map(e => ({ value: e.id, label: `${e.full_name} (${e.phone || 'Chưa cập nhật'})` }))}
+                  options={driverOptions}
                   value={driverId || ''}
                   onValueChange={(val) => setValue('driver_id', val, { shouldValidate: true })}
                   placeholder="Chọn tài xế (tùy chọn)..."
                 />
+                <p className="text-[11px] text-muted-foreground">{driverHintText}</p>
               </div>
             </div>
           </div>

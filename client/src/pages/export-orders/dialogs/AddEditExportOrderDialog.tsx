@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Package, Plus, ChevronRight, Truck, User, Clock, Calendar, DollarSign, ShoppingBag, ImagePlus, Loader2, Trash2, Camera } from 'lucide-react';
+import { X, Package, Plus, ChevronRight, Truck, User, Clock, Calendar, DollarSign, ShoppingBag, ImagePlus, Loader2, Trash2, Camera, CreditCard } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,6 +27,7 @@ const exportOrderSchema = z.object({
   product_id: z.string().min(1, 'Vui lòng chọn hàng hóa'),
   quantity: z.coerce.number().min(1, 'Số lượng phải lớn hơn 0'),
   debt_amount: z.coerce.number().min(0, 'Thành tiền không được âm'),
+  payment_status: z.enum(['unpaid', 'paid']),
   image_url: z.string().optional().nullable().catch(null),
 });
 
@@ -85,6 +86,16 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
     });
   }, [deliveryOrders]);
 
+  // Chỉ lấy khách tạp hóa có đơn giao trong ngày hôm nay
+  const todayGroceryCustomers = useMemo(() => {
+    const customerNames = new Set(
+      todayDeliveryItems
+        .map((item) => item.customerName?.trim())
+        .filter((name): name is string => Boolean(name)),
+    );
+    return groceryCustomers.filter((c: any) => customerNames.has(c.name));
+  }, [todayDeliveryItems, groceryCustomers]);
+
   const {
     handleSubmit,
     control,
@@ -103,6 +114,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
       product_id: '',
       quantity: 1,
       debt_amount: 0,
+      payment_status: 'unpaid' as const,
       image_url: null,
     },
   });
@@ -139,8 +151,8 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
   // Tìm tên khách đang chọn (để lọc sản phẩm)
   const selectedCustomerName = useMemo(() => {
     if (!customerId) return '';
-    return groceryCustomers.find((c: any) => c.id === customerId)?.name || '';
-  }, [customerId, groceryCustomers]);
+    return todayGroceryCustomers.find((c: any) => c.id === customerId)?.name || '';
+  }, [customerId, todayGroceryCustomers]);
 
   // Danh sách sản phẩm đã lọc theo khách (nếu đã chọn khách trước)
   const filteredProducts = useMemo(() => {
@@ -154,7 +166,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
     const item = todayDeliveryItems.find(p => p.id === productId);
     if (!item?.customerName) return;
     // Tìm khách tạp hóa khớp tên
-    const matchedCustomer = groceryCustomers.find(
+    const matchedCustomer = todayGroceryCustomers.find(
       (c: any) => c.name === item.customerName
     );
     if (matchedCustomer && matchedCustomer.id !== customerId) {
@@ -162,17 +174,17 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
       setValue('customer_id', matchedCustomer.id, { shouldValidate: true });
       setTimeout(() => { isAutoSettingRef.current = false; }, 50);
     }
-  }, [productId, todayDeliveryItems, groceryCustomers, customerId, setValue]);
+  }, [productId, todayDeliveryItems, todayGroceryCustomers, customerId, setValue]);
 
   // Khi đổi khách → reset hàng nếu hàng cũ không thuộc khách mới
   useEffect(() => {
     if (!customerId || isAutoSettingRef.current || !productId) return;
     const selectedItem = todayDeliveryItems.find(p => p.id === productId);
-    const newCustomerName = groceryCustomers.find((c: any) => c.id === customerId)?.name || '';
+    const newCustomerName = todayGroceryCustomers.find((c: any) => c.id === customerId)?.name || '';
     if (selectedItem && selectedItem.customerName !== newCustomerName) {
       setValue('product_id', '', { shouldValidate: false });
     }
-  }, [customerId, productId, todayDeliveryItems, groceryCustomers, setValue]);
+  }, [customerId, productId, todayDeliveryItems, todayGroceryCustomers, setValue]);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -186,6 +198,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
         product_id: '',
         quantity: 1,
         debt_amount: 0,
+        payment_status: 'unpaid' as const,
         image_url: null,
       });
     }
@@ -212,8 +225,8 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
         quantity: Number(data.quantity),
         customer_id: data.customer_id,
         debt_amount: Number(data.debt_amount),
-        payment_status: 'unpaid' as const,
-        paid_amount: 0,
+        payment_status: data.payment_status,
+        paid_amount: data.payment_status === 'paid' ? Number(data.debt_amount) : 0,
       };
       if (data.image_url) payload.image_url = data.image_url;
       await createMutation.mutateAsync(payload);
@@ -402,7 +415,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                   Tên khách <span className="text-red-500">*</span>
                 </label>
                 <SearchableSelect
-                  options={groceryCustomers.map((c: any) => ({
+                  options={todayGroceryCustomers.map((c: any) => ({
                     value: c.id,
                     label: `${c.name}${c.phone ? ` (${c.phone})` : ''}`,
                   }))}
@@ -490,6 +503,46 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                 />
                 {errors.debt_amount && <p className="text-red-500 text-[11px] font-medium">{errors.debt_amount.message}</p>}
                 {/* <p className="text-[11px] text-slate-400">Sẽ tự động cộng dồn vào tổng công nợ của khách hàng</p> */}
+              </div>
+
+              {/* Trạng thái thanh toán */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <CreditCard size={12} />
+                  Thanh toán
+                </label>
+                <Controller
+                  name="payment_status"
+                  control={control}
+                  render={({ field }) => (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => field.onChange('unpaid')}
+                        className={clsx(
+                          'flex-1 py-2.5 rounded-xl text-[13px] font-bold border-2 transition-all',
+                          field.value === 'unpaid'
+                            ? 'border-amber-400 bg-amber-50 text-amber-700 shadow-sm shadow-amber-200/50'
+                            : 'border-border bg-slate-50 text-slate-400 hover:bg-slate-100'
+                        )}
+                      >
+                        Chưa thanh toán
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => field.onChange('paid')}
+                        className={clsx(
+                          'flex-1 py-2.5 rounded-xl text-[13px] font-bold border-2 transition-all',
+                          field.value === 'paid'
+                            ? 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-200/50'
+                            : 'border-border bg-slate-50 text-slate-400 hover:bg-slate-100'
+                        )}
+                      >
+                        Đã thanh toán
+                      </button>
+                    </div>
+                  )}
+                />
               </div>
 
               {/* Ảnh phiếu xuất / Ảnh sản phẩm */}

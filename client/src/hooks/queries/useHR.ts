@@ -54,6 +54,19 @@ export function useUpdateEmployeeStatus() {
   });
 }
 
+export function useUpdateEmployee() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { full_name: string; phone?: string; role: string } }) =>
+      hrApi.updateEmployee(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: hrKeys.all });
+      toast.success('Cập nhật nhân sự thành công');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Lỗi khi cập nhật nhân sự'),
+  });
+}
+
 export function useDeleteEmployee() {
   const queryClient = useQueryClient();
   return useMutation({

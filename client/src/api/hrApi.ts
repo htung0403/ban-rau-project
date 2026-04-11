@@ -23,6 +23,11 @@ export const hrApi = {
     return data;
   },
 
+  updateEmployee: async (id: string, payload: { full_name: string; phone?: string; role: string }) => {
+    const { data } = await axiosClient.put<User>(`/hr/employees/${id}`, payload);
+    return data;
+  },
+
   deleteEmployee: async (id: string) => {
     const { data } = await axiosClient.delete(`/hr/employees/${id}`);
     return data;

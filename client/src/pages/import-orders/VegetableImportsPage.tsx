@@ -16,6 +16,7 @@ import { ColumnSettings, type ColumnOption } from '../../components/shared/Colum
 import AddEditVegetableImportOrderDialog from './dialogs/AddEditVegetableImportOrderDialog';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import DraggableFAB from '../../components/shared/DraggableFAB';
+import { useAuth } from '../../context/AuthContext';
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'Chờ xử lý',
@@ -67,8 +68,47 @@ const getOrderDriverName = (order: any) => {
 
 const getOrderReceiverName = (order: any) => {
   if (order.receiver_name) return order.receiver_name;
-  if (order.profiles?.role && order.profiles.role !== 'driver') return order.profiles.full_name || '';
+  if (order.profiles?.role && !isDriverRole(order.profiles.role)) return order.profiles.full_name || '';
   return '-';
+};
+
+const normalizeRoleText = (value?: string | null) =>
+  (value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9\s_]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const isDriverRole = (role?: string | null) => {
+  const normalized = normalizeRoleText(role).replace(/\s+/g, '_');
+  return normalized === 'driver' || normalized.includes('tai_xe') || normalized.includes('driver');
+};
+
+const orderBelongsToDriver = (order: any, driverId: string, driverName?: string) => {
+  if (!driverId) return false;
+
+  if (order.driver_id === driverId) return true;
+  if (order.profiles?.id === driverId && isDriverRole(order.profiles?.role)) return true;
+
+  if (order.delivery_orders?.some((d: any) =>
+    d.delivery_vehicles?.some((dv: any) => dv.driver_id === driverId || dv.profiles?.id === driverId)
+  )) {
+    return true;
+  }
+
+  if (!driverName) return false;
+  const normalizedDriverName = driverName.trim().toLowerCase();
+  if (!normalizedDriverName) return false;
+
+  if (order.driver_name?.trim().toLowerCase() === normalizedDriverName) return true;
+  if (isDriverRole(order.profiles?.role) && order.profiles?.full_name?.trim().toLowerCase() === normalizedDriverName) return true;
+
+  return !!order.delivery_orders?.some((d: any) =>
+    d.delivery_vehicles?.some((dv: any) => dv.profiles?.full_name?.trim().toLowerCase() === normalizedDriverName)
+  );
 };
 
 const defaultColumns: ColumnOption[] = [
@@ -87,6 +127,9 @@ const defaultColumns: ColumnOption[] = [
 ];
 
 const VegetableImportsPage: React.FC = () => {
+  const { user } = useAuth();
+  const isDriverUser = isDriverRole(user?.role);
+
   // Filters
   const [searchText, setSearchText] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
@@ -153,7 +196,7 @@ const VegetableImportsPage: React.FC = () => {
   }, [orders]);
 
   // Local search filtering (supplementary to API filters)
-  const filteredOrders = (orders || []).filter((o) => {
+  const baseFilteredOrders = (orders || []).filter((o) => {
     if ((o as any).deleted_at) return false;
 
     const chuHang = o.customers?.name || o.sender_name;
@@ -186,6 +229,11 @@ const VegetableImportsPage: React.FC = () => {
     return true;
   });
 
+  const filteredOrders = baseFilteredOrders.filter((o) => {
+    if (!isDriverUser || !user?.id) return true;
+    return orderBelongsToDriver(o, user.id, user.full_name);
+  });
+
   // Pagination
   const totalItems = filteredOrders.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -195,7 +243,7 @@ const VegetableImportsPage: React.FC = () => {
     const rankMap = new Map<string, number>();
     const ordersBySupplier = new Map<string, ImportOrder[]>();
 
-    filteredOrders.forEach((order) => {
+    baseFilteredOrders.forEach((order) => {
       const supplierName = getSupplierName(order);
       const current = ordersBySupplier.get(supplierName) || [];
       current.push(order);
@@ -216,7 +264,7 @@ const VegetableImportsPage: React.FC = () => {
     });
 
     return rankMap;
-  }, [filteredOrders]);
+  }, [baseFilteredOrders]);
 
   const groupedPaginatedOrders = useMemo(() => {
     const grouped = new Map<string, ImportOrder[]>();

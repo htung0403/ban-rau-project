@@ -28,6 +28,31 @@ const vehicleSupportsCategory = (vehicle: Vehicle, category: 'standard' | 'veget
   return vehicle.goods_categories.includes(target);
 };
 
+const normalizeRoleText = (value?: string | null) =>
+  (value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9\s_]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const isDriverRole = (role?: string | null) => {
+  const normalized = normalizeRoleText(role).replace(/\s+/g, '_');
+  return normalized === 'driver' || normalized.includes('tai_xe') || normalized.includes('driver');
+};
+
+const normalizePersonName = (value?: string | null) =>
+  (value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 const waitFor = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const importOrderItemSchema = z.object({
@@ -67,7 +92,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
   const updateMutation = useUpdateImportOrder();
   const createProductMutation = useCreateProduct();
   const createCustomerMutation = useCreateCustomer();
-  const { data: vehicles } = useVehicles(isOpen);
+  const { data: vehicles, isError: isVehiclesError } = useVehicles(isOpen);
   const { data: products } = useProducts(isOpen);
   const { data: customers } = useCustomers(undefined, isOpen);
   const { data: employees } = useEmployees(isOpen);
@@ -78,12 +103,49 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
   const [newCustomerPhone, setNewCustomerPhone] = React.useState('');
   const [selectedDriverVehicleId, setSelectedDriverVehicleId] = React.useState('');
 
-  const isDriverUser = user?.role === 'driver';
+  const isDriverUser = isDriverRole(user?.role);
   const canAutoAssignDriverVehicle = !isEditMode && defaultCategory === 'vegetable' && isDriverUser;
-  const driverVehicles = React.useMemo(
-    () => (vehicles || []).filter((v) => v.driver_id === user?.id && vehicleSupportsCategory(v, defaultCategory)),
-    [vehicles, user?.id, defaultCategory]
+  const currentDriverProfileIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    if (user?.id) ids.add(user.id);
+
+    const normalizedCurrentName = normalizePersonName(user?.full_name);
+    const currentEmail = (user?.email || '').trim().toLowerCase();
+
+    (employees || []).forEach((employee: any) => {
+      if (!employee?.id) return;
+      const emailMatch = currentEmail && (employee.email || '').trim().toLowerCase() === currentEmail;
+      const nameMatch = normalizedCurrentName && normalizePersonName(employee.full_name) === normalizedCurrentName;
+      if (emailMatch || nameMatch) ids.add(employee.id);
+    });
+
+    return ids;
+  }, [employees, user?.id, user?.email, user?.full_name]);
+  const driverOwnedVehiclesById = React.useMemo(
+    () => (vehicles || []).filter((v) => v.driver_id && currentDriverProfileIds.has(v.driver_id)),
+    [vehicles, currentDriverProfileIds]
   );
+  const driverOwnedVehiclesByName = React.useMemo(() => {
+    const normalizedCurrentUserName = normalizePersonName(user?.full_name);
+    if (!normalizedCurrentUserName) return [] as Vehicle[];
+    return (vehicles || []).filter((v) => normalizePersonName(v.profiles?.full_name) === normalizedCurrentUserName);
+  }, [vehicles, user?.full_name]);
+  const driverOwnedVehicles = React.useMemo(() => {
+    const merged = new Map<string, Vehicle>();
+    driverOwnedVehiclesById.forEach((v) => merged.set(v.id, v));
+    driverOwnedVehiclesByName.forEach((v) => merged.set(v.id, v));
+    return Array.from(merged.values());
+  }, [driverOwnedVehiclesById, driverOwnedVehiclesByName]);
+  const categoryMatchedDriverVehicles = React.useMemo(
+    () => driverOwnedVehicles.filter((v) => vehicleSupportsCategory(v, defaultCategory)),
+    [driverOwnedVehicles, defaultCategory]
+  );
+  const driverVehicles = React.useMemo(
+    () => (categoryMatchedDriverVehicles.length > 0 ? categoryMatchedDriverVehicles : driverOwnedVehicles),
+    [categoryMatchedDriverVehicles, driverOwnedVehicles]
+  );
+  const isDriverVehiclesNameFallback = driverOwnedVehiclesById.length === 0 && driverOwnedVehiclesByName.length > 0;
+  const isDriverVehiclesCategoryFallback = driverOwnedVehicles.length > 0 && categoryMatchedDriverVehicles.length === 0;
   const selectedDriverVehicle = React.useMemo(
     () => driverVehicles.find((v) => v.id === selectedDriverVehicleId) || null,
     [driverVehicles, selectedDriverVehicleId]
@@ -210,9 +272,9 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
     }
 
     setSelectedDriverVehicleId((prev) => {
-      if (driverVehicles.length === 1) return driverVehicles[0].id;
+      if (driverVehicles.length === 0) return '';
       if (prev && driverVehicles.some((v) => v.id === prev)) return prev;
-      return '';
+      return driverVehicles[0].id;
     });
   }, [isOpen, canAutoAssignDriverVehicle, driverVehicles]);
 
@@ -370,11 +432,6 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
   const onSubmit = async (data: Record<string, any>) => {
     try {
-      if (canAutoAssignDriverVehicle && driverVehicles.length > 1 && !selectedDriverVehicleId) {
-        toast.error('Bạn có nhiều xe. Vui lòng chọn xe để tự động gán khi lưu phiếu.');
-        return;
-      }
-
       console.log('--- FORM SUBMIT DATA BEGIN ---', data);
       const payload = { ...data };
       if (payload.items) {
@@ -590,37 +647,9 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nhân viên nhận</label>
                         <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[13px] font-semibold text-amber-800">
                           {employees?.find((e: any) => e.id === watchReceivedBy)?.full_name || user?.full_name || 'Tự động'}
-                          {dialogVehiclePlateText && (
-                            <p className="mt-0.5 text-[11px] font-medium text-amber-700">
-                              Biển số xe: {dialogVehiclePlateText}
-                            </p>
-                          )}
                         </div>
                       </div>
 
-                      {canAutoAssignDriverVehicle && (
-                        <div className="space-y-1.5">
-                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Xe tự gán khi lưu</label>
-                          {driverVehicles.length === 0 ? (
-                            <div className="w-full px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl text-[12px] font-semibold text-red-700">
-                              Tài khoản chưa có xe rau phù hợp. Phiếu vẫn tạo được nhưng sẽ không tự gán xe.
-                            </div>
-                          ) : (
-                            <select
-                              value={selectedDriverVehicleId}
-                              onChange={(e) => setSelectedDriverVehicleId(e.target.value)}
-                              className="w-full px-3 py-2.5 bg-slate-50 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
-                            >
-                              <option value="">Chọn xe để tự gán...</option>
-                              {driverVehicles.map((vehicle) => (
-                                <option key={vehicle.id} value={vehicle.id}>
-                                  {vehicle.license_plate}{vehicle.vehicle_type ? ` - ${vehicle.vehicle_type}` : ''}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-                      )}
                     </>
                   ) : (
                     <>
@@ -724,13 +753,43 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nhân viên nhận</label>
                         <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[13px] font-semibold text-amber-800">
                           {employees?.find((e: any) => e.id === watchReceivedBy)?.full_name || user?.full_name || 'Tự động'}
-                          {dialogVehiclePlateText && (
-                            <p className="mt-0.5 text-[11px] font-medium text-amber-700">
-                              Biển số xe: {dialogVehiclePlateText}
-                            </p>
-                          )}
                         </div>
                       </div>
+
+                      {canAutoAssignDriverVehicle && (
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Biển số xe</label>
+                          {isVehiclesError ? (
+                            <div className="w-full px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl text-[12px] font-semibold text-red-700">
+                              Không tải được danh sách xe (thiếu quyền hoặc lỗi API). Vui lòng cấp quyền xe cho tài khoản này.
+                            </div>
+                          ) : driverVehicles.length === 0 ? (
+                            <div className="w-full px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl text-[12px] font-semibold text-red-700">
+                              Tài khoản chưa có xe được gán. Phiếu vẫn tạo được nhưng sẽ không tự gán xe.
+                            </div>
+                          ) : (
+                            <>
+                              <input
+                                type="text"
+                                value={dialogVehiclePlateText || '-'}
+                                disabled
+                                readOnly
+                                className="w-full px-3 py-2.5 bg-slate-100 border border-border rounded-xl text-[13px] text-slate-700 font-medium cursor-not-allowed"
+                              />
+                              {isDriverVehiclesNameFallback && (
+                                <p className="text-[11px] font-medium text-amber-700">
+                                  Đang nhận xe theo tên tài xế. Nên gán lại đúng tài khoản để đồng bộ tuyệt đối theo ID.
+                                </p>
+                              )}
+                              {isDriverVehiclesCategoryFallback && (
+                                <p className="text-[11px] font-medium text-amber-700">
+                                  Xe của bạn chưa gắn nhóm hàng rau, hệ thống đang hiển thị tất cả xe đã gán cho tài khoản để bạn chọn.
+                                </p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
 
@@ -852,33 +911,44 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                   />
                                 </div>
 
-                                {/* Col 2: Tên hàng */}
-                                <div className="hidden md:flex flex-col justify-center relative">
-                                  <CreatableSearchableSelect
-                                    options={filteredProducts.map((p: any) => ({
-                                      value: p.id,
-                                      label: p.name
-                                    }))}
-                                    value={watch(`items.${index}.product_id` as const)}
-                                    onValueChange={(val) => setValue(`items.${index}.product_id`, val, { shouldValidate: true })}
-                                    onCreate={(name) => handleCreateProduct(index, name)}
-                                    placeholder="Gõ tên hàng..."
-                                    className="h-9 border-slate-200 bg-white"
-                                  />
-                                  {(() => {
-                                    const prod = filteredProducts.find((p: any) => p.id === watch(`items.${index}.product_id`));
-                                    const price = prod?.base_price || 0;
-                                    if (price > 0) return <span className="text-[9px] text-slate-400 mt-0.5 ml-1">{new Intl.NumberFormat('vi-VN').format(price)}đ</span>;
-                                    return null;
-                                  })()}
-                                  {(errors.items as any)?.[index]?.product_id && (
-                                    <span className="absolute bottom-[-16px] left-2 text-[10px] text-red-500">Thiếu</span>
-                                  )}
-                                  <input
-                                    type="text"
-                                    {...register(`items.${index}.item_note` as const)}
-                                    className="mt-1 h-8 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none"
-                                    placeholder="Ghi chú cho sản phẩm này..."
+                                {/* Col 2: Tên hàng + Ghi chú (cùng 1 hàng desktop) */}
+                                <div className="hidden md:grid grid-cols-[minmax(150px,1fr)_minmax(180px,1fr)] gap-2 items-start">
+                                  <div className="flex flex-col">
+                                    <CreatableSearchableSelect
+                                      options={filteredProducts.map((p: any) => ({
+                                        value: p.id,
+                                        label: p.name
+                                      }))}
+                                      value={watch(`items.${index}.product_id` as const)}
+                                      onValueChange={(val) => setValue(`items.${index}.product_id`, val, { shouldValidate: true })}
+                                      onCreate={(name) => handleCreateProduct(index, name)}
+                                      placeholder="Gõ tên hàng..."
+                                      className="h-9 border-slate-200 bg-white"
+                                    />
+                                    {(errors.items as any)?.[index]?.product_id && (
+                                      <span className="mt-1 ml-1 text-[10px] text-red-500">Thiếu</span>
+                                    )}
+                                    {(() => {
+                                      const prod = filteredProducts.find((p: any) => p.id === watch(`items.${index}.product_id`));
+                                      const price = prod?.base_price || 0;
+                                      if (price > 0) return <span className="text-[9px] text-slate-400 mt-0.5 ml-1">{new Intl.NumberFormat('vi-VN').format(price)}đ</span>;
+                                      return null;
+                                    })()}
+                                  </div>
+
+                                  <Controller
+                                    name={`items.${index}.item_note` as const}
+                                    control={control}
+                                    render={({ field }) => (
+                                      <input
+                                        type="text"
+                                        value={field.value ?? ''}
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        className="h-9 px-2.5 bg-white border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none"
+                                        placeholder="Ghi chú cho sản phẩm này..."
+                                      />
+                                    )}
                                   />
                                 </div>
 
@@ -983,11 +1053,19 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                   </div>
                                   <div className="flex flex-col space-y-1 col-span-2">
                                     <label className="text-[11px] font-bold text-slate-500 uppercase">Ghi chú</label>
-                                    <input
-                                      type="text"
-                                      {...register(`items.${index}.item_note` as const)}
-                                      className="w-full h-9 px-2.5 bg-white border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none"
-                                      placeholder="Ghi chú cho sản phẩm này..."
+                                    <Controller
+                                      name={`items.${index}.item_note` as const}
+                                      control={control}
+                                      render={({ field }) => (
+                                        <input
+                                          type="text"
+                                          value={field.value ?? ''}
+                                          onChange={field.onChange}
+                                          onBlur={field.onBlur}
+                                          className="w-full h-9 px-2.5 bg-white border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none"
+                                          placeholder="Ghi chú cho sản phẩm này..."
+                                        />
+                                      )}
                                     />
                                   </div>
                                 </div>

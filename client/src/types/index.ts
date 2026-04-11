@@ -3,7 +3,7 @@
 // ============================================================
 
 // --- Auth & Users ---
-export type Role = 'admin' | 'manager' | 'staff' | 'driver' | 'customer';
+export type Role = 'admin' | 'manager' | 'staff' | 'driver' | 'customer' | (string & {});
 
 export interface User {
   id: string;
@@ -13,6 +13,14 @@ export interface User {
   role: Role;
   is_active: boolean;
   avatar_url?: string;
+  app_user_roles?: Array<{
+    role_id: string;
+    app_roles?: {
+      id: string;
+      role_key: string;
+      role_name: string;
+    } | null;
+  }>;
   created_at: string;
   updated_at: string;
 }

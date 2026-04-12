@@ -229,6 +229,12 @@ const EmployeesPage: React.FC = () => {
     setCallDialog(null);
   };
 
+  const handleCallViaPhone = () => {
+    if (!callDialog) return;
+    window.open(`tel:${callDialog.phone}`);
+    setCallDialog(null);
+  };
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
       <div className="hidden md:block">
@@ -573,6 +579,13 @@ const EmployeesPage: React.FC = () => {
             </div>
 
             <div className="p-6 grid grid-cols-1 gap-3">
+              <button
+                onClick={handleCallViaPhone}
+                className="w-full px-4 py-3 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 transition-all shadow-md flex items-center justify-center gap-2"
+              >
+                <Phone size={16} />
+                Gọi bằng điện thoại
+              </button>
               <button
                 onClick={handleCallViaZalo}
                 className="w-full px-4 py-3 rounded-xl bg-blue-600 text-white text-[13px] font-bold hover:bg-blue-700 transition-all shadow-md flex items-center justify-center gap-2"

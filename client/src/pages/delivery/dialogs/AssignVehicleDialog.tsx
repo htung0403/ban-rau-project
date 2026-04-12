@@ -32,6 +32,16 @@ const schema = z.object({
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+const parseExpectedAmountInput = (input: string) => {
+  const numericValue = Number(input.replace(/\D/g, ''));
+  if (!Number.isFinite(numericValue) || numericValue <= 0) return 0;
+
+  // Treat short values as "thousands" (e.g. 200 => 200,000 VND).
+  if (numericValue < 1000) return numericValue * 1000;
+
+  return numericValue;
+};
+
 type FormValues = z.infer<typeof schema>;
 
 const vehicleSupportsGoodsCategory = (vehicle: Vehicle, category: 'grocery' | 'vegetable') => {
@@ -433,11 +443,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                           value={watchAssignments[index]?.expected_amount ? new Intl.NumberFormat('vi-VN').format(Number(watchAssignments[index]?.expected_amount || 0)) : ''}
                           onChange={(e) => {
                             if (isRowDisabled) return;
-                            const rawValue = e.target.value.replace(/\D/g, '');
-                            setValue(`assignments.${index}.expected_amount`, Number(rawValue || 0), { shouldValidate: true });
+                            const parsedAmount = parseExpectedAmountInput(e.target.value);
+                            setValue(`assignments.${index}.expected_amount`, parsedAmount, { shouldValidate: true });
                           }}
                           disabled={isRowDisabled}
-                          placeholder="Nhập tiền thu"
+                          placeholder="VD: 200 = 200.000"
                           className={clsx(
                             "w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums",
                             isRowDisabled && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed"

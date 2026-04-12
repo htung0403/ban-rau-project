@@ -14,6 +14,7 @@ router.use(requirePolicy('HR_PERMISSIONS_MANAGE'));
 router.get('/permissions', RolesController.getPermissions);
 router.get('/', RolesController.getRoles);
 router.post('/', RolesController.createRole);
+router.delete('/:roleId', RolesController.deleteRole);
 router.put('/:roleId/permissions', RolesController.updateRolePermissions);
 router.get('/users/:userId', RolesController.getUserRoles);
 router.put('/users/:userId', RolesController.assignUserRoles);

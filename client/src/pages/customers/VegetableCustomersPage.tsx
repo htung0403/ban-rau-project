@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/shared/PageHeader';
-import { useCustomers } from '../../hooks/queries/useCustomers';
+import { useCustomers, useDeleteCustomer } from '../../hooks/queries/useCustomers';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Plus } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import AddEditCustomerDialog from './dialogs/AddEditCustomerDialog';
 import DraggableFAB from '../../components/shared/DraggableFAB';
+import ConfirmDialog from '../../components/shared/ConfirmDialog';
+import type { Customer } from '../../types';
 
 const formatCurrency = (value?: number | null) => {
   if (value == null) return '-';
@@ -25,17 +27,54 @@ const getCustomerTypeBadge = (type?: string) => {
 
 const VegetableCustomersPage: React.FC = () => {
   const { data: customers, isLoading, isError, refetch } = useCustomers('vegetable');
+  const deleteCustomer = useDeleteCustomer();
   const navigate = useNavigate();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isAddClosing, setIsAddClosing] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
 
   const closeAddDialog = () => {
     setIsAddClosing(true);
     setTimeout(() => {
       setIsAddOpen(false);
       setIsAddClosing(false);
+      setSelectedCustomer(null);
     }, 350);
+  };
+
+  const openCreateDialog = () => {
+    setSelectedCustomer(null);
+    setIsAddOpen(true);
+  };
+
+  const openEditDialog = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setIsAddOpen(true);
+  };
+
+  const handleSoftDelete = (customer: Customer) => {
+    setCustomerToDelete(customer);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const closeDeleteConfirm = () => {
+    if (deleteCustomer.isPending) return;
+    setIsDeleteConfirmOpen(false);
+    setCustomerToDelete(null);
+  };
+
+  const confirmSoftDelete = async () => {
+    if (!customerToDelete?.id) return;
+    try {
+      await deleteCustomer.mutateAsync(customerToDelete.id);
+      setIsDeleteConfirmOpen(false);
+      setCustomerToDelete(null);
+    } catch (error) {
+      // Error handled by mutation
+    }
   };
 
 
@@ -48,7 +87,7 @@ const VegetableCustomersPage: React.FC = () => {
           backPath="/ke-toan"
           actions={
             <button
-              onClick={() => setIsAddOpen(true)}
+              onClick={openCreateDialog}
               className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all"
             >
               <Plus size={16} />
@@ -78,6 +117,7 @@ const VegetableCustomersPage: React.FC = () => {
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Số đơn</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Doanh thu</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Công nợ</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-28">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
@@ -107,12 +147,39 @@ const VegetableCustomersPage: React.FC = () => {
                         })()}
                       </td>
                       <td className="px-4 py-3 text-[12px] text-muted-foreground">{c.phone || '-'}</td>
-                      <td className="px-4 py-3 text-[12px] text-muted-foreground truncate max-w-[150px]" title={c.address || ''}>
+                      <td className="px-4 py-3 text-[12px] text-muted-foreground truncate max-w-37.5" title={c.address || ''}>
                         {c.address || '-'}
                       </td>
                       <td className="px-4 py-3 text-[13px] font-bold text-foreground text-right tabular-nums">{c.total_orders}</td>
                       <td className="px-4 py-3 text-[13px] font-bold text-emerald-600 text-right tabular-nums">{formatCurrency(c.total_revenue)}</td>
                       <td className="px-4 py-3 text-[13px] font-bold text-red-600 text-right tabular-nums">{formatCurrency(c.debt)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditDialog(c);
+                            }}
+                            className="p-2 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-colors"
+                            title="Chỉnh sửa"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSoftDelete(c);
+                            }}
+                            disabled={deleteCustomer.isPending}
+                            className="p-2 rounded-lg border border-border text-muted-foreground hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+                            title="Xóa"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -131,7 +198,7 @@ const VegetableCustomersPage: React.FC = () => {
                 >
                   <div className="flex justify-between items-start gap-2">
                     <div className="space-y-1 min-w-0">
-                      <span className="text-[15px] font-bold text-foreground block truncate flex items-center gap-2">
+                      <span className="text-[15px] font-bold text-foreground truncate flex items-center gap-2">
                         {c.name}
                         {(() => {
                           const badge = getCustomerTypeBadge(c.customer_type);
@@ -163,6 +230,32 @@ const VegetableCustomersPage: React.FC = () => {
                       <span className="text-[13px] font-bold text-red-600 tabular-nums">{formatCurrency(c.debt)}</span>
                     </div>
                   </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditDialog(c);
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[12px] font-semibold text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-colors"
+                    >
+                      <Pencil size={13} />
+                      Sửa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSoftDelete(c);
+                      }}
+                      disabled={deleteCustomer.isPending}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[12px] font-semibold text-muted-foreground hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+                    >
+                      <Trash2 size={13} />
+                      Xóa
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -172,7 +265,7 @@ const VegetableCustomersPage: React.FC = () => {
 
       <DraggableFAB
         icon={<Plus size={24} />}
-        onClick={() => setIsAddOpen(true)}
+        onClick={openCreateDialog}
         className="bg-primary text-white w-14 h-14 rounded-full"
       />
 
@@ -180,7 +273,21 @@ const VegetableCustomersPage: React.FC = () => {
         isOpen={isAddOpen}
         isClosing={isAddClosing}
         onClose={closeAddDialog}
+        mode={selectedCustomer ? 'edit' : 'create'}
+        customer={selectedCustomer}
         defaultType='vegetable'
+      />
+
+      <ConfirmDialog
+        isOpen={isDeleteConfirmOpen}
+        title="Xóa khách hàng"
+        message={`Xác nhận xóa thông tin khách hàng "${customerToDelete?.name || ''}"?`}
+        confirmLabel="Xóa"
+        cancelLabel="Hủy"
+        variant="danger"
+        isLoading={deleteCustomer.isPending}
+        onConfirm={confirmSoftDelete}
+        onCancel={closeDeleteConfirm}
       />
     </div>
   );

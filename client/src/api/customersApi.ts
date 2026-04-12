@@ -12,6 +12,16 @@ export const customersApi = {
     return data;
   },
 
+  update: async (id: string, payload: { name?: string; phone?: string | null; address?: string | null; customer_type?: string }) => {
+    const { data } = await axiosClient.put<Customer>(`/customers/${id}`, payload);
+    return data;
+  },
+
+  remove: async (id: string) => {
+    const { data } = await axiosClient.delete(`/customers/${id}`);
+    return data;
+  },
+
   getById: async (id: string) => {
     const { data } = await axiosClient.get<Customer>(`/customers/${id}`);
     return data;

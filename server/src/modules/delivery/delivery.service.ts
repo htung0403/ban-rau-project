@@ -2,6 +2,144 @@ import { supabaseService } from '../../config/supabase';
 import { format } from 'date-fns';
 
 export class DeliveryService {
+  private static async syncExportOrderForDelivery(
+    deliveryId: string,
+    totalAssigned: number,
+    userId?: string,
+    exportPaymentStatus?: 'unpaid' | 'paid',
+    assignments?: Array<{ expected_amount?: number | null }>
+  ) {
+    const { data: deliveryOrder, error: deliveryError } = await supabaseService
+      .from('delivery_orders')
+      .select('id, product_name, unit_price, delivery_date, order_category, import_order_id, vegetable_order_id, image_url')
+      .eq('id', deliveryId)
+      .single();
+
+    if (deliveryError || !deliveryOrder) throw deliveryError || new Error('Không tìm thấy đơn giao hàng');
+
+    // Chỉ đồng bộ phiếu xuất cho hàng tạp hóa (standard) từ trang DeliveryPage.
+    if (deliveryOrder.order_category && deliveryOrder.order_category !== 'standard') {
+      return;
+    }
+
+    let customerId: string | null = null;
+    if (deliveryOrder.import_order_id) {
+      const { data: importOrder } = await supabaseService
+        .from('import_orders')
+        .select('customer_id')
+        .eq('id', deliveryOrder.import_order_id)
+        .single();
+      customerId = importOrder?.customer_id || null;
+    } else if (deliveryOrder.vegetable_order_id) {
+      const { data: vegetableOrder } = await supabaseService
+        .from('vegetable_orders')
+        .select('customer_id')
+        .eq('id', deliveryOrder.vegetable_order_id)
+        .single();
+      customerId = vegetableOrder?.customer_id || null;
+    }
+
+    const exportDate = deliveryOrder.delivery_date || format(new Date(), 'yyyy-MM-dd');
+    const safeQuantity = Math.max(0, totalAssigned || 0);
+    const expectedAmountFromAssignments = (assignments || []).reduce(
+      (sum, assignment) => sum + Math.max(0, Number(assignment?.expected_amount || 0)),
+      0
+    );
+    const debtAmount = expectedAmountFromAssignments;
+
+    const { data: existingExportOrder } = await supabaseService
+      .from('export_orders')
+      .select('id, paid_amount, export_time')
+      .eq('product_id', deliveryId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingExportOrder) {
+      const paidAmount = Number(existingExportOrder.paid_amount || 0);
+      let nextPaidAmount = Math.min(paidAmount, debtAmount);
+      let nextPaymentStatus: 'unpaid' | 'partial' | 'paid' = 'unpaid';
+
+      if (exportPaymentStatus === 'paid') {
+        nextPaidAmount = debtAmount;
+        nextPaymentStatus = debtAmount > 0 ? 'paid' : 'unpaid';
+      } else if (exportPaymentStatus === 'unpaid') {
+        nextPaidAmount = 0;
+        nextPaymentStatus = 'unpaid';
+      } else if (nextPaidAmount > 0 && nextPaidAmount < debtAmount) {
+        nextPaymentStatus = 'partial';
+      } else if (debtAmount > 0 && nextPaidAmount >= debtAmount) {
+        nextPaymentStatus = 'paid';
+      }
+
+      const updatePayload: Record<string, any> = {
+        export_date: exportDate,
+        export_time: existingExportOrder.export_time || format(new Date(), 'HH:mm'),
+        product_name: deliveryOrder.product_name,
+        quantity: safeQuantity,
+        debt_amount: debtAmount,
+        paid_amount: nextPaidAmount,
+        payment_status: nextPaymentStatus,
+      };
+
+      if (customerId) {
+        updatePayload.customer_id = customerId;
+      }
+
+      if (deliveryOrder.image_url) {
+        updatePayload.image_url = deliveryOrder.image_url;
+      }
+
+      const { error: updateError } = await supabaseService
+        .from('export_orders')
+        .update(updatePayload)
+        .eq('id', existingExportOrder.id);
+
+      if (updateError) throw updateError;
+
+      await supabaseService
+        .from('delivery_orders')
+        .update({ status: 'da_giao' })
+        .eq('id', deliveryId);
+
+      return;
+    }
+
+    const createPayload: Record<string, any> = {
+      export_date: exportDate,
+      export_time: format(new Date(), 'HH:mm'),
+      product_id: deliveryId,
+      product_name: deliveryOrder.product_name,
+      quantity: safeQuantity,
+      debt_amount: debtAmount,
+      payment_status: exportPaymentStatus === 'paid' && debtAmount > 0 ? 'paid' : 'unpaid',
+      paid_amount: exportPaymentStatus === 'paid' ? debtAmount : 0,
+    };
+
+    if (userId) {
+      createPayload.created_by = userId;
+    }
+
+    if (customerId) {
+      createPayload.customer_id = customerId;
+    }
+
+    if (deliveryOrder.image_url) {
+      createPayload.image_url = deliveryOrder.image_url;
+    }
+
+    const { error: createError } = await supabaseService
+      .from('export_orders')
+      .insert(createPayload);
+
+    if (createError) throw createError;
+
+    await supabaseService
+      .from('delivery_orders')
+      .update({ status: 'da_giao' })
+      .eq('id', deliveryId);
+  }
+
   static async getAllToday(startDate?: string, endDate?: string, orderCategory?: string) {
     let query = supabaseService
       .from('delivery_orders')
@@ -23,10 +161,32 @@ export class DeliveryService {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data;
+    if (!data || data.length === 0) return data;
+
+    const deliveryIds = data.map((row: any) => row.id).filter(Boolean);
+    if (deliveryIds.length === 0) return data;
+
+    const { data: exportOrders, error: exportOrdersError } = await supabaseService
+      .from('export_orders')
+      .select('product_id, payment_status, created_at')
+      .in('product_id', deliveryIds)
+      .order('created_at', { ascending: false });
+
+    if (exportOrdersError) throw exportOrdersError;
+
+    const paymentStatusByDeliveryId = new Map<string, 'unpaid' | 'partial' | 'paid'>();
+    (exportOrders || []).forEach((row: any) => {
+      if (!row.product_id || paymentStatusByDeliveryId.has(row.product_id)) return;
+      paymentStatusByDeliveryId.set(row.product_id, row.payment_status || 'unpaid');
+    });
+
+    return data.map((row: any) => ({
+      ...row,
+      export_order_payment_status: paymentStatusByDeliveryId.get(row.id),
+    }));
   }
 
-  static async create(deliveryData: any) {
+  static async create(deliveryData: any, userId?: string) {
     const { vehicles, ...orderData } = deliveryData;
 
     // 1. Create the delivery order
@@ -49,13 +209,19 @@ export class DeliveryService {
         throw new Error('Tổng số lượng gán cho xe không được vượt quá số hàng trong đơn');
       }
 
-      await this.assignVehicles(order.id, vehicles);
+      await this.assignVehicles(order.id, vehicles, undefined, userId);
     }
 
     return order;
   }
 
-  static async assignVehicles(deliveryId: string, assignments: any[], image_url?: string | null) {
+  static async assignVehicles(
+    deliveryId: string,
+    assignments: any[],
+    image_url?: string | null,
+    userId?: string,
+    exportPaymentStatus?: 'unpaid' | 'paid'
+  ) {
     // assignments: [{vehicle_id, driver_id, quantity}]
     
     // Save image_url if provided
@@ -122,12 +288,20 @@ export class DeliveryService {
         .from('delivery_orders')
         .update({ status: 'da_giao' })
         .eq('id', deliveryId);
-    } else if (doData && totalAssigned >= doData.total_quantity && doData.status === 'can_giao') {
+    } else if (doData && totalAssigned >= doData.total_quantity) {
       await supabaseService
         .from('delivery_orders')
         .update({ status: 'da_giao' })
         .eq('id', deliveryId);
     }
+
+    await this.syncExportOrderForDelivery(
+      deliveryId,
+      totalAssigned,
+      userId,
+      exportPaymentStatus,
+      assignments
+    );
 
     return data;
   }

@@ -80,6 +80,10 @@ const getOrderPreviewImage = (order: DeliveryOrder) => {
 };
 
 const getOrderPaymentStatus = (order: DeliveryOrder): keyof typeof PAYMENT_STATUS_CONFIG => {
+  if (order.export_order_payment_status) {
+    return order.export_order_payment_status;
+  }
+
   const assignedVehicleIds = (order.delivery_vehicles || [])
     .filter((dv) => (dv.assigned_quantity || 0) > 0)
     .map((dv) => dv.vehicle_id)
@@ -124,7 +128,8 @@ const DeliveryPage: React.FC = () => {
 
   const isLoading = ordersLoading;
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
-  const isDriver = user?.role === 'driver';
+  const normalizedRole = (user?.role || '').toLowerCase();
+  const isDriver = normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('driver');
   const eligibleVehicles = React.useMemo(
     () => (vehicles || []).filter((vehicle) => vehicleSupportsGoodsCategory(vehicle, 'grocery')),
     [vehicles]
@@ -135,6 +140,7 @@ const DeliveryPage: React.FC = () => {
   );
   const myVehicleIdSet = React.useMemo(() => new Set(myVehicleIds), [myVehicleIds]);
   const myPrimaryVehicleId = myVehicleIds[0];
+  const canShowAssignButton = isAdmin || (isDriver && myVehicleIds.length > 0);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
@@ -193,21 +199,21 @@ const DeliveryPage: React.FC = () => {
           driver_id: dv.driver_id || '',
           loader_name: dv.loader_name || '',
           quantity: dv.assigned_quantity || 0,
-          expected_amount: dv.expected_amount || ((dv.assigned_quantity || 0) * (order.unit_price || 0))
+          expected_amount: Number(dv.expected_amount || 0)
         });
       });
 
       const myExistingIndex = assignments.findIndex((p) => p.vehicle_id === clickedVehicleId);
       if (myExistingIndex >= 0) {
         assignments[myExistingIndex].quantity += remainingQty;
-        assignments[myExistingIndex].expected_amount = assignments[myExistingIndex].quantity * (order.unit_price || 0);
+        assignments[myExistingIndex].expected_amount = Number(assignments[myExistingIndex].expected_amount || 0);
       } else {
         assignments.push({
           vehicle_id: clickedVehicleId,
           driver_id: user?.id || '',
           loader_name: '',
           quantity: remainingQty,
-          expected_amount: remainingQty * (order.unit_price || 0)
+          expected_amount: 0
         });
       }
 
@@ -564,7 +570,7 @@ const DeliveryPage: React.FC = () => {
                                       <Check size={14} strokeWidth={2.5} />
                                     </button>
                                   )}
-                                  {statusFilter === 'can_giao' && isAdmin && (
+                                  {statusFilter === 'can_giao' && canShowAssignButton && (
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();

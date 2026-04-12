@@ -129,6 +129,7 @@ export interface Customer {
   total_revenue: number;
   debt: number;
   created_at: string;
+  deleted_at?: string | null;
 }
 
 // --- Import Orders ---
@@ -243,6 +244,7 @@ export interface DeliveryOrder {
   order_category?: 'standard' | 'vegetable';
   status: DeliveryStatus;
   delivery_date?: string;
+  export_order_payment_status?: PaymentStatus;
   created_at: string;
   updated_at: string;
   // Nested

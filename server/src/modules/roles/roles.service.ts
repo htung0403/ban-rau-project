@@ -99,6 +99,42 @@ export class RolesService {
     return data;
   }
 
+  static async deleteRole(roleId: string) {
+    const { data: role, error: roleError } = await supabaseService
+      .from('app_roles')
+      .select('id, role_name, is_system, is_active')
+      .eq('id', roleId)
+      .limit(1)
+      .maybeSingle();
+
+    if (roleError) throw roleError;
+    if (!role) throw new Error('Không tìm thấy quyền');
+    if (!role.is_active) return { id: roleId, deleted: true };
+
+    const { error: userRoleDeleteError } = await supabaseService
+      .from('app_user_roles')
+      .delete()
+      .eq('role_id', roleId);
+
+    if (userRoleDeleteError) throw userRoleDeleteError;
+
+    const { error: rolePermissionDeleteError } = await supabaseService
+      .from('app_role_permissions')
+      .delete()
+      .eq('role_id', roleId);
+
+    if (rolePermissionDeleteError) throw rolePermissionDeleteError;
+
+    const { error: deactivateError } = await supabaseService
+      .from('app_roles')
+      .update({ is_active: false })
+      .eq('id', roleId);
+
+    if (deactivateError) throw deactivateError;
+
+    return { id: roleId, role_name: role.role_name, deleted: true };
+  }
+
   static async updateRolePermissions(roleId: string, permissionKeys: string[]) {
     const { data: permissionRows, error: permissionError } = await supabaseService
       .from('app_permissions')

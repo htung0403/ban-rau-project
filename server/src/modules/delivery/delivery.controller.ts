@@ -38,7 +38,7 @@ export class DeliveryController {
   static async create(req: Request, res: Response) {
     try {
       const validated = deliveryOrderSchema.parse(req.body);
-      const data = await DeliveryService.create(validated);
+      const data = await DeliveryService.create(validated, req.user?.id);
       return res.status(201).json(successResponse(data, 'Delivery order created'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
@@ -59,6 +59,7 @@ export class DeliveryController {
       const body = req.body;
       let assignments: any[] = [];
       let image_url: string | null | undefined = undefined;
+      let export_payment_status: 'unpaid' | 'paid' | undefined = undefined;
 
       if (Array.isArray(body)) {
         assignments = z.array(singleSchema).parse(body);
@@ -67,10 +68,16 @@ export class DeliveryController {
         if (Object.prototype.hasOwnProperty.call(body, 'image_url')) {
           image_url = body.image_url ?? null;
         }
+        if (Object.prototype.hasOwnProperty.call(body, 'export_payment_status')) {
+          export_payment_status = z.enum(['unpaid', 'paid']).parse(body.export_payment_status);
+        }
       } else {
         assignments = [singleSchema.parse(body)];
         if (body && Object.prototype.hasOwnProperty.call(body, 'image_url')) {
           image_url = body.image_url ?? null;
+        }
+        if (body && Object.prototype.hasOwnProperty.call(body, 'export_payment_status')) {
+          export_payment_status = z.enum(['unpaid', 'paid']).parse(body.export_payment_status);
         }
       }
 
@@ -83,7 +90,13 @@ export class DeliveryController {
         expected_amount: a.expected_amount || 0,
       }));
 
-      const data = await DeliveryService.assignVehicles(req.params.id as string, normalized, image_url);
+      const data = await DeliveryService.assignVehicles(
+        req.params.id as string,
+        normalized,
+        image_url,
+        req.user?.id,
+        export_payment_status
+      );
       return res.status(200).json(successResponse(data, 'Vehicles assigned'));
     } catch (err: any) {
       console.error('Assign vehicle error:', err);

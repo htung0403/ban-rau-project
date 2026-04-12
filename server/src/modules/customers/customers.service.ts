@@ -2,7 +2,7 @@ import { supabaseService } from '../../config/supabase';
 
 export class CustomerService {
   static async getAll(type?: string) {
-    let query = supabaseService.from('customers').select('*');
+    let query = supabaseService.from('customers').select('*').is('deleted_at', null);
     if (type) {
       query = query.eq('customer_type', type);
     }
@@ -12,13 +12,23 @@ export class CustomerService {
   }
 
   static async getById(id: string) {
-    const { data, error } = await supabaseService.from('customers').select('*').eq('id', id).single();
+    const { data, error } = await supabaseService
+      .from('customers')
+      .select('*')
+      .eq('id', id)
+      .is('deleted_at', null)
+      .single();
     if (error) throw error;
     return data;
   }
 
   static async getByUserId(userId: string) {
-    const { data, error } = await supabaseService.from('customers').select('*').eq('user_id', userId).single();
+    const { data, error } = await supabaseService
+      .from('customers')
+      .select('*')
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .single();
     if (error && error.code !== 'PGRST116') throw error; // PGRST116 is no rows returned, which is fine
     return data;
   }
@@ -70,6 +80,37 @@ export class CustomerService {
     const { data, error } = await supabaseService.from('customers').insert(customerData).select().single();
     if (error) throw error;
     return data;
+  }
+
+  static async update(
+    id: string,
+    payload: {
+      name?: string;
+      phone?: string | null;
+      address?: string | null;
+      customer_type?: 'retail' | 'wholesale' | 'grocery' | 'vegetable';
+    }
+  ) {
+    const { data, error } = await supabaseService
+      .from('customers')
+      .update(payload)
+      .eq('id', id)
+      .is('deleted_at', null)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  static async softDelete(id: string) {
+    const { error } = await supabaseService
+      .from('customers')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+      .is('deleted_at', null);
+
+    if (error) throw error;
   }
 
   static async updateDebtPayment(id: string, payload: { amount: number, payment_date?: string, payment_time?: string, collector_id?: string, notes?: string }, userId?: string) {

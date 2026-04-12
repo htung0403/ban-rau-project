@@ -26,7 +26,11 @@ const assignmentSchema = z.object({
 const schema = z.object({
   assignments: z.array(assignmentSchema).min(1, 'Cần ít nhất một sự phân bổ'),
   image_url: z.string().optional().nullable().catch(null),
+  export_payment_status: z.enum(['unpaid', 'paid']).default('unpaid'),
 });
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type FormValues = z.infer<typeof schema>;
 
@@ -55,7 +59,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
     [vehicles, targetCategory]
   );
 
-  const isDriver = user?.role === 'driver';
+  const normalizedRole = (user?.role || '').toLowerCase();
+  const isDriver = normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('driver');
   const myVehicle = eligibleVehicles.find(v => v.driver_id === user?.id);
 
   const {
@@ -71,6 +76,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
     defaultValues: {
       assignments: [],
       image_url: null,
+      export_payment_status: 'unpaid',
     },
   });
 
@@ -81,6 +87,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
   const watchAssignments = watch('assignments') || [];
   const watchImageUrl = watch('image_url');
+  const watchExportPaymentStatus = watch('export_payment_status');
   const totalAssignedQuantity = watchAssignments.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0);
   const persistedAssignedQuantity = (order?.delivery_vehicles || []).reduce((acc: number, dv: any) => acc + (Number(dv.assigned_quantity) || 0), 0);
   const currentAvailable = order ? Math.max(0, order.total_quantity - persistedAssignedQuantity) : 0;
@@ -130,8 +137,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
       // Xử lý auto-select initialVehicleId (nếu bấm từ cột xe trống)
       let initialVid = initialVehicleId || '';
-      if (isDriver && myVehicle?.id) {
-        initialVid = myVehicle.id;
+      if (isDriver) {
+        initialVid = initialVid || myVehicle?.id || '';
       }
 
       // Mở dialog ở chế độ general nhưng có xe rồi thì không cần thêm rỗng
@@ -153,15 +160,46 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       // Nếu vẫn hoàn toàn trống
       if (initialAssignments.length === 0) {
         initialAssignments.push({
-          vehicle_id: '',
-          driver_id: '',
+          vehicle_id: isDriver ? (initialVid || '') : '',
+          driver_id: isDriver ? (user?.id || '') : '',
           loader_name: '',
           quantity: '',
           expected_amount: 0,
         });
       }
 
-      reset({ assignments: initialAssignments, image_url: (order as any).image_url || null });
+      // Với tài xế: luôn ưu tiên gắn tài xế hiện tại cho dòng xe của mình.
+      if (isDriver && initialVid && user?.id) {
+        initialAssignments.forEach((assignment) => {
+          if (assignment.vehicle_id === initialVid) {
+            assignment.driver_id = user.id;
+          }
+        });
+      }
+
+      const existingAssignedVehicleIds = initialAssignments
+        .filter((assignment) => Number(assignment.quantity || 0) > 0)
+        .map((assignment) => assignment.vehicle_id)
+        .filter(Boolean);
+
+      const paidVehicleIds = new Set(
+        (order.payment_collections || [])
+          .filter((pc: any) => pc.status === 'confirmed' || pc.status === 'self_confirmed')
+          .map((pc: any) => pc.vehicle_id)
+          .filter(Boolean)
+      );
+
+      const defaultExportPaymentStatus: 'unpaid' | 'paid' = order.export_order_payment_status
+        ? (order.export_order_payment_status === 'paid' ? 'paid' : 'unpaid')
+        : (existingAssignedVehicleIds.length > 0 && existingAssignedVehicleIds.every((id) => paidVehicleIds.has(id))
+          ? 'paid'
+          : 'unpaid');
+
+      reset({
+        assignments: initialAssignments,
+        image_url: (order as any).image_url || null,
+        export_payment_status: defaultExportPaymentStatus,
+      });
     }
   }, [order, initialVehicleId, isOpen, reset, eligibleVehicles, isDriver, myVehicle, user?.id]);
 
@@ -170,8 +208,45 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const onSubmit = async (data: FormValues) => {
     if (!order) return;
     try {
+      const normalizedAssignments = data.assignments
+        .map((assignment) => {
+          const vehicle = eligibleVehicles.find((v) => v.id === assignment.vehicle_id);
+          const resolvedDriverId =
+            assignment.driver_id ||
+            vehicle?.driver_id ||
+            (isDriver && assignment.vehicle_id === myVehicle?.id ? user?.id || '' : '');
+
+          return {
+            ...assignment,
+            driver_id: resolvedDriverId,
+          };
+        })
+        .filter((assignment) => {
+          if (UUID_REGEX.test(assignment.driver_id)) return true;
+
+          // Driver cannot edit other rows; skip locked rows that have broken historical data.
+          if (isDriver && assignment.vehicle_id !== myVehicle?.id) return false;
+
+          return true;
+        });
+
+      const hasInvalidDriverId = normalizedAssignments.some(
+        (assignment) => !UUID_REGEX.test(assignment.driver_id)
+      );
+
+      if (hasInvalidDriverId) {
+        toast.error('Có xe chưa có tài xế hợp lệ. Vui lòng chọn tài xế trước khi lưu.');
+        return;
+      }
+
+      if (normalizedAssignments.length === 0) {
+        toast.error('Không có phân bổ hợp lệ để lưu.');
+        return;
+      }
+
       const payload: any = {
-        assignments: data.assignments
+        assignments: normalizedAssignments,
+        export_payment_status: data.export_payment_status,
       };
       if (data.image_url) payload.image_url = data.image_url;
 
@@ -408,6 +483,38 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               <div className="p-3 rounded-xl bg-amber-50 border border-amber-100 flex items-start gap-2 text-amber-700 mt-4">
                 <AlertCircle size={16} className="mt-0.5 shrink-0" />
                 <p className="text-[12px] font-medium italic">Tổng số lượng đã phân ({totalAssignedQuantity.toLocaleString()}) đang vượt quá yêu cầu của đơn hàng ({order.total_quantity.toLocaleString()}).</p>
+              </div>
+            )}
+
+            {isStandardOrder && (
+              <div className="space-y-2 pt-4 border-t border-slate-100 mt-2">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Trạng thái thanh toán phiếu xuất</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setValue('export_payment_status', 'unpaid', { shouldValidate: true })}
+                    className={clsx(
+                      'h-10 rounded-xl border text-[13px] font-bold transition-all',
+                      watchExportPaymentStatus === 'unpaid'
+                        ? 'border-red-300 bg-red-50 text-red-700'
+                        : 'border-border bg-white text-muted-foreground hover:bg-muted/40'
+                    )}
+                  >
+                    Chưa thanh toán
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setValue('export_payment_status', 'paid', { shouldValidate: true })}
+                    className={clsx(
+                      'h-10 rounded-xl border text-[13px] font-bold transition-all',
+                      watchExportPaymentStatus === 'paid'
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                        : 'border-border bg-white text-muted-foreground hover:bg-muted/40'
+                    )}
+                  >
+                    Đã thanh toán
+                  </button>
+                </div>
               </div>
             )}
 

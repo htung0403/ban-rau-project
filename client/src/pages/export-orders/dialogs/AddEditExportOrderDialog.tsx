@@ -11,6 +11,7 @@ import { uploadApi } from '../../../api/uploadApi';
 import toast from 'react-hot-toast';
 import { useCustomers } from '../../../hooks/queries/useCustomers';
 import { useVehicles } from '../../../hooks/queries/useVehicles';
+import { useEmployees } from '../../../hooks/queries/useHR';
 import { useDeliveryOrders, useAssignVehicle } from '../../../hooks/queries/useDelivery';
 import { useAuth } from '../../../context/AuthContext';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
@@ -50,11 +51,135 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
   const assignVehicleMutation = useAssignVehicle();
   const { data: customers } = useCustomers('grocery', isOpen);
   const { data: vehicles } = useVehicles(isOpen);
+  const { data: employees } = useEmployees(isOpen);
   const today = format(new Date(), 'yyyy-MM-dd');
   const { data: deliveryOrders } = useDeliveryOrders(today, today, 'standard');
 
-  const isDriver = user?.role === 'driver';
+  const normalizedRole = (user?.role || '').toLowerCase();
+  const isDriver = normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('driver');
   const myVehicle = vehicles?.find(v => v.driver_id === user?.id);
+
+  const smallVehicleOptions = useMemo(() => {
+    const normalize = (value?: string) =>
+      (value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/[^a-z0-9\s_]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const normalizeKey = (value?: string) => normalize(value).replace(/\s+/g, '_');
+
+    const isSmallDriverRole = (roleValue?: string) => {
+      const value = normalize(roleValue);
+      const key = normalizeKey(roleValue);
+
+      if (!value && !key) return false;
+
+      return (
+        key.includes('tai_xe_xe_tai_nho') ||
+        key.includes('tai_xe_tai_nho') ||
+        key.includes('small_driver') ||
+        key.includes('driver_small') ||
+        (value.includes('tai xe') && value.includes('nho')) ||
+        value.includes('small driver')
+      );
+    };
+
+    const isDriverRole = (roleValue?: string) => {
+      const value = normalize(roleValue);
+      const key = normalizeKey(roleValue);
+      if (!value && !key) return false;
+
+      return (
+        key.includes('tai_xe') ||
+        key.includes('driver') ||
+        value.includes('tai xe') ||
+        value.includes('driver')
+      );
+    };
+
+    const vehiclesByDriverId = new Map<string, any>();
+    (vehicles || []).forEach((v: any) => {
+      if (v.driver_id && !vehiclesByDriverId.has(v.driver_id)) {
+        vehiclesByDriverId.set(v.driver_id, v);
+      }
+    });
+
+    const fromEmployees = (employees || [])
+      .filter((e: any) => {
+        const roleMatchesProfile = isSmallDriverRole(e.role);
+        const roleMatchesAssigned = (e.app_user_roles || []).some((ur: any) => {
+          const roleKey = ur?.app_roles?.role_key;
+          const roleName = ur?.app_roles?.role_name;
+          return isSmallDriverRole(roleKey) || isSmallDriverRole(roleName);
+        });
+
+        return roleMatchesProfile || roleMatchesAssigned;
+      })
+      .map((e: any) => {
+        const matchedVehicle = vehiclesByDriverId.get(e.id);
+        return {
+          value: e.id,
+          label: `${e.full_name}${matchedVehicle?.license_plate ? ` (${matchedVehicle.license_plate})` : ''}`,
+          vehicleId: matchedVehicle?.id || '',
+          vehiclePlate: matchedVehicle?.license_plate || '',
+        };
+      });
+
+    if (fromEmployees.length > 0) return fromEmployees;
+
+    const fromDriverEmployees = (employees || [])
+      .filter((e: any) => {
+        const roleMatchesProfile = isDriverRole(e.role);
+        const roleMatchesAssigned = (e.app_user_roles || []).some((ur: any) => {
+          const roleKey = ur?.app_roles?.role_key;
+          const roleName = ur?.app_roles?.role_name;
+          return isDriverRole(roleKey) || isDriverRole(roleName);
+        });
+
+        return roleMatchesProfile || roleMatchesAssigned;
+      })
+      .map((e: any) => {
+        const matchedVehicle = vehiclesByDriverId.get(e.id);
+        return {
+          value: e.id,
+          label: `${e.full_name}${matchedVehicle?.license_plate ? ` (${matchedVehicle.license_plate})` : ''}`,
+          vehicleId: matchedVehicle?.id || '',
+          vehiclePlate: matchedVehicle?.license_plate || '',
+        };
+      });
+
+    if (fromDriverEmployees.length > 0) return fromDriverEmployees;
+
+    // Fallback 1: if role metadata is missing, still allow picking from drivers already mapped on vehicles.
+    const seenDriver = new Set<string>();
+    const fromVehicles = (vehicles || [])
+      .filter((v: any) => Boolean(v.driver_id))
+      .filter((v: any) => {
+        if (!v.driver_id || seenDriver.has(v.driver_id)) return false;
+        seenDriver.add(v.driver_id);
+        return true;
+      })
+      .map((v: any) => ({
+        value: v.driver_id,
+        label: `${v.profiles?.full_name || 'Tài xế'}${v.license_plate ? ` (${v.license_plate})` : ''}`,
+        vehicleId: v.id || '',
+        vehiclePlate: v.license_plate || '',
+      }));
+
+    if (fromVehicles.length > 0) return fromVehicles;
+
+    // Fallback 2: last resort when no role/vehicle mapping data is available.
+    return (employees || []).map((e: any) => ({
+      value: e.id,
+      label: e.full_name || e.email || 'Nhân sự',
+      vehicleId: vehiclesByDriverId.get(e.id)?.id || '',
+      vehiclePlate: vehiclesByDriverId.get(e.id)?.license_plate || '',
+    }));
+  }, [vehicles, employees]);
 
   // Lọc khách tạp hóa (grocery)
   const groceryCustomers = useMemo(() => {
@@ -67,7 +192,9 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
   // Lấy danh sách hàng cần giao hôm nay (kèm thông tin khách)
   const todayDeliveryItems = useMemo(() => {
     if (!deliveryOrders) return [];
-    return deliveryOrders.map((o: any) => {
+    return deliveryOrders
+      .filter((o: any) => o.status === 'can_giao' || o.status === 'hang_o_sg')
+      .map((o: any) => {
       const pName = o.product_name?.includes(' - ')
         ? o.product_name.split(' - ').slice(1).join(' - ')
         : o.product_name;
@@ -83,7 +210,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
         unitPrice: o.unit_price || 0,
         customerName,
       };
-    });
+      });
   }, [deliveryOrders]);
 
   // Chỉ lấy khách tạp hóa có đơn giao trong ngày hôm nay
@@ -123,6 +250,8 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
   const productId = watch('product_id');
   const quantity = watch('quantity');
   const debtAmount = watch('debt_amount');
+  const selectedVehicleId = watch('vehicle_id');
+  const selectedDeliveryStaff = watch('delivery_staff');
   const watchImageUrl = watch('image_url');
   const [isUploading, setIsUploading] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -192,8 +321,8 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
       reset({
         export_date: today,
         export_time: new Date().toTimeString().slice(0, 5),
-        vehicle_id: myVehicle?.id || '',
-        delivery_staff: user?.id || '',
+        vehicle_id: isDriver ? (myVehicle?.id || '') : '',
+        delivery_staff: isDriver ? (user?.id || '') : '',
         customer_id: '',
         product_id: '',
         quantity: 1,
@@ -216,6 +345,11 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
 
   const onSubmit = async (data: ExportOrderFormData) => {
     try {
+      if (!isDriver && (!data.delivery_staff || !data.vehicle_id)) {
+        toast.error('Vui lòng chọn tài xế xe nhỏ trước khi tạo phiếu xuất.');
+        return;
+      }
+
       const selectedItem = todayDeliveryItems.find(p => p.id === data.product_id);
       const payload: any = {
         export_date: data.export_date,
@@ -235,9 +369,15 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
       const deliveryOrderId = data.product_id; // product_id = delivery order ID
       const deliveryOrder = deliveryOrders?.find((o: any) => o.id === deliveryOrderId);
 
-      if (deliveryOrder && myVehicle?.id && user?.id) {
+      const selectedVehicle = (vehicles || []).find((v: any) => v.id === data.vehicle_id);
+      const assignedVehicleId = data.vehicle_id || myVehicle?.id;
+      const assignedDriverId = data.delivery_staff || selectedVehicle?.driver_id || user?.id;
+
+      if (deliveryOrder && assignedVehicleId && assignedDriverId) {
         const existingDvs = deliveryOrder.delivery_vehicles || [];
         const assignPayload: any[] = [];
+        const qty = Number(data.quantity) || 0;
+        const formDebtAmount = Number(data.debt_amount) || 0;
 
         // Giữ nguyên các xe đã gán trước đó
         existingDvs.forEach((dv: any) => {
@@ -245,30 +385,32 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
             vehicle_id: dv.vehicle_id,
             driver_id: dv.driver_id || '',
             quantity: dv.assigned_quantity,
-            expected_amount: dv.expected_amount || (dv.assigned_quantity * (deliveryOrder.unit_price || 0)),
+            expected_amount: Number(dv.expected_amount || 0),
           });
         });
 
         // Cộng dồn hoặc thêm mới cho xe của tài xế hiện tại
-        const myExistingIndex = assignPayload.findIndex((p: any) => p.vehicle_id === myVehicle.id);
-        const qty = Number(data.quantity);
+        const myExistingIndex = assignPayload.findIndex((p: any) => p.vehicle_id === assignedVehicleId);
         if (myExistingIndex >= 0) {
           assignPayload[myExistingIndex].quantity += qty;
           assignPayload[myExistingIndex].expected_amount =
-            assignPayload[myExistingIndex].quantity * (deliveryOrder.unit_price || 0);
+            Number(assignPayload[myExistingIndex].expected_amount || 0) + formDebtAmount;
         } else {
           assignPayload.push({
-            vehicle_id: myVehicle.id,
-            driver_id: user.id,
+            vehicle_id: assignedVehicleId,
+            driver_id: assignedDriverId,
             quantity: qty,
-            expected_amount: qty * (deliveryOrder.unit_price || 0),
+            expected_amount: formDebtAmount,
           });
         }
 
         try {
           await assignVehicleMutation.mutateAsync({
             id: deliveryOrderId,
-            payload: assignPayload as any,
+            payload: {
+              assignments: assignPayload as any,
+              export_payment_status: data.payment_status,
+            },
           });
         } catch {
           // Phiếu xuất đã tạo thành công, lỗi gán xe không chặn luồng
@@ -374,31 +516,54 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                 </label>
                 <div className={clsx(
                   "w-full px-3 py-2.5 rounded-xl text-[13px] font-semibold border",
-                  myVehicle 
+                  (isDriver ? myVehicle?.id : selectedVehicleId)
                     ? "bg-blue-50 border-blue-200 text-blue-800" 
                     : "bg-slate-50 border-border text-slate-400"
                 )}>
                   <div className="flex items-center gap-2">
-                    <Truck size={15} className={myVehicle ? "text-blue-500" : "text-slate-400"} />
-                    {myVehicle ? myVehicle.license_plate : 'Chưa gắn xe'}
+                    <Truck size={15} className={(isDriver ? myVehicle?.id : selectedVehicleId) ? "text-blue-500" : "text-slate-400"} />
+                    {isDriver
+                      ? (myVehicle ? myVehicle.license_plate : 'Chưa gắn xe')
+                      : ((vehicles || []).find((v: any) => v.id === selectedVehicleId)?.license_plate || 'Chưa chọn xe')}
                   </div>
                 </div>
               </div>
 
-              {/* Nhân viên giao hàng (tự động) */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                  <User size={12} />
-                  Nhân viên giao hàng
-                  <span className="text-[9px] text-emerald-600 normal-case ml-1">(tự động)</span>
-                </label>
-                <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[13px] font-semibold text-amber-800">
-                  <div className="flex items-center gap-2">
-                    <User size={15} className="text-amber-500" />
-                    {user?.full_name || 'Đang đăng nhập...'}
+              {isDriver ? (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <User size={12} />
+                    Nhân viên giao hàng
+                    <span className="text-[9px] text-emerald-600 normal-case ml-1">(tự động)</span>
+                  </label>
+                  <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[13px] font-semibold text-amber-800">
+                    <div className="flex items-center gap-2">
+                      <User size={15} className="text-amber-500" />
+                      {user?.full_name || 'Đang đăng nhập...'}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <User size={12} />
+                    Tài xế xe nhỏ <span className="text-red-500">*</span>
+                  </label>
+                  <SearchableSelect
+                    options={smallVehicleOptions.map((opt) => ({ value: opt.value, label: opt.label }))}
+                    value={selectedDeliveryStaff || ''}
+                    onValueChange={(val) => {
+                      setValue('delivery_staff', val, { shouldValidate: true });
+                      const matched = smallVehicleOptions.find((opt) => opt.value === val);
+                      setValue('vehicle_id', matched?.vehicleId || '', { shouldValidate: true });
+                      if (!matched?.vehicleId) {
+                        toast.error('Tài xế này chưa được gắn xe. Vui lòng gắn xe trước.');
+                      }
+                    }}
+                    placeholder="Chọn tài xế xe nhỏ..."
+                  />
+                </div>
+              )}
             </div>
           </div>
 

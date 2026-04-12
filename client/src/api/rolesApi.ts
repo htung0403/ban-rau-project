@@ -28,6 +28,11 @@ export const rolesApi = {
     return data;
   },
 
+  deleteRole: async (roleId: string) => {
+    const { data } = await axiosClient.delete(`/roles/${roleId}`);
+    return data;
+  },
+
   updateRolePermissions: async (roleId: string, permissionKeys: string[]) => {
     const { data } = await axiosClient.put(`/roles/${roleId}/permissions`, {
       permission_keys: permissionKeys,

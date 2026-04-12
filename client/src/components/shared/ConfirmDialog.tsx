@@ -46,7 +46,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const styles = variantStyles[variant];
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-9999 flex items-center justify-center p-4">
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={onCancel}

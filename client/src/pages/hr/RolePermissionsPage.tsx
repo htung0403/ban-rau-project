@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Loader2, Plus, Save } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import PageHeader from '../../components/shared/PageHeader';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
@@ -8,6 +8,7 @@ import {
   useAppPermissions,
   useAppRoles,
   useCreateAppRole,
+  useDeleteAppRole,
   useUpdateRolePermissions,
 } from '../../hooks/queries/useRoles';
 
@@ -31,6 +32,7 @@ const RolePermissionsPage: React.FC = () => {
   const { data: permissions, isLoading: permissionsLoading, isError: permissionsError, refetch: refetchPermissions } = useAppPermissions();
   const { data: roles, isLoading: rolesLoading, isError: rolesError, refetch: refetchRoles } = useAppRoles();
   const createRoleMutation = useCreateAppRole();
+  const deleteRoleMutation = useDeleteAppRole();
   const updateRolePermissionsMutation = useUpdateRolePermissions();
 
   const [newRoleName, setNewRoleName] = useState('');
@@ -49,6 +51,15 @@ const RolePermissionsPage: React.FC = () => {
 
   const effectiveRoleId = selectedRoleId || roles?.[0]?.id || '';
   const currentRole = useMemo(() => (roles || []).find((role) => role.id === effectiveRoleId), [roles, effectiveRoleId]);
+
+  useEffect(() => {
+    if (!effectiveRoleId) {
+      setSelectedPermissionKeys([]);
+      return;
+    }
+    const role = (roles || []).find((item) => item.id === effectiveRoleId);
+    setSelectedPermissionKeys(role?.permission_keys || []);
+  }, [roles, effectiveRoleId]);
 
   const handleSelectRole = (roleId: string) => {
     setSelectedRoleId(roleId);
@@ -84,6 +95,23 @@ const RolePermissionsPage: React.FC = () => {
     updateRolePermissionsMutation.mutate({
       roleId: effectiveRoleId,
       permissionKeys: selectedPermissionKeys,
+    });
+  };
+
+  const handleDeleteRole = (roleId: string) => {
+    const role = (roles || []).find((item) => item.id === roleId);
+    if (!role) return;
+
+    const shouldDelete = window.confirm(`Bạn có chắc muốn xóa quyền \"${getRoleDisplayName(role.role_name, role.role_key)}\"?`);
+    if (!shouldDelete) return;
+
+    deleteRoleMutation.mutate(roleId, {
+      onSuccess: () => {
+        if (effectiveRoleId === roleId) {
+          setSelectedRoleId('');
+          setSelectedPermissionKeys([]);
+        }
+      },
     });
   };
 
@@ -134,18 +162,30 @@ const RolePermissionsPage: React.FC = () => {
 
               <div className="space-y-2">
                 {(roles || []).map((role) => (
-                  <button
+                  <div
                     key={role.id}
-                    onClick={() => handleSelectRole(role.id)}
-                    className={`w-full text-left p-3 rounded-xl border transition-all ${
+                    className={`w-full p-3 rounded-xl border transition-all ${
                       effectiveRoleId === role.id
                         ? 'border-primary bg-primary/5'
                         : 'border-border hover:border-primary/40 bg-white'
                     }`}
                   >
-                    <div className="text-[13px] font-bold text-foreground">{getRoleDisplayName(role.role_name, role.role_key)}</div>
-                    <div className="text-[11px] text-muted-foreground mt-1">{role.permission_keys?.length || 0} trang đã cấp</div>
-                  </button>
+                    <div className="flex items-start justify-between gap-3">
+                      <button type="button" onClick={() => handleSelectRole(role.id)} className="min-w-0 text-left flex-1">
+                        <div className="text-[13px] font-bold text-foreground">{getRoleDisplayName(role.role_name, role.role_key)}</div>
+                        <div className="text-[11px] text-muted-foreground mt-1">{role.permission_keys?.length || 0} trang đã cấp</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRole(role.id)}
+                        disabled={deleteRoleMutation.isPending}
+                        className="shrink-0 p-1.5 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-60"
+                        title="Xóa quyền"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>

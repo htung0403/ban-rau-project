@@ -59,6 +59,15 @@ export class RolesController {
     }
   }
 
+  static async deleteRole(req: Request, res: Response) {
+    try {
+      const data = await RolesService.deleteRole(req.params.roleId as string);
+      return res.status(200).json(successResponse(data, 'Role deleted'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
   static async updateRolePermissions(req: Request, res: Response) {
     try {
       const validated = updateRolePermissionsSchema.parse(req.body);

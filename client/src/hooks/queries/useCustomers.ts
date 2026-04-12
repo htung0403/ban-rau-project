@@ -71,6 +71,37 @@ export function useCreateCustomer() {
   });
 }
 
+export function useUpdateCustomer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: { name?: string; phone?: string | null; address?: string | null; customer_type?: string };
+    }) => customersApi.update(id, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+      queryClient.invalidateQueries({ queryKey: customerKeys.detail(variables.id) });
+      toast.success('Cập nhật khách hàng thành công');
+    },
+    onError: () => toast.error('Lỗi khi cập nhật khách hàng'),
+  });
+}
+
+export function useDeleteCustomer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => customersApi.remove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+      toast.success('Đã xóa khách hàng');
+    },
+    onError: () => toast.error('Lỗi khi xóa khách hàng'),
+  });
+}
+
 export function useUpdateCustomerPayment() {
   const queryClient = useQueryClient();
   return useMutation({

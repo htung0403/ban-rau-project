@@ -5,8 +5,9 @@ import { clsx } from 'clsx';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useCreateCustomer } from '../../../hooks/queries/useCustomers';
+import { useCreateCustomer, useUpdateCustomer } from '../../../hooks/queries/useCustomers';
 import { CustomSelect } from '../../../components/shared/CustomSelect';
+import type { Customer } from '../../../types';
 
 const customerSchema = z.object({
   name: z.string().min(2, 'Tên khách hàng phải từ 2 ký tự'),
@@ -22,10 +23,14 @@ interface Props {
   isClosing: boolean;
   onClose: () => void;
   defaultType?: 'wholesale' | 'grocery' | 'retail' | 'vegetable';
+  mode?: 'create' | 'edit';
+  customer?: Customer | null;
 }
 
-const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, defaultType }) => {
+const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, defaultType, mode = 'create', customer = null }) => {
   const createMutation = useCreateCustomer();
+  const updateMutation = useUpdateCustomer();
+  const isEditMode = mode === 'edit' && !!customer?.id;
 
   const {
     register,
@@ -46,13 +51,13 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
   useEffect(() => {
     if (isOpen) {
       reset({
-        name: '',
-        phone: '',
-        address: '',
-        customer_type: defaultType || 'grocery',
+        name: isEditMode ? (customer?.name || '') : '',
+        phone: isEditMode ? (customer?.phone || '') : '',
+        address: isEditMode ? (customer?.address || '') : '',
+        customer_type: isEditMode ? (customer?.customer_type || defaultType || 'grocery') : (defaultType || 'grocery'),
       });
     }
-  }, [isOpen, reset, defaultType]);
+  }, [isOpen, reset, defaultType, isEditMode, customer]);
 
   const onSubmit = async (data: CustomerFormData) => {
     try {
@@ -62,17 +67,23 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
         address: data.address || undefined,
         customer_type: data.customer_type,
       };
-      await createMutation.mutateAsync(payload);
+      if (isEditMode && customer?.id) {
+        await updateMutation.mutateAsync({ id: customer.id, payload });
+      } else {
+        await createMutation.mutateAsync(payload);
+      }
       onClose();
     } catch (error) {
       // Error handled by mutation
     }
   };
 
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+
   if (!isOpen && !isClosing) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex justify-end">
+    <div className="fixed inset-0 z-9999 flex justify-end">
       {/* Backdrop */}
       <div
         className={clsx(
@@ -85,7 +96,7 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
       {/* Panel */}
       <div
         className={clsx(
-          'relative w-full max-w-[500px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
+          'relative w-full max-w-125 bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
           isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
         )}
       >
@@ -95,7 +106,7 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
               <Building2 size={20} />
             </div>
-            <h2 className="text-lg font-bold text-foreground">Thêm khách hàng</h2>
+            <h2 className="text-lg font-bold text-foreground">{isEditMode ? 'Chỉnh sửa khách hàng' : 'Thêm khách hàng'}</h2>
           </div>
           <button
             onClick={onClose}
@@ -189,20 +200,20 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
           <button 
             type="submit"
             form="customer-form"
-            disabled={createMutation.isPending}
+            disabled={isSubmitting}
             className={clsx(
               "flex items-center gap-2 px-8 py-2 rounded-xl text-[13px] font-bold shadow-lg transition-all group",
-              createMutation.isPending 
+              isSubmitting 
                 ? "bg-primary/50 text-white/60 cursor-wait" 
                 : "bg-primary text-white hover:bg-primary/90 shadow-primary/20"
             )}
           >
-            {createMutation.isPending ? (
+            {isSubmitting ? (
               <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <Plus size={18} />
             )}
-            Thêm mới
+            {isEditMode ? 'Lưu thay đổi' : 'Thêm mới'}
             <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>

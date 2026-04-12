@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { deliveryApi } from '../../api/deliveryApi';
 import toast from 'react-hot-toast';
 import { importOrderKeys } from './useImportOrders';
+import { exportOrderKeys } from './useExportOrders';
 
 export const deliveryKeys = {
   all: ['delivery'] as const,
@@ -50,6 +51,7 @@ export function useAssignVehicle() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: deliveryKeys.all });
       queryClient.invalidateQueries({ queryKey: importOrderKeys.all });
+      queryClient.invalidateQueries({ queryKey: exportOrderKeys.all });
       toast.success('Gắn xe thành công');
     },
     onError: () => toast.error('Lỗi khi gắn xe'),

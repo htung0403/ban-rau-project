@@ -36,6 +36,18 @@ export function useCreateAppRole() {
   });
 }
 
+export function useDeleteAppRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: rolesApi.deleteRole,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: rolesKeys.list() });
+      toast.success('Xóa quyền thành công');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Không thể xóa quyền'),
+  });
+}
+
 export function useUpdateRolePermissions() {
   const queryClient = useQueryClient();
   return useMutation({

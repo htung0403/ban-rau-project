@@ -11,6 +11,13 @@ const createCustomerSchema = z.object({
   user_id: z.string().uuid().optional(),
 });
 
+const updateCustomerSchema = z.object({
+  name: z.string().min(1).optional(),
+  phone: z.string().nullable().optional(),
+  address: z.string().nullable().optional(),
+  customer_type: z.enum(['retail', 'wholesale', 'grocery', 'vegetable']).optional(),
+});
+
 const debtPaymentSchema = z.object({
   amount: z.number().min(0),
   payment_date: z.string().optional(),
@@ -95,6 +102,25 @@ export class CustomerController {
       const validated = createCustomerSchema.parse(req.body);
       const data = await CustomerService.create(validated);
       return res.status(201).json(successResponse(data, 'Customer created'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async update(req: Request, res: Response) {
+    try {
+      const validated = updateCustomerSchema.parse(req.body);
+      const data = await CustomerService.update(req.params.id as string, validated);
+      return res.status(200).json(successResponse(data, 'Customer updated'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async delete(req: Request, res: Response) {
+    try {
+      await CustomerService.softDelete(req.params.id as string);
+      return res.status(200).json(successResponse(null, 'Customer deleted'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
     }

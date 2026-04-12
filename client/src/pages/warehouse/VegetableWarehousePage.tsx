@@ -64,7 +64,7 @@ const VegetableWarehousePage: React.FC = () => {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
       <div className="hidden md:block">
         <PageHeader
-          title="Tồn kho hàng rau"
+          title="Hàng trên Xe Tải lớn"
           description="Hàng rau tồn kho chờ giao hàng (Còn lại > 0)"
           backPath="/hang-hoa"
         />
@@ -106,47 +106,26 @@ const VegetableWarehousePage: React.FC = () => {
               <table className="w-full border-collapse min-w-[1000px]">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-emerald-50/60 border-b border-border">
-                    <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-left">Thông tin sản phẩm</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">Thao tác</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-left">Người nhận</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">Ngày</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-left">Người gửi</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-left">NV nhận</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-left">Người nhận (vựa)</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">Tổng số lượng</th>
                     <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">Còn lại (Chưa gán)</th>
-                    <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">Ngày dự kiến</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-left">Thông tin sản phẩm</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-left">Nhân viên nhận</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
                   {filteredItems.map((item) => (
                     <tr key={item.id} className="hover:bg-emerald-50/30 transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
-                            <Leaf size={20} />
-                          </div>
-                          <div>
-                            <h4 className="text-[14px] font-bold text-foreground">{item.product_name}</h4>
-                            <span className="text-[11px] font-medium text-emerald-600 bg-emerald-500/5 px-2 py-0.5 rounded-full inline-block mt-1 uppercase tracking-tight">
-                              {(item.vegetable_orders || item.import_orders)?.order_code || 'N/A'}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
                       <td className="px-6 py-4 text-center">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openAssign(item); }}
-                          className="px-3 py-1.5 bg-orange-100 text-orange-600 hover:bg-orange-200 font-bold text-[12px] rounded-lg transition-colors inline-flex items-center gap-1.5"
-                        >
-                          <Truck size={14} /> Phân xe
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5 text-[13px] font-bold text-slate-700">
-                          <User size={14} className="text-muted-foreground" />
-                          {(() => {
-                            const o = item.vegetable_orders || item.import_orders || {};
-                            return o.receiver_name?.trim() || o.customers?.name || '-';
-                          })()}
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="text-[12px] font-bold text-foreground inline-flex items-center gap-1.5">
+                            <Calendar size={14} className="text-emerald-500" />
+                            {item.delivery_date ? new Date(item.delivery_date).toLocaleDateString('vi-VN') : '-'}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Ngày giao</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -159,10 +138,11 @@ const VegetableWarehousePage: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-[13px] font-medium text-amber-700">
+                        <div className="flex items-center gap-1.5 text-[13px] font-bold text-slate-700">
+                          <User size={14} className="text-muted-foreground" />
                           {(() => {
                             const o = item.vegetable_orders || item.import_orders || {};
-                            return o.profiles?.full_name || '-';
+                            return o.receiver_name?.trim() || o.customers?.name || '-';
                           })()}
                         </div>
                       </td>
@@ -184,14 +164,34 @@ const VegetableWarehousePage: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="text-[12px] font-bold text-foreground inline-flex items-center gap-1.5">
-                            <Calendar size={14} className="text-emerald-500" />
-                            {item.delivery_date ? new Date(item.delivery_date).toLocaleDateString('vi-VN') : '-'}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Ngày giao</span>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+                            <Leaf size={20} />
+                          </div>
+                          <div>
+                            <h4 className="text-[14px] font-bold text-foreground">{item.product_name}</h4>
+                            <span className="text-[11px] font-medium text-emerald-600 bg-emerald-500/5 px-2 py-0.5 rounded-full inline-block mt-1 uppercase tracking-tight">
+                              {(item.vegetable_orders || item.import_orders)?.order_code || 'N/A'}
+                            </span>
+                          </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-[13px] font-medium text-amber-700">
+                          {(() => {
+                            const o = item.vegetable_orders || item.import_orders || {};
+                            return o.profiles?.full_name || '-';
+                          })()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openAssign(item); }}
+                          className="px-3 py-1.5 bg-orange-100 text-orange-600 hover:bg-orange-200 font-bold text-[12px] rounded-lg transition-colors inline-flex items-center gap-1.5"
+                        >
+                          <Truck size={14} /> Phân xe
+                        </button>
                       </td>
                     </tr>
                   ))}

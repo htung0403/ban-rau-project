@@ -19,6 +19,18 @@ router.post(
 	CustomerController.create
 );
 
+router.put(
+	'/:id',
+	requirePolicy('CUSTOMERS_SHARED_LOOKUP'),
+	CustomerController.update
+);
+
+router.delete(
+	'/:id',
+	requirePolicy('CUSTOMERS_SHARED_LOOKUP'),
+	CustomerController.delete
+);
+
 router.get(
 	'/:id',
 	requirePolicy('CUSTOMERS_DIRECTORY_READ'),

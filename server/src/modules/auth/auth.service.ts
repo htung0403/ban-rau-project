@@ -55,9 +55,40 @@ export class AuthService {
     // JWT stateless — client xóa token là đủ
   }
 
-  static async updatePassword(userId: string, newPassword: string) {
+  static async updatePassword(userId: string, currentPassword: string, newPassword: string) {
+    const { data: profile, error } = await supabaseService
+      .from('profiles')
+      .select('password_hash')
+      .eq('id', userId)
+      .single();
+    if (error) throw error;
+
+    const existingHash = profile?.password_hash as string | null | undefined;
+    if (existingHash) {
+      if (!currentPassword) {
+        throw new Error('Vui lòng nhập mật khẩu hiện tại');
+      }
+      const ok = await verifyPassword(currentPassword, existingHash);
+      if (!ok) {
+        throw new Error('Mật khẩu hiện tại không đúng');
+      }
+    }
+
     const password_hash = await hashPassword(newPassword);
-    const { error } = await supabaseService.from('profiles').update({ password_hash }).eq('id', userId);
+    const { error: updateError } = await supabaseService
+      .from('profiles')
+      .update({ password_hash })
+      .eq('id', userId);
+    if (updateError) throw updateError;
+  }
+
+  /** Admin đặt lại mật khẩu cho profile khác (không cần mật khẩu cũ). */
+  static async adminSetUserPassword(targetUserId: string, newPassword: string) {
+    const password_hash = await hashPassword(newPassword);
+    const { error } = await supabaseService
+      .from('profiles')
+      .update({ password_hash })
+      .eq('id', targetUserId);
     if (error) throw error;
   }
 

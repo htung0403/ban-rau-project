@@ -17,8 +17,13 @@ export const authApi = {
     return data;
   },
 
-  changePassword: async (newPassword: string) => {
-    const { data } = await axiosClient.put<void>('/auth/change-password', { newPassword });
+  changePassword: async (payload: {
+    currentPassword?: string;
+    newPassword: string;
+    /** Chỉ admin: đặt mật khẩu cho user khác */
+    userId?: string;
+  }) => {
+    const { data } = await axiosClient.put<void>('/auth/change-password', payload);
     return data;
   },
 

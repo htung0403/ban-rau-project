@@ -9,7 +9,10 @@ const loginSchema = z.object({
 });
 
 const changePasswordSchema = z.object({
-  newPassword: z.string().min(6),
+  currentPassword: z.string().optional(),
+  newPassword: z.string().min(6, 'Mật khẩu mới tối thiểu 6 ký tự'),
+  /** Admin đặt mật khẩu cho nhân viên / user khác */
+  userId: z.string().min(1).optional(),
 });
 
 const updateProfileSchema = z.object({
@@ -67,7 +70,21 @@ export class AuthController {
     try {
       const validated = changePasswordSchema.parse(req.body);
       if (!req.user) throw new Error('Not authenticated');
-      await AuthService.updatePassword(req.user.id, validated.newPassword);
+
+      const targetId = validated.userId;
+      if (targetId && targetId !== req.user.id) {
+        if (req.user.role !== 'admin') {
+          return res.status(403).json(errorResponse('Không có quyền đặt mật khẩu cho tài khoản khác'));
+        }
+        await AuthService.adminSetUserPassword(targetId, validated.newPassword);
+        return res.status(200).json(successResponse(null, 'Password updated successfully'));
+      }
+
+      await AuthService.updatePassword(
+        req.user.id,
+        validated.currentPassword ?? '',
+        validated.newPassword
+      );
       return res.status(200).json(successResponse(null, 'Password updated successfully'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));

@@ -5,7 +5,7 @@ import {
   Heart, Landmark, Shield, Info,
   IdCard, UserCircle, BriefcaseIcon, MapPinIcon,
   WalletIcon,
-  X, Edit, Trash2, Save, Loader2
+  X, Edit, Trash2, Save, Loader2, KeyRound
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useState, useRef, useEffect } from 'react';
@@ -65,6 +65,15 @@ const ProfilePage: React.FC = () => {
   const canEditProfile = !isCustomer && (isCurrentUser || isAdmin);
   /** Chỉ admin, khi mở hồ sơ nhân viên khác — khớp cấp bậc lương (role_key trên profiles). */
   const canEditEmployeeRank = isAdmin && !isCurrentUser && !isCustomer;
+  /** Đổi mật khẩu: tài khoản của mình, hoặc admin đang xem hồ sơ nhân viên (không phải khách). */
+  const showPasswordButton =
+    isCurrentUser || (isAdmin && !isCurrentUser && !isCustomer && Boolean(targetId));
+  const showAvatarButton = isCurrentUser;
+  const showEditButton = canEditProfile;
+  const actionButtonCount =
+    Number(showAvatarButton) + Number(showEditButton) + Number(showPasswordButton);
+  const actionGridClass =
+    actionButtonCount >= 3 ? 'grid-cols-3' : actionButtonCount === 2 ? 'grid-cols-2' : 'grid-cols-1';
 
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
@@ -72,6 +81,11 @@ const ProfilePage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [passwordOld, setPasswordOld] = useState('');
+  const [passwordNew, setPasswordNew] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [salaryRankKeyDraft, setSalaryRankKeyDraft] = useState('');
   const [profileForm, setProfileForm] = useState<ProfileFormState>({
     full_name: '',
@@ -305,6 +319,54 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  const resetPasswordForm = () => {
+    setPasswordOld('');
+    setPasswordNew('');
+    setPasswordConfirm('');
+  };
+
+  const handleTogglePasswordChange = () => {
+    setShowPasswordChange((open) => {
+      if (open) resetPasswordForm();
+      return !open;
+    });
+  };
+
+  const handleCancelPasswordChange = () => {
+    resetPasswordForm();
+    setShowPasswordChange(false);
+  };
+
+  const handleSavePassword = async () => {
+    if (passwordNew.length < 6) {
+      toast.error('Mật khẩu mới tối thiểu 6 ký tự');
+      return;
+    }
+    if (passwordNew !== passwordConfirm) {
+      toast.error('Xác nhận mật khẩu mới không khớp');
+      return;
+    }
+    try {
+      setIsSavingPassword(true);
+      const adminSetsEmployeePassword = isAdmin && !isCurrentUser && !isCustomer && targetId;
+      if (adminSetsEmployeePassword) {
+        await authApi.changePassword({ userId: targetId, newPassword: passwordNew });
+        toast.success('Đã đặt mật khẩu mới cho nhân viên');
+      } else {
+        await authApi.changePassword({
+          currentPassword: passwordOld,
+          newPassword: passwordNew,
+        });
+        toast.success('Đổi mật khẩu thành công');
+      }
+      handleCancelPasswordChange();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || err.message || 'Không thể đổi mật khẩu');
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
+
   const handleCancelEditProfile = () => {
     if (isCustomer || !employeeProfile) return;
     setProfileForm({
@@ -402,35 +464,123 @@ const ProfilePage: React.FC = () => {
                   </div>
 
                   {(isCurrentUser || canEditProfile) && (
-                    <div className={clsx('w-full gap-3 mt-8', isCurrentUser ? 'grid grid-cols-2' : 'grid grid-cols-1')}>
-                      {isCurrentUser && (
-                        <button
-                          onClick={() => setIsAvatarModalOpen(true)}
-                          className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-muted/50 border border-border hover:bg-muted transition-colors group"
-                        >
-                          <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shadow-sm">
-                            <Camera size={16} />
+                    <div className="w-full mt-8 space-y-3">
+                      <div className={clsx('grid gap-3', actionGridClass)}>
+                        {showAvatarButton && (
+                          <button
+                            type="button"
+                            onClick={() => setIsAvatarModalOpen(true)}
+                            className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-muted/50 border border-border hover:bg-muted transition-colors group"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shadow-sm">
+                              <Camera size={16} />
+                            </div>
+                            <span className="text-[10px] font-bold text-muted-foreground">Đổi ảnh</span>
+                          </button>
+                        )}
+                        {showEditButton && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isEditingProfile) {
+                                handleSaveProfile();
+                                return;
+                              }
+                              setIsEditingProfile(true);
+                            }}
+                            disabled={isSavingProfile}
+                            className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-muted/50 border border-border hover:bg-muted transition-colors group"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shadow-sm">
+                              {isSavingProfile ? <Loader2 size={16} className="animate-spin" /> : <Edit size={16} />}
+                            </div>
+                            <span className="text-[10px] font-bold text-muted-foreground">{isEditingProfile ? 'Lưu hồ sơ' : 'Sửa hồ sơ'}</span>
+                          </button>
+                        )}
+                        {showPasswordButton && (
+                          <button
+                            type="button"
+                            onClick={handleTogglePasswordChange}
+                            className={clsx(
+                              'flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-colors group min-w-0',
+                              showPasswordChange
+                                ? 'bg-primary/10 border-primary/30 text-primary'
+                                : 'bg-muted/50 border-border hover:bg-muted'
+                            )}
+                          >
+                            <div
+                              className={clsx(
+                                'w-8 h-8 rounded-full bg-card flex items-center justify-center shadow-sm transition-colors shrink-0',
+                                showPasswordChange
+                                  ? 'text-primary'
+                                  : 'text-muted-foreground group-hover:text-primary'
+                              )}
+                            >
+                              <KeyRound size={16} />
+                            </div>
+                            <span className="text-[10px] font-bold text-muted-foreground text-center leading-tight">Đổi mật khẩu</span>
+                          </button>
+                        )}
+                      </div>
+                      {showPasswordButton && showPasswordChange && (
+                        <div className="w-full rounded-xl border border-border bg-muted/20 p-3 space-y-3 text-left">
+                          {isCurrentUser && (
+                            <div className="space-y-1.5">
+                              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Mật khẩu cũ</p>
+                              <input
+                                type="password"
+                                autoComplete="current-password"
+                                value={passwordOld}
+                                onChange={(e) => setPasswordOld(e.target.value)}
+                                className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm"
+                              />
+                            </div>
+                          )}
+                          {!isCurrentUser && isAdmin && (
+                            <p className="text-xs text-muted-foreground">
+                              Đặt mật khẩu đăng nhập mới cho nhân viên (không cần mật khẩu cũ).
+                            </p>
+                          )}
+                          <div className="space-y-1.5">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Mật khẩu mới</p>
+                            <input
+                              type="password"
+                              autoComplete="new-password"
+                              value={passwordNew}
+                              onChange={(e) => setPasswordNew(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm"
+                            />
                           </div>
-                          <span className="text-[10px] font-bold text-muted-foreground">Đổi ảnh</span>
-                        </button>
-                      )}
-                      {canEditProfile && (
-                        <button
-                          onClick={() => {
-                            if (isEditingProfile) {
-                              handleSaveProfile();
-                              return;
-                            }
-                            setIsEditingProfile(true);
-                          }}
-                          disabled={isSavingProfile}
-                          className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-muted/50 border border-border hover:bg-muted transition-colors group"
-                        >
-                          <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shadow-sm">
-                            {isSavingProfile ? <Loader2 size={16} className="animate-spin" /> : <Edit size={16} />}
+                          <div className="space-y-1.5">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Xác nhận mật khẩu mới</p>
+                            <input
+                              type="password"
+                              autoComplete="new-password"
+                              value={passwordConfirm}
+                              onChange={(e) => setPasswordConfirm(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm"
+                            />
                           </div>
-                          <span className="text-[10px] font-bold text-muted-foreground">{isEditingProfile ? 'Lưu hồ sơ' : 'Sửa hồ sơ'}</span>
-                        </button>
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={handleCancelPasswordChange}
+                              disabled={isSavingPassword}
+                              className="flex-1 py-2 rounded-xl border border-border text-xs font-bold hover:bg-muted disabled:opacity-50"
+                            >
+                              Hủy
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSavePassword}
+                              disabled={isSavingPassword}
+                              className="flex-1 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                              {isSavingPassword ? <Loader2 size={14} className="animate-spin" /> : null}
+                              Lưu mật khẩu
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}

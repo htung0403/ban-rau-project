@@ -20,6 +20,7 @@ SET
   module_name = EXCLUDED.module_name,
   updated_at = NOW();
 
+
 -- Mặc định: admin, kế toán (ke_toan), quản lý; tài xế (driver hoặc role_key bắt đầu bằng tai_xe)
 INSERT INTO public.app_role_permissions (role_id, permission_id)
 SELECT ar.id, ap.id

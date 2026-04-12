@@ -1,36 +1,15 @@
+import { randomUUID } from 'crypto';
 import { supabaseService } from '../../config/supabase';
 import { format, startOfWeek } from 'date-fns';
+import { buildPhoneCandidates } from '../../utils/phoneAuth';
+import { hashPassword } from '../../utils/password';
+import { PROFILE_SELECT_PUBLIC } from '../../constants/profileColumns';
 
 export class HRService {
-  private static normalizePhoneForAuth(rawPhone: string): string {
-    const digits = (rawPhone || '').replace(/\D/g, '');
-    if (!digits) throw new Error('Phone is required');
-    if (digits.startsWith('84')) return `+${digits}`;
-    if (digits.startsWith('0')) return `+84${digits.slice(1)}`;
-    if (digits.startsWith('9') && digits.length === 9) return `+84${digits}`;
-    return `+${digits}`;
-  }
-
-  private static buildPhoneCandidates(rawPhone: string): string[] {
-    const raw = (rawPhone || '').trim();
-    const digits = raw.replace(/\D/g, '');
-    const candidates = new Set<string>([raw, digits]);
-
-    if (digits.startsWith('84') && digits.length >= 10) {
-      candidates.add(`+${digits}`);
-      candidates.add(`0${digits.slice(2)}`);
-    } else if (digits.startsWith('0') && digits.length >= 10) {
-      candidates.add(`84${digits.slice(1)}`);
-      candidates.add(`+84${digits.slice(1)}`);
-    }
-
-    return Array.from(candidates).filter(Boolean);
-  }
-
   static async getEmployees() {
     const { data, error } = await supabaseService
       .from('profiles')
-      .select('*, app_user_roles(role_id, app_roles(id, role_key, role_name))')
+      .select(`${PROFILE_SELECT_PUBLIC}, app_user_roles(role_id, app_roles(id, role_key, role_name))`)
       .neq('role', 'customer');
     if (error) throw error;
     return data;
@@ -38,8 +17,7 @@ export class HRService {
 
   static async createEmployee(payload: any) {
     const { password, full_name, phone, role } = payload;
-    const authPhone = this.normalizePhoneForAuth(phone);
-    const phoneCandidates = this.buildPhoneCandidates(phone);
+    const phoneCandidates = buildPhoneCandidates(phone);
 
     const { data: existedProfile, error: existedProfileError } = await supabaseService
       .from('profiles')
@@ -53,54 +31,25 @@ export class HRService {
       throw new Error(`Số điện thoại ${phone} đã tồn tại (${existedProfile.full_name || existedProfile.id})`);
     }
 
-    // 1. Check auth users to prevent creating duplicate phone identities
-    const { data: existingUser } = await (supabaseService.auth as any).admin.listUsers();
-    const userAlreadyExists = existingUser?.users?.find((u: any) => u.phone === authPhone);
-    if (userAlreadyExists) {
-      throw new Error(`Số điện thoại ${phone} đã tồn tại trong hệ thống đăng nhập`);
-    }
+    const id = randomUUID();
+    const password_hash = await hashPassword(password);
 
-    // Create new auth user
-    const { data: authData, error: authError } = await (supabaseService.auth as any).admin.createUser({
-      phone: authPhone,
-      password,
-      phone_confirm: true,
-      user_metadata: { full_name, role }
-    });
+    const { data: profile, error: profileError } = await supabaseService
+      .from('profiles')
+      .insert({
+        id,
+        password_hash,
+        email: null,
+        full_name,
+        phone,
+        role,
+        is_active: true,
+      })
+      .select(PROFILE_SELECT_PUBLIC)
+      .single();
 
-    if (authError) throw authError;
-    const userId = authData.user.id;
-    const authEmail = authData.user.email || null;
-
-    // 2. Profile record: Use upsert with retry or separate error handling
-    try {
-      // Small delay to allow potential DB triggers to finish
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const { data: profile, error: profileError } = await supabaseService
-        .from('profiles')
-        .upsert({
-          id: userId,
-          email: authEmail,
-          full_name,
-          phone,
-          role,
-          is_active: true
-        }, { onConflict: 'id' })
-        .select()
-        .single();
-
-      if (profileError) {
-        // Roll back auth user if profile creation failed
-        await (supabaseService.auth as any).admin.deleteUser(userId);
-        throw profileError;
-      }
-
-      return profile;
-    } catch (error) {
-      console.error('Profile creation failed:', error);
-      throw error;
-    }
+    if (profileError) throw profileError;
+    return profile;
   }
 
   static async updateEmployeeStatus(id: string, is_active: boolean) {
@@ -133,6 +82,10 @@ export class HRService {
     address_line?: string | null;
     temporary_address?: string | null;
   }) {
+    const loginEmail = (payload.personal_email || '').trim();
+    const profileEmail =
+      payload.personal_email !== undefined ? (loginEmail ? loginEmail.toLowerCase() : null) : undefined;
+
     const { data, error } = await supabaseService
       .from('profiles')
       .update({
@@ -145,6 +98,7 @@ export class HRService {
         job_title: payload.job_title || null,
         department: payload.department || null,
         personal_email: payload.personal_email || null,
+        ...(profileEmail !== undefined ? { email: profileEmail } : {}),
         emergency_contact_name: payload.emergency_contact_name || null,
         emergency_contact_phone: payload.emergency_contact_phone || null,
         emergency_contact_relationship: payload.emergency_contact_relationship || null,
@@ -155,7 +109,7 @@ export class HRService {
         temporary_address: payload.temporary_address || null,
       })
       .eq('id', id)
-      .select('*, app_user_roles(role_id, app_roles(id, role_key, role_name))')
+      .select(`${PROFILE_SELECT_PUBLIC}, app_user_roles(role_id, app_roles(id, role_key, role_name))`)
       .single();
 
     if (error) throw error;
@@ -198,19 +152,13 @@ export class HRService {
       .eq('id', id);
     if (profileError) throw profileError;
 
-    // Delete auth user
-    const { error: authError } = await (supabaseService.auth as any).admin.deleteUser(id);
-    if (authError) {
-      console.error('Failed to delete auth user (profile already removed):', authError);
-    }
-
     return { success: true };
   }
 
   static async getEmployeeById(id: string) {
     const { data, error } = await supabaseService
       .from('profiles')
-      .select('*, app_user_roles(role_id, app_roles(id, role_key, role_name))')
+      .select(`${PROFILE_SELECT_PUBLIC}, app_user_roles(role_id, app_roles(id, role_key, role_name))`)
       .eq('id', id)
       .single();
     if (error) throw error;

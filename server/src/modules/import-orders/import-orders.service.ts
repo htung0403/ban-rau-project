@@ -17,9 +17,14 @@ export class ImportOrderService {
     const fetchBoth = !isVegOnly && !isStandardOnly;
 
     const buildQuery = (tName: string, iName: string) => {
+      // import_orders có 2 FK tới profiles (received_by, sg_cash_handover_confirmed_by) → bắt buộc chỉ rõ quan hệ
+      const receivedByProfile =
+        tName === 'import_orders'
+          ? 'profiles:profiles!import_orders_received_by_fkey(full_name, role)'
+          : 'profiles(full_name, role)';
       let q = supabaseService
         .from(tName)
-        .select(`*, profiles(full_name, role), warehouses(name), customers(id, name, phone, address), ${iName}(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))`);
+        .select(`*, ${receivedByProfile}, warehouses(name), customers(id, name, phone, address), ${iName}(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))`);
 
       q = q.is('deleted_at', null);
       
@@ -86,7 +91,7 @@ export class ImportOrderService {
   static async getById(id: string, actor?: UserPayload) {
     let { data, error } = await supabaseService
       .from('import_orders')
-      .select('*, profiles(full_name, role), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))')
+      .select('*, profiles:profiles!import_orders_received_by_fkey(full_name, role), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))')
       .eq('id', id)
       .is('deleted_at', null)
       .maybeSingle();
@@ -164,7 +169,7 @@ export class ImportOrderService {
         order_date: orderDate,
         order_time: mainData.order_time || format(new Date(), 'HH:mm'),
         order_code: orderCode,
-        received_by: userId,
+        received_by: mainData.received_by || userId,
         warehouse_id: mainData.warehouse_id,
         status: mainData.status || 'pending',
         notes: mainData.notes,
@@ -235,26 +240,31 @@ export class ImportOrderService {
     const fkName = isVeg ? 'vegetable_order_id' : 'import_order_id';
 
     // 1. Update main order
+    const orderUpdate: Record<string, unknown> = {
+      order_date: mainData.order_date,
+      order_time: mainData.order_time,
+      warehouse_id: mainData.warehouse_id,
+      status: mainData.status,
+      notes: mainData.notes,
+      license_plate: mainData.license_plate,
+      driver_name: mainData.driver_name,
+      supplier_name: mainData.supplier_name,
+      sender_name: mainData.sender_name,
+      receiver_name: mainData.receiver_name,
+      sheet_number: mainData.sheet_number,
+      customer_id: mainData.customer_id,
+      is_custom_amount: mainData.is_custom_amount || false,
+      total_amount: mainData.total_amount,
+      receipt_image_url: mainData.receipt_image_url,
+      payment_status: mainData.payment_status || 'unpaid',
+    };
+    if (mainData.received_by != null && String(mainData.received_by).trim() !== '') {
+      orderUpdate.received_by = mainData.received_by;
+    }
+
     const { data: order, error: orderError } = await supabaseService
       .from(tName)
-      .update({
-        order_date: mainData.order_date,
-        order_time: mainData.order_time,
-        warehouse_id: mainData.warehouse_id,
-        status: mainData.status,
-        notes: mainData.notes,
-        license_plate: mainData.license_plate,
-        driver_name: mainData.driver_name,
-        supplier_name: mainData.supplier_name,
-        sender_name: mainData.sender_name,
-        receiver_name: mainData.receiver_name,
-        sheet_number: mainData.sheet_number,
-        customer_id: mainData.customer_id,
-        is_custom_amount: mainData.is_custom_amount || false,
-        total_amount: mainData.total_amount,
-        receipt_image_url: mainData.receipt_image_url,
-        payment_status: mainData.payment_status || 'unpaid',
-      })
+      .update(orderUpdate)
       .eq('id', id)
       .select()
       .single();

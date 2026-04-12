@@ -15,7 +15,9 @@ import { useAuth } from '../context/AuthContext';
 import { useBreadcrumbs } from '../context/BreadcrumbContext';
 import { useEmployee, useUpdateEmployee } from '../hooks/queries/useHR';
 import { useCustomerByUserId } from '../hooks/queries/useCustomers';
+import { useRoleSalaries } from '../hooks/queries/usePriceSettings';
 import LoadingSkeleton from '../components/shared/LoadingSkeleton';
+import { SearchableSelect } from '../components/ui/SearchableSelect';
 import { translateRole } from '../lib/utils';
 import { uploadApi } from '../api/uploadApi';
 import { authApi } from '../api/authApi';
@@ -47,6 +49,7 @@ const ProfilePage: React.FC = () => {
   const { user, updateUser } = useAuth();
   const { avatar } = useTheme();
   const { mutateAsync: updateEmployeeProfile } = useUpdateEmployee();
+  const { data: salaryRoles } = useRoleSalaries();
 
   const isCurrentUser = !id || id === user?.id;
   const targetId = id || user?.id || '';
@@ -60,6 +63,8 @@ const ProfilePage: React.FC = () => {
   const isCustomer = isCurrentUser ? user?.role === 'customer' : !!customerData;
   const isAdmin = user?.role === 'admin';
   const canEditProfile = !isCustomer && (isCurrentUser || isAdmin);
+  /** Chỉ admin, khi mở hồ sơ nhân viên khác — khớp cấp bậc lương (role_key trên profiles). */
+  const canEditEmployeeRank = isAdmin && !isCurrentUser && !isCustomer;
 
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
@@ -67,6 +72,7 @@ const ProfilePage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [salaryRankKeyDraft, setSalaryRankKeyDraft] = useState('');
   const [profileForm, setProfileForm] = useState<ProfileFormState>({
     full_name: '',
     phone: '',
@@ -124,7 +130,42 @@ const ProfilePage: React.FC = () => {
       address_line: employeeProfile?.address_line || '',
       temporary_address: employeeProfile?.temporary_address || '',
     });
-  }, [isCustomer, employeeProfile, displayUser?.full_name]);
+    if (canEditEmployeeRank) {
+      setSalaryRankKeyDraft(String(employeeProfile?.role || 'staff'));
+    }
+  }, [isCustomer, employeeProfile, displayUser?.full_name, canEditEmployeeRank]);
+
+  const salaryRankSelectOptions = React.useMemo(() => {
+    const base = (salaryRoles || []).map((r) => ({ value: r.role_key, label: r.role_name }));
+    const key = displayUser?.role as string | undefined;
+    if (key && !base.some((o) => o.value === key)) {
+      return [{ value: key, label: translateRole(key) }, ...base];
+    }
+    if (base.length === 0 && key) {
+      return [{ value: key, label: translateRole(key) }];
+    }
+    return base;
+  }, [salaryRoles, displayUser?.role]);
+
+  const employeeRankLabel = React.useMemo(() => {
+    const key = displayUser?.role as string | undefined;
+    if (!key) return '---';
+    const match = salaryRoles?.find((r) => r.role_key === key);
+    return match?.role_name || translateRole(key);
+  }, [displayUser?.role, salaryRoles]);
+
+  /** Chức vụ hiển thị: không dùng mã role_key (vd. tai_xe_xe_lon) — ưu tiên tên cấp bậc lương hoặc job_title do người nhập. */
+  const jobTitleDisplay = React.useMemo(() => {
+    const roleKey = displayUser?.role as string | undefined;
+    const raw = employeeProfile?.job_title?.trim();
+    if (raw) {
+      if (roleKey && raw === roleKey) return employeeRankLabel;
+      const titleAsSalary = salaryRoles?.find((r) => r.role_key === raw);
+      if (titleAsSalary) return titleAsSalary.role_name;
+      return raw;
+    }
+    return employeeRankLabel;
+  }, [employeeProfile?.job_title, displayUser?.role, employeeRankLabel, salaryRoles]);
 
   // Update breadcrumb label when user data is available
   useEffect(() => {
@@ -243,7 +284,9 @@ const ProfilePage: React.FC = () => {
           id: targetId,
           payload: {
             ...profilePayload,
-            role: (displayUser?.role as string) || 'staff',
+            role: canEditEmployeeRank
+              ? salaryRankKeyDraft || (displayUser?.role as string) || 'staff'
+              : (displayUser?.role as string) || 'staff',
           },
         });
       }
@@ -282,6 +325,9 @@ const ProfilePage: React.FC = () => {
       address_line: employeeProfile?.address_line || '',
       temporary_address: employeeProfile?.temporary_address || '',
     });
+    if (canEditEmployeeRank) {
+      setSalaryRankKeyDraft(String(employeeProfile?.role || 'staff'));
+    }
     setIsEditingProfile(false);
   };
 
@@ -320,7 +366,7 @@ const ProfilePage: React.FC = () => {
                   <div className="mt-4 text-center">
                     <h2 className="text-xl font-bold text-foreground">{displayUser?.full_name}</h2>
                     <div className="inline-flex items-center px-2.5 py-0.5 mt-1 rounded-full text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">
-                      {translateRole(displayUser?.role)}
+                      {employeeRankLabel}
                     </div>
                   </div>
 
@@ -336,7 +382,7 @@ const ProfilePage: React.FC = () => {
                     {!isCustomer && (
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
                         <User size={16} className="text-primary/60 shrink-0" />
-                        <span>{translateRole(displayUser?.role)}</span>
+                        <span>{employeeRankLabel}</span>
                       </div>
                     )}
                     {isCustomer && (
@@ -511,7 +557,7 @@ const ProfilePage: React.FC = () => {
                       onChange={(value) => handleProfileFieldChange('job_title', value)}
                     />
                   ) : (
-                    <InfoItem icon={Briefcase} label="Chức vụ" value={employeeProfile?.job_title || translateRole(displayUser?.role)} highlight />
+                    <InfoItem icon={Briefcase} label="Chức vụ" value={jobTitleDisplay} highlight />
                   )}
                   {isEditingProfile && canEditProfile ? (
                     <EditableInput
@@ -523,7 +569,24 @@ const ProfilePage: React.FC = () => {
                   ) : (
                     <InfoItem icon={Briefcase} label="Phòng ban" value={employeeProfile?.department || 'Chưa cập nhật'} highlight />
                   )}
-                  <InfoItem icon={User} label="Cấp bậc" value={translateRole(displayUser?.role)} />
+                  {canEditEmployeeRank && isEditingProfile && canEditProfile ? (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-muted-foreground/70">
+                        <User size={12} strokeWidth={2} />
+                        <p className="text-[11px] font-bold uppercase tracking-wider">Cấp bậc</p>
+                      </div>
+                      <SearchableSelect
+                        options={salaryRankSelectOptions}
+                        value={salaryRankKeyDraft}
+                        onValueChange={setSalaryRankKeyDraft}
+                        placeholder="Chọn cấp bậc"
+                        searchPlaceholder="Tìm cấp bậc..."
+                        emptyMessage="Không tìm thấy cấp bậc."
+                      />
+                    </div>
+                  ) : (
+                    <InfoItem icon={User} label="Cấp bậc" value={employeeRankLabel} />
+                  )}
                   <InfoItem icon={Calendar} label="Ngày vào làm" value={employeeProfile?.created_at ? new Date(employeeProfile.created_at).toLocaleDateString() : '--/--/----'} />
                 </div>
               </SectionContainer>

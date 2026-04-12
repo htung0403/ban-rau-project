@@ -474,10 +474,27 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nhân viên nhận</label>
-                        <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[13px] font-semibold text-amber-800">
-                          {employees?.find((e: any) => e.id === watchReceivedBy)?.full_name || user?.full_name || 'Tự động'}
-                        </div>
+                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          {watchPaymentStatus === 'paid' ? 'NV thu tiền (SG)' : 'Nhân viên nhận'}
+                        </label>
+                        {employees?.length ? (
+                          <SearchableSelect
+                            options={(employees || []).map((e: any) => ({
+                              value: e.id,
+                              label: e.full_name || e.phone || e.id,
+                            }))}
+                            value={watchReceivedBy}
+                            onValueChange={(val) => setValue('received_by', val, { shouldValidate: true })}
+                            placeholder="Chọn nhân viên"
+                          />
+                        ) : (
+                          <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[13px] font-semibold text-amber-800">
+                            {employees?.find((e: any) => e.id === watchReceivedBy)?.full_name || user?.full_name || 'Tự động'}
+                          </div>
+                        )}
+                        {errors.received_by && (
+                          <p className="text-red-500 text-[11px] font-medium">{errors.received_by.message as string}</p>
+                        )}
                       </div>
 
                       <div className="space-y-1.5 pt-2 border-t border-slate-100">
@@ -627,10 +644,27 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nhân viên nhận</label>
-                        <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[13px] font-semibold text-amber-800">
-                          {employees?.find((e: any) => e.id === watchReceivedBy)?.full_name || user?.full_name || 'Tự động'}
-                        </div>
+                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          {watchPaymentStatus === 'paid' ? 'NV thu tiền (SG)' : 'Nhân viên nhận'}
+                        </label>
+                        {employees?.length ? (
+                          <SearchableSelect
+                            options={(employees || []).map((e: any) => ({
+                              value: e.id,
+                              label: e.full_name || e.phone || e.id,
+                            }))}
+                            value={watchReceivedBy}
+                            onValueChange={(val) => setValue('received_by', val, { shouldValidate: true })}
+                            placeholder="Chọn nhân viên"
+                          />
+                        ) : (
+                          <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[13px] font-semibold text-amber-800">
+                            {employees?.find((e: any) => e.id === watchReceivedBy)?.full_name || user?.full_name || 'Tự động'}
+                          </div>
+                        )}
+                        {errors.received_by && (
+                          <p className="text-red-500 text-[11px] font-medium">{errors.received_by.message as string}</p>
+                        )}
                       </div>
 
                       <div className="space-y-1.5 pt-2 border-t border-slate-100">

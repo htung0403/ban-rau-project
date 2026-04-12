@@ -1,13 +1,15 @@
--- 1. USERS & AUTH
+-- 1. USERS & AUTH (đăng nhập qua API + JWT; password_hash = bcrypt)
 CREATE TABLE public.profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   full_name VARCHAR(255) NOT NULL,
   phone VARCHAR(20),
+  password_hash TEXT, -- bcrypt, do server tạo
   date_of_birth DATE,
   gender VARCHAR(20) CHECK (gender IN ('male', 'female', 'other')),
   citizen_id VARCHAR(50),
   job_title VARCHAR(120),
   department VARCHAR(120),
+  email TEXT,
   personal_email TEXT,
   emergency_contact_name VARCHAR(255),
   emergency_contact_phone VARCHAR(20),
@@ -84,6 +86,8 @@ CREATE TABLE public.import_orders (
   customer_id UUID REFERENCES public.customers(id),
   notes TEXT,
   deleted_at TIMESTAMPTZ,
+  sg_cash_handover_confirmed_at TIMESTAMPTZ,
+  sg_cash_handover_confirmed_by UUID REFERENCES public.profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

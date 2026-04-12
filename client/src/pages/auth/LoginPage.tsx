@@ -81,7 +81,7 @@ const LoginPage: React.FC = () => {
           <div className="col-span-1 lg:col-span-5 p-10 md:p-14 flex flex-col justify-center bg-white/50">
             <div className="mb-10 text-center lg:text-left">
               <h1 className="font-headline text-4xl font-extrabold text-v-on-background tracking-tight mb-3">Chào mừng trở lại</h1>
-              <p className="text-v-on-surface-variant">Đăng nhập để tiếp tục mua sắm thực phẩm sạch</p>
+              <p className="text-v-on-surface-variant">Đăng nhập để làm việc</p>
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">

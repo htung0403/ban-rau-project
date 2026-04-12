@@ -153,3 +153,16 @@ export const requireRole = (...roles: Role[]) => {
     return res.status(403).json(errorResponse('Bạn chưa có quyền thao tác trên trang này', 'FORBIDDEN'));
   };
 };
+
+/** Like requireRole but no page-permission fallback (strict role gate). */
+export const requireRolesOnly = (...roles: Role[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json(errorResponse('Authentication required', 'UNAUTHORIZED'));
+    }
+    if (req.user.role === 'admin' || roles.includes(req.user.role)) {
+      return next();
+    }
+    return res.status(403).json(errorResponse('Bạn chưa có quyền thao tác trên trang này', 'FORBIDDEN'));
+  };
+};

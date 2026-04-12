@@ -57,6 +57,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
         { icon: Users, title: 'Danh sách KH Rau', description: 'Quản lý khách hàng rau.', colorScheme: 'green', path: '/ke-toan/khach-hang-rau' },
         { icon: Users, title: 'Danh sách Vựa', description: 'Quản lý vựa.', colorScheme: 'emerald', path: '/ke-toan/vua-rau' },
         { icon: Banknote, title: 'Công nợ KH', description: 'Theo dõi công nợ khách hàng.', colorScheme: 'orange', path: '/ke-toan/cong-no' },
+        { icon: Banknote, title: 'Thu tiền SG', description: 'Tiền cước thu tại SG khi nhập tạp hóa (đã trả).', colorScheme: 'teal', path: '/ke-toan/thu-tien-sg' },
         { icon: FileText, title: 'Báo cáo doanh thu', description: 'Báo cáo doanh thu theo ngày.', colorScheme: 'purple', path: '/ke-toan/doanh-thu' },
       ]
     }

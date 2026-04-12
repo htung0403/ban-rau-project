@@ -1,6 +1,34 @@
 type UserRole = 'admin' | 'manager' | 'staff' | 'driver' | 'customer' | string | undefined;
 
+const DRIVER_LIKE_LEGACY_PATHS: string[] = [
+  '/',
+  '/ho-so',
+  '/hang-hoa',
+  '/hang-hoa/giao-hang',
+  '/hang-hoa/giao-hang-rau',
+  '/hanh-chinh-nhan-su',
+  '/hanh-chinh-nhan-su/nghi-phep',
+  '/hanh-chinh-nhan-su/cham-cong',
+  '/hanh-chinh-nhan-su/ung-luong',
+  '/quan-ly-xe',
+  '/quan-ly-xe/check-in',
+  '/quan-ly-xe/thu-tien',
+  '/ke-toan',
+  '/ke-toan/thu-tien-sg',
+];
+
 const LEGACY_ALLOWED_PATHS_BY_ROLE: Record<string, string[]> = {
+  ke_toan: [
+    '/',
+    '/ho-so',
+    '/ke-toan',
+    '/ke-toan/khach-hang-tap-hoa',
+    '/ke-toan/khach-hang-rau',
+    '/ke-toan/vua-rau',
+    '/ke-toan/cong-no',
+    '/ke-toan/thu-tien-sg',
+    '/ke-toan/doanh-thu',
+  ],
   staff: [
     '/',
     '/ho-so',
@@ -26,29 +54,29 @@ const LEGACY_ALLOWED_PATHS_BY_ROLE: Record<string, string[]> = {
     '/ke-toan/doanh-thu',
     '/quan-ly-xe',
     '/quan-ly-xe/thu-tien',
+    '/ke-toan/thu-tien-sg',
   ],
-  driver: [
-    '/',
-    '/ho-so',
-    '/hang-hoa',
-    '/hang-hoa/giao-hang',
-    '/hang-hoa/giao-hang-rau',
-    '/hanh-chinh-nhan-su',
-    '/hanh-chinh-nhan-su/nghi-phep',
-    '/hanh-chinh-nhan-su/cham-cong',
-    '/hanh-chinh-nhan-su/ung-luong',
-    '/quan-ly-xe',
-    '/quan-ly-xe/check-in',
-    '/quan-ly-xe/thu-tien',
-  ],
+  driver: DRIVER_LIKE_LEGACY_PATHS,
   customer: ['/ho-so'],
 };
 
 export const isAllRoutesAllowed = (role: UserRole): boolean => role === 'admin' || role === 'manager';
 
+const isDriverLikeRoleKey = (role: string): boolean => {
+  const r = role.toLowerCase();
+  return r === 'driver' || r.includes('tai_xe') || r.includes('tài xế');
+};
+
 export const buildAllowedRouteSet = (role: UserRole): Set<string> => {
   if (isAllRoutesAllowed(role)) return new Set();
-  return new Set(LEGACY_ALLOWED_PATHS_BY_ROLE[role || ''] || []);
+  const key = role || '';
+  if (key && LEGACY_ALLOWED_PATHS_BY_ROLE[key]) {
+    return new Set(LEGACY_ALLOWED_PATHS_BY_ROLE[key]);
+  }
+  if (isDriverLikeRoleKey(key)) {
+    return new Set(DRIVER_LIKE_LEGACY_PATHS);
+  }
+  return new Set();
 };
 
 export const canAccessRoute = (path: string | undefined, role: UserRole, allowedSet: Set<string>): boolean => {

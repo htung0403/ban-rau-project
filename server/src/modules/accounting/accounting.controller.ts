@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { AccountingService } from './accounting.service';
+import { SgImportCashService } from './sg-import-cash.service';
 import { successResponse, errorResponse } from '../../utils/response';
 
 export class AccountingController {
@@ -28,6 +29,33 @@ export class AccountingController {
       const date = req.query.date as string;
       const data = await AccountingService.getRevenueByVehicle(date);
       return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async listSgImportCash(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json(errorResponse('Authentication required', 'UNAUTHORIZED'));
+      }
+      const from = req.query.from as string | undefined;
+      const to = req.query.to as string | undefined;
+      const data = await SgImportCashService.list(req.user.id, req.user.role, { from, to });
+      return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async confirmSgHandover(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json(errorResponse('Authentication required', 'UNAUTHORIZED'));
+      }
+      const { id } = req.params;
+      const result = await SgImportCashService.confirmHandover(id, req.user.id);
+      return res.status(200).json(successResponse(result));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
     }

@@ -19,6 +19,7 @@ export const PAGE_POLICIES = {
   ACCOUNTING_DEBT_MANAGE: ['/ke-toan/cong-no'],
   ACCOUNTING_REVENUE_VIEW: ['/ke-toan/doanh-thu'],
   ACCOUNTING_REPORTS_VIEW: ['/ke-toan/cong-no', '/ke-toan/doanh-thu'],
+  ACCOUNTING_SG_CASH_VIEW: ['/ke-toan/thu-tien-sg'],
 
   VEHICLES_OPERATIONS: [
     '/quan-ly-xe/danh-sach',

@@ -6,7 +6,7 @@ import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import DraggableFAB from '../../components/shared/DraggableFAB';
-import { Users, Plus, X, UserPlus, Mail, Lock, Phone, ShieldCheck, ChevronRight, Loader2, Trash2, AlertTriangle, UserCog, Pencil, PhoneCall, MessageCircle } from 'lucide-react';
+import { Users, Plus, X, UserPlus, Mail, Lock, Phone, ShieldCheck, ChevronRight, Loader2, Trash2, AlertTriangle, UserCog, Pencil, PhoneCall, MessageCircle, Car } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
@@ -14,6 +14,7 @@ import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect
 import { useAppRoles, useAssignUserRoles, useUserRoles } from '../../hooks/queries/useRoles';
 import { useRoleSalaries } from '../../hooks/queries/usePriceSettings';
 import { useAuth } from '../../context/AuthContext';
+import { useVehicles } from '../../hooks/queries/useVehicles';
 
 const getRoleDisplayName = (roleName: string, roleKey?: string) => {
   if (roleKey === 'customer' || roleName.trim().toLowerCase() === 'customer') {
@@ -77,6 +78,7 @@ const EmployeesPage: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const { data: employees, isLoading, isError, refetch } = useEmployees();
+  const { data: vehicles } = useVehicles();
   const { data: appRoles } = useAppRoles();
   const { data: salaryRoles } = useRoleSalaries();
   const createMutation = useCreateEmployee();
@@ -121,6 +123,20 @@ const EmployeesPage: React.FC = () => {
     });
     return map;
   }, [appRoles, salaryRoles]);
+
+  /** Biển số xe theo tài xế được gán ở Quản lý xe (driver_id). */
+  const licensePlatesByDriverId = useMemo(() => {
+    const map = new Map<string, string[]>();
+    (vehicles || []).forEach((v) => {
+      const did = v.driver_id?.trim();
+      const plate = v.license_plate?.trim();
+      if (!did || !plate) return;
+      const list = map.get(did) || [];
+      if (!list.includes(plate)) list.push(plate);
+      map.set(did, list);
+    });
+    return map;
+  }, [vehicles]);
 
   const [isAdding, setIsAdding] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -264,7 +280,10 @@ const EmployeesPage: React.FC = () => {
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar pb-6 px-1">
             <div className="flex flex-col gap-3">
-              {employees.map((e) => (
+              {employees.map((e) => {
+                const driverAssignedPlates =
+                  inferSystemRole(e.role) === 'driver' ? licensePlatesByDriverId.get(e.id) : undefined;
+                return (
                 <div
                   key={e.id}
                   onClick={isAdmin ? () => navigate(`/hanh-chinh-nhan-su/nhan-su/${e.id}`) : undefined}
@@ -284,9 +303,20 @@ const EmployeesPage: React.FC = () => {
                       <h3 className="text-[16px] font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
                         {e.full_name}
                       </h3>
-                      <span className="w-fit mt-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-muted/10 text-muted-foreground border border-border/50 whitespace-nowrap">
-                        {roleNameByKey[e.role] || e.role}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <span className="w-fit px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-muted/10 text-muted-foreground border border-border/50 whitespace-nowrap">
+                          {roleNameByKey[e.role] || e.role}
+                        </span>
+                        {driverAssignedPlates?.length ? (
+                          <span
+                            title="Xe phụ trách (Quản lý xe)"
+                            className="w-fit inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-primary/8 text-primary border border-primary/25 whitespace-nowrap"
+                          >
+                            <Car size={11} className="shrink-0 opacity-90" aria-hidden />
+                            {driverAssignedPlates.join(', ')}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
 
@@ -363,7 +393,8 @@ const EmployeesPage: React.FC = () => {
                     )}
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           </div>
         )}

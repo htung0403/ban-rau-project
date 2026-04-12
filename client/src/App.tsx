@@ -38,6 +38,7 @@ import RolePermissionsPage from './pages/hr/RolePermissionsPage';
 import CustomerDetailPage from './pages/customers/CustomerDetailPage';
 import CustomerDebtPage from './pages/customers/CustomerDebtPage';
 import RevenueReportPage from './pages/customers/RevenueReportPage';
+import SgCashCollectionsPage from './pages/accounting/SgCashCollectionsPage';
 import React from 'react';
 
 const queryClient = new QueryClient({
@@ -123,6 +124,7 @@ function AppRoutes() {
           <Route path="vua-rau" element={<WholesaleCustomersPage />} />
           <Route path="khach-hang/:id" element={<CustomerDetailPage />} />
           <Route path="cong-no" element={<CustomerDebtPage />} />
+          <Route path="thu-tien-sg" element={<SgCashCollectionsPage />} />
           <Route path="doanh-thu" element={<RevenueReportPage />} />
         </Route>
 

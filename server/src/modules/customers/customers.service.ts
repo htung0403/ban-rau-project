@@ -1,4 +1,6 @@
+import { randomUUID } from 'crypto';
 import { supabaseService } from '../../config/supabase';
+import { hashPassword } from '../../utils/password';
 
 export class CustomerService {
   static async getAll(type?: string) {
@@ -137,32 +139,25 @@ export class CustomerService {
   }
 
   static async createCustomerAccount(email: string, fullName: string, customerId: string) {
-    // 1. Create Auth User
-    const { data: authUser, error: authError } = await (supabaseService.auth as any).admin.createUser({
-      email,
-      password: 'ResetPassword123', // Default password
-      email_confirm: true,
-      user_metadata: { full_name: fullName }
-    });
+    const id = randomUUID();
+    const emailLower = email.trim().toLowerCase();
+    const password_hash = await hashPassword('ResetPassword123');
 
-    if (authError) throw authError;
-
-    // 2. Create Profile
     const { error: profileError } = await supabaseService.from('profiles').insert({
-      id: authUser.user.id,
+      id,
       full_name: fullName,
-      role: 'customer'
+      role: 'customer',
+      email: emailLower,
+      personal_email: emailLower,
+      password_hash,
     });
 
     if (profileError) throw profileError;
 
-    // 3. Link Profile to Customer
-    const { error: linkError } = await supabaseService.from('customers').update({
-      user_id: authUser.user.id
-    }).eq('id', customerId);
+    const { error: linkError } = await supabaseService.from('customers').update({ user_id: id }).eq('id', customerId);
 
     if (linkError) throw linkError;
 
-    return authUser.user;
+    return { id };
   }
 }

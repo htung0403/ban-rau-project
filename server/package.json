@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
     "seed": "ts-node-dev --transpile-only scripts/seedMockData.ts",
+    "set-profile-password": "ts-node-dev --transpile-only scripts/setProfilePassword.ts",
+    "create-admin": "ts-node-dev --transpile-only scripts/createAdmin.ts",
     "build": "tsc",
     "start": "node dist/app.js"
   },
@@ -17,6 +19,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.1",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.5",

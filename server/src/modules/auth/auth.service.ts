@@ -1,97 +1,63 @@
-import { supabaseAnon, supabaseService } from '../../config/supabase';
+import jwt from 'jsonwebtoken';
+import { supabaseService } from '../../config/supabase';
+import { env } from '../../config/env';
 import { Role } from '../../types';
+import { buildPhoneCandidates } from '../../utils/phoneAuth';
+import { hashPassword, verifyPassword } from '../../utils/password';
+
+const JWT_EXPIRES: jwt.SignOptions['expiresIn'] = '7d';
 
 export class AuthService {
-  private static buildPhoneCandidates(rawInput: string): string[] {
-    const raw = rawInput.trim();
-    const digits = raw.replace(/\D/g, '');
-    const candidates = new Set<string>([raw, digits]);
-
-    if (digits.startsWith('84') && digits.length >= 10) {
-      candidates.add(`+${digits}`);
-      candidates.add(`0${digits.slice(2)}`);
-    } else if (digits.startsWith('0') && digits.length >= 10) {
-      candidates.add(`84${digits.slice(1)}`);
-      candidates.add(`+84${digits.slice(1)}`);
-    }
-
-    return Array.from(candidates).filter(Boolean);
+  static signAccessToken(userId: string): string {
+    return jwt.sign({ sub: userId }, env.JWT_SECRET, { expiresIn: JWT_EXPIRES });
   }
 
   static async login(phone: string, password: string) {
-    const phoneCandidates = this.buildPhoneCandidates(phone);
-    const { data: phoneProfile, error: phoneProfileError } = await supabaseService
+    const phoneCandidates = buildPhoneCandidates(phone);
+    const { data: profile, error: profileError } = await supabaseService
       .from('profiles')
-      .select('id, phone')
+      .select('id, password_hash, role, full_name, avatar_url, email, personal_email')
       .in('phone', phoneCandidates)
       .limit(1)
       .maybeSingle();
 
-    if (phoneProfileError) throw phoneProfileError;
-    if (!phoneProfile?.id) {
+    if (profileError) throw profileError;
+    if (!profile?.id) {
       throw new Error('Không tìm thấy tài khoản với số điện thoại này');
     }
 
-    const { data: userData, error: userError } = await (supabaseService.auth as any).admin.getUserById(phoneProfile.id);
-    if (userError) throw userError;
-
-    const resolvedEmail = userData?.user?.email;
-    if (!resolvedEmail) {
-      throw new Error('Tài khoản chưa có email đăng nhập hợp lệ');
+    if (!profile.password_hash) {
+      throw new Error('Tài khoản chưa có mật khẩu đăng nhập. Liên hệ quản trị để thiết lập.');
     }
 
-    const email = resolvedEmail.toLowerCase();
-
-    console.log(`DEBUG: Target login: ${email}`);
-    
-    const { data, error } = await (supabaseAnon.auth as any).signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      console.error('DEBUG: Auth step error object:', error);
-      throw error;
+    const ok = await verifyPassword(password, profile.password_hash as string);
+    if (!ok) {
+      throw new Error('Sai mật khẩu');
     }
 
-    console.log('DEBUG: Auth successful, fetching profile details...');
-    
-    // Fetch profile to return role
-    const { data: profile, error: profileError } = await supabaseService
-      .from('profiles')
-      .select('role, full_name, avatar_url')
-      .eq('id', data.user?.id)
-      .single();
-
-    if (profileError) {
-      console.error('DEBUG: Profile query error:', profileError);
-      throw new Error(`Profile query failed: ${profileError.message}`);
-    }
+    const access_token = this.signAccessToken(profile.id);
+    const displayEmail =
+      (profile.email as string | null) || (profile.personal_email as string | null) || '';
 
     return {
       user: {
-        id: data.user?.id,
-        email: data.user?.email,
-        role: profile?.role as Role,
-        full_name: profile?.full_name,
-        avatar_url: (profile as any)?.avatar_url,
+        id: profile.id,
+        email: displayEmail,
+        role: profile.role as Role,
+        full_name: profile.full_name as string,
+        avatar_url: (profile as any).avatar_url,
       },
-      session: data.session,
+      session: { access_token },
     };
   }
 
-  static async logout(token: string) {
-    // Note: client side usually handles token deletion, 
-    // but we can call supabase signout if needed.
-    const { error } = await (supabaseAnon.auth as any).signOut();
-    if (error) throw error;
+  static async logout(_token: string) {
+    // JWT stateless — client xóa token là đủ
   }
 
   static async updatePassword(userId: string, newPassword: string) {
-    // Manager or User themselves can update password via service role for administrative ease
-    const { error } = await (supabaseService.auth as any).admin.updateUserById(userId, {
-      password: newPassword,
-    });
+    const password_hash = await hashPassword(newPassword);
+    const { error } = await supabaseService.from('profiles').update({ password_hash }).eq('id', userId);
     if (error) throw error;
   }
 
@@ -117,10 +83,12 @@ export class AuthService {
       temporary_address?: string | null;
     }
   ) {
-    const { error } = await supabaseService
-      .from('profiles')
-      .update(payload)
-      .eq('id', userId);
+    const dbPayload: Record<string, unknown> = { ...payload };
+    if (payload.personal_email !== undefined) {
+      dbPayload.email = (payload.personal_email || '').trim() || null;
+    }
+
+    const { error } = await supabaseService.from('profiles').update(dbPayload).eq('id', userId);
 
     if (error) throw error;
     return { success: true };

@@ -1,15 +1,26 @@
 import { Router } from 'express';
 import { AccountingController } from './accounting.controller';
 import { authMiddleware } from '../../middlewares/auth';
-import { requirePolicy } from '../../middlewares/role';
+import { requirePolicy, requirePagePermission, requireRolesOnly } from '../../middlewares/role';
 
 const router = Router();
 
 router.use(authMiddleware);
-router.use(requirePolicy('ACCOUNTING_REPORTS_VIEW'));
 
-router.get('/debts', AccountingController.getDebts);
-router.get('/revenue/by-date', AccountingController.getRevenueByDate);
-router.get('/revenue/by-vehicle', AccountingController.getRevenueByVehicle);
+router.get('/debts', requirePolicy('ACCOUNTING_REPORTS_VIEW'), AccountingController.getDebts);
+router.get('/revenue/by-date', requirePolicy('ACCOUNTING_REPORTS_VIEW'), AccountingController.getRevenueByDate);
+router.get('/revenue/by-vehicle', requirePolicy('ACCOUNTING_REPORTS_VIEW'), AccountingController.getRevenueByVehicle);
+
+router.get(
+  '/sg-import-cash',
+  requirePagePermission('/ke-toan/thu-tien-sg'),
+  AccountingController.listSgImportCash
+);
+router.patch(
+  '/sg-import-cash/:id/confirm-handover',
+  requirePagePermission('/ke-toan/thu-tien-sg'),
+  requireRolesOnly('admin', 'manager', 'ke_toan'),
+  AccountingController.confirmSgHandover
+);
 
 export default router;

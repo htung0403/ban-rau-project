@@ -48,6 +48,7 @@ BEGIN
         WHEN 'page.view.accounting.vegetableCustomers' THEN 'Danh sách KH rau'
         WHEN 'page.view.accounting.wholesaleCustomers' THEN 'Danh sách vựa'
         WHEN 'page.view.accounting.customerDebt' THEN 'Công nợ KH'
+        WHEN 'page.view.accounting.sgCash' THEN 'Thu tiền SG'
         WHEN 'page.view.accounting.revenue' THEN 'Báo cáo doanh thu'
 
         WHEN 'page.view.vehicles.module' THEN 'Tổng quan quản lý xe'

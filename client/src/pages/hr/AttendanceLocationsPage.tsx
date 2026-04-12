@@ -11,7 +11,6 @@ import {
   Crosshair,
   X,
   ChevronRight,
-  Info,
   Edit2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';

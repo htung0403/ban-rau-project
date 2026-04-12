@@ -42,14 +42,6 @@ const LoginPage: React.FC = () => {
     }
   }, [setValue]);
 
-  // const handleQuickLogin = (phone: string, password: string) => {
-  //   setValue('phone', phone, { shouldValidate: true });
-  //   setValue('password', password, { shouldValidate: true });
-  //   setTimeout(() => {
-  //     handleSubmit(onSubmit)();
-  //   }, 100);
-  // };
-
   const onSubmit = async (data: LoginFormData) => {
     setIsSubmitting(true);
     setServerError('');
@@ -179,36 +171,6 @@ const LoginPage: React.FC = () => {
                 )}
               </button>
             </form>
-
-            {/* Quick Test Login */}
-            {/* <div className="mt-8 pt-6 border-t border-v-surface-container-high space-y-4">
-              <p className="text-[10px] font-bold text-v-outline uppercase tracking-[0.2em] whitespace-nowrap text-center">Đăng nhập nhanh (Test)</p>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { label: 'Admin', value: '0900000001', role: 'Quản trị' },
-                  { label: 'Kho', value: '0900000002', role: 'Quản lý kho' },
-                  { label: 'Tài xế', value: '0900000003', role: 'Tài xế' },
-                  { label: 'Khách', value: '0900000004', role: 'Khách hàng' },
-                ].map((account) => (
-                  <button
-                    key={account.value}
-                    type="button"
-                    onClick={() => handleQuickLogin(account.value, 'password123')}
-                    className="group relative flex flex-col items-center gap-1 p-3 bg-v-surface-container-low hover:bg-v-surface-container-high border border-v-outline-variant/20 rounded-xl transition-all duration-300 hover:border-v-primary/30 hover:shadow-sm active:scale-[0.98]"
-                  >
-                    <span className="text-[13px] font-bold text-v-on-surface group-hover:text-v-primary transition-colors">{account.label}</span>
-                    <span className="text-[9px] font-medium text-v-on-surface-variant uppercase tracking-wider">{account.role}</span>
-                  </button>
-                ))}
-              </div>
-            </div> */}
-
-            {/* <div className="mt-8 text-center hidden md:block">
-              <p className="text-sm text-v-on-surface-variant">
-                Chưa có tài khoản?
-                <a className="font-bold text-v-primary-dim hover:text-v-primary transition-colors ml-1" href="#">Đăng ký ngay</a>
-              </p>
-            </div> */}
           </div>
 
         </div>

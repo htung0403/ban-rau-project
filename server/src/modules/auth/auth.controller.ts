@@ -4,7 +4,7 @@ import { successResponse, errorResponse } from '../../utils/response';
 import { z } from 'zod';
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  phone: z.string().min(1),
   password: z.string().min(6),
 });
 
@@ -12,11 +12,31 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(6),
 });
 
+const updateProfileSchema = z.object({
+  full_name: z.string().min(2).optional(),
+  avatar_url: z.string().url().optional(),
+  phone: z.string().min(1).nullable().optional(),
+  date_of_birth: z.string().nullable().optional(),
+  gender: z.enum(['male', 'female', 'other']).nullable().optional(),
+  citizen_id: z.string().nullable().optional(),
+  job_title: z.string().nullable().optional(),
+  department: z.string().nullable().optional(),
+  personal_email: z.string().email().nullable().optional(),
+  emergency_contact_name: z.string().nullable().optional(),
+  emergency_contact_phone: z.string().nullable().optional(),
+  emergency_contact_relationship: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  district: z.string().nullable().optional(),
+  ward: z.string().nullable().optional(),
+  address_line: z.string().nullable().optional(),
+  temporary_address: z.string().nullable().optional(),
+});
+
 export class AuthController {
   static async login(req: Request, res: Response) {
     try {
       const validated = loginSchema.parse(req.body);
-      const data = await AuthService.login(validated.email, validated.password);
+      const data = await AuthService.login(validated.phone, validated.password);
       return res.status(200).json(successResponse(data, 'Login successful'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message || 'Login failed'));
@@ -57,7 +77,7 @@ export class AuthController {
   static async updateProfile(req: Request, res: Response) {
     try {
       if (!req.user) throw new Error('Not authenticated');
-      const payload = req.body;
+      const payload = updateProfileSchema.parse(req.body);
       await AuthService.updateProfile(req.user.id, payload);
       return res.status(200).json(successResponse(null, 'Profile updated successfully'));
     } catch (err: any) {

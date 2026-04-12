@@ -1,11 +1,11 @@
 import React from 'react';
 import {
   User, Mail, Phone, MapPin, Briefcase, Calendar,
-  ShieldCheck, Camera, Key, Fingerprint,
+  ShieldCheck, Camera, Fingerprint,
   Heart, Landmark, Shield, Info,
   IdCard, UserCircle, BriefcaseIcon, MapPinIcon,
   WalletIcon,
-  X, Edit, Trash2, Save
+  X, Edit, Trash2, Save, Loader2
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useState, useRef, useEffect } from 'react';
@@ -13,7 +13,7 @@ import { useParams, useLocation } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useBreadcrumbs } from '../context/BreadcrumbContext';
-import { useEmployee } from '../hooks/queries/useHR';
+import { useEmployee, useUpdateEmployee } from '../hooks/queries/useHR';
 import { useCustomerByUserId } from '../hooks/queries/useCustomers';
 import LoadingSkeleton from '../components/shared/LoadingSkeleton';
 import { translateRole } from '../lib/utils';
@@ -21,28 +21,70 @@ import { uploadApi } from '../api/uploadApi';
 import { authApi } from '../api/authApi';
 import toast from 'react-hot-toast';
 
+type ProfileFormState = {
+  full_name: string;
+  phone: string;
+  date_of_birth: string;
+  gender: '' | 'male' | 'female' | 'other';
+  citizen_id: string;
+  job_title: string;
+  department: string;
+  personal_email: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+  emergency_contact_relationship: string;
+  city: string;
+  district: string;
+  ward: string;
+  address_line: string;
+  temporary_address: string;
+};
+
 const ProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const { setDynamicLabel } = useBreadcrumbs();
   const { user, updateUser } = useAuth();
   const { avatar } = useTheme();
+  const { mutateAsync: updateEmployeeProfile } = useUpdateEmployee();
 
   const isCurrentUser = !id || id === user?.id;
   const targetId = id || user?.id || '';
 
   // Fetch employee data
-  const { data: employeeData, isLoading: loadingEmployee } = useEmployee(targetId);
+  const { data: employeeData, isLoading: loadingEmployee, refetch: refetchEmployee } = useEmployee(targetId);
 
   // Fetch customer data
-  const { data: customerData, isLoading: loadingCustomer } = useCustomerByUserId(targetId);
+  const { data: customerData, isLoading: loadingCustomer, refetch: refetchCustomer } = useCustomerByUserId(targetId);
 
   const isCustomer = isCurrentUser ? user?.role === 'customer' : !!customerData;
+  const isAdmin = user?.role === 'admin';
+  const canEditProfile = !isCustomer && (isCurrentUser || isAdmin);
 
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState<ProfileFormState>({
+    full_name: '',
+    phone: '',
+    date_of_birth: '',
+    gender: '',
+    citizen_id: '',
+    job_title: '',
+    department: '',
+    personal_email: '',
+    emergency_contact_name: '',
+    emergency_contact_phone: '',
+    emergency_contact_relationship: '',
+    city: '',
+    district: '',
+    ward: '',
+    address_line: '',
+    temporary_address: '',
+  });
   const modalRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -52,6 +94,37 @@ const ProfilePage: React.FC = () => {
 
   const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayUser?.full_name || 'User')}&background=random&color=random&size=128`;
   const displayAvatar = isCurrentUser ? (user?.avatar_url || avatar || defaultAvatar) : ((displayUser as any)?.avatar_url || defaultAvatar);
+
+  const toDateInput = (value?: string | null) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toISOString().slice(0, 10);
+  };
+
+  const employeeProfile = profileData as any;
+
+  useEffect(() => {
+    if (isCustomer || !employeeProfile) return;
+    setProfileForm({
+      full_name: displayUser?.full_name || '',
+      phone: employeeProfile?.phone || '',
+      date_of_birth: toDateInput(employeeProfile?.date_of_birth),
+      gender: (employeeProfile?.gender as ProfileFormState['gender']) || '',
+      citizen_id: employeeProfile?.citizen_id || '',
+      job_title: employeeProfile?.job_title || '',
+      department: employeeProfile?.department || '',
+      personal_email: employeeProfile?.personal_email || '',
+      emergency_contact_name: employeeProfile?.emergency_contact_name || '',
+      emergency_contact_phone: employeeProfile?.emergency_contact_phone || '',
+      emergency_contact_relationship: employeeProfile?.emergency_contact_relationship || '',
+      city: employeeProfile?.city || '',
+      district: employeeProfile?.district || '',
+      ward: employeeProfile?.ward || '',
+      address_line: employeeProfile?.address_line || '',
+      temporary_address: employeeProfile?.temporary_address || '',
+    });
+  }, [isCustomer, employeeProfile, displayUser?.full_name]);
 
   // Update breadcrumb label when user data is available
   useEffect(() => {
@@ -121,6 +194,95 @@ const ProfilePage: React.FC = () => {
 
   const handleRemoveAvatar = () => {
     setPreviewAvatar(null);
+  };
+
+  const handleProfileFieldChange = (field: keyof ProfileFormState, value: string) => {
+    setProfileForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const formatGender = (gender?: string | null) => {
+    if (gender === 'male') return 'Nam';
+    if (gender === 'female') return 'Nữ';
+    if (gender === 'other') return 'Khác';
+    return 'Chưa cập nhật';
+  };
+
+  const handleSaveProfile = async () => {
+    if (!canEditProfile || isCustomer) return;
+
+    if (!profileForm.full_name.trim()) {
+      toast.error('Họ và tên không được để trống');
+      return;
+    }
+
+    try {
+      setIsSavingProfile(true);
+      const profilePayload = {
+        full_name: profileForm.full_name.trim(),
+        phone: profileForm.phone.trim() || null,
+        date_of_birth: profileForm.date_of_birth || null,
+        gender: profileForm.gender || null,
+        citizen_id: profileForm.citizen_id.trim() || null,
+        job_title: profileForm.job_title.trim() || null,
+        department: profileForm.department.trim() || null,
+        personal_email: profileForm.personal_email.trim() || null,
+        emergency_contact_name: profileForm.emergency_contact_name.trim() || null,
+        emergency_contact_phone: profileForm.emergency_contact_phone.trim() || null,
+        emergency_contact_relationship: profileForm.emergency_contact_relationship.trim() || null,
+        city: profileForm.city.trim() || null,
+        district: profileForm.district.trim() || null,
+        ward: profileForm.ward.trim() || null,
+        address_line: profileForm.address_line.trim() || null,
+        temporary_address: profileForm.temporary_address.trim() || null,
+      };
+
+      if (isCurrentUser) {
+        await authApi.updateProfile(profilePayload);
+      } else {
+        await updateEmployeeProfile({
+          id: targetId,
+          payload: {
+            ...profilePayload,
+            role: (displayUser?.role as string) || 'staff',
+          },
+        });
+      }
+
+      if (isCurrentUser) {
+        updateUser({ full_name: profileForm.full_name.trim() });
+      }
+      await refetchEmployee();
+      await refetchCustomer();
+      setIsEditingProfile(false);
+      toast.success('Cập nhật hồ sơ thành công');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || err.message || 'Không thể cập nhật hồ sơ');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleCancelEditProfile = () => {
+    if (isCustomer || !employeeProfile) return;
+    setProfileForm({
+      full_name: displayUser?.full_name || '',
+      phone: employeeProfile?.phone || '',
+      date_of_birth: toDateInput(employeeProfile?.date_of_birth),
+      gender: (employeeProfile?.gender as ProfileFormState['gender']) || '',
+      citizen_id: employeeProfile?.citizen_id || '',
+      job_title: employeeProfile?.job_title || '',
+      department: employeeProfile?.department || '',
+      personal_email: employeeProfile?.personal_email || '',
+      emergency_contact_name: employeeProfile?.emergency_contact_name || '',
+      emergency_contact_phone: employeeProfile?.emergency_contact_phone || '',
+      emergency_contact_relationship: employeeProfile?.emergency_contact_relationship || '',
+      city: employeeProfile?.city || '',
+      district: employeeProfile?.district || '',
+      ward: employeeProfile?.ward || '',
+      address_line: employeeProfile?.address_line || '',
+      temporary_address: employeeProfile?.temporary_address || '',
+    });
+    setIsEditingProfile(false);
   };
 
   return (
@@ -193,23 +355,37 @@ const ProfilePage: React.FC = () => {
                     </div>
                   </div>
 
-                  {isCurrentUser && (
-                    <div className="w-full grid grid-cols-2 gap-3 mt-8">
-                      <button
-                        onClick={() => setIsAvatarModalOpen(true)}
-                        className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-muted/50 border border-border hover:bg-muted transition-colors group"
-                      >
-                        <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shadow-sm">
-                          <Camera size={16} />
-                        </div>
-                        <span className="text-[10px] font-bold text-muted-foreground">Đổi ảnh</span>
-                      </button>
-                      <button className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-muted/50 border border-border hover:bg-muted transition-colors group">
-                        <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shadow-sm">
-                          <Key size={16} />
-                        </div>
-                        <span className="text-[10px] font-bold text-muted-foreground">Đổi mật khẩu</span>
-                      </button>
+                  {(isCurrentUser || canEditProfile) && (
+                    <div className={clsx('w-full gap-3 mt-8', isCurrentUser ? 'grid grid-cols-2' : 'grid grid-cols-1')}>
+                      {isCurrentUser && (
+                        <button
+                          onClick={() => setIsAvatarModalOpen(true)}
+                          className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-muted/50 border border-border hover:bg-muted transition-colors group"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shadow-sm">
+                            <Camera size={16} />
+                          </div>
+                          <span className="text-[10px] font-bold text-muted-foreground">Đổi ảnh</span>
+                        </button>
+                      )}
+                      {canEditProfile && (
+                        <button
+                          onClick={() => {
+                            if (isEditingProfile) {
+                              handleSaveProfile();
+                              return;
+                            }
+                            setIsEditingProfile(true);
+                          }}
+                          disabled={isSavingProfile}
+                          className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-muted/50 border border-border hover:bg-muted transition-colors group"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors shadow-sm">
+                            {isSavingProfile ? <Loader2 size={16} className="animate-spin" /> : <Edit size={16} />}
+                          </div>
+                          <span className="text-[10px] font-bold text-muted-foreground">{isEditingProfile ? 'Lưu hồ sơ' : 'Sửa hồ sơ'}</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -219,20 +395,96 @@ const ProfilePage: React.FC = () => {
 
           {/* Right Column - Information Sections */}
           <div className="lg:col-span-9 space-y-6">
+            {!isCustomer && canEditProfile && isEditingProfile && (
+              <div className="bg-card rounded-2xl border border-border shadow-sm p-4 flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">Bạn đang chỉnh sửa hồ sơ. Nhấn "Lưu hồ sơ" ở sidebar hoặc nút bên phải để hoàn tất.</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCancelEditProfile}
+                    className="px-4 py-2 rounded-xl border border-border text-sm font-bold hover:bg-muted"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={isSavingProfile}
+                    className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 flex items-center gap-2 disabled:opacity-60"
+                  >
+                    {isSavingProfile ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    Lưu hồ sơ
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Section 1: Thông tin cá nhân */}
             <SectionContainer icon={UserCircle} title="THÔNG TIN CÁ NHÂN">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <InfoItem icon={User} label="Họ tên" value={displayUser?.full_name || '---'} />
-                <InfoItem icon={Mail} label="Email" value={displayUser?.email || '---'} />
+                {isEditingProfile && canEditProfile && !isCustomer ? (
+                  <EditableInput
+                    icon={User}
+                    label="Họ tên"
+                    value={profileForm.full_name}
+                    required
+                    onChange={(value) => handleProfileFieldChange('full_name', value)}
+                  />
+                ) : (
+                  <InfoItem icon={User} label="Họ tên" value={displayUser?.full_name || '---'} />
+                )}
+                {isEditingProfile && canEditProfile && !isCustomer ? (
+                  <EditableInput
+                    icon={Mail}
+                    label="Email"
+                    value={profileForm.personal_email}
+                    type="email"
+                    onChange={(value) => handleProfileFieldChange('personal_email', value)}
+                  />
+                ) : (
+                  <InfoItem icon={Mail} label="Email" value={employeeProfile?.personal_email || displayUser?.email || '---'} />
+                )}
                 <InfoItem icon={Phone} label="Điện thoại" value={profileData?.phone || 'Chưa cập nhật'} />
                 {isCustomer && (
                   <InfoItem icon={MapPin} label="Địa chỉ" value={(profileData as any)?.address || 'Chưa cập nhật'} cols={2} />
                 )}
                 {!isCustomer && (
                   <>
-                    <InfoItem icon={Calendar} label="Ngày sinh" value="Chưa cập nhật" />
-                    <InfoItem icon={Fingerprint} label="Giới tính" value="Nam" badge="Nam" />
-                    <InfoItem icon={IdCard} label="CMND/CCCD" value="Chưa cập nhật" />
+                    {isEditingProfile && canEditProfile ? (
+                      <EditableInput
+                        icon={Calendar}
+                        label="Ngày sinh"
+                        value={profileForm.date_of_birth}
+                        type="date"
+                        onChange={(value) => handleProfileFieldChange('date_of_birth', value)}
+                      />
+                    ) : (
+                      <InfoItem icon={Calendar} label="Ngày sinh" value={employeeProfile?.date_of_birth ? new Date(employeeProfile.date_of_birth).toLocaleDateString() : 'Chưa cập nhật'} />
+                    )}
+                    {isEditingProfile && canEditProfile ? (
+                      <EditableSelect
+                        icon={Fingerprint}
+                        label="Giới tính"
+                        value={profileForm.gender}
+                        options={[
+                          { value: '', label: 'Chưa cập nhật' },
+                          { value: 'male', label: 'Nam' },
+                          { value: 'female', label: 'Nữ' },
+                          { value: 'other', label: 'Khác' },
+                        ]}
+                        onChange={(value) => handleProfileFieldChange('gender', value)}
+                      />
+                    ) : (
+                      <InfoItem icon={Fingerprint} label="Giới tính" value={formatGender(employeeProfile?.gender)} />
+                    )}
+                    {isEditingProfile && canEditProfile ? (
+                      <EditableInput
+                        icon={IdCard}
+                        label="CMND/CCCD"
+                        value={profileForm.citizen_id}
+                        onChange={(value) => handleProfileFieldChange('citizen_id', value)}
+                      />
+                    ) : (
+                      <InfoItem icon={IdCard} label="CMND/CCCD" value={employeeProfile?.citizen_id || 'Chưa cập nhật'} />
+                    )}
                   </>
                 )}
               </div>
@@ -251,10 +503,28 @@ const ProfilePage: React.FC = () => {
               <SectionContainer icon={BriefcaseIcon} title="THÔNG TIN CÔNG VIỆC">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <InfoItem icon={Fingerprint} label="Mã nhân viên" value={displayUser?.id?.substring(0, 5).toUpperCase() || '---'} highlight />
-                  <InfoItem icon={Briefcase} label="Chức vụ" value={translateRole(displayUser?.role)} highlight />
-                  <InfoItem icon={Briefcase} label="Phòng ban" value="Phòng Hành chính" highlight />
-                  <InfoItem icon={User} label="Cấp bậc" value="Chưa cập nhật" />
-                  <InfoItem icon={Calendar} label="Ngày vào làm" value={displayUser ? new Date((displayUser as any).created_at).toLocaleDateString() : '--/--/----'} />
+                  {isEditingProfile && canEditProfile ? (
+                    <EditableInput
+                      icon={Briefcase}
+                      label="Chức vụ"
+                      value={profileForm.job_title}
+                      onChange={(value) => handleProfileFieldChange('job_title', value)}
+                    />
+                  ) : (
+                    <InfoItem icon={Briefcase} label="Chức vụ" value={employeeProfile?.job_title || translateRole(displayUser?.role)} highlight />
+                  )}
+                  {isEditingProfile && canEditProfile ? (
+                    <EditableInput
+                      icon={Briefcase}
+                      label="Phòng ban"
+                      value={profileForm.department}
+                      onChange={(value) => handleProfileFieldChange('department', value)}
+                    />
+                  ) : (
+                    <InfoItem icon={Briefcase} label="Phòng ban" value={employeeProfile?.department || 'Chưa cập nhật'} highlight />
+                  )}
+                  <InfoItem icon={User} label="Cấp bậc" value={translateRole(displayUser?.role)} />
+                  <InfoItem icon={Calendar} label="Ngày vào làm" value={employeeProfile?.created_at ? new Date(employeeProfile.created_at).toLocaleDateString() : '--/--/----'} />
                 </div>
               </SectionContainer>
             )}
@@ -262,12 +532,36 @@ const ProfilePage: React.FC = () => {
             {/* Section 3: Thông tin liên hệ */}
             <SectionContainer icon={Mail} title="THÔNG TIN LIÊN HỆ">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <InfoItem icon={Mail} label="Email công việc" value="admin@5fedu.com" highlight />
-                <InfoItem icon={Mail} label="Email cá nhân" value="Chưa cập nhật" />
-                <InfoItem icon={Phone} label="Điện thoại" value="0900000000" highlight />
-                <InfoItem icon={User} label="Người liên hệ khẩn cấp" value="Chưa cập nhật" />
-                <InfoItem icon={Phone} label="SĐT khẩn cấp" value="Chưa cập nhật" />
-                <InfoItem icon={Heart} label="Quan hệ" value="Chưa cập nhật" />
+                {isEditingProfile && canEditProfile && !isCustomer ? (
+                  <EditableInput
+                    icon={User}
+                    label="Người liên hệ khẩn cấp"
+                    value={profileForm.emergency_contact_name}
+                    onChange={(value) => handleProfileFieldChange('emergency_contact_name', value)}
+                  />
+                ) : (
+                  <InfoItem icon={User} label="Người liên hệ khẩn cấp" value={employeeProfile?.emergency_contact_name || 'Chưa cập nhật'} />
+                )}
+                {isEditingProfile && canEditProfile && !isCustomer ? (
+                  <EditableInput
+                    icon={Phone}
+                    label="SĐT khẩn cấp"
+                    value={profileForm.emergency_contact_phone}
+                    onChange={(value) => handleProfileFieldChange('emergency_contact_phone', value)}
+                  />
+                ) : (
+                  <InfoItem icon={Phone} label="SĐT khẩn cấp" value={employeeProfile?.emergency_contact_phone || 'Chưa cập nhật'} />
+                )}
+                {isEditingProfile && canEditProfile && !isCustomer ? (
+                  <EditableInput
+                    icon={Heart}
+                    label="Quan hệ"
+                    value={profileForm.emergency_contact_relationship}
+                    onChange={(value) => handleProfileFieldChange('emergency_contact_relationship', value)}
+                  />
+                ) : (
+                  <InfoItem icon={Heart} label="Quan hệ" value={employeeProfile?.emergency_contact_relationship || 'Chưa cập nhật'} />
+                )}
               </div>
 
               <div className="mt-8 pt-8 border-t border-border/50">
@@ -276,11 +570,57 @@ const ProfilePage: React.FC = () => {
                   <h4 className="text-[12px] font-bold text-foreground">ĐỊA CHỈ</h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <InfoItem icon={MapPin} label="Tỉnh/Thành phố" value="Chưa cập nhật" />
-                  <InfoItem icon={MapPin} label="Quận/Huyện" value="Chưa cập nhật" />
-                  <InfoItem icon={MapPin} label="Phường/Xã" value="Chưa cập nhật" />
-                  <InfoItem icon={MapPin} label="Địa chỉ chi tiết" value="Chưa cập nhật" />
-                  <InfoItem icon={MapPin} label="Địa chỉ tạm trú" value="Chưa cập nhật" cols={2} />
+                  {isEditingProfile && canEditProfile && !isCustomer ? (
+                    <EditableInput
+                      icon={MapPin}
+                      label="Tỉnh/Thành phố"
+                      value={profileForm.city}
+                      onChange={(value) => handleProfileFieldChange('city', value)}
+                    />
+                  ) : (
+                    <InfoItem icon={MapPin} label="Tỉnh/Thành phố" value={employeeProfile?.city || 'Chưa cập nhật'} />
+                  )}
+                  {isEditingProfile && canEditProfile && !isCustomer ? (
+                    <EditableInput
+                      icon={MapPin}
+                      label="Quận/Huyện"
+                      value={profileForm.district}
+                      onChange={(value) => handleProfileFieldChange('district', value)}
+                    />
+                  ) : (
+                    <InfoItem icon={MapPin} label="Quận/Huyện" value={employeeProfile?.district || 'Chưa cập nhật'} />
+                  )}
+                  {isEditingProfile && canEditProfile && !isCustomer ? (
+                    <EditableInput
+                      icon={MapPin}
+                      label="Phường/Xã"
+                      value={profileForm.ward}
+                      onChange={(value) => handleProfileFieldChange('ward', value)}
+                    />
+                  ) : (
+                    <InfoItem icon={MapPin} label="Phường/Xã" value={employeeProfile?.ward || 'Chưa cập nhật'} />
+                  )}
+                  {isEditingProfile && canEditProfile && !isCustomer ? (
+                    <EditableInput
+                      icon={MapPin}
+                      label="Địa chỉ chi tiết"
+                      value={profileForm.address_line}
+                      onChange={(value) => handleProfileFieldChange('address_line', value)}
+                    />
+                  ) : (
+                    <InfoItem icon={MapPin} label="Địa chỉ chi tiết" value={employeeProfile?.address_line || 'Chưa cập nhật'} />
+                  )}
+                  {isEditingProfile && canEditProfile && !isCustomer ? (
+                    <EditableInput
+                      icon={MapPin}
+                      label="Địa chỉ tạm trú"
+                      value={profileForm.temporary_address}
+                      cols={2}
+                      onChange={(value) => handleProfileFieldChange('temporary_address', value)}
+                    />
+                  ) : (
+                    <InfoItem icon={MapPin} label="Địa chỉ tạm trú" value={employeeProfile?.temporary_address || 'Chưa cập nhật'} cols={2} />
+                  )}
                 </div>
               </div>
             </SectionContainer>
@@ -331,9 +671,9 @@ const ProfilePage: React.FC = () => {
             {/* Section 6: Thông tin hệ thống */}
             <SectionContainer icon={Info} title="THÔNG TIN HỆ THỐNG">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <InfoItem icon={Calendar} label="Ngày tạo" value={displayUser ? new Date((displayUser as any).created_at).toLocaleDateString() : '---'} />
+                <InfoItem icon={Calendar} label="Ngày tạo" value={employeeProfile?.created_at ? new Date(employeeProfile.created_at).toLocaleDateString() : '---'} />
                 <InfoItem icon={User} label="Người tạo" value="system" />
-                <InfoItem icon={Calendar} label="Cập nhật lần cuối" value={displayUser ? new Date((displayUser as any).updated_at || (displayUser as any).created_at).toLocaleDateString() : '---'} />
+                <InfoItem icon={Calendar} label="Cập nhật lần cuối" value={employeeProfile?.updated_at ? new Date(employeeProfile.updated_at).toLocaleDateString() : (employeeProfile?.created_at ? new Date(employeeProfile.created_at).toLocaleDateString() : '---')} />
               </div>
             </SectionContainer>
           </div>
@@ -472,4 +812,56 @@ const InfoItem: React.FC<{
   </div>
 );
 
+const EditableInput: React.FC<{
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  type?: 'text' | 'email' | 'date';
+  cols?: number;
+}> = ({ icon: Icon, label, value, onChange, required, type = 'text', cols = 1 }) => (
+  <div className={clsx('space-y-1.5', cols === 2 && 'md:col-span-2')}>
+    <div className="flex items-center gap-1.5 text-muted-foreground/70">
+      <Icon size={12} strokeWidth={2} />
+      <p className="text-[11px] font-bold uppercase tracking-wider">
+        {label} {required && <span className="text-red-500">*</span>}
+      </p>
+    </div>
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm"
+    />
+  </div>
+);
+
+const EditableSelect: React.FC<{
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+}> = ({ icon: Icon, label, value, options, onChange }) => (
+  <div className="space-y-1.5">
+    <div className="flex items-center gap-1.5 text-muted-foreground/70">
+      <Icon size={12} strokeWidth={2} />
+      <p className="text-[11px] font-bold uppercase tracking-wider">{label}</p>
+    </div>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm"
+    >
+      {options.map((option) => (
+        <option key={option.value || 'empty'} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  </div>
+);
+
 export default ProfilePage;
+

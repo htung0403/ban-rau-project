@@ -10,6 +10,20 @@ export interface User {
   full_name: string;
   phone?: string;
   email?: string;
+  date_of_birth?: string;
+  gender?: 'male' | 'female' | 'other';
+  citizen_id?: string;
+  job_title?: string;
+  department?: string;
+  personal_email?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  emergency_contact_relationship?: string;
+  city?: string;
+  district?: string;
+  ward?: string;
+  address_line?: string;
+  temporary_address?: string;
   role: Role;
   is_active: boolean;
   avatar_url?: string;
@@ -26,7 +40,7 @@ export interface User {
 }
 
 export interface LoginPayload {
-  email: string;
+  phone: string;
   password: string;
 }
 
@@ -286,10 +300,12 @@ export interface Vehicle {
   load_capacity_ton?: number;
   goods_categories?: VehicleGoodsCategory[];
   driver_id?: string;
+  in_charge_id?: string;
   status: VehicleStatus;
   created_at: string;
   // Nested
   profiles?: { full_name: string };
+  responsible_profile?: { full_name: string };
 }
 
 // --- Delivery Vehicles ---

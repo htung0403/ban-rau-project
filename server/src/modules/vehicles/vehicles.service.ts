@@ -2,7 +2,9 @@ import { supabaseService } from '../../config/supabase';
 
 export class VehicleService {
   static async getAll() {
-    const { data, error } = await supabaseService.from('vehicles').select('*, profiles(full_name)');
+    const { data, error } = await supabaseService
+      .from('vehicles')
+      .select('*, profiles:profiles!vehicles_driver_id_fkey(full_name), responsible_profile:profiles!vehicles_in_charge_id_fkey(full_name)');
     if (error) throw error;
     return data;
   }

@@ -14,7 +14,7 @@ interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (phone: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<AuthUser>) => void;
 }
@@ -64,8 +64,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const response = await authApi.login({ email, password });
+  const login = useCallback(async (phone: string, password: string) => {
+    const response = await authApi.login({ phone, password });
     if (!response) return;
     const { user: userData, session } = response;
 

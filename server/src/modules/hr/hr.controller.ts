@@ -42,17 +42,30 @@ const reviewCompensatorySchema = z.object({
 });
 
 const createEmployeeSchema = z.object({
-  email: z.string().email(),
   password: z.string().min(6),
   full_name: z.string().min(2),
-  phone: z.string().optional(),
+  phone: z.string().min(1),
   role: z.string().min(1),
 });
 
 const updateEmployeeSchema = z.object({
   full_name: z.string().min(2),
-  phone: z.string().optional(),
+  phone: z.string().nullable().optional(),
   role: z.string().min(1),
+  date_of_birth: z.string().nullable().optional(),
+  gender: z.enum(['male', 'female', 'other']).nullable().optional(),
+  citizen_id: z.string().nullable().optional(),
+  job_title: z.string().nullable().optional(),
+  department: z.string().nullable().optional(),
+  personal_email: z.string().email().nullable().optional(),
+  emergency_contact_name: z.string().nullable().optional(),
+  emergency_contact_phone: z.string().nullable().optional(),
+  emergency_contact_relationship: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  district: z.string().nullable().optional(),
+  ward: z.string().nullable().optional(),
+  address_line: z.string().nullable().optional(),
+  temporary_address: z.string().nullable().optional(),
 });
 
 export class HRController {
@@ -111,6 +124,20 @@ export class HRController {
         full_name: validated.full_name!,
         phone: validated.phone,
         role: validated.role!,
+        date_of_birth: validated.date_of_birth,
+        gender: validated.gender,
+        citizen_id: validated.citizen_id,
+        job_title: validated.job_title,
+        department: validated.department,
+        personal_email: validated.personal_email,
+        emergency_contact_name: validated.emergency_contact_name,
+        emergency_contact_phone: validated.emergency_contact_phone,
+        emergency_contact_relationship: validated.emergency_contact_relationship,
+        city: validated.city,
+        district: validated.district,
+        ward: validated.ward,
+        address_line: validated.address_line,
+        temporary_address: validated.temporary_address,
       });
       return res.status(200).json(successResponse(data, 'Employee updated'));
     } catch (err: any) {

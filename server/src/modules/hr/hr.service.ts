@@ -2,6 +2,31 @@ import { supabaseService } from '../../config/supabase';
 import { format, startOfWeek } from 'date-fns';
 
 export class HRService {
+  private static normalizePhoneForAuth(rawPhone: string): string {
+    const digits = (rawPhone || '').replace(/\D/g, '');
+    if (!digits) throw new Error('Phone is required');
+    if (digits.startsWith('84')) return `+${digits}`;
+    if (digits.startsWith('0')) return `+84${digits.slice(1)}`;
+    if (digits.startsWith('9') && digits.length === 9) return `+84${digits}`;
+    return `+${digits}`;
+  }
+
+  private static buildPhoneCandidates(rawPhone: string): string[] {
+    const raw = (rawPhone || '').trim();
+    const digits = raw.replace(/\D/g, '');
+    const candidates = new Set<string>([raw, digits]);
+
+    if (digits.startsWith('84') && digits.length >= 10) {
+      candidates.add(`+${digits}`);
+      candidates.add(`0${digits.slice(2)}`);
+    } else if (digits.startsWith('0') && digits.length >= 10) {
+      candidates.add(`84${digits.slice(1)}`);
+      candidates.add(`+84${digits.slice(1)}`);
+    }
+
+    return Array.from(candidates).filter(Boolean);
+  }
+
   static async getEmployees() {
     const { data, error } = await supabaseService
       .from('profiles')
@@ -12,29 +37,40 @@ export class HRService {
   }
 
   static async createEmployee(payload: any) {
-    const { email, password, full_name, phone, role } = payload;
+    const { password, full_name, phone, role } = payload;
+    const authPhone = this.normalizePhoneForAuth(phone);
+    const phoneCandidates = this.buildPhoneCandidates(phone);
 
-    // 1. Check if user already exists in auth to avoid duplicate errors
-    const { data: existingUser } = await (supabaseService.auth as any).admin.listUsers();
-    const userAlreadyExists = existingUser?.users?.find((u: any) => u.email === email);
-    
-    let userId: string;
+    const { data: existedProfile, error: existedProfileError } = await supabaseService
+      .from('profiles')
+      .select('id, full_name, phone')
+      .in('phone', phoneCandidates)
+      .limit(1)
+      .maybeSingle();
 
-    if (userAlreadyExists) {
-      userId = userAlreadyExists.id;
-      console.log('User already exists in Auth, attempting to fix profile...');
-    } else {
-      // Create new auth user
-      const { data: authData, error: authError } = await (supabaseService.auth as any).admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { full_name, role }
-      });
-
-      if (authError) throw authError;
-      userId = authData.user.id;
+    if (existedProfileError) throw existedProfileError;
+    if (existedProfile) {
+      throw new Error(`Số điện thoại ${phone} đã tồn tại (${existedProfile.full_name || existedProfile.id})`);
     }
+
+    // 1. Check auth users to prevent creating duplicate phone identities
+    const { data: existingUser } = await (supabaseService.auth as any).admin.listUsers();
+    const userAlreadyExists = existingUser?.users?.find((u: any) => u.phone === authPhone);
+    if (userAlreadyExists) {
+      throw new Error(`Số điện thoại ${phone} đã tồn tại trong hệ thống đăng nhập`);
+    }
+
+    // Create new auth user
+    const { data: authData, error: authError } = await (supabaseService.auth as any).admin.createUser({
+      phone: authPhone,
+      password,
+      phone_confirm: true,
+      user_metadata: { full_name, role }
+    });
+
+    if (authError) throw authError;
+    const userId = authData.user.id;
+    const authEmail = authData.user.email || null;
 
     // 2. Profile record: Use upsert with retry or separate error handling
     try {
@@ -45,7 +81,7 @@ export class HRService {
         .from('profiles')
         .upsert({
           id: userId,
-          email,
+          email: authEmail,
           full_name,
           phone,
           role,
@@ -55,10 +91,8 @@ export class HRService {
         .single();
 
       if (profileError) {
-        // If we just created the user but profile failed, we might want to cleanup auth
-        if (!userAlreadyExists) {
-          await (supabaseService.auth as any).admin.deleteUser(userId);
-        }
+        // Roll back auth user if profile creation failed
+        await (supabaseService.auth as any).admin.deleteUser(userId);
         throw profileError;
       }
 
@@ -80,13 +114,45 @@ export class HRService {
     return data;
   }
 
-  static async updateEmployee(id: string, payload: { full_name: string; phone?: string; role: string }) {
+  static async updateEmployee(id: string, payload: {
+    full_name: string;
+    phone?: string | null;
+    role: string;
+    date_of_birth?: string | null;
+    gender?: 'male' | 'female' | 'other' | null;
+    citizen_id?: string | null;
+    job_title?: string | null;
+    department?: string | null;
+    personal_email?: string | null;
+    emergency_contact_name?: string | null;
+    emergency_contact_phone?: string | null;
+    emergency_contact_relationship?: string | null;
+    city?: string | null;
+    district?: string | null;
+    ward?: string | null;
+    address_line?: string | null;
+    temporary_address?: string | null;
+  }) {
     const { data, error } = await supabaseService
       .from('profiles')
       .update({
         full_name: payload.full_name,
         phone: payload.phone || null,
         role: payload.role,
+        date_of_birth: payload.date_of_birth || null,
+        gender: payload.gender || null,
+        citizen_id: payload.citizen_id || null,
+        job_title: payload.job_title || null,
+        department: payload.department || null,
+        personal_email: payload.personal_email || null,
+        emergency_contact_name: payload.emergency_contact_name || null,
+        emergency_contact_phone: payload.emergency_contact_phone || null,
+        emergency_contact_relationship: payload.emergency_contact_relationship || null,
+        city: payload.city || null,
+        district: payload.district || null,
+        ward: payload.ward || null,
+        address_line: payload.address_line || null,
+        temporary_address: payload.temporary_address || null,
       })
       .eq('id', id)
       .select('*, app_user_roles(role_id, app_roles(id, role_key, role_name))')
@@ -102,6 +168,7 @@ export class HRService {
       supabaseService.from('warehouses').update({ manager_id: null }).eq('manager_id', id),
       supabaseService.from('price_settings').update({ updated_by: null }).eq('updated_by', id),
       supabaseService.from('vehicles').update({ driver_id: null }).eq('driver_id', id),
+      supabaseService.from('vehicles').update({ in_charge_id: null }).eq('in_charge_id', id),
       supabaseService.from('delivery_vehicles').update({ driver_id: null }).eq('driver_id', id),
       supabaseService.from('import_orders').update({ received_by: null }).eq('received_by', id),
       supabaseService.from('vegetable_orders').update({ received_by: null }).eq('received_by', id),

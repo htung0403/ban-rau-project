@@ -23,6 +23,7 @@ const vehicleSchema = z.object({
   ),
   goods_categories: z.array(z.enum(['grocery', 'vegetable'])).min(1, 'Vui lòng chọn ít nhất một loại hàng'),
   driver_id: z.string().optional(),
+  in_charge_id: z.string().optional(),
 });
 
 type VehicleFormData = z.infer<typeof vehicleSchema>;
@@ -109,6 +110,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
       load_capacity_ton: undefined,
       goods_categories: ['grocery', 'vegetable'],
       driver_id: '',
+      in_charge_id: '',
     },
   });
 
@@ -116,6 +118,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
   const loadCapacityTon = useWatch({ control, name: 'load_capacity_ton' });
   const goodsCategories = useWatch({ control, name: 'goods_categories' });
   const driverId = useWatch({ control, name: 'driver_id' });
+  const inChargeId = useWatch({ control, name: 'in_charge_id' });
 
   const [customVehicleTypes, setCustomVehicleTypes] = React.useState<string[]>([]);
 
@@ -181,23 +184,13 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
       }));
   }, [employees, loadCapacityTon, vehicleType]);
 
-  const driverHintText = React.useMemo(() => {
-    const explicitTonnage = typeof loadCapacityTon === 'number' && Number.isFinite(loadCapacityTon) ? loadCapacityTon : undefined;
-    const inferredTonnage = inferTonnageFromVehicleType(vehicleType);
-    const tonnage = explicitTonnage ?? inferredTonnage;
+  const inChargeOptions = React.useMemo(() => {
+    return (employees || []).map((employee) => ({
+      value: employee.id,
+      label: `${employee.full_name} (${employee.phone || 'Chưa cập nhật'})`,
+    }));
+  }, [employees]);
 
-    if (tonnage == null) {
-      return 'Nhập tải trọng để lọc đúng tài xế xe tải lớn/nhỏ theo quy định.';
-    }
-    if (tonnage > 10) {
-      return explicitTonnage != null
-        ? 'Đang lọc: chỉ hiển thị tài xế có quyền Tài xế xe tải lớn.'
-        : 'Đang lọc theo loại xe: chỉ hiển thị tài xế có quyền Tài xế xe tải lớn.';
-    }
-    return explicitTonnage != null
-      ? 'Đang lọc: chỉ hiển thị tài xế có quyền Tài xế xe tải nhỏ (bao gồm mốc 10 tấn).'
-      : 'Đang lọc theo loại xe: chỉ hiển thị tài xế có quyền Tài xế xe tải nhỏ (bao gồm mốc 10 tấn).';
-  }, [loadCapacityTon, vehicleType]);
 
   useEffect(() => {
     if (isOpen) {
@@ -208,6 +201,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
           load_capacity_ton: vehicle.load_capacity_ton,
           goods_categories: vehicle.goods_categories?.length ? vehicle.goods_categories : ['grocery', 'vegetable'],
           driver_id: vehicle.driver_id || '',
+          in_charge_id: vehicle.in_charge_id || '',
         });
       } else {
         reset({
@@ -216,6 +210,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
           load_capacity_ton: undefined,
           goods_categories: ['grocery', 'vegetable'],
           driver_id: '',
+          in_charge_id: '',
         });
       }
     }
@@ -229,6 +224,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
         load_capacity_ton: data.load_capacity_ton,
         goods_categories: data.goods_categories,
         driver_id: data.driver_id || undefined,
+        in_charge_id: data.in_charge_id || undefined,
       };
       if (vehicle) {
         await updateMutation.mutateAsync({ id: vehicle.id, payload });
@@ -363,7 +359,16 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
                   onValueChange={(val) => setValue('driver_id', val, { shouldValidate: true })}
                   placeholder="Chọn tài xế (tùy chọn)..."
                 />
-                <p className="text-[11px] text-muted-foreground">{driverHintText}</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-bold text-foreground">Người phụ trách xe</label>
+                <SearchableSelect
+                  options={inChargeOptions}
+                  value={inChargeId || ''}
+                  onValueChange={(val) => setValue('in_charge_id', val, { shouldValidate: true })}
+                  placeholder="Chọn người phụ trách (tùy chọn)..."
+                />
               </div>
             </div>
           </div>

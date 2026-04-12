@@ -35,7 +35,7 @@ const LoginPage: React.FC = () => {
   });
 
   useEffect(() => {
-    const savedPhone = localStorage.getItem('remember_phone') || localStorage.getItem('remember_email');
+    const savedPhone = localStorage.getItem('remember_phone');
     if (savedPhone) {
       setValue('phone', savedPhone, { shouldValidate: true });
       setValue('rememberMe', true);
@@ -60,8 +60,7 @@ const LoginPage: React.FC = () => {
         localStorage.removeItem('remember_phone');
       }
 
-      const loginEmail = data.phone.includes('@') ? data.phone : `${data.phone}@vuarau.com`;
-      await login(loginEmail, data.password);
+      await login(data.phone.trim(), data.password);
       navigate('/', { replace: true });
     } catch (err: any) {
       setServerError(err?.response?.data?.message || err?.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
@@ -186,10 +185,10 @@ const LoginPage: React.FC = () => {
               <p className="text-[10px] font-bold text-v-outline uppercase tracking-[0.2em] whitespace-nowrap text-center">Đăng nhập nhanh (Test)</p>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: 'Admin', value: 'admin_demo@vuarau.com', role: 'Quản trị' },
-                  { label: 'Kho', value: 'kho1@vuarau.com', role: 'Quản lý kho' },
-                  { label: 'Tài xế', value: 'xe1@vuarau.com', role: 'Tài xế' },
-                  { label: 'Khách', value: 'khach1@vuarau.com', role: 'Khách hàng' },
+                  { label: 'Admin', value: '0900000001', role: 'Quản trị' },
+                  { label: 'Kho', value: '0900000002', role: 'Quản lý kho' },
+                  { label: 'Tài xế', value: '0900000003', role: 'Tài xế' },
+                  { label: 'Khách', value: '0900000004', role: 'Khách hàng' },
                 ].map((account) => (
                   <button
                     key={account.value}

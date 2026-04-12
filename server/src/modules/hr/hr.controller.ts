@@ -107,7 +107,11 @@ export class HRController {
       }
 
       const validated = updateEmployeeSchema.parse(req.body);
-      const data = await HRService.updateEmployee(req.params.id as string, validated);
+      const data = await HRService.updateEmployee(req.params.id as string, {
+        full_name: validated.full_name!,
+        phone: validated.phone,
+        role: validated.role!,
+      });
       return res.status(200).json(successResponse(data, 'Employee updated'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));

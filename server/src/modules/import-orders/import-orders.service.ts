@@ -1,8 +1,17 @@
 import { supabaseService } from '../../config/supabase';
 import { format } from 'date-fns';
+import type { UserPayload } from '../../types';
+import {
+  fetchDriverScopeForUser,
+  goodsScopeFullAccess,
+  goodsScopeIsDriverRole,
+  goodsScopeIsStaffRole,
+  importOrderRowMatchesGoodsScope,
+  type DriverScope,
+} from '../../utils/goodsScope';
 
 export class ImportOrderService {
-  static async getAll(filters: any) {
+  static async getAll(filters: any, actor?: UserPayload) {
     const isVegOnly = filters.order_category === 'vegetable';
     const isStandardOnly = filters.order_category === 'standard';
     const fetchBoth = !isVegOnly && !isStandardOnly;
@@ -55,12 +64,26 @@ export class ImportOrderService {
     allData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     // Compute total_order_amount
-    return allData.map((order: any) => {
+    let mapped = allData.map((order: any) => {
       return { ...order, total_order_amount: Number(order.total_amount) || 0 };
     });
+
+    if (actor && !goodsScopeFullAccess(actor.role)) {
+      const isStaff = goodsScopeIsStaffRole(actor.role);
+      const isDriver = goodsScopeIsDriverRole(actor.role);
+      if (isStaff || isDriver) {
+        let driverScope: DriverScope | null = null;
+        if (isDriver) {
+          driverScope = await fetchDriverScopeForUser(actor.id);
+        }
+        mapped = mapped.filter((row: any) => importOrderRowMatchesGoodsScope(row, actor, driverScope));
+      }
+    }
+
+    return mapped;
   }
 
-  static async getById(id: string) {
+  static async getById(id: string, actor?: UserPayload) {
     let { data, error } = await supabaseService
       .from('import_orders')
       .select('*, profiles(full_name, role), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))')
@@ -90,6 +113,21 @@ export class ImportOrderService {
       mappedOrder.import_order_items = mappedOrder.vegetable_order_items;
       delete mappedOrder.vegetable_order_items;
     }
+
+    if (actor && !goodsScopeFullAccess(actor.role)) {
+      const isStaff = goodsScopeIsStaffRole(actor.role);
+      const isDriver = goodsScopeIsDriverRole(actor.role);
+      if (isStaff || isDriver) {
+        let driverScope: DriverScope | null = null;
+        if (isDriver) {
+          driverScope = await fetchDriverScopeForUser(actor.id);
+        }
+        if (!importOrderRowMatchesGoodsScope(mappedOrder, actor, driverScope)) {
+          throw new Error('Order not found');
+        }
+      }
+    }
+
     return mappedOrder;
   }
 

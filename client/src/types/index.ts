@@ -179,6 +179,7 @@ export interface ImportOrder {
   receipt_image_url?: string;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
   // Nested relations from API
   import_order_items?: ImportOrderItem[];
   profiles?: { full_name: string };
@@ -268,18 +269,24 @@ export interface DeliveryOrder {
     sender_name: string;
     receiver_name: string;
     license_plate?: string;
+    driver_name?: string | null;
+    received_by?: string | null;
     customers?: { name: string };
     total_amount?: number;
     profiles?: { full_name: string };
+    deleted_at?: string | null;
   };
   vegetable_orders?: {
     order_code: string;
     sender_name: string;
     receiver_name: string;
     license_plate?: string;
+    driver_name?: string | null;
+    received_by?: string | null;
     customers?: { name: string };
     total_amount?: number;
     profiles?: { full_name: string };
+    deleted_at?: string | null;
   };
   payment_collections?: {
     id: string;

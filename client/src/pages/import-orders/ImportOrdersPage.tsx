@@ -16,6 +16,9 @@ import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 import { ColumnSettings, type ColumnOption } from '../../components/shared/ColumnSettings';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
+import { useAuth } from '../../context/AuthContext';
+import { useVehicles } from '../../hooks/queries/useVehicles';
+import { hasFullGoodsModuleAccess, importOrderVisibleToUser } from '../../utils/goodsModuleScope';
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'Chờ xử lý',
@@ -98,7 +101,16 @@ const ImportOrdersPage: React.FC = () => {
   if (searchText.trim()) filters.sender = searchText.trim();
   filters.order_category = 'standard';
 
-  const { data: orders, isLoading, isError, refetch } = useImportOrders(filters);
+  const { user } = useAuth();
+  const { data: vehicles } = useVehicles();
+  const { data: ordersRaw, isLoading, isError, refetch } = useImportOrders(filters);
+  const orders = useMemo(() => {
+    const raw = ordersRaw || [];
+    if (!user || hasFullGoodsModuleAccess(user)) return raw;
+    return raw.filter((o) =>
+      importOrderVisibleToUser(o, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])
+    );
+  }, [ordersRaw, user, vehicles]);
   const deleteMutation = useDeleteImportOrder();
 
   const { vuaOptions, taiOptions, nguoiNhapOptions } = useMemo(() => {

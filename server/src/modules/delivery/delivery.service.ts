@@ -1,7 +1,36 @@
 import { supabaseService } from '../../config/supabase';
 import { format } from 'date-fns';
+import type { UserPayload } from '../../types';
+import {
+  deliveryOrderRowMatchesGoodsScope,
+  fetchDriverScopeForUser,
+  goodsScopeFullAccess,
+  goodsScopeIsDriverRole,
+  goodsScopeIsStaffRole,
+  importOrderRowMatchesGoodsScope,
+  type DriverScope,
+} from '../../utils/goodsScope';
 
 export class DeliveryService {
+  /** Chỉ đánh dấu đã giao khi đã phân đủ số lượng; còn hàng thì can_giao. */
+  private static resolveDeliveryStatusFromAssignedQuantity(
+    totalQuantity: unknown,
+    totalAssigned: number,
+    options?: { previousStatus?: string | null; preserveHangOsgWhenUnassigned?: boolean }
+  ): 'hang_o_sg' | 'can_giao' | 'da_giao' {
+    const tq = Number(totalQuantity || 0);
+    const ta = Math.max(0, Number(totalAssigned || 0));
+    if (tq > 0 && ta >= tq) return 'da_giao';
+    if (
+      options?.preserveHangOsgWhenUnassigned &&
+      options.previousStatus === 'hang_o_sg' &&
+      ta === 0
+    ) {
+      return 'hang_o_sg';
+    }
+    return 'can_giao';
+  }
+
   private static async syncExportOrderForDelivery(
     deliveryId: string,
     totalAssigned: number,
@@ -11,7 +40,9 @@ export class DeliveryService {
   ) {
     const { data: deliveryOrder, error: deliveryError } = await supabaseService
       .from('delivery_orders')
-      .select('id, product_name, unit_price, delivery_date, order_category, import_order_id, vegetable_order_id, image_url')
+      .select(
+        'id, product_name, unit_price, delivery_date, order_category, import_order_id, vegetable_order_id, image_url, total_quantity'
+      )
       .eq('id', deliveryId)
       .single();
 
@@ -97,10 +128,11 @@ export class DeliveryService {
 
       if (updateError) throw updateError;
 
-      await supabaseService
-        .from('delivery_orders')
-        .update({ status: 'da_giao' })
-        .eq('id', deliveryId);
+      const exportSyncStatus = this.resolveDeliveryStatusFromAssignedQuantity(
+        deliveryOrder.total_quantity,
+        safeQuantity
+      );
+      await supabaseService.from('delivery_orders').update({ status: exportSyncStatus }).eq('id', deliveryId);
 
       return;
     }
@@ -134,16 +166,32 @@ export class DeliveryService {
 
     if (createError) throw createError;
 
-    await supabaseService
-      .from('delivery_orders')
-      .update({ status: 'da_giao' })
-      .eq('id', deliveryId);
+    const exportSyncStatus = this.resolveDeliveryStatusFromAssignedQuantity(
+      deliveryOrder.total_quantity,
+      safeQuantity
+    );
+    await supabaseService.from('delivery_orders').update({ status: exportSyncStatus }).eq('id', deliveryId);
   }
 
-  static async getAllToday(startDate?: string, endDate?: string, orderCategory?: string) {
+  private static deliverySourceIsSoftDeleted(row: any): boolean {
+    const io = row?.import_orders;
+    const vo = row?.vegetable_orders;
+    const ioDel = Array.isArray(io) ? io[0]?.deleted_at : io?.deleted_at;
+    const voDel = Array.isArray(vo) ? vo[0]?.deleted_at : vo?.deleted_at;
+    return Boolean(ioDel || voDel);
+  }
+
+  static async getAllToday(startDate?: string, endDate?: string, orderCategory?: string, actor?: UserPayload) {
+    let driverScope: DriverScope | null = null;
+    if (actor && goodsScopeIsDriverRole(actor.role) && !goodsScopeFullAccess(actor.role)) {
+      driverScope = await fetchDriverScopeForUser(actor.id);
+    }
+
     let query = supabaseService
       .from('delivery_orders')
-      .select('*, import_orders(order_code, sender_name, receiver_name, license_plate, customers(name), total_amount, profiles:received_by(full_name), receipt_image_url, import_order_items(image_url)), vegetable_orders(order_code, sender_name, receiver_name, license_plate, customers(name), total_amount, profiles:received_by(full_name), receipt_image_url, vegetable_order_items(image_url)), delivery_vehicles(*, vehicles(license_plate)), payment_collections(id, status, vehicle_id, image_url)')
+      .select(
+        '*, import_orders(order_code, sender_name, receiver_name, license_plate, driver_name, received_by, customers(name), total_amount, profiles:received_by(full_name), receipt_image_url, import_order_items(image_url), deleted_at), vegetable_orders(order_code, sender_name, receiver_name, license_plate, driver_name, received_by, customers(name), total_amount, profiles:received_by(full_name), receipt_image_url, vegetable_order_items(image_url), deleted_at), delivery_vehicles(*, vehicles(license_plate)), payment_collections(id, status, vehicle_id, image_url)'
+      )
       .order('delivery_date', { ascending: false });
 
     if (orderCategory) query = query.eq('order_category', orderCategory);
@@ -159,9 +207,19 @@ export class DeliveryService {
       query = query.eq('delivery_date', today);
     }
 
-    const { data, error } = await query;
+    const { data: rawData, error } = await query;
     if (error) throw error;
-    if (!data || data.length === 0) return data;
+    let data = (rawData || []).filter((row: any) => !this.deliverySourceIsSoftDeleted(row));
+
+    if (actor && !goodsScopeFullAccess(actor.role)) {
+      const isStaff = goodsScopeIsStaffRole(actor.role);
+      const isDriver = goodsScopeIsDriverRole(actor.role);
+      if (isStaff || isDriver) {
+        data = data.filter((row: any) => deliveryOrderRowMatchesGoodsScope(row, actor, driverScope));
+      }
+    }
+
+    if (data.length === 0) return data;
 
     const deliveryIds = data.map((row: any) => row.id).filter(Boolean);
     if (deliveryIds.length === 0) return data;
@@ -269,7 +327,7 @@ export class DeliveryService {
         .in('id', vehicleIds);
     }
 
-    // Auto-check: if all quantity assigned → set status to 'da_giao'
+    // Trạng thái: chỉ da_giao khi đã phân đủ SL; còn hàng → can_giao (giữ hang_o_sg nếu chưa gán xe nào).
     const { data: allDvs } = await supabaseService
       .from('delivery_vehicles')
       .select('assigned_quantity')
@@ -283,16 +341,13 @@ export class DeliveryService {
       .eq('id', deliveryId)
       .single();
 
-    if (doData?.order_category === 'vegetable') {
-      await supabaseService
-        .from('delivery_orders')
-        .update({ status: 'da_giao' })
-        .eq('id', deliveryId);
-    } else if (doData && totalAssigned >= doData.total_quantity) {
-      await supabaseService
-        .from('delivery_orders')
-        .update({ status: 'da_giao' })
-        .eq('id', deliveryId);
+    if (doData) {
+      const nextStatus = this.resolveDeliveryStatusFromAssignedQuantity(
+        doData.total_quantity,
+        totalAssigned,
+        { previousStatus: doData.status, preserveHangOsgWhenUnassigned: true }
+      );
+      await supabaseService.from('delivery_orders').update({ status: nextStatus }).eq('id', deliveryId);
     }
 
     await this.syncExportOrderForDelivery(
@@ -347,17 +402,21 @@ export class DeliveryService {
     return data;
   }
 
-  static async getInventory(orderCategory?: string) {
+  static async getInventory(orderCategory?: string, actor?: UserPayload) {
     const fetchVeg = !orderCategory || orderCategory === 'vegetable';
     const fetchStd = !orderCategory || orderCategory === 'standard';
+
+    const nestedDv =
+      'delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))';
 
     let allData: any[] = [];
     if (fetchStd) {
       const { data, error } = await supabaseService
         .from('import_orders')
-        .select('*, warehouses(name)')
-        .eq('status', 'pending');
-      
+        .select(`*, warehouses(name), ${nestedDv}`)
+        .eq('status', 'pending')
+        .is('deleted_at', null);
+
       if (error) throw error;
       if (data) allData = allData.concat(data.map(d => ({ ...d, order_category: 'standard' })));
     }
@@ -365,11 +424,24 @@ export class DeliveryService {
     if (fetchVeg) {
       const { data, error } = await supabaseService
         .from('vegetable_orders')
-        .select('*, warehouses(name)')
-        .eq('status', 'pending');
-      
+        .select(`*, warehouses(name), ${nestedDv}`)
+        .eq('status', 'pending')
+        .is('deleted_at', null);
+
       if (error) throw error;
       if (data) allData = allData.concat(data.map(d => ({ ...d, order_category: 'vegetable' })));
+    }
+
+    if (actor && !goodsScopeFullAccess(actor.role)) {
+      const isStaff = goodsScopeIsStaffRole(actor.role);
+      const isDriver = goodsScopeIsDriverRole(actor.role);
+      if (isStaff || isDriver) {
+        let driverScope: DriverScope | null = null;
+        if (isDriver) {
+          driverScope = await fetchDriverScopeForUser(actor.id);
+        }
+        allData = allData.filter((row: any) => importOrderRowMatchesGoodsScope(row, actor, driverScope));
+      }
     }
 
     return allData;

@@ -17,6 +17,8 @@ import AddEditVegetableImportOrderDialog from './dialogs/AddEditVegetableImportO
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 import { useAuth } from '../../context/AuthContext';
+import { useVehicles } from '../../hooks/queries/useVehicles';
+import { hasFullGoodsModuleAccess, importOrderVisibleToUser } from '../../utils/goodsModuleScope';
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'Chờ xử lý',
@@ -94,30 +96,6 @@ const isDriverRole = (role?: string | null) => {
   return normalized === 'driver' || normalized.includes('tai_xe') || normalized.includes('driver');
 };
 
-const orderBelongsToDriver = (order: any, driverId: string, driverName?: string) => {
-  if (!driverId) return false;
-
-  if (order.driver_id === driverId) return true;
-  if (order.profiles?.id === driverId && isDriverRole(order.profiles?.role)) return true;
-
-  if (order.delivery_orders?.some((d: any) =>
-    d.delivery_vehicles?.some((dv: any) => dv.driver_id === driverId || dv.profiles?.id === driverId)
-  )) {
-    return true;
-  }
-
-  if (!driverName) return false;
-  const normalizedDriverName = driverName.trim().toLowerCase();
-  if (!normalizedDriverName) return false;
-
-  if (order.driver_name?.trim().toLowerCase() === normalizedDriverName) return true;
-  if (isDriverRole(order.profiles?.role) && order.profiles?.full_name?.trim().toLowerCase() === normalizedDriverName) return true;
-
-  return !!order.delivery_orders?.some((d: any) =>
-    d.delivery_vehicles?.some((dv: any) => dv.profiles?.full_name?.trim().toLowerCase() === normalizedDriverName)
-  );
-};
-
 const defaultColumns: ColumnOption[] = [
   { id: 'order_date', label: 'Ngày', isVisible: true },
   { id: 'order_time', label: 'Giờ', isVisible: true },
@@ -135,7 +113,6 @@ const defaultColumns: ColumnOption[] = [
 
 const VegetableImportsPage: React.FC = () => {
   const { user } = useAuth();
-  const isDriverUser = isDriverRole(user?.role);
 
   // Filters
   const [searchText, setSearchText] = useState('');
@@ -173,7 +150,15 @@ const VegetableImportsPage: React.FC = () => {
   if (searchText.trim()) filters.sender = searchText.trim();
   filters.order_category = 'vegetable';
 
-  const { data: orders, isLoading, isError, refetch } = useImportOrders(filters);
+  const { data: vehicles } = useVehicles();
+  const { data: ordersRaw, isLoading, isError, refetch } = useImportOrders(filters);
+  const orders = useMemo(() => {
+    const raw = ordersRaw || [];
+    if (!user || hasFullGoodsModuleAccess(user)) return raw;
+    return raw.filter((o) =>
+      importOrderVisibleToUser(o, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])
+    );
+  }, [ordersRaw, user, vehicles]);
   const deleteMutation = useDeleteImportOrder();
 
   const { vuaOptions, taiOptions, nguoiNhapOptions } = useMemo(() => {
@@ -236,10 +221,7 @@ const VegetableImportsPage: React.FC = () => {
     return true;
   });
 
-  const filteredOrders = baseFilteredOrders.filter((o) => {
-    if (!isDriverUser || !user?.id) return true;
-    return orderBelongsToDriver(o, user.id, user.full_name);
-  });
+  const filteredOrders = baseFilteredOrders;
 
   // Pagination
   const totalItems = filteredOrders.length;

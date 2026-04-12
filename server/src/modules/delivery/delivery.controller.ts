@@ -28,7 +28,7 @@ export class DeliveryController {
   static async getAllToday(req: Request, res: Response) {
     try {
       const { startDate, endDate, order_category } = req.query as { startDate?: string; endDate?: string; order_category?: string; };
-      const data = await DeliveryService.getAllToday(startDate, endDate, order_category);
+      const data = await DeliveryService.getAllToday(startDate, endDate, order_category, req.user);
       return res.status(200).json(successResponse(data));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
@@ -127,7 +127,7 @@ export class DeliveryController {
   static async getInventory(req: Request, res: Response) {
     try {
       const { order_category } = req.query as { order_category?: string };
-      const data = await DeliveryService.getInventory(order_category);
+      const data = await DeliveryService.getInventory(order_category, req.user);
       return res.status(200).json(successResponse(data));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));

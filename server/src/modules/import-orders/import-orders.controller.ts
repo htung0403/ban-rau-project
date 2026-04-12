@@ -38,7 +38,7 @@ const importOrderSchema = z.object({
 export class ImportOrderController {
   static async getAll(req: Request, res: Response) {
     try {
-      const data = await ImportOrderService.getAll(req.query);
+      const data = await ImportOrderService.getAll(req.query, req.user ?? undefined);
       return res.status(200).json(successResponse(data));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
@@ -47,7 +47,7 @@ export class ImportOrderController {
 
   static async getById(req: Request, res: Response) {
     try {
-      const data = await ImportOrderService.getById(req.params.id as string);
+      const data = await ImportOrderService.getById(req.params.id as string, req.user ?? undefined);
       return res.status(200).json(successResponse(data));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));

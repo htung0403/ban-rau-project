@@ -59,6 +59,8 @@ export function useDeleteImportOrder() {
     mutationFn: (id: string) => importOrdersApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: importOrderKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['delivery'] });
+      queryClient.invalidateQueries({ queryKey: ['export-orders'] });
       toast.success('Xóa đơn nhập hàng thành công');
     },
     onError: () => {

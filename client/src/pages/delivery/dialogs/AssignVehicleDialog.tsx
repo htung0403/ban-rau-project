@@ -32,14 +32,12 @@ const schema = z.object({
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const parseExpectedAmountInput = (input: string) => {
-  const numericValue = Number(input.replace(/\D/g, ''));
-  if (!Number.isFinite(numericValue) || numericValue <= 0) return 0;
+const digitsOnly = (s: string) => s.replace(/\D/g, '');
 
-  // Treat short values as "thousands" (e.g. 200 => 200,000 VND).
-  if (numericValue < 1000) return numericValue * 1000;
-
-  return numericValue;
+/** digits của số tiền đang lưu (để so sánh thêm/xóa ký tự). */
+const amountToDigitString = (amount: number) => {
+  if (!Number.isFinite(amount) || amount <= 0) return '';
+  return String(Math.trunc(amount));
 };
 
 type FormValues = z.infer<typeof schema>;
@@ -105,6 +103,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /** Theo dõi chuỗi chữ số đã “ổn định” theo từng dòng: chỉ ×1000 khi user gõ thêm (độ dài tăng), không khi xóa. */
+  const expectedAmountPrevDigitsRef = useRef<Record<number, string>>({});
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -204,6 +204,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         : (existingAssignedVehicleIds.length > 0 && existingAssignedVehicleIds.every((id) => paidVehicleIds.has(id))
           ? 'paid'
           : 'unpaid');
+
+      expectedAmountPrevDigitsRef.current = {};
 
       reset({
         assignments: initialAssignments,
@@ -424,7 +426,9 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                           onChange: (e) => {
                             if (isRowDisabled) return;
                             const val = Number(e.target.value) || 0;
-                            setValue(`assignments.${index}.expected_amount`, val * (order?.unit_price || 0), { shouldValidate: true });
+                            const expected = val * (order?.unit_price || 0);
+                            setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
+                            expectedAmountPrevDigitsRef.current[index] = amountToDigitString(expected);
                           }
                         })}
                         disabled={isRowDisabled}
@@ -440,14 +444,51 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Tiền thu (VND)</label>
                         <input
                           type="text"
-                          value={watchAssignments[index]?.expected_amount ? new Intl.NumberFormat('vi-VN').format(Number(watchAssignments[index]?.expected_amount || 0)) : ''}
+                          inputMode="numeric"
+                          value={
+                            watchAssignments[index]?.expected_amount
+                              ? new Intl.NumberFormat('vi-VN').format(
+                                  Number(watchAssignments[index]?.expected_amount || 0)
+                                )
+                              : ''
+                          }
+                          onFocus={() => {
+                            if (isRowDisabled) return;
+                            const amt = Number(watchAssignments[index]?.expected_amount || 0);
+                            expectedAmountPrevDigitsRef.current[index] = amountToDigitString(amt);
+                          }}
                           onChange={(e) => {
                             if (isRowDisabled) return;
-                            const parsedAmount = parseExpectedAmountInput(e.target.value);
-                            setValue(`assignments.${index}.expected_amount`, parsedAmount, { shouldValidate: true });
+                            const newDigits = digitsOnly(e.target.value);
+                            const prevDigits = expectedAmountPrevDigitsRef.current[index] ?? '';
+
+                            let amount = 0;
+                            if (newDigits.length === 0) {
+                              amount = 0;
+                              expectedAmountPrevDigitsRef.current[index] = '';
+                            } else if (newDigits.length < prevDigits.length) {
+                              amount = Number(newDigits);
+                              if (!Number.isFinite(amount) || amount < 0) amount = 0;
+                              expectedAmountPrevDigitsRef.current[index] = newDigits;
+                            } else if (newDigits.length > prevDigits.length) {
+                              const n = Number(newDigits);
+                              if (!Number.isFinite(n) || n <= 0) {
+                                amount = 0;
+                                expectedAmountPrevDigitsRef.current[index] = '';
+                              } else {
+                                amount = n < 1000 ? n * 1000 : n;
+                                expectedAmountPrevDigitsRef.current[index] = amountToDigitString(amount);
+                              }
+                            } else {
+                              amount = Number(newDigits);
+                              if (!Number.isFinite(amount) || amount < 0) amount = 0;
+                              expectedAmountPrevDigitsRef.current[index] = newDigits;
+                            }
+
+                            setValue(`assignments.${index}.expected_amount`, amount, { shouldValidate: true });
                           }}
                           disabled={isRowDisabled}
-                          placeholder="VD: 200 = 200.000"
+                          placeholder=""
                           className={clsx(
                             "w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums",
                             isRowDisabled && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed"

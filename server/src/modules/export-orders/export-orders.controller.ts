@@ -23,7 +23,7 @@ const paymentUpdateSchema = z.object({
 export class ExportOrderController {
   static async getAll(req: Request, res: Response) {
     try {
-      const data = await ExportOrderService.getAll(req.query);
+      const data = await ExportOrderService.getAll(req.query, req.user);
       return res.status(200).json(successResponse(data));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));

@@ -15,6 +15,8 @@ import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { Filter, X } from 'lucide-react';
 import type { DeliveryOrder, Vehicle } from '../../types';
+import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
+import { deliveryOrderVisibleToUser, hasFullGoodsModuleAccess } from '../../utils/goodsModuleScope';
 
 const formatNumber = (val?: number) => {
   if (val == null) return '0.00';
@@ -97,8 +99,17 @@ const VegetableDeliveryPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'can_giao' | 'da_giao'>('can_giao');
 
   const { user } = useAuth();
-  const { data: orders, isLoading: ordersLoading, isError, refetch } = useDeliveryOrders(startDate, endDate, 'vegetable');
   const { data: vehicles } = useVehicles();
+  const { data: ordersRaw, isLoading: ordersLoading, isError, refetch } = useDeliveryOrders(startDate, endDate, 'vegetable');
+  const orders = React.useMemo(() => {
+    let base = (ordersRaw || []).filter((o) => !isSoftDeletedSourceOrder(o));
+    if (user && !hasFullGoodsModuleAccess(user)) {
+      base = base.filter((o) =>
+        deliveryOrderVisibleToUser(o, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])
+      );
+    }
+    return base;
+  }, [ordersRaw, user, vehicles]);
   const assignMutation = useAssignVehicle();
 
   const [selectedOrder, setSelectedOrder] = useState<DeliveryOrder | null>(null);
@@ -110,7 +121,9 @@ const VegetableDeliveryPage: React.FC = () => {
 
   const isLoading = ordersLoading;
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
-  const isDriver = user?.role === 'driver';
+  const normalizedRole = (user?.role || '').toLowerCase();
+  const isDriver =
+    normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('driver');
   const eligibleVehicles = React.useMemo(
     () => (vehicles || []).filter((vehicle) => vehicleSupportsGoodsCategory(vehicle, 'vegetable')),
     [vehicles]
@@ -253,28 +266,6 @@ const VegetableDeliveryPage: React.FC = () => {
     filteredOrders = filteredOrders.filter(o => normalizeVegetableStatus(o.status) === statusFilter);
   }
 
-  if (isDriver && myVehicleIds.length === 0) {
-    filteredOrders = [];
-  }
-
-    // Driver / Hiding logic (only for can_giao tab)
-  if (statusFilter === 'can_giao' || statusFilter === 'all') {
-    filteredOrders = filteredOrders.filter(o => {
-      if (isDriver) {
-        if (statusFilter === 'all' && normalizeVegetableStatus(o.status) !== 'can_giao') return true;
-        const totalAssigned = (o.delivery_vehicles || []).reduce((s, dv) => s + (dv.assigned_quantity || 0), 0);
-        const remainingQty = o.total_quantity - totalAssigned;
-        const myAssigned = (o.delivery_vehicles || []).reduce(
-          (sum, dv) => (dv.vehicle_id && myVehicleIdSet.has(dv.vehicle_id) ? sum + (dv.assigned_quantity || 0) : sum),
-          0
-        );
-        if (myAssigned > 0 || remainingQty > 0) return true;
-        return false;
-      }
-      return true;
-    });
-  }
-
     // Text & Select Filters logic
   filteredOrders = filteredOrders.filter(o => {
       const orderData = o.vegetable_orders || o.import_orders;
@@ -405,7 +396,7 @@ const VegetableDeliveryPage: React.FC = () => {
       <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
         {/* Status Tabs */}
         <div className="flex flex-col shrink-0 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex items-center gap-1 px-3 py-2 overflow-x-auto custom-scrollbar">
+          <div className="grid grid-cols-3 gap-1 px-3 py-2 md:flex md:items-center md:gap-1 md:overflow-x-auto custom-scrollbar">
             {(['can_giao', 'da_giao', 'all'] as const).map(status => {
               const colors = STATUS_COLORS[status];
               const isActive = statusFilter === status;
@@ -415,17 +406,16 @@ const VegetableDeliveryPage: React.FC = () => {
                   key={status}
                   onClick={() => setStatusFilter(status)}
                   className={clsx(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all whitespace-nowrap",
+                    "w-full flex items-center justify-center md:justify-start gap-1 px-1.5 md:px-3 py-1.5 rounded-lg text-[10px] md:text-[12px] font-bold transition-all whitespace-nowrap",
                     isActive
                       ? `${colors.bg} ${colors.text} shadow-sm ring-1 ring-black/5`
                       : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}
                 >
-                  <div className={clsx("w-1.5 h-1.5 rounded-full", isActive ? colors.dot : "bg-muted-foreground/40")} />
                   {STATUS_LABELS[status]}
                   {count > 0 && (
                     <span className={clsx(
-                      "text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-5 text-center",
+                      "text-[9px] md:text-[10px] font-black px-1 md:px-1.5 py-0.5 rounded-full min-w-4 md:min-w-5 text-center",
                       isActive ? `${colors.bg} ${colors.text}` : "bg-muted/60 text-muted-foreground"
                     )}>
                       {count}
@@ -434,7 +424,6 @@ const VegetableDeliveryPage: React.FC = () => {
                 </button>
               );
             })}
-
           </div>
         </div>
 

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 import PageHeader from '../../components/shared/PageHeader';
 import { useDeliveryOrders, useDeleteDeliveryOrders } from '../../hooks/queries/useDelivery';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
@@ -11,6 +12,8 @@ import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { useAuth } from '../../context/AuthContext';
+import { useVehicles } from '../../hooks/queries/useVehicles';
+import { deliveryOrderVisibleToUser, hasFullGoodsModuleAccess } from '../../utils/goodsModuleScope';
 
 const formatNumber = (val?: number) => {
   if (val == null) return '0.00';
@@ -18,9 +21,19 @@ const formatNumber = (val?: number) => {
 };
 
 const WarehousesPage: React.FC = () => {
-  const { data: deliveries, isLoading, isError, refetch } = useDeliveryOrders(undefined, undefined, 'standard');
-  const deleteMutation = useDeleteDeliveryOrders();
+  const { data: vehicles } = useVehicles();
+  const { data: deliveriesRaw, isLoading, isError, refetch } = useDeliveryOrders(undefined, undefined, 'standard');
   const { user } = useAuth();
+  const deliveries = useMemo(() => {
+    let d = (deliveriesRaw || []).filter((x) => !isSoftDeletedSourceOrder(x));
+    if (user && !hasFullGoodsModuleAccess(user)) {
+      d = d.filter((x) =>
+        deliveryOrderVisibleToUser(x, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])
+      );
+    }
+    return d;
+  }, [deliveriesRaw, user, vehicles]);
+  const deleteMutation = useDeleteDeliveryOrders();
   const isAdmin = user?.role === 'admin';
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

@@ -69,8 +69,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
             <Truck size={20} />
           </div>
           <div className={clsx("flex flex-col ml-3 whitespace-nowrap transition-opacity duration-300", !isOpen && "opacity-0 hidden")}>
-            <span className="font-bold text-[15px] leading-tight text-foreground">Logistics ERP</span>
-            <span className="text-[11px] text-muted-foreground leading-tight">Quan ly van chuyen</span>
+            <span className="font-bold text-[15px] leading-tight text-foreground">Nhà xe Năm Sự</span>
+            <span className="text-[11px] text-muted-foreground leading-tight">Quản lý vận chuyển</span>
           </div>
         </div>
 

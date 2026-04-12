@@ -12,6 +12,10 @@ import * as XLSX from 'xlsx';
 
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { ColumnSettings } from '../../components/shared/ColumnSettings';
+import { isSoftDeletedOrderRecord } from '../../utils/softDeletedOrder';
+import { useAuth } from '../../context/AuthContext';
+import { useVehicles } from '../../hooks/queries/useVehicles';
+import { hasFullGoodsModuleAccess, importOrderVisibleToUser } from '../../utils/goodsModuleScope';
 
 const formatCurrency = (value?: number | null) => {
   if (value == null) return '-';
@@ -145,7 +149,16 @@ const VegetablesPage: React.FC = () => {
   if (filterDateTo) filters.dateTo = filterDateTo;
   filters.order_category = 'vegetable';
 
-  const { data: orders, isLoading, isError, refetch } = useImportOrders(filters);
+  const { user } = useAuth();
+  const { data: vehicles } = useVehicles();
+  const { data: ordersRaw, isLoading, isError, refetch } = useImportOrders(filters);
+  const orders = useMemo(() => {
+    const raw = ordersRaw || [];
+    if (!user || hasFullGoodsModuleAccess(user)) return raw;
+    return raw.filter((o) =>
+      importOrderVisibleToUser(o, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])
+    );
+  }, [ordersRaw, user, vehicles]);
 
   // Flatten items for table display
   const flattenedItems = useMemo(() => {
@@ -154,6 +167,7 @@ const VegetablesPage: React.FC = () => {
     // Group by license_plate (Nhà Xe) if we wanted to visually group, but we will just list all
     const items: any[] = [];
     orders.forEach(order => {
+      if (isSoftDeletedOrderRecord(order)) return;
       if (order.import_order_items && order.import_order_items.length > 0) {
         order.import_order_items.forEach(item => {
           items.push({

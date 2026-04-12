@@ -14,6 +14,7 @@ import { useVehicles } from '../../../hooks/queries/useVehicles';
 import { useEmployees } from '../../../hooks/queries/useHR';
 import { useDeliveryOrders, useAssignVehicle } from '../../../hooks/queries/useDelivery';
 import { useAuth } from '../../../context/AuthContext';
+import { deliveryOrderBypassesGoodsScope } from '../../../utils/goodsModuleScope';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import CurrencyInput from '../../../components/shared/CurrencyInput';
 import { DatePicker } from '../../../components/shared/DatePicker';
@@ -193,7 +194,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
   const todayDeliveryItems = useMemo(() => {
     if (!deliveryOrders) return [];
     return deliveryOrders
-      .filter((o: any) => o.status === 'can_giao' || o.status === 'hang_o_sg')
+      .filter((o: any) => deliveryOrderBypassesGoodsScope(o))
       .map((o: any) => {
       const pName = o.product_name?.includes(' - ')
         ? o.product_name.split(' - ').slice(1).join(' - ')

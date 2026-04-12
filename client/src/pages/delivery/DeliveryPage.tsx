@@ -15,7 +15,9 @@ import OrderImagesDialog from './dialogs/OrderImagesDialog';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { Filter, X } from 'lucide-react';
-import type { DeliveryOrder, Vehicle } from '../../types';
+import type { DeliveryOrder, DeliveryStatus, Vehicle } from '../../types';
+import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
+import { deliveryOrderVisibleToUser, hasFullGoodsModuleAccess } from '../../utils/goodsModuleScope';
 
 const formatNumber = (val?: number) => {
   if (val == null) return '0.00';
@@ -105,14 +107,40 @@ const getOrderPaymentStatus = (order: DeliveryOrder): keyof typeof PAYMENT_STATU
   return 'partial';
 };
 
+const getDeliveryRemainingQty = (order: DeliveryOrder) => {
+  const totalAssigned = (order.delivery_vehicles || []).reduce(
+    (sum, dv) => sum + (dv.assigned_quantity || 0),
+    0
+  );
+  return order.total_quantity - totalAssigned;
+};
+
+/** Trạng thái hiển thị/lọc: còn hàng chưa giao hết thì luôn là Cần giao, không hiện Đã giao. */
+const getEffectiveDeliveryStatus = (order: DeliveryOrder, remainingQty?: number): DeliveryStatus => {
+  if (order.status === 'hang_o_sg') return 'hang_o_sg';
+  const remaining = remainingQty ?? getDeliveryRemainingQty(order);
+  if (remaining > 0) return 'can_giao';
+  if (order.status === 'da_giao') return 'da_giao';
+  return 'can_giao';
+};
+
 const DeliveryPage: React.FC = () => {
   const [startDate, setStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [statusFilter, setStatusFilter] = useState<'all' | 'can_giao' | 'hang_o_sg' | 'da_giao'>('can_giao');
 
   const { user } = useAuth();
-  const { data: orders, isLoading: ordersLoading, isError, refetch } = useDeliveryOrders(startDate, endDate, 'standard');
+  const { data: ordersRaw, isLoading: ordersLoading, isError, refetch } = useDeliveryOrders(startDate, endDate, 'standard');
   const { data: vehicles } = useVehicles();
+  const orders = React.useMemo(() => {
+    let base = (ordersRaw || []).filter((o) => !isSoftDeletedSourceOrder(o));
+    if (user && !hasFullGoodsModuleAccess(user)) {
+      base = base.filter((o) =>
+        deliveryOrderVisibleToUser(o, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])
+      );
+    }
+    return base;
+  }, [ordersRaw, user, vehicles]);
   const assignMutation = useAssignVehicle();
   const confirmMutation = useConfirmDelivery();
 
@@ -245,9 +273,9 @@ const DeliveryPage: React.FC = () => {
     if (!orders) return { all: 0, hang_o_sg: 0, can_giao: 0, da_giao: 0 };
     return {
       all: orders.length,
-      hang_o_sg: orders.filter((o) => o.status === 'hang_o_sg').length,
-      can_giao: orders.filter((o) => o.status === 'can_giao').length,
-      da_giao: orders.filter((o) => o.status === 'da_giao').length,
+      hang_o_sg: orders.filter((o) => getEffectiveDeliveryStatus(o) === 'hang_o_sg').length,
+      can_giao: orders.filter((o) => getEffectiveDeliveryStatus(o) === 'can_giao').length,
+      da_giao: orders.filter((o) => getEffectiveDeliveryStatus(o) === 'da_giao').length,
     };
   }, [orders]);
 
@@ -275,31 +303,9 @@ const DeliveryPage: React.FC = () => {
 
   let filteredOrders = orders || [];
 
-    // Filter by status
+    // Filter by status (theo trạng thái hiệu dụng: còn hàng → Cần giao)
   if (statusFilter !== 'all') {
-    filteredOrders = filteredOrders.filter(o => o.status === statusFilter);
-  }
-
-  if (isDriver && myVehicleIds.length === 0) {
-    filteredOrders = [];
-  }
-
-    // Driver / Hiding logic (only for can_giao tab)
-  if (statusFilter === 'can_giao' || statusFilter === 'all') {
-    filteredOrders = filteredOrders.filter(o => {
-      if (isDriver) {
-        if (statusFilter === 'all' && o.status !== 'can_giao') return true;
-        const totalAssigned = (o.delivery_vehicles || []).reduce((s, dv) => s + (dv.assigned_quantity || 0), 0);
-        const remainingQty = o.total_quantity - totalAssigned;
-        const myAssigned = (o.delivery_vehicles || []).reduce(
-          (sum, dv) => (dv.vehicle_id && myVehicleIdSet.has(dv.vehicle_id) ? sum + (dv.assigned_quantity || 0) : sum),
-          0
-        );
-        if (myAssigned > 0 || remainingQty > 0) return true;
-        return false;
-      }
-      return true;
-    });
+    filteredOrders = filteredOrders.filter((o) => getEffectiveDeliveryStatus(o) === statusFilter);
   }
 
   // Text & Select Filters logic
@@ -430,7 +436,7 @@ const DeliveryPage: React.FC = () => {
         {/* Status Tabs */}
         <div className="flex flex-col shrink-0 border-b border-slate-100 bg-slate-50/50">
           <div className="grid grid-cols-4 gap-1 px-3 py-2 md:flex md:items-center md:gap-1 md:overflow-x-auto custom-scrollbar">
-            {(['all', 'can_giao', 'hang_o_sg', 'da_giao'] as const).map(status => {
+            {(['can_giao', 'hang_o_sg', 'da_giao', 'all'] as const).map(status => {
               const colors = STATUS_COLORS[status];
               const isActive = statusFilter === status;
               const count = statusCounts[status];
@@ -547,7 +553,8 @@ const DeliveryPage: React.FC = () => {
                           0
                         );
                         const remainingQty = o.total_quantity - totalAssigned;
-                        const statusColor = STATUS_COLORS[o.status] || STATUS_COLORS.can_giao;
+                        const effectiveStatus = getEffectiveDeliveryStatus(o, remainingQty);
+                        const statusColor = STATUS_COLORS[effectiveStatus] || STATUS_COLORS.can_giao;
                         const paymentStatus = getOrderPaymentStatus(o);
                         const paymentConfig = PAYMENT_STATUS_CONFIG[paymentStatus];
 
@@ -619,7 +626,7 @@ const DeliveryPage: React.FC = () => {
                             <td className="px-2 py-3 border-r border-slate-100">
                               <div className={clsx("flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold mx-auto w-fit", statusColor.bg, statusColor.text)}>
                                 <div className={clsx("w-1.5 h-1.5 rounded-full", statusColor.dot)} />
-                                {STATUS_LABELS[o.status] || o.status}
+                                {STATUS_LABELS[effectiveStatus] || effectiveStatus}
                               </div>
                             </td>
                             <td className="px-2 py-3 border-r border-slate-100 text-center">

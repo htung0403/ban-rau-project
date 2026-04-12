@@ -1,14 +1,65 @@
 import { supabaseService } from '../../config/supabase';
+import type { UserPayload } from '../../types';
+import {
+  exportOrderRowMatchesGoodsScope,
+  fetchDriverScopeForUser,
+  goodsScopeFullAccess,
+  goodsScopeIsDriverRole,
+  goodsScopeIsStaffRole,
+  type DriverScope,
+} from '../../utils/goodsScope';
+
+function deliverySourceSoftDeleted(d: any): boolean {
+  const io = d?.import_orders;
+  const vo = d?.vegetable_orders;
+  const ioDel = Array.isArray(io) ? io[0]?.deleted_at : io?.deleted_at;
+  const voDel = Array.isArray(vo) ? vo[0]?.deleted_at : vo?.deleted_at;
+  return Boolean(ioDel || voDel);
+}
+
 export class ExportOrderService {
-  static async getAll(filters: any) {
+  static async getAll(filters: any, actor?: UserPayload) {
     let query = supabaseService.from('export_orders').select('*, profiles(full_name), customers(id, name, debt)');
-    
+
     if (filters.date) query = query.eq('export_date', filters.date);
     if (filters.customer_id) query = query.eq('customer_id', filters.customer_id);
 
     const { data, error } = await query;
     if (error) throw error;
-    return data;
+    if (!data || data.length === 0) return data;
+
+    const deliveryIds = [...new Set(data.map((o: any) => o.product_id).filter(Boolean))] as string[];
+    if (deliveryIds.length === 0) return data;
+
+    const { data: deliveries, error: delErr } = await supabaseService
+      .from('delivery_orders')
+      .select(
+        'id, import_orders(deleted_at, received_by, license_plate, driver_name), vegetable_orders(deleted_at, received_by, license_plate, driver_name), delivery_vehicles(driver_id, vehicle_id, vehicles(license_plate))'
+      )
+      .in('id', deliveryIds);
+
+    if (delErr) throw delErr;
+
+    const deliveryById = new Map((deliveries || []).map((d: any) => [d.id, d]));
+
+    let driverScope: DriverScope | null = null;
+    if (actor && goodsScopeIsDriverRole(actor.role) && !goodsScopeFullAccess(actor.role)) {
+      driverScope = await fetchDriverScopeForUser(actor.id);
+    }
+
+    const needScope =
+      actor &&
+      !goodsScopeFullAccess(actor.role) &&
+      (goodsScopeIsStaffRole(actor.role) || goodsScopeIsDriverRole(actor.role));
+
+    return data.filter((o: any) => {
+      if (!o.product_id) return true;
+      const d = deliveryById.get(o.product_id);
+      if (!d) return true;
+      if (deliverySourceSoftDeleted(d)) return false;
+      if (needScope && actor && !exportOrderRowMatchesGoodsScope(o, d, actor, driverScope)) return false;
+      return true;
+    });
   }
 
   static async create(orderData: any, userId: string) {

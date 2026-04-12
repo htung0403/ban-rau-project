@@ -42,13 +42,13 @@ const LoginPage: React.FC = () => {
     }
   }, [setValue]);
 
-  const handleQuickLogin = (phone: string, password: string) => {
-    setValue('phone', phone, { shouldValidate: true });
-    setValue('password', password, { shouldValidate: true });
-    setTimeout(() => {
-      handleSubmit(onSubmit)();
-    }, 100);
-  };
+  // const handleQuickLogin = (phone: string, password: string) => {
+  //   setValue('phone', phone, { shouldValidate: true });
+  //   setValue('password', password, { shouldValidate: true });
+  //   setTimeout(() => {
+  //     handleSubmit(onSubmit)();
+  //   }, 100);
+  // };
 
   const onSubmit = async (data: LoginFormData) => {
     setIsSubmitting(true);
@@ -181,7 +181,7 @@ const LoginPage: React.FC = () => {
             </form>
 
             {/* Quick Test Login */}
-            <div className="mt-8 pt-6 border-t border-v-surface-container-high space-y-4">
+            {/* <div className="mt-8 pt-6 border-t border-v-surface-container-high space-y-4">
               <p className="text-[10px] font-bold text-v-outline uppercase tracking-[0.2em] whitespace-nowrap text-center">Đăng nhập nhanh (Test)</p>
               <div className="grid grid-cols-2 gap-2">
                 {[
@@ -201,7 +201,7 @@ const LoginPage: React.FC = () => {
                   </button>
                 ))}
               </div>
-            </div>
+            </div> */}
 
             {/* <div className="mt-8 text-center hidden md:block">
               <p className="text-sm text-v-on-surface-variant">
@@ -209,8 +209,8 @@ const LoginPage: React.FC = () => {
                 <a className="font-bold text-v-primary-dim hover:text-v-primary transition-colors ml-1" href="#">Đăng ký ngay</a>
               </p>
             </div> */}
-
           </div>
+
         </div>
       </main>
     </div>

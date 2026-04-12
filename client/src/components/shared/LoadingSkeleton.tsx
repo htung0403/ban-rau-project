@@ -5,12 +5,13 @@ interface LoadingSkeletonProps {
   rows?: number;
   columns?: number;
   type?: 'table' | 'card' | 'form';
+  className?: string;
 }
 
-const LoadingSkeleton: React.FC<LoadingSkeletonProps> = ({ rows = 5, columns = 5, type = 'table' }) => {
+const LoadingSkeleton: React.FC<LoadingSkeletonProps> = ({ rows = 5, columns = 5, type = 'table', className }) => {
   if (type === 'card') {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className={clsx('grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4', className)}>
         {Array.from({ length: rows }).map((_, i) => (
           <div key={i} className="bg-white rounded-2xl border border-border p-5 space-y-3 animate-pulse">
             <div className="flex items-center gap-3">
@@ -32,7 +33,7 @@ const LoadingSkeleton: React.FC<LoadingSkeletonProps> = ({ rows = 5, columns = 5
 
   if (type === 'form') {
     return (
-      <div className="space-y-4 animate-pulse">
+      <div className={clsx('space-y-4 animate-pulse', className)}>
         {Array.from({ length: rows }).map((_, i) => (
           <div key={i} className="space-y-2">
             <div className="h-3 bg-muted rounded w-24" />
@@ -45,7 +46,7 @@ const LoadingSkeleton: React.FC<LoadingSkeletonProps> = ({ rows = 5, columns = 5
 
   // Table skeleton
   return (
-    <div className="animate-pulse">
+    <div className={clsx('animate-pulse', className)}>
       <div className="border-b border-border">
         <div className="flex gap-4 px-4 py-3">
           {Array.from({ length: columns }).map((_, i) => (

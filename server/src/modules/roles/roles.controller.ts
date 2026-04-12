@@ -10,7 +10,7 @@ const createRoleSchema = z.object({
 });
 
 const updateRolePermissionsSchema = z.object({
-  permission_keys: z.array(z.string()).default([]),
+  page_paths: z.array(z.string()).default([]),
 });
 
 const assignUserRolesSchema = z.object({
@@ -71,7 +71,7 @@ export class RolesController {
   static async updateRolePermissions(req: Request, res: Response) {
     try {
       const validated = updateRolePermissionsSchema.parse(req.body);
-      const data = await RolesService.updateRolePermissions(req.params.roleId as string, validated.permission_keys);
+      const data = await RolesService.updateRolePermissions(req.params.roleId as string, validated.page_paths);
       return res.status(200).json(successResponse(data, 'Role permissions updated'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));

@@ -374,4 +374,24 @@ export class DeliveryService {
 
     return allData;
   }
+
+  static async deleteOrders(ids: string[]) {
+    // Delete related delivery_vehicles first (foreign key)
+    const { error: dvError } = await supabaseService
+      .from('delivery_vehicles')
+      .delete()
+      .in('delivery_order_id', ids);
+
+    if (dvError) throw dvError;
+
+    // Delete delivery orders
+    const { data, error } = await supabaseService
+      .from('delivery_orders')
+      .delete()
+      .in('id', ids)
+      .select();
+
+    if (error) throw error;
+    return data;
+  }
 }

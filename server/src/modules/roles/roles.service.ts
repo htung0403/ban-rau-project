@@ -75,8 +75,8 @@ export class RolesService {
 
     return (data || []).map((role: any) => ({
       ...role,
-      permission_keys: (role.app_role_permissions || [])
-        .map((rp: any) => rp.app_permissions?.permission_key)
+      page_paths: (role.app_role_permissions || [])
+        .map((rp: any) => rp.app_permissions?.page_path)
         .filter(Boolean),
     }));
   }
@@ -135,16 +135,8 @@ export class RolesService {
     return { id: roleId, role_name: role.role_name, deleted: true };
   }
 
-  static async updateRolePermissions(roleId: string, permissionKeys: string[]) {
-    const { data: permissionRows, error: permissionError } = await supabaseService
-      .from('app_permissions')
-      .select('id, permission_key')
-      .in('permission_key', permissionKeys.length ? permissionKeys : ['__none__']);
-
-    if (permissionError) throw permissionError;
-
-    const permissionIds = (permissionRows || []).map((p) => p.id);
-
+  static async updateRolePermissions(roleId: string, pagePaths: string[]) {
+    // Clear existing role-permission mappings first
     const { error: deleteError } = await supabaseService
       .from('app_role_permissions')
       .delete()
@@ -152,16 +144,60 @@ export class RolesService {
 
     if (deleteError) throw deleteError;
 
-    if (!permissionIds.length) {
-      return { role_id: roleId, permission_keys: [] };
+    if (!pagePaths.length) {
+      return { role_id: roleId, page_paths: [] };
     }
 
+    // Find existing permissions by page_path
+    const { data: existingPerms, error: existingError } = await supabaseService
+      .from('app_permissions')
+      .select('id, page_path')
+      .in('page_path', pagePaths);
+
+    if (existingError) throw existingError;
+
+    const existingPathSet = new Set((existingPerms || []).map((p) => p.page_path));
+    const missingPaths = pagePaths.filter((p) => !existingPathSet.has(p));
+
+    // Auto-create missing app_permissions rows
+    if (missingPaths.length) {
+      const newPermissions = missingPaths.map((pagePath) => {
+        const permKey = 'page.view.' + pagePath.replace(/^\//g, '').replace(/\//g, '.');
+        // Derive module from path prefix
+        const segment = pagePath.split('/')[1] || 'other';
+        const moduleMap: Record<string, { key: string; name: string }> = {
+          'hang-hoa': { key: 'products', name: 'Hàng hóa' },
+          'hanh-chinh-nhan-su': { key: 'hr', name: 'Hành chính nhân sự' },
+          'ke-toan': { key: 'accounting', name: 'Kế toán' },
+          'quan-ly-xe': { key: 'vehicles', name: 'Quản lý xe' },
+        };
+        const mod = moduleMap[segment] || { key: segment, name: segment };
+        return {
+          permission_key: permKey,
+          page_path: pagePath,
+          page_name: pagePath,
+          module_key: mod.key,
+          module_name: mod.name,
+          is_active: true,
+        };
+      });
+
+      const { data: inserted, error: insertPermError } = await supabaseService
+        .from('app_permissions')
+        .upsert(newPermissions, { onConflict: 'page_path' })
+        .select('id, page_path');
+
+      if (insertPermError) throw insertPermError;
+      if (inserted) existingPerms!.push(...inserted);
+    }
+
+    const permissionIds = (existingPerms || []).map((p) => p.id);
     const rows = permissionIds.map((permissionId) => ({ role_id: roleId, permission_id: permissionId }));
     const { error: insertError } = await supabaseService.from('app_role_permissions').insert(rows);
 
     if (insertError) throw insertError;
 
-    return { role_id: roleId, permission_keys: permissionKeys };
+    return { role_id: roleId, page_paths: pagePaths };
   }
 
   static async getUserRoles(userId: string) {

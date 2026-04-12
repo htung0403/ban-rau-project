@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import PageHeader from '../../components/shared/PageHeader';
-import { useExportOrders } from '../../hooks/queries/useExportOrders';
+import { useExportOrders, useDeleteExportOrders } from '../../hooks/queries/useExportOrders';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import StatusBadge from '../../components/shared/StatusBadge';
-import { Plus, Search, X, Filter, Image as ImageIcon, Eye } from 'lucide-react';
+import { Plus, Search, X, Filter, Image as ImageIcon, Eye, Trash2 } from 'lucide-react';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import { clsx } from 'clsx';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 import AddEditExportOrderDialog from './dialogs/AddEditExportOrderDialog';
+import ConfirmDialog from '../../components/shared/ConfirmDialog';
+import { useAuth } from '../../context/AuthContext';
 
 const paymentLabels: Record<string, string> = {
   unpaid: 'Chưa thanh toán',
@@ -26,6 +28,9 @@ const formatCurrency = (value?: number | null) => {
 
 const ExportOrdersPage: React.FC = () => {
   const { data: orders, isLoading, isError, refetch } = useExportOrders();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const deleteMutation = useDeleteExportOrders();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isAddClosing, setIsAddClosing] = useState(false);
@@ -38,6 +43,9 @@ const ExportOrdersPage: React.FC = () => {
   const [isFilterClosing, setIsFilterClosing] = useState(false);
 
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const closeFilter = () => {
     setIsFilterClosing(true);
@@ -89,21 +97,35 @@ const ExportOrdersPage: React.FC = () => {
         {/* Toolbar */}
         <div className="p-3 border-b border-border flex flex-col md:flex-row items-stretch md:items-center gap-2">
           <div className="flex w-full md:flex-1 gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
-              <input
-                type="text"
-                placeholder="Tìm kiếm theo mặt hàng..."
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 bg-muted/20 border border-border/80 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
-              />
-              {searchText && (
-                <button onClick={() => setSearchText('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  <X size={14} />
+            {isAdmin && selectedIds.size > 0 ? (
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-[13px] font-bold text-foreground shrink-0">
+                  Đã chọn {selectedIds.size} mục
+                </span>
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Bỏ chọn
                 </button>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm theo mặt hàng..."
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 bg-muted/20 border border-border/80 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                />
+                {searchText && (
+                  <button onClick={() => setSearchText('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            )}
 
             <button
                onClick={() => setIsFilterOpen(true)}
@@ -114,6 +136,18 @@ const ExportOrdersPage: React.FC = () => {
             >
                <Filter size={18} />
             </button>
+
+            {/* Delete Button - visible when items selected (admin only) */}
+            {isAdmin && selectedIds.size > 0 && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-red-500 text-white hover:bg-red-600 rounded-xl text-[12px] font-bold transition-all shrink-0 shadow-sm"
+              >
+                <Trash2 size={14} />
+                <span className="hidden sm:inline">Xóa ({selectedIds.size})</span>
+                <span className="sm:hidden">{selectedIds.size}</span>
+              </button>
+            )}
           </div>
           <div className="hidden md:block relative z-20 flex-none">
             <DateRangePicker
@@ -153,6 +187,22 @@ const ExportOrdersPage: React.FC = () => {
             <table className="w-full border-collapse min-w-[700px]">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-muted/30 border-b border-border">
+                  {isAdmin && (
+                    <th className="px-3 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
+                        checked={filteredOrders.length > 0 && filteredOrders.every((o) => selectedIds.has(o.id))}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIds(new Set(filteredOrders.map((o) => o.id)));
+                          } else {
+                            setSelectedIds(new Set());
+                          }
+                        }}
+                      />
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Ngày</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Giờ</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Khách hàng</th>
@@ -161,11 +211,27 @@ const ExportOrdersPage: React.FC = () => {
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">SL</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Số tiền</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Thanh toán</th>
+                  {isAdmin && <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Thao tác</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
                 {filteredOrders.map((o) => (
-                  <tr key={o.id} className="hover:bg-muted/20 transition-colors">
+                  <tr key={o.id} className={`hover:bg-muted/20 transition-colors ${selectedIds.has(o.id) ? 'bg-primary/5' : ''}`}>
+                    {isAdmin && (
+                      <td className="px-3 py-3 w-10">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
+                          checked={selectedIds.has(o.id)}
+                          onChange={(e) => {
+                            const next = new Set(selectedIds);
+                            if (e.target.checked) next.add(o.id);
+                            else next.delete(o.id);
+                            setSelectedIds(next);
+                          }}
+                        />
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{o.export_date}</td>
                     <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{(o as any).export_time || '—'}</td>
                     <td className="px-4 py-3 text-[13px] font-semibold text-foreground">{(o as any).customers?.name || '—'}</td>
@@ -190,6 +256,21 @@ const ExportOrdersPage: React.FC = () => {
                     <td className="px-4 py-3 text-[13px] font-bold text-foreground text-right tabular-nums">{o.quantity}</td>
                     <td className="px-4 py-3 text-[13px] font-bold text-primary text-right tabular-nums">{formatCurrency(o.debt_amount)}</td>
                     <td className="px-4 py-3 text-center"><StatusBadge status={o.payment_status} label={paymentLabels[o.payment_status]} /></td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedIds(new Set([o.id]));
+                            setShowDeleteConfirm(true);
+                          }}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-all"
+                          title="Xóa"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -201,9 +282,27 @@ const ExportOrdersPage: React.FC = () => {
             {filteredOrders.map((o) => (
               <div
                 key={o.id}
-                className="bg-white rounded-2xl border border-border shadow-sm p-3 hover:shadow-md active:bg-muted/10 transition-all flex flex-col gap-2"
+                className={`bg-white rounded-2xl border shadow-sm p-3 hover:shadow-md active:bg-muted/10 transition-all flex flex-col gap-2 ${isAdmin && selectedIds.has(o.id) ? 'border-primary/40 bg-primary/5' : 'border-border'}`}
               >
                 <div className="flex gap-3">
+                  {/* Checkbox (admin only) */}
+                  {isAdmin && (
+                    <div className="flex items-center shrink-0 self-center">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
+                        checked={selectedIds.has(o.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          const next = new Set(selectedIds);
+                          if (e.target.checked) next.add(o.id);
+                          else next.delete(o.id);
+                          setSelectedIds(next);
+                        }}
+                      />
+                    </div>
+                  )}
+
                   {/* Left: Image Thumbnail */}
                   <div 
                     className="w-[64px] h-[64px] shrink-0 bg-muted/20 rounded-lg overflow-hidden border border-border/50 self-center"
@@ -291,6 +390,27 @@ const ExportOrdersPage: React.FC = () => {
         }}
         dateLabel="Khoảng thời gian"
       />
+
+      {/* Confirm Delete Dialog (admin only) */}
+      {isAdmin && (
+        <ConfirmDialog
+          isOpen={showDeleteConfirm}
+          title="Xác nhận xóa"
+          message={`Bạn có chắc muốn xóa ${selectedIds.size} phiếu xuất hàng đã chọn? Hành động này không thể hoàn tác.`}
+          confirmLabel="Xóa"
+          isLoading={deleteMutation.isPending}
+          onConfirm={() => {
+            deleteMutation.mutate(Array.from(selectedIds), {
+              onSuccess: () => {
+                setSelectedIds(new Set());
+                setShowDeleteConfirm(false);
+              },
+            });
+          }}
+          onCancel={() => setShowDeleteConfirm(false)}
+          variant="danger"
+        />
+      )}
 
       {/* Fullscreen Image Viewer */}
       {viewingImage && createPortal(

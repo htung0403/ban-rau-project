@@ -14,5 +14,6 @@ router.post('/', DeliveryController.create);
 router.put('/confirm', DeliveryController.confirmOrders);
 router.put('/:id/assign-vehicle', DeliveryController.assignVehicle);
 router.put('/:id/update-qty', DeliveryController.updateQty);
+router.post('/delete', DeliveryController.deleteOrders);
 
 export default router;

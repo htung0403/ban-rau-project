@@ -40,8 +40,8 @@ export const PAGE_POLICIES = {
   HR_PAYROLL_VIEW: ['/hanh-chinh-nhan-su/luong'],
   HR_ATTENDANCE_VIEW: ['/hanh-chinh-nhan-su/cham-cong'],
 
-  GENERAL_SETTINGS_VIEW: ['/cai-dat', '/hanh-chinh-nhan-su/cham-cong'],
-  GENERAL_SETTINGS_MANAGE: ['/cai-dat'],
+  GENERAL_SETTINGS_VIEW: ['/cai-dat', '/hanh-chinh-nhan-su/cham-cong', '/hanh-chinh-nhan-su/cau-hinh-cham-cong'],
+  GENERAL_SETTINGS_MANAGE: ['/cai-dat', '/hanh-chinh-nhan-su/cau-hinh-cham-cong'],
 } as const;
 
 export type PermissionPolicyName = keyof typeof PAGE_POLICIES;

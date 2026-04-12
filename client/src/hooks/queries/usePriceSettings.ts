@@ -81,13 +81,15 @@ export function useGeneralSetting(key: string) {
 export function useUpsertGeneralSetting() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ key, value, description }: { key: string; value: any; description?: string }) => 
+    mutationFn: ({ key, value, description }: { key: string; value: any; description?: string; quiet?: boolean }) =>
       settingsApi.upsertGeneralSetting(key, { value, description }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: generalSettingsKeys.all });
       queryClient.invalidateQueries({ queryKey: generalSettingsKeys.detail(variables.key) });
-      toast.success('Cập nhật cấu hình thành công');
+      if (!variables.quiet) toast.success('Cập nhật cấu hình thành công');
     },
-    onError: () => toast.error('Lỗi khi cập nhật cấu hình'),
+    onError: (_err, variables) => {
+      if (!variables?.quiet) toast.error('Lỗi khi cập nhật cấu hình');
+    },
   });
 }

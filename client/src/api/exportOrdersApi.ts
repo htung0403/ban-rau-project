@@ -16,4 +16,9 @@ export const exportOrdersApi = {
     const { data } = await axiosClient.put<ExportOrder>(`/export-orders/${id}/payment`, payload);
     return data;
   },
+
+  deleteMany: async (ids: string[]) => {
+    const { data } = await axiosClient.post('/export-orders/bulk-delete', { ids });
+    return data;
+  },
 };

@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, Plus, Save, Trash2 } from 'lucide-react';
+import { FileText, Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import PageHeader from '../../components/shared/PageHeader';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
-import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
+import { moduleData } from '../../data/moduleData';
 import {
-  useAppPermissions,
   useAppRoles,
   useCreateAppRole,
   useDeleteAppRole,
@@ -28,8 +27,24 @@ const getRoleDisplayName = (roleName: string, roleKey?: string) => {
   return roleName;
 };
 
+const iconColorMap: Record<string, string> = {
+  red: 'bg-red-500/10 text-red-500',
+  green: 'bg-emerald-500/10 text-emerald-500',
+  pink: 'bg-pink-500/10 text-pink-500',
+  blue: 'bg-blue-500/10 text-blue-500',
+  orange: 'bg-orange-500/10 text-orange-500',
+  teal: 'bg-teal-500/10 text-teal-500',
+  purple: 'bg-purple-500/10 text-purple-500',
+  cyan: 'bg-cyan-500/10 text-cyan-500',
+  emerald: 'bg-emerald-500/10 text-emerald-500',
+  amber: 'bg-amber-500/10 text-amber-500',
+  slate: 'bg-slate-500/10 text-slate-500',
+};
+
+/** Build grouped sections from moduleData for the permissions grid */
+const allModuleSections = Object.values(moduleData).flat();
+
 const RolePermissionsPage: React.FC = () => {
-  const { data: permissions, isLoading: permissionsLoading, isError: permissionsError, refetch: refetchPermissions } = useAppPermissions();
   const { data: roles, isLoading: rolesLoading, isError: rolesError, refetch: refetchRoles } = useAppRoles();
   const createRoleMutation = useCreateAppRole();
   const deleteRoleMutation = useDeleteAppRole();
@@ -37,42 +52,41 @@ const RolePermissionsPage: React.FC = () => {
 
   const [newRoleName, setNewRoleName] = useState('');
   const [selectedRoleId, setSelectedRoleId] = useState('');
-  const [selectedPermissionKeys, setSelectedPermissionKeys] = useState<string[]>([]);
-
-  const groupedPermissions = useMemo(() => {
-    const source = permissions || [];
-    return source.reduce<Record<string, typeof source>>((acc, item) => {
-      const key = item.module_name || 'Khac';
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(item);
-      return acc;
-    }, {});
-  }, [permissions]);
+  const [selectedPagePaths, setSelectedPagePaths] = useState<string[]>([]);
 
   const effectiveRoleId = selectedRoleId || roles?.[0]?.id || '';
   const currentRole = useMemo(() => (roles || []).find((role) => role.id === effectiveRoleId), [roles, effectiveRoleId]);
 
   useEffect(() => {
     if (!effectiveRoleId) {
-      setSelectedPermissionKeys([]);
+      setSelectedPagePaths([]);
       return;
     }
     const role = (roles || []).find((item) => item.id === effectiveRoleId);
-    setSelectedPermissionKeys(role?.permission_keys || []);
+    setSelectedPagePaths(role?.page_paths || []);
   }, [roles, effectiveRoleId]);
 
   const handleSelectRole = (roleId: string) => {
     setSelectedRoleId(roleId);
     const role = (roles || []).find((item) => item.id === roleId);
-    setSelectedPermissionKeys(role?.permission_keys || []);
+    setSelectedPagePaths(role?.page_paths || []);
   };
 
-  const handleTogglePermission = (permissionKey: string) => {
-    setSelectedPermissionKeys((prev) =>
-      prev.includes(permissionKey)
-        ? prev.filter((key) => key !== permissionKey)
-        : [...prev, permissionKey]
+  const handleTogglePath = (path: string) => {
+    setSelectedPagePaths((prev) =>
+      prev.includes(path)
+        ? prev.filter((p) => p !== path)
+        : [...prev, path]
     );
+  };
+
+  const handleToggleSection = (sectionPaths: string[]) => {
+    const allChecked = sectionPaths.every((p) => selectedPagePaths.includes(p));
+    if (allChecked) {
+      setSelectedPagePaths((prev) => prev.filter((p) => !sectionPaths.includes(p)));
+    } else {
+      setSelectedPagePaths((prev) => Array.from(new Set([...prev, ...sectionPaths])));
+    }
   };
 
   const handleCreateRole = () => {
@@ -84,7 +98,7 @@ const RolePermissionsPage: React.FC = () => {
         onSuccess: (created) => {
           setNewRoleName('');
           setSelectedRoleId(created.id);
-          setSelectedPermissionKeys([]);
+          setSelectedPagePaths([]);
         },
       }
     );
@@ -94,7 +108,7 @@ const RolePermissionsPage: React.FC = () => {
     if (!effectiveRoleId) return;
     updateRolePermissionsMutation.mutate({
       roleId: effectiveRoleId,
-      permissionKeys: selectedPermissionKeys,
+      pagePaths: selectedPagePaths,
     });
   };
 
@@ -109,30 +123,23 @@ const RolePermissionsPage: React.FC = () => {
       onSuccess: () => {
         if (effectiveRoleId === roleId) {
           setSelectedRoleId('');
-          setSelectedPermissionKeys([]);
+          setSelectedPagePaths([]);
         }
       },
     });
   };
 
-  const isLoading = permissionsLoading || rolesLoading;
-  const isError = permissionsError || rolesError;
-
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
       <PageHeader title="Phân quyền" description="Tạo quyền và cấp quyền truy cập + thao tác theo từng trang trong hệ thống" backPath="/hanh-chinh-nhan-su" />
 
-      {isLoading ? (
+      {rolesLoading ? (
         <div className="bg-white rounded-2xl border border-border shadow-sm p-4 flex-1">
           <LoadingSkeleton rows={8} columns={3} />
         </div>
-      ) : isError ? (
+      ) : rolesError ? (
         <div className="bg-white rounded-2xl border border-border shadow-sm flex-1">
-          <ErrorState onRetry={() => { refetchPermissions(); refetchRoles(); }} />
-        </div>
-      ) : !permissions?.length ? (
-        <div className="bg-white rounded-2xl border border-border shadow-sm flex-1">
-          <EmptyState title="Chưa có dữ liệu trang hệ thống" />
+          <ErrorState onRetry={() => { refetchRoles(); }} />
         </div>
       ) : (
         <div className="flex-1 overflow-auto custom-scrollbar pb-6 px-1">
@@ -173,7 +180,7 @@ const RolePermissionsPage: React.FC = () => {
                     <div className="flex items-start justify-between gap-3">
                       <button type="button" onClick={() => handleSelectRole(role.id)} className="min-w-0 text-left flex-1">
                         <div className="text-[13px] font-bold text-foreground">{getRoleDisplayName(role.role_name, role.role_key)}</div>
-                        <div className="text-[11px] text-muted-foreground mt-1">{role.permission_keys?.length || 0} trang đã cấp</div>
+                        <div className="text-[11px] text-muted-foreground mt-1">{role.page_paths?.length || 0} trang đã cấp</div>
                       </button>
                       <button
                         type="button"
@@ -209,32 +216,56 @@ const RolePermissionsPage: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                {Object.entries(groupedPermissions).map(([moduleName, items]) => (
-                  <div key={moduleName} className="rounded-xl border border-border/80 overflow-hidden">
-                    <div className="px-4 py-2.5 bg-muted/10 border-b border-border text-[12px] font-bold uppercase tracking-wide text-primary">
-                      {moduleName}
+                {allModuleSections.map((section) => {
+                  const sectionPaths = section.items.filter((i) => i.path).map((i) => i.path!);
+                  const allChecked = sectionPaths.length > 0 && sectionPaths.every((p) => selectedPagePaths.includes(p));
+                  const someChecked = sectionPaths.some((p) => selectedPagePaths.includes(p));
+
+                  return (
+                    <div key={section.section} className="rounded-xl border border-border/80 overflow-hidden">
+                      <div className="px-4 py-2.5 bg-muted/10 border-b border-border flex items-center justify-between">
+                        <span className="text-[12px] font-bold uppercase tracking-wide text-primary">{section.section}</span>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <span className="text-[11px] text-muted-foreground">{allChecked ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}</span>
+                          <input
+                            type="checkbox"
+                            checked={allChecked}
+                            ref={(el) => { if (el) el.indeterminate = someChecked && !allChecked; }}
+                            onChange={() => handleToggleSection(sectionPaths)}
+                            className="w-4 h-4 accent-primary"
+                          />
+                        </label>
+                      </div>
+                      <div className="divide-y divide-border/60">
+                        {section.items.map((item) => {
+                          if (!item.path) return null;
+                          const checked = selectedPagePaths.includes(item.path);
+                          const Icon = item.icon || FileText;
+                          const colorClass = iconColorMap[item.colorScheme || 'slate'] || iconColorMap.slate;
+                          return (
+                            <label key={item.path} className="flex items-center justify-between gap-3 px-4 py-2.5 cursor-pointer hover:bg-muted/5">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}>
+                                  <Icon size={16} />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-[13px] font-semibold text-foreground truncate">{item.title}</div>
+                                  <div className="text-[11px] text-muted-foreground truncate">{item.description}</div>
+                                </div>
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => handleTogglePath(item.path!)}
+                                className="w-4 h-4 accent-primary shrink-0"
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="divide-y divide-border/60">
-                      {items.map((permission) => {
-                        const checked = selectedPermissionKeys.includes(permission.permission_key);
-                        return (
-                          <label key={permission.id} className="flex items-center justify-between gap-3 px-4 py-2.5 cursor-pointer hover:bg-muted/5">
-                            <div>
-                              <div className="text-[13px] font-semibold text-foreground">{permission.page_name}</div>
-                              <div className="text-[11px] text-muted-foreground">{permission.page_path}</div>
-                            </div>
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => handleTogglePermission(permission.permission_key)}
-                              className="w-4 h-4 accent-primary"
-                            />
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -49,4 +49,9 @@ export const deliveryApi = {
     const { data } = await axiosClient.put('/delivery/confirm', { ids });
     return data;
   },
+
+  deleteOrders: async (ids: string[]) => {
+    const { data } = await axiosClient.post('/delivery/delete', { ids });
+    return data;
+  },
 };

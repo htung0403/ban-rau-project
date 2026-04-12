@@ -40,6 +40,19 @@ export class ExportOrderController {
     }
   }
 
+  static async bulkDelete(req: Request, res: Response) {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json(errorResponse('Danh sách ID không hợp lệ'));
+      }
+      const data = await ExportOrderService.bulkDelete(ids);
+      return res.status(200).json(successResponse(data, 'Đã xóa đơn xuất hàng'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
   static async updatePayment(req: Request, res: Response) {
     try {
       const validated = paymentUpdateSchema.parse(req.body);

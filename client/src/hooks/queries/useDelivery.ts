@@ -69,3 +69,15 @@ export function useConfirmDelivery() {
     onError: () => toast.error('Lỗi khi xác nhận'),
   });
 }
+
+export function useDeleteDeliveryOrders() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => deliveryApi.deleteOrders(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: deliveryKeys.all });
+      toast.success('Đã xóa đơn giao hàng');
+    },
+    onError: () => toast.error('Lỗi khi xóa đơn giao hàng'),
+  });
+}

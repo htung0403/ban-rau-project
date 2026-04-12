@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import PageHeader from '../../components/shared/PageHeader';
 import { useEmployees, useMarkAttendance, useAttendance, useCreateCompensatoryAttendance } from '../../hooks/queries/useHR';
 import { useRoleSalaries, useGeneralSetting } from '../../hooks/queries/usePriceSettings';
+import { resolveActiveGeofencePoints, matchGeofence } from '../../lib/attendanceGeo';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
@@ -16,21 +17,6 @@ import { translateRole } from '../../lib/utils';
 import type { Attendance } from '../../types';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 import { TimePicker24h } from '../../components/shared/TimePicker24h';
-
-const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const R = 6371e3; // metres
-  const p1 = lat1 * Math.PI / 180;
-  const p2 = lat2 * Math.PI / 180;
-  const dp = (lat2 - lat1) * Math.PI / 180;
-  const dl = (lon2 - lon1) * Math.PI / 180;
-
-  const a = Math.sin(dp / 2) * Math.sin(dp / 2) +
-            Math.cos(p1) * Math.cos(p2) *
-            Math.sin(dl / 2) * Math.sin(dl / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
-};
 
 const AttendancePage: React.FC = () => {
   const { user } = useAuth();
@@ -49,7 +35,17 @@ const AttendancePage: React.FC = () => {
     format(weekEnd, 'yyyy-MM-dd')
   );
   const markAttendance = useMarkAttendance();
+  const { data: attendanceLocationsData } = useGeneralSetting('attendance_locations');
   const { data: baseLocationData } = useGeneralSetting('base_location');
+
+  const geofencePoints = useMemo(
+    () =>
+      resolveActiveGeofencePoints(
+        attendanceLocationsData?.setting_value,
+        baseLocationData?.setting_value
+      ),
+    [attendanceLocationsData?.setting_value, baseLocationData?.setting_value]
+  );
 
   // Dialog state
   const [isOpen, setIsOpen] = useState(false);
@@ -168,17 +164,19 @@ const AttendancePage: React.FC = () => {
       refetchAttendance();
     };
 
-    if (baseLocationData?.setting_value && dialogDate === todayStr && user?.role !== 'admin') {
+    if (geofencePoints.length > 0 && dialogDate === todayStr && user?.role !== 'admin') {
       toast.loading('Đang kiểm tra vị trí...', { id: 'att-loc' });
       if ('geolocation' in navigator) {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
-            const { lat, lng, radius } = baseLocationData.setting_value;
-            const dist = calculateDistance(lat, lng, pos.coords.latitude, pos.coords.longitude);
-            if (dist > radius) {
-              toast.error(`Vị trí của bạn nằm ngoài phạm vi cho phép (cách ${Math.round(dist)} mét)`, { id: 'att-loc' });
+            const match = matchGeofence(pos.coords.latitude, pos.coords.longitude, geofencePoints);
+            if (!match.ok) {
+              toast.error(
+                `Vị trí không hợp lệ — không nằm trong bán kính điểm nào đã cấu hình (gần nhất cách ${Math.round(match.minDistanceM)} m)`,
+                { id: 'att-loc' }
+              );
             } else {
-              toast.success('Xác thực vị trí thành công', { id: 'att-loc' });
+              toast.success(`Trong phạm vi “${match.name}” (~${Math.round(match.distanceM)} m)`, { id: 'att-loc' });
               checkLocationAndSave();
             }
           },

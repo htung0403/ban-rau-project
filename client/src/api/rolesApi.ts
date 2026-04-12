@@ -33,9 +33,9 @@ export const rolesApi = {
     return data;
   },
 
-  updateRolePermissions: async (roleId: string, permissionKeys: string[]) => {
+  updateRolePermissions: async (roleId: string, pagePaths: string[]) => {
     const { data } = await axiosClient.put(`/roles/${roleId}/permissions`, {
-      permission_keys: permissionKeys,
+      page_paths: pagePaths,
     });
     return data;
   },

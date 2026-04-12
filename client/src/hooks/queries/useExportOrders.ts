@@ -38,3 +38,15 @@ export function useUpdateExportPayment() {
     onError: () => toast.error('Lỗi khi cập nhật thanh toán'),
   });
 }
+
+export function useDeleteExportOrders() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => exportOrdersApi.deleteMany(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: exportOrderKeys.all });
+      toast.success('Đã xóa đơn xuất hàng');
+    },
+    onError: () => toast.error('Lỗi khi xóa đơn xuất hàng'),
+  });
+}

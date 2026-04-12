@@ -29,6 +29,15 @@ export class ExportOrderService {
     return data;
   }
 
+  static async bulkDelete(ids: string[]) {
+    const { error } = await supabaseService
+      .from('export_orders')
+      .delete()
+      .in('id', ids);
+    if (error) throw error;
+    return { deleted: ids.length };
+  }
+
   static async updatePayment(id: string, paymentData: { paid_amount: number, status: string }) {
     const { data: oldOrder, error: fetchError } = await supabaseService
       .from('export_orders')

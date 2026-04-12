@@ -11,5 +11,6 @@ router.use(requirePolicy('PRODUCTS_EXPORT_ACCESS'));
 router.get('/', ExportOrderController.getAll);
 router.post('/', ExportOrderController.create);
 router.put('/:id/payment', ExportOrderController.updatePayment);
+router.post('/bulk-delete', ExportOrderController.bulkDelete);
 
 export default router;

@@ -114,7 +114,7 @@ export interface AppRole {
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  permission_keys?: string[];
+  page_paths?: string[];
 }
 
 // --- Products ---

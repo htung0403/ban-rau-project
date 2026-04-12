@@ -23,6 +23,7 @@ import VegetableDeliveryPage from './pages/delivery/VegetableDeliveryPage';
 import EmployeesPage from './pages/hr/EmployeesPage';
 import LeaveRequestsPage from './pages/hr/LeaveRequestsPage';
 import AttendancePage from './pages/hr/AttendancePage';
+import AttendanceLocationsPage from './pages/hr/AttendanceLocationsPage';
 import PayrollPage from './pages/payroll/PayrollPage';
 import ApprovalsPage from './pages/hr/ApprovalsPage';
 import SalaryAdvancesPage from './pages/hr/SalaryAdvancesPage';
@@ -107,6 +108,7 @@ function AppRoutes() {
         <Route path="/hanh-chinh-nhan-su/nhan-su/:id" element={<ProfilePage />} />
         <Route path="/hanh-chinh-nhan-su/nghi-phep" element={<LeaveRequestsPage />} />
         <Route path="/hanh-chinh-nhan-su/cham-cong" element={<AttendancePage />} />
+        <Route path="/hanh-chinh-nhan-su/cau-hinh-cham-cong" element={<AttendanceLocationsPage />} />
         <Route path="/hanh-chinh-nhan-su/luong" element={<PayrollPage />} />
         <Route path="/hanh-chinh-nhan-su/cai-dat-luong" element={<SalarySettingsPage />} />
         <Route path="/hanh-chinh-nhan-su/ung-luong" element={<SalaryAdvancesPage />} />

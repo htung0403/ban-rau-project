@@ -51,8 +51,8 @@ export function useDeleteAppRole() {
 export function useUpdateRolePermissions() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ roleId, permissionKeys }: { roleId: string; permissionKeys: string[] }) =>
-      rolesApi.updateRolePermissions(roleId, permissionKeys),
+    mutationFn: ({ roleId, pagePaths }: { roleId: string; pagePaths: string[] }) =>
+      rolesApi.updateRolePermissions(roleId, pagePaths),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: rolesKeys.list() });
       toast.success('Đã cập nhật quyền truy cập trang');

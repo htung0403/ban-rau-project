@@ -35,19 +35,34 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
   ],
   '/hanh-chinh-nhan-su': [
     {
-      section: 'Hành chính nhân sự',
+      section: 'Nhân sự',
       items: [
         { icon: Users, title: 'Nhân sự', description: 'Quản lý danh sách nhân sự.', colorScheme: 'emerald', path: '/hanh-chinh-nhan-su/nhan-su' },
+        { icon: ClipboardCheck, title: 'Duyệt đơn', description: 'Duyệt phiếu lương, ứng lương, chấm công bù.', colorScheme: 'cyan', path: '/hanh-chinh-nhan-su/duyet-don' },
         { icon: CalendarDays, title: 'Nghỉ phép', description: 'Quản lý đơn nghỉ phép.', colorScheme: 'blue', path: '/hanh-chinh-nhan-su/nghi-phep' },
+      ]
+    },
+    {
+      section: 'Chấm công',
+      items: [
         { icon: ClipboardList, title: 'Chấm công', description: 'Bảng chấm công nhân viên.', colorScheme: 'purple', path: '/hanh-chinh-nhan-su/cham-cong' },
         { icon: MapPin, title: 'Cấu hình chấm công', description: 'Các điểm chấm công (GPS, bán kính); thay đổi được lưu ngay.', colorScheme: 'cyan', path: '/hanh-chinh-nhan-su/cau-hinh-cham-cong' },
-        { icon: ClipboardCheck, title: 'Duyệt đơn', description: 'Duyệt phiếu lương, ứng lương, chấm công bù.', colorScheme: 'cyan', path: '/hanh-chinh-nhan-su/duyet-don' },
-        { icon: Banknote, title: 'Ứng lương', description: 'Tạo đơn ứng lương.', colorScheme: 'red', path: '/hanh-chinh-nhan-su/ung-luong' },
+      ]
+    },
+    {
+      section: 'Tiền lương',
+      items: [
         { icon: DollarSign, title: 'Bảng lương', description: 'Tính lương và chốt lương.', colorScheme: 'green', path: '/hanh-chinh-nhan-su/luong' },
+        { icon: Banknote, title: 'Ứng lương', description: 'Tạo đơn ứng lương.', colorScheme: 'red', path: '/hanh-chinh-nhan-su/ung-luong' },
         { icon: Settings2, title: 'Cài đặt lương', description: 'Cấu hình mức lương cơ bản.', colorScheme: 'orange', path: '/hanh-chinh-nhan-su/cai-dat-luong' },
+      ]
+    },
+    {
+      section: 'Quản trị',
+      items: [
         { icon: Settings2, title: 'Phân quyền', description: 'Tạo quyền và cấp quyền theo trang cho nhân sự.', colorScheme: 'slate', path: '/hanh-chinh-nhan-su/phan-quyen' },
       ]
-    }
+    },
   ],
   '/ke-toan': [
     {

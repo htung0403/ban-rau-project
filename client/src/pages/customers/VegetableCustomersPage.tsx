@@ -84,7 +84,7 @@ const VegetableCustomersPage: React.FC = () => {
         <PageHeader
           title="Danh sách KH Rau"
           description="Quản lý khách hàng rau"
-          backPath="/ke-toan"
+          backPath="/khach-hang"
           actions={
             <button
               onClick={openCreateDialog}

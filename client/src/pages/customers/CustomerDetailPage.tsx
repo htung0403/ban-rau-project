@@ -86,10 +86,10 @@ const CustomerDetailPage: React.FC = () => {
 
   const getBackPath = (type?: string) => {
     switch (type) {
-      case 'wholesale': return '/ke-toan/vua-rau';
-      case 'grocery': return '/ke-toan/khach-hang-tap-hoa';
-      case 'vegetable': return '/ke-toan/khach-hang-rau';
-      default: return '/ke-toan';
+      case 'wholesale': return '/khach-hang/vua-rau';
+      case 'grocery': return '/khach-hang/nguoi-gui-tap-hoa';
+      case 'vegetable': return '/khach-hang/nguoi-gui-rau';
+      default: return '/khach-hang';
     }
   };
   const backPath = getBackPath(customer?.customer_type);

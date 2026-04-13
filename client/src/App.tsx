@@ -116,6 +116,15 @@ function AppRoutes() {
         <Route path="/hanh-chinh-nhan-su/duyet-don" element={<ApprovalsPage />} />
         <Route path="/hanh-chinh-nhan-su/phan-quyen" element={<RolePermissionsPage />} />
 
+        {/* Khách hàng module */}
+        <Route path="/khach-hang">
+          <Route index element={<ModulePage />} />
+          <Route path="nguoi-gui-rau" element={<VegetableCustomersPage />} />
+          <Route path="vua-rau" element={<WholesaleCustomersPage />} />
+          <Route path="nguoi-gui-tap-hoa" element={<GroceryCustomersPage />} />
+          <Route path="nguoi-nhan-tap-hoa" element={<GroceryCustomersPage />} />
+        </Route>
+
         {/* Ke toan module */}
         <Route path="/ke-toan">
           <Route index element={<ModulePage />} />

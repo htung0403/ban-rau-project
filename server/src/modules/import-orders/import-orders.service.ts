@@ -22,9 +22,17 @@ export class ImportOrderService {
         tName === 'import_orders'
           ? 'profiles:profiles!import_orders_received_by_fkey(full_name, role)'
           : 'profiles(full_name, role)';
+      const senderCustomerJoin =
+        tName === 'import_orders'
+          ? 'sender_customers:customers!import_orders_sender_id_fkey(id, name, phone)'
+          : 'sender_customers:customers!vegetable_orders_sender_id_fkey(id, name, phone)';
+      const customerJoin =
+        tName === 'import_orders'
+          ? 'customers:customers!import_orders_customer_id_fkey(id, name, phone, address)'
+          : 'customers:customers!vegetable_orders_customer_id_fkey(id, name, phone, address)';
       let q = supabaseService
         .from(tName)
-        .select(`*, ${receivedByProfile}, warehouses(name), customers(id, name, phone, address), ${iName}(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))`);
+        .select(`*, ${receivedByProfile}, warehouses(name), ${customerJoin}, ${senderCustomerJoin}, ${iName}(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))`);
 
       q = q.is('deleted_at', null);
       
@@ -91,7 +99,7 @@ export class ImportOrderService {
   static async getById(id: string, actor?: UserPayload) {
     let { data, error } = await supabaseService
       .from('import_orders')
-      .select('*, profiles:profiles!import_orders_received_by_fkey(full_name, role), warehouses(name), customers(id, name, phone, address), import_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))')
+      .select('*, profiles:profiles!import_orders_received_by_fkey(full_name, role), warehouses(name), customers:customers!import_orders_customer_id_fkey(id, name, phone, address), sender_customers:customers!import_orders_sender_id_fkey(id, name, phone), import_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))')
       .eq('id', id)
       .is('deleted_at', null)
       .maybeSingle();
@@ -101,7 +109,7 @@ export class ImportOrderService {
       // Try vegetable_orders
       const veg = await supabaseService
         .from('vegetable_orders')
-        .select('*, profiles(full_name, role), warehouses(name), customers(id, name, phone, address), vegetable_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))')
+        .select('*, profiles(full_name, role), warehouses(name), customers:customers!vegetable_orders_customer_id_fkey(id, name, phone, address), sender_customers:customers!vegetable_orders_sender_id_fkey(id, name, phone), vegetable_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))')
         .eq('id', id)
         .is('deleted_at', null)
         .maybeSingle();
@@ -177,6 +185,7 @@ export class ImportOrderService {
         driver_name: mainData.driver_name,
         supplier_name: mainData.supplier_name,
         sender_name: mainData.sender_name,
+        sender_id: mainData.sender_id || null,
         receiver_name: mainData.receiver_name,
         sheet_number: mainData.sheet_number,
         customer_id: mainData.customer_id,
@@ -250,6 +259,7 @@ export class ImportOrderService {
       driver_name: mainData.driver_name,
       supplier_name: mainData.supplier_name,
       sender_name: mainData.sender_name,
+      sender_id: mainData.sender_id || null,
       receiver_name: mainData.receiver_name,
       sheet_number: mainData.sheet_number,
       customer_id: mainData.customer_id,

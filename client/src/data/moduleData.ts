@@ -1,7 +1,8 @@
 import {
   Users,
   Warehouse, Download, Upload, Truck as DeliveryIcon,
-  Banknote, Car, CalendarDays, ClipboardList, ClipboardCheck, DollarSign, FileText, Settings2, MapPin
+  Banknote, Car, CalendarDays, ClipboardList, ClipboardCheck, DollarSign, FileText, Settings2, MapPin,
+  Send, Store
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
 
@@ -30,6 +31,22 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
         { icon: ClipboardList, title: 'Bảng Hàng Rau', description: 'Bảng xem chi tiết các mặt hàng rau nhập.', colorScheme: 'purple', path: '/hang-hoa/hang-rau' },
         { icon: DeliveryIcon, title: 'Giao hàng rau', description: 'Danh sách các đơn hàng rau cần giao.', colorScheme: 'orange', path: '/hang-hoa/giao-hang-rau' },
         { icon: Settings2, title: 'Cài đặt hàng rau', description: 'Quản lý từ điển hàng vựa rau.', colorScheme: 'slate', path: '/hang-hoa/cai-dat-rau' },
+      ]
+    }
+  ],
+  '/khach-hang': [
+    {
+      section: 'Khách hàng Rau',
+      items: [
+        { icon: Send, title: 'DS người gửi rau', description: 'Danh sách khách hàng gửi rau.', colorScheme: 'green', path: '/khach-hang/nguoi-gui-rau' },
+        { icon: Store, title: 'DS người nhận rau (Vựa)', description: 'Danh sách vựa nhận rau.', colorScheme: 'emerald', path: '/khach-hang/vua-rau' },
+      ]
+    },
+    {
+      section: 'Khách hàng Tạp hóa',
+      items: [
+        { icon: Send, title: 'DS người gửi hàng tạp hóa', description: 'Danh sách khách hàng gửi hàng tạp hóa.', colorScheme: 'blue', path: '/khach-hang/nguoi-gui-tap-hoa' },
+        { icon: Store, title: 'DS người nhận hàng tạp hóa', description: 'Danh sách khách hàng nhận hàng tạp hóa.', colorScheme: 'purple', path: '/khach-hang/nguoi-nhan-tap-hoa' },
       ]
     }
   ],

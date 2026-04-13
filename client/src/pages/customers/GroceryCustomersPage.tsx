@@ -84,7 +84,7 @@ const GroceryCustomersPage: React.FC = () => {
         <PageHeader
           title="Danh sách KH Tạp hóa"
           description="Quản lý khách hàng tạp hóa"
-          backPath="/ke-toan"
+          backPath="/khach-hang"
           actions={
             <button
               onClick={openCreateDialog}

@@ -156,6 +156,7 @@ export interface ImportOrder {
   order_date: string;
   order_time: string;
   sender_name: string;
+  sender_id?: string;
   receiver_name: string;
   receiver_phone?: string;
   receiver_address?: string;
@@ -185,6 +186,7 @@ export interface ImportOrder {
   profiles?: { full_name: string };
   warehouses?: { name: string };
   customers?: { id: string; name: string; phone?: string; address?: string };
+  sender_customers?: { id: string; name: string; phone?: string };
   products?: Product;
 }
 

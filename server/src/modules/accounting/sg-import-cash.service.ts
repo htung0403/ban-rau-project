@@ -19,7 +19,7 @@ export class SgImportCashService {
         received_by,
         sg_cash_handover_confirmed_at,
         sg_cash_handover_confirmed_by,
-        customers(id, name, phone),
+        customers:customers!import_orders_customer_id_fkey(id, name, phone),
         collector:profiles!import_orders_received_by_fkey(id, full_name),
         confirmer:profiles!import_orders_sg_cash_handover_confirmed_by_fkey(id, full_name)
       `

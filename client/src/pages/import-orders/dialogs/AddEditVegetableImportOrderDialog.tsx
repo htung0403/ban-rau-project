@@ -70,6 +70,7 @@ const importOrderSchema = z.object({
   received_by: z.string().min(1, 'Vui lòng chọn nhân viên'),
   customer_id: z.string().min(1, 'Vui lòng chọn Khách hàng / Chủ hàng'),
   sender_name: z.string().optional(),
+  sender_id: z.string().optional(),
   receiver_name: z.string().optional(),
   items: z.array(importOrderItemSchema).min(1, 'Vui lòng thêm ít nhất 1 mặt hàng'),
   total_amount: z.coerce.number().min(0, 'Tổng tiền không hợp lệ').catch(0),
@@ -212,6 +213,16 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
     return list;
   }, [customers, defaultCategory, editingOrder]);
 
+  const filteredSenders = React.useMemo(() => {
+    const list: any[] = customers?.filter((c: any) =>
+      defaultCategory === 'vegetable' ? c.customer_type === 'vegetable' : c.customer_type === 'grocery'
+    ) || [];
+    if (editingOrder?.sender_customers && !list.find((c: any) => c.id === editingOrder.sender_id)) {
+      list.push(editingOrder.sender_customers);
+    }
+    return list;
+  }, [customers, defaultCategory, editingOrder]);
+
   const {
     register,
     handleSubmit,
@@ -229,6 +240,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
       items: [{ quantity: 1, weight_kg: '', product_id: '', image_url: null, item_note: '' }],
       customer_id: '',
       sender_name: '',
+      sender_id: '',
       receiver_name: '',
       received_by: '',
       total_amount: 0,
@@ -262,6 +274,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
   });
 
   const watchCustomerId = watch('customer_id');
+  const watchSenderId = watch('sender_id');
   const watchReceivedBy = watch('received_by');
 
   React.useEffect(() => {
@@ -329,6 +342,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
         received_by: editingOrder.received_by || '',
         customer_id: editingOrder.customer_id || '',
         sender_name: editingOrder.sender_name || '',
+        sender_id: editingOrder.sender_id || '',
         receiver_name: editingOrder.receiver_name || '',
         items: editingOrder.import_order_items?.map((item: ImportOrderItem) => ({
           product_id: item.product_id,
@@ -348,6 +362,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
         items: [{ quantity: 1, weight_kg: '', product_id: '', image_url: null, item_note: '' }],
         customer_id: '',
         sender_name: '',
+        sender_id: '',
         receiver_name: '',
         received_by: user?.id || employees?.[0]?.id || '',
         total_amount: 0,
@@ -560,11 +575,26 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
                       <div className="space-y-1.5">
                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Người gửi</label>
-                        <input
-                          type="text"
-                          {...register('sender_name')}
-                          className="w-full px-3 py-2.5 bg-slate-50 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
-                          placeholder="Tên khách hàng hoặc nhà cung cấp"
+                        <CreatableSearchableSelect
+                          options={filteredSenders.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}` }))}
+                          value={watchSenderId || ''}
+                          onValueChange={(val) => {
+                            setValue('sender_id', val, { shouldValidate: true });
+                            const found = filteredSenders.find((c: any) => c.id === val);
+                            setValue('sender_name', found?.name || '', { shouldValidate: true });
+                          }}
+                          onCreate={async (name) => {
+                            try {
+                              const resp = await createCustomerMutation.mutateAsync({ name, customer_type: 'grocery' });
+                              const newId = (resp as any)?.id || (resp as any)?.data?.id;
+                              if (newId) {
+                                setValue('sender_id', newId, { shouldValidate: true });
+                                setValue('sender_name', name, { shouldValidate: true });
+                              }
+                            } catch { /* handled */ }
+                          }}
+                          placeholder="Chọn hoặc tạo người gửi"
+                          createMessage="Tạo mới"
                         />
                       </div>
 
@@ -666,11 +696,27 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
                       <div className="space-y-1.5">
                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Chủ hàng (Người gửi)</label>
-                        <input
-                          type="text"
-                          {...register('sender_name')}
-                          className="w-full px-3 py-2.5 bg-slate-50 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
-                          placeholder="Nhập tên chủ hàng / người gửi..."
+                        <CreatableSearchableSelect
+                          options={filteredSenders.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}` }))}
+                          value={watchSenderId || ''}
+                          onValueChange={(val) => {
+                            setValue('sender_id', val, { shouldValidate: true });
+                            const found = filteredSenders.find((c: any) => c.id === val);
+                            setValue('sender_name', found?.name || '', { shouldValidate: true });
+                          }}
+                          onCreate={async (name) => {
+                            try {
+                              const customerType = defaultCategory === 'vegetable' ? 'vegetable' : 'grocery';
+                              const resp = await createCustomerMutation.mutateAsync({ name, customer_type: customerType });
+                              const newId = (resp as any)?.id || (resp as any)?.data?.id;
+                              if (newId) {
+                                setValue('sender_id', newId, { shouldValidate: true });
+                                setValue('sender_name', name, { shouldValidate: true });
+                              }
+                            } catch { /* handled */ }
+                          }}
+                          placeholder="Chọn hoặc tạo chủ hàng"
+                          createMessage="Tạo mới"
                         />
                       </div>
 

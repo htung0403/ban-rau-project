@@ -15,6 +15,11 @@ const DRIVER_LIKE_LEGACY_PATHS: string[] = [
   '/quan-ly-xe/thu-tien',
   '/ke-toan',
   '/ke-toan/thu-tien-sg',
+  '/khach-hang',
+  '/khach-hang/nguoi-gui-rau',
+  '/khach-hang/vua-rau',
+  '/khach-hang/nguoi-gui-tap-hoa',
+  '/khach-hang/nguoi-nhan-tap-hoa',
 ];
 
 const LEGACY_ALLOWED_PATHS_BY_ROLE: Record<string, string[]> = {
@@ -28,6 +33,11 @@ const LEGACY_ALLOWED_PATHS_BY_ROLE: Record<string, string[]> = {
     '/ke-toan/cong-no',
     '/ke-toan/thu-tien-sg',
     '/ke-toan/doanh-thu',
+    '/khach-hang',
+    '/khach-hang/nguoi-gui-rau',
+    '/khach-hang/vua-rau',
+    '/khach-hang/nguoi-gui-tap-hoa',
+    '/khach-hang/nguoi-nhan-tap-hoa',
   ],
   staff: [
     '/',
@@ -55,6 +65,11 @@ const LEGACY_ALLOWED_PATHS_BY_ROLE: Record<string, string[]> = {
     '/quan-ly-xe',
     '/quan-ly-xe/thu-tien',
     '/ke-toan/thu-tien-sg',
+    '/khach-hang',
+    '/khach-hang/nguoi-gui-rau',
+    '/khach-hang/vua-rau',
+    '/khach-hang/nguoi-gui-tap-hoa',
+    '/khach-hang/nguoi-nhan-tap-hoa',
   ],
   driver: DRIVER_LIKE_LEGACY_PATHS,
   customer: ['/ho-so'],

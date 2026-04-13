@@ -1,6 +1,7 @@
 import {
   Home,
   Box,
+  Contact,
   Users,
   Wallet,
   Car,
@@ -17,6 +18,7 @@ export type SidebarItem = {
 export const sidebarMenu: SidebarItem[] = [
   { icon: Home, label: 'Trang chủ', path: '/' },
   { icon: Box, label: 'Hàng hóa', path: '/hang-hoa' },
+  { icon: Contact, label: 'Khách hàng', path: '/khach-hang' },
   { icon: Users, label: 'Hành chính nhân sự', path: '/hanh-chinh-nhan-su' },
   { icon: Wallet, label: 'Kế toán', path: '/ke-toan' },
   { icon: Car, label: 'Quản lý xe', path: '/quan-ly-xe' },

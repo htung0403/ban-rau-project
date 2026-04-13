@@ -190,7 +190,7 @@ export class DeliveryService {
     let query = supabaseService
       .from('delivery_orders')
       .select(
-        '*, import_orders(order_code, sender_name, receiver_name, license_plate, driver_name, received_by, customers(name), total_amount, profiles:received_by(full_name), receipt_image_url, import_order_items(image_url), deleted_at), vegetable_orders(order_code, sender_name, receiver_name, license_plate, driver_name, received_by, customers(name), total_amount, profiles:received_by(full_name), receipt_image_url, vegetable_order_items(image_url), deleted_at), delivery_vehicles(*, vehicles(license_plate)), payment_collections(id, status, vehicle_id, image_url)'
+        '*, import_orders(order_code, sender_name, receiver_name, license_plate, driver_name, received_by, customers:customers!import_orders_customer_id_fkey(name), total_amount, profiles:received_by(full_name), receipt_image_url, import_order_items(image_url), deleted_at), vegetable_orders(order_code, sender_name, receiver_name, license_plate, driver_name, received_by, customers:customers!vegetable_orders_customer_id_fkey(name), total_amount, profiles:received_by(full_name), receipt_image_url, vegetable_order_items(image_url), deleted_at), delivery_vehicles(*, vehicles(license_plate)), payment_collections(id, status, vehicle_id, image_url)'
       )
       .order('delivery_date', { ascending: false });
 

@@ -84,7 +84,7 @@ const WholesaleCustomersPage: React.FC = () => {
         <PageHeader
           title="Danh sách Vựa"
           description="Quản lý danh sách vựa"
-          backPath="/ke-toan"
+          backPath="/khach-hang"
           actions={
             <button
               onClick={openCreateDialog}

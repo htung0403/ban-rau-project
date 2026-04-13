@@ -128,13 +128,13 @@ const ExportOrdersPage: React.FC = () => {
             )}
 
             <button
-               onClick={() => setIsFilterOpen(true)}
-               className={clsx(
-                 "md:hidden flex items-center justify-center w-[38px] shrink-0 border border-border/80 rounded-xl transition-all",
-                 (filterDateFrom || filterDateTo) ? "bg-primary/10 text-primary border-primary/30" : "bg-muted/20 text-muted-foreground hover:bg-muted"
-               )}
+              onClick={() => setIsFilterOpen(true)}
+              className={clsx(
+                "md:hidden flex items-center justify-center w-[38px] shrink-0 border border-border/80 rounded-xl transition-all",
+                (filterDateFrom || filterDateTo) ? "bg-primary/10 text-primary border-primary/30" : "bg-muted/20 text-muted-foreground hover:bg-muted"
+              )}
             >
-               <Filter size={18} />
+              <Filter size={18} />
             </button>
 
             {/* Delete Button - visible when items selected (admin only) */}
@@ -182,193 +182,193 @@ const ExportOrdersPage: React.FC = () => {
           <EmptyState title="Không tìm thấy phiếu xuất" description="Thử thay đổi bộ lọc hoặc thêm phiếu xuất mới." />
         ) : (
           <>
-          {/* Desktop Table */}
-          <div className="hidden md:block flex-1 overflow-auto custom-scrollbar">
-            <table className="w-full border-collapse min-w-[700px]">
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-muted/30 border-b border-border">
-                  {isAdmin && (
-                    <th className="px-3 py-3 w-10">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
-                        checked={filteredOrders.length > 0 && filteredOrders.every((o) => selectedIds.has(o.id))}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedIds(new Set(filteredOrders.map((o) => o.id)));
-                          } else {
-                            setSelectedIds(new Set());
-                          }
-                        }}
-                      />
-                    </th>
-                  )}
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Ngày</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Giờ</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Khách hàng</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Ảnh</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Mặt hàng</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">SL</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Số tiền</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Thanh toán</th>
-                  {isAdmin && <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Thao tác</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {filteredOrders.map((o) => (
-                  <tr key={o.id} className={`hover:bg-muted/20 transition-colors ${selectedIds.has(o.id) ? 'bg-primary/5' : ''}`}>
+            {/* Desktop Table */}
+            <div className="hidden md:block flex-1 overflow-auto custom-scrollbar">
+              <table className="w-full border-collapse min-w-[700px]">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-muted/30 border-b border-border">
                     {isAdmin && (
-                      <td className="px-3 py-3 w-10">
+                      <th className="px-3 py-3 w-10">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
+                          checked={filteredOrders.length > 0 && filteredOrders.every((o) => selectedIds.has(o.id))}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedIds(new Set(filteredOrders.map((o) => o.id)));
+                            } else {
+                              setSelectedIds(new Set());
+                            }
+                          }}
+                        />
+                      </th>
+                    )}
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Ngày</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Giờ</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Khách hàng</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Ảnh</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Mặt hàng</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">SL</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Số tiền</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Thanh toán</th>
+                    {isAdmin && <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Thao tác</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {filteredOrders.map((o) => (
+                    <tr key={o.id} className={`hover:bg-muted/20 transition-colors ${selectedIds.has(o.id) ? 'bg-primary/5' : ''}`}>
+                      {isAdmin && (
+                        <td className="px-3 py-3 w-10">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
+                            checked={selectedIds.has(o.id)}
+                            onChange={(e) => {
+                              const next = new Set(selectedIds);
+                              if (e.target.checked) next.add(o.id);
+                              else next.delete(o.id);
+                              setSelectedIds(next);
+                            }}
+                          />
+                        </td>
+                      )}
+                      <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{o.export_date}</td>
+                      <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{(o as any).export_time || '—'}</td>
+                      <td className="px-4 py-3 text-[13px] font-semibold text-foreground">{(o as any).customers?.name || '—'}</td>
+                      <td className="px-4 py-3 text-center">
+                        {o.image_url ? (
+                          <div
+                            className="w-10 h-10 rounded-lg bg-muted/30 overflow-hidden cursor-pointer mx-auto border border-border group relative flex items-center justify-center"
+                            onClick={(e) => { e.stopPropagation(); setViewingImage(o.image_url!); }}
+                          >
+                            <img src={o.image_url} alt="Receipt" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Eye size={16} className="text-white" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-muted/30 flex items-center justify-center text-muted-foreground mx-auto">
+                            <ImageIcon size={16} className="opacity-30" />
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-[13px] font-bold text-foreground">{(o as any).product_name}</td>
+                      <td className="px-4 py-3 text-[13px] font-bold text-foreground text-right tabular-nums">{o.quantity}</td>
+                      <td className="px-4 py-3 text-[13px] font-bold text-primary text-right tabular-nums">{formatCurrency(o.debt_amount)}</td>
+                      <td className="px-4 py-3 text-center"><StatusBadge status={o.payment_status} label={paymentLabels[o.payment_status]} /></td>
+                      {isAdmin && (
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedIds(new Set([o.id]));
+                              setShowDeleteConfirm(true);
+                            }}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-all"
+                            title="Xóa"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card List */}
+            <div className="md:hidden flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+              {filteredOrders.map((o) => (
+                <div
+                  key={o.id}
+                  className={`bg-white rounded-2xl border shadow-sm p-3 hover:shadow-md active:bg-muted/10 transition-all flex flex-col gap-2 ${isAdmin && selectedIds.has(o.id) ? 'border-primary/40 bg-primary/5' : 'border-border'}`}
+                >
+                  <div className="flex gap-3">
+                    {/* Checkbox (admin only) */}
+                    {isAdmin && (
+                      <div className="flex items-center shrink-0 self-center">
                         <input
                           type="checkbox"
                           className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
                           checked={selectedIds.has(o.id)}
                           onChange={(e) => {
+                            e.stopPropagation();
                             const next = new Set(selectedIds);
                             if (e.target.checked) next.add(o.id);
                             else next.delete(o.id);
                             setSelectedIds(next);
                           }}
                         />
-                      </td>
+                      </div>
                     )}
-                    <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{o.export_date}</td>
-                    <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{(o as any).export_time || '—'}</td>
-                    <td className="px-4 py-3 text-[13px] font-semibold text-foreground">{(o as any).customers?.name || '—'}</td>
-                    <td className="px-4 py-3 text-center">
+
+                    {/* Left: Image Thumbnail */}
+                    <div
+                      className="w-[64px] h-[64px] shrink-0 bg-muted/20 rounded-lg overflow-hidden border border-border/50 self-center"
+                      onClick={(e) => {
+                        if (o.image_url) {
+                          e.stopPropagation();
+                          setViewingImage(o.image_url!);
+                        }
+                      }}
+                    >
                       {o.image_url ? (
-                        <div 
-                          className="w-10 h-10 rounded-lg bg-muted/30 overflow-hidden cursor-pointer mx-auto border border-border group relative flex items-center justify-center"
-                          onClick={(e) => { e.stopPropagation(); setViewingImage(o.image_url!); }}
-                        >
-                          <img src={o.image_url} alt="Receipt" className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Eye size={16} className="text-white" />
+                        <div className="w-full h-full relative group cursor-pointer">
+                          <img
+                            src={o.image_url}
+                            alt="Receipt"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                            <Eye size={20} className="text-white drop-shadow-md" />
                           </div>
                         </div>
                       ) : (
-                        <div className="w-10 h-10 rounded-lg bg-muted/30 flex items-center justify-center text-muted-foreground mx-auto">
-                          <ImageIcon size={16} className="opacity-30" />
+                        <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+                          <ImageIcon size={20} className="opacity-30 mb-0.5" />
+                          <span className="text-[9px] font-medium opacity-50">NO IMG</span>
                         </div>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] font-bold text-foreground">{(o as any).product_name}</td>
-                    <td className="px-4 py-3 text-[13px] font-bold text-foreground text-right tabular-nums">{o.quantity}</td>
-                    <td className="px-4 py-3 text-[13px] font-bold text-primary text-right tabular-nums">{formatCurrency(o.debt_amount)}</td>
-                    <td className="px-4 py-3 text-center"><StatusBadge status={o.payment_status} label={paymentLabels[o.payment_status]} /></td>
-                    {isAdmin && (
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedIds(new Set([o.id]));
-                            setShowDeleteConfirm(true);
-                          }}
-                          className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-all"
-                          title="Xóa"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Card List */}
-          <div className="md:hidden flex-1 overflow-y-auto p-3 flex flex-col gap-2">
-            {filteredOrders.map((o) => (
-              <div
-                key={o.id}
-                className={`bg-white rounded-2xl border shadow-sm p-3 hover:shadow-md active:bg-muted/10 transition-all flex flex-col gap-2 ${isAdmin && selectedIds.has(o.id) ? 'border-primary/40 bg-primary/5' : 'border-border'}`}
-              >
-                <div className="flex gap-3">
-                  {/* Checkbox (admin only) */}
-                  {isAdmin && (
-                    <div className="flex items-center shrink-0 self-center">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
-                        checked={selectedIds.has(o.id)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          const next = new Set(selectedIds);
-                          if (e.target.checked) next.add(o.id);
-                          else next.delete(o.id);
-                          setSelectedIds(next);
-                        }}
-                      />
                     </div>
-                  )}
 
-                  {/* Left: Image Thumbnail */}
-                  <div 
-                    className="w-[64px] h-[64px] shrink-0 bg-muted/20 rounded-lg overflow-hidden border border-border/50 self-center"
-                    onClick={(e) => {
-                       if (o.image_url) {
-                          e.stopPropagation();
-                          setViewingImage(o.image_url!);
-                       }
-                    }}
-                  >
-                    {o.image_url ? (
-                      <div className="w-full h-full relative group cursor-pointer">
-                        <img
-                          src={o.image_url}
-                          alt="Receipt"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                          <Eye size={20} className="text-white drop-shadow-md" />
+                    {/* Right: Data */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <div className="flex items-start justify-between gap-2 mb-0.5">
+                        <span className="text-[13px] font-bold text-foreground leading-tight truncate">
+                          {(o as any).customers?.name || '—'}
+                        </span>
+                        <StatusBadge status={o.payment_status} label={paymentLabels[o.payment_status]} />
+                      </div>
+
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[12px] font-bold text-slate-700">{(o as any).product_name}</span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted px-1.5 py-0.5 rounded">SL: {o.quantity.toLocaleString('vi-VN')}</span>
+                          <span className="text-[11px] text-muted-foreground tabular-nums">{o.export_date}</span>
                         </div>
                       </div>
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
-                         <ImageIcon size={20} className="opacity-30 mb-0.5" />
-                         <span className="text-[9px] font-medium opacity-50">NO IMG</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Right: Data */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <div className="flex items-start justify-between gap-2 mb-0.5">
-                      <span className="text-[13px] font-bold text-foreground leading-tight truncate">
-                        {(o as any).customers?.name || '—'}
-                      </span>
-                      <StatusBadge status={o.payment_status} label={paymentLabels[o.payment_status]} />
-                    </div>
-                    
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[12px] font-bold text-slate-700">{(o as any).product_name}</span>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted px-1.5 py-0.5 rounded">SL: {o.quantity.toLocaleString('vi-VN')}</span>
-                        <span className="text-[11px] text-muted-foreground tabular-nums">{o.export_date}</span>
-                      </div>
                     </div>
                   </div>
-                </div>
 
-                 {(o.debt_amount && o.debt_amount > 0) ? (
-                  <div className="flex items-center justify-end">
+                  {(o.debt_amount && o.debt_amount > 0) ? (
+                    <div className="flex items-center justify-end">
                       <span className="text-[13px] font-black text-primary tabular-nums">
                         {formatCurrency(o.debt_amount)}
                       </span>
-                  </div>
-                 ) : null}
-              </div>
-            ))}
-          </div>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </>
         )}
       </div>
 
       {/* Mobile Floating Action Button */}
-      <DraggableFAB 
-        icon={<Plus size={24} />} 
-        onClick={() => setIsAddOpen(true)} 
+      <DraggableFAB
+        icon={<Plus size={24} />}
+        onClick={() => setIsAddOpen(true)}
       />
 
       <AddEditExportOrderDialog
@@ -424,7 +424,7 @@ const ExportOrdersPage: React.FC = () => {
           >
             <X size={20} />
           </button>
-          
+
           <img
             src={viewingImage}
             alt="View full"

@@ -4,7 +4,7 @@ import { useVehicles } from '../../hooks/queries/useVehicles';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import DraggableFAB from '../../components/shared/DraggableFAB';
-import { Plus, Car } from 'lucide-react';
+import { Plus, Truck } from 'lucide-react';
 import AddEditVehicleDialog from './dialogs/AddEditVehicleDialog';
 import VehicleDetailsDialog from './dialogs/VehicleDetailsDialog';
 import type { Vehicle } from '../../types';
@@ -55,10 +55,20 @@ const VehiclesPage: React.FC = () => {
     }, 350);
   };
 
+  const inferTonnage = (v: Vehicle): number => {
+    if (v.load_capacity_ton != null && v.load_capacity_ton > 0) return v.load_capacity_ton;
+    if (!v.vehicle_type) return 0;
+    const normalized = v.vehicle_type.toLowerCase().replace(/,/g, '.').replace(/\s+/g, ' ');
+    const tonMatch = normalized.match(/(\d+(?:\.\d+)?)\s*t[aá]n/);
+    if (tonMatch?.[1]) { const p = Number(tonMatch[1]); if (Number.isFinite(p)) return p; }
+    const numMatch = normalized.match(/(\d+(?:\.\d+)?)/);
+    if (numMatch?.[1]) { const p = Number(numMatch[1]); if (Number.isFinite(p)) return p; }
+    return 0;
+  };
+
   const columns = [
-    { id: 'available', label: 'Sẵn sàng', icon: 'bg-emerald-500/10 text-emerald-600', badge: 'bg-emerald-100 text-emerald-700' },
-    { id: 'in_transit', label: 'Đang chạy', icon: 'bg-blue-500/10 text-blue-600', badge: 'bg-blue-100 text-blue-700' },
-    { id: 'maintenance', label: 'Bảo trì', icon: 'bg-orange-500/10 text-orange-600', badge: 'bg-orange-100 text-orange-700' },
+    { id: 'heavy', label: 'Xe tải lớn', icon: 'bg-blue-500/10 text-blue-600', badge: 'bg-blue-100 text-blue-700', filter: (v: Vehicle) => inferTonnage(v) > 10 },
+    { id: 'light', label: 'Xe tải nhỏ', icon: 'bg-emerald-500/10 text-emerald-600', badge: 'bg-emerald-100 text-emerald-700', filter: (v: Vehicle) => inferTonnage(v) <= 10 },
   ];
 
   return (
@@ -66,7 +76,7 @@ const VehiclesPage: React.FC = () => {
       <div className="hidden md:block">
         <PageHeader
           title="Danh sách xe"
-          description="Quản lý thông tin xe theo trạng thái"
+          description="Quản lý thông tin xe theo loại"
           backPath="/quan-ly-xe"
           actions={
             <button
@@ -83,8 +93,8 @@ const VehiclesPage: React.FC = () => {
 
       {isLoading ? (
         <div className="flex-1 overflow-y-auto overflow-x-hidden pb-6 custom-scrollbar px-1">
-          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-6 lg:min-h-full">
-            {[1, 2, 3].map((i) => (
+          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4 lg:gap-6 lg:min-h-full">
+            {[1, 2].map((i) => (
               <div key={i} className="w-full flex flex-col bg-slate-100/50 border border-slate-200 rounded-[24px] p-4 min-h-[150px] lg:min-h-[500px]">
                 {/* Column Header Skeleton */}
                 <div className="flex items-center gap-2.5 mb-5 px-1">
@@ -120,9 +130,9 @@ const VehiclesPage: React.FC = () => {
         <EmptyState title="Chưa có xe nào" />
       ) : (
         <div className="flex-1 overflow-y-auto overflow-x-hidden pb-6 custom-scrollbar px-1">
-          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-6 lg:min-h-full">
+          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4 lg:gap-6 lg:min-h-full">
             {columns.map((column) => {
-              const columnVehicles = vehicles.filter(v => v.status === column.id);
+              const columnVehicles = vehicles.filter(column.filter);
 
               return (
                 <div key={column.id} className="w-full flex flex-col bg-slate-100 border border-slate-200 rounded-[24px] p-4 min-h-[150px] lg:min-h-[500px]">
@@ -152,7 +162,7 @@ const VehiclesPage: React.FC = () => {
                         >
                           <div className="flex items-center gap-3 mb-4">
                             <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 ${column.icon}`}>
-                              <Car size={22} />
+                              <Truck size={22} />
                             </div>
                             <div>
                               <h3 className="text-[15px] font-extrabold text-slate-900 group-hover:text-primary transition-colors">

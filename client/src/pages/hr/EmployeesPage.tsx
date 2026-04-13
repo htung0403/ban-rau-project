@@ -138,6 +138,32 @@ const EmployeesPage: React.FC = () => {
     return map;
   }, [vehicles]);
 
+  /** Thứ tự ưu tiên hiển thị cấp bậc (normalized, không dấu, lowercase). */
+  const ROLE_DISPLAY_ORDER = [
+    'admin',
+    'tai xe xe nho moi',
+    'tai xe xe nho cu',
+    'tai xe xe lon chinh',
+    'tai xe xe lon phu',
+    'lo xe moi',
+    'lo xe cu',
+    'nhan vien nhan hang',
+  ];
+
+  /** Sắp xếp nhân sự theo thứ tự cấp bậc đã định sẵn. */
+  const sortedEmployees = useMemo(() => {
+    if (!employees?.length) return employees;
+
+    const getRolePriority = (roleKey: string) => {
+      const displayName = roleNameByKey[roleKey] || roleKey;
+      const normalized = normalizeText(displayName);
+      const idx = ROLE_DISPLAY_ORDER.findIndex((label) => normalized.includes(label) || label.includes(normalized));
+      return idx >= 0 ? idx : Number.MAX_SAFE_INTEGER;
+    };
+
+    return [...employees].sort((a, b) => getRolePriority(a.role) - getRolePriority(b.role));
+  }, [employees, roleNameByKey]);
+
   const [isAdding, setIsAdding] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [formData, setFormData] = useState({
@@ -280,7 +306,7 @@ const EmployeesPage: React.FC = () => {
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar pb-6 px-1">
             <div className="flex flex-col gap-3">
-              {employees.map((e) => {
+              {(sortedEmployees || []).map((e) => {
                 const driverAssignedPlates =
                   inferSystemRole(e.role) === 'driver' ? licensePlatesByDriverId.get(e.id) : undefined;
                 return (

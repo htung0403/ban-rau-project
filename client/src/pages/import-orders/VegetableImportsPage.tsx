@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Search, X, ChevronLeft, ChevronRight, Edit, Trash2, Filter, Store, Truck, UserCircle, Image as ImageIcon, Eye, Calendar } from 'lucide-react';
+import { Plus, Search, X, ChevronLeft, ChevronRight, Edit, Trash2, Filter, Store, Truck, UserCircle, Image as ImageIcon, Eye, Calendar, Printer } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useImportOrders, useDeleteImportOrder } from '../../hooks/queries/useImportOrders';
 import type { ImportOrder, ImportOrderFilters, OrderStatus } from '../../types';
@@ -16,6 +16,7 @@ import { ColumnSettings, type ColumnOption } from '../../components/shared/Colum
 import AddEditVegetableImportOrderDialog from './dialogs/AddEditVegetableImportOrderDialog';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import DraggableFAB from '../../components/shared/DraggableFAB';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { hasFullGoodsModuleAccess, importOrderVisibleToUser } from '../../utils/goodsModuleScope';
@@ -113,6 +114,7 @@ const defaultColumns: ColumnOption[] = [
 
 const VegetableImportsPage: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Filters
   const [searchText, setSearchText] = useState('');
@@ -361,14 +363,23 @@ const VegetableImportsPage: React.FC = () => {
           description="Quản lý danh sách đơn nhập hàng rau"
           backPath="/hang-hoa"
           actions={
-            <button
-              onClick={openAddDialog}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all"
-            >
-              <Plus size={16} />
-              <span className="hidden sm:inline">Thêm đơn nhập</span>
-              <span className="sm:hidden">Thêm</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate('/hang-hoa/in-phieu-rau')}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-primary/30 bg-primary/5 text-primary text-[13px] font-bold hover:bg-primary/10 transition-all"
+              >
+                <Printer size={16} />
+                <span className="hidden sm:inline">In phiếu</span>
+              </button>
+              <button
+                onClick={openAddDialog}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all"
+              >
+                <Plus size={16} />
+                <span className="hidden sm:inline">Thêm đơn nhập</span>
+                <span className="sm:hidden">Thêm</span>
+              </button>
+            </div>
           }
         />
       </div>

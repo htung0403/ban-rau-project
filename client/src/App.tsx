@@ -39,6 +39,7 @@ import CustomerDetailPage from './pages/customers/CustomerDetailPage';
 import CustomerDebtPage from './pages/customers/CustomerDebtPage';
 import RevenueReportPage from './pages/customers/RevenueReportPage';
 import SgCashCollectionsPage from './pages/accounting/SgCashCollectionsPage';
+import PrintVegetableOrdersPage from './pages/import-orders/PrintVegetableOrdersPage';
 import React from 'react';
 
 const queryClient = new QueryClient({
@@ -96,6 +97,7 @@ function AppRoutes() {
         <Route path="/hang-hoa/nhap-hang" element={<ImportOrdersPage />} />
         <Route path="/hang-hoa/nhap-hang-rau" element={<VegetableImportsPage />} />
         <Route path="/hang-hoa/hang-rau" element={<VegetablesPage />} />
+        <Route path="/hang-hoa/in-phieu-rau" element={<PrintVegetableOrdersPage />} />
         <Route path="/hang-hoa/giao-hang-rau" element={<VegetableDeliveryPage />} />
         <Route path="/hang-hoa/kho-rau" element={<VegetableWarehousePage />} />
         <Route path="/hang-hoa/xuat-hang" element={<ExportOrdersPage />} />

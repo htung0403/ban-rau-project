@@ -415,6 +415,13 @@ const VegetableImportsPage: React.FC = () => {
             >
                <Filter size={18} />
             </button>
+
+            <button
+               onClick={() => navigate('/hang-hoa/in-phieu-rau')}
+               className="md:hidden flex items-center justify-center w-[38px] shrink-0 border border-primary/30 bg-primary/10 text-primary rounded-xl transition-all hover:bg-primary/20"
+            >
+               <Printer size={18} />
+            </button>
           </div>
 
           {/* DESKTOP ADVANCED FILTERS */}

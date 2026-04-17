@@ -505,7 +505,9 @@ const ImportOrdersPage: React.FC = () => {
             {/* Mobile Card List */}
             <div className="md:hidden flex-1 overflow-y-auto p-3 flex flex-col gap-2">
               {paginatedOrders.map((order) => {
-                const orderImage = order.receipt_image_url || order.import_order_items?.[0]?.image_url;
+                const orderImage = order.receipt_image_url || 
+                                   order.import_order_items?.[0]?.image_url || 
+                                   (order.import_order_items?.[0]?.image_urls && order.import_order_items[0].image_urls.length > 0 ? order.import_order_items[0].image_urls[0] : null);
                 return (
                   <div
                     key={order.id}
@@ -513,7 +515,18 @@ const ImportOrdersPage: React.FC = () => {
                     className="bg-white rounded-xl border border-border shadow-sm cursor-pointer hover:shadow-md active:bg-muted/10 transition-all flex items-center gap-3 p-2.5 overflow-hidden"
                   >
                     {/* Left: Image */}
-                    <div className="w-[64px] h-[64px] shrink-0 bg-muted/20 rounded-lg overflow-hidden">
+                    <div 
+                      className={clsx(
+                        "w-[64px] h-[64px] shrink-0 bg-muted/20 rounded-lg overflow-hidden transition-transform active:scale-95",
+                        orderImage && "cursor-zoom-in hover:ring-2 hover:ring-primary/20"
+                      )}
+                      onClick={(e) => {
+                        if (orderImage) {
+                          e.stopPropagation();
+                          setViewingImageOrder(order);
+                        }
+                      }}
+                    >
                       {orderImage ? (
                         <img src={orderImage} alt={order.order_code} className="w-full h-full object-cover" />
                       ) : (

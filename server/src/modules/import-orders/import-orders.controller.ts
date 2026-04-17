@@ -18,6 +18,7 @@ const importOrderSchema = z.object({
   order_date: z.string().optional(),
   order_time: z.string().optional(),
   sender_name: z.string().optional(),
+  sender_id: z.string().uuid().optional().nullable(),
   receiver_name: z.string().optional(),
   receiver_phone: z.string().optional(),
   receiver_address: z.string().optional(),

@@ -208,7 +208,8 @@ export class ImportOrderService {
         package_type: item.package_type,
         item_note: item.item_note,
         package_quantity: item.package_quantity,
-        image_url: item.image_url,
+        image_url: item.image_url || (item.image_urls && item.image_urls.length > 0 ? item.image_urls[0] : null),
+        image_urls: item.image_urls || [],
         payment_status: item.payment_status || 'unpaid',
         [fkName]: (order as any).id,
       }));
@@ -299,7 +300,8 @@ export class ImportOrderService {
           package_type: item.package_type,
           item_note: item.item_note,
           package_quantity: item.package_quantity,
-          image_url: item.image_url,
+          image_url: item.image_url || (item.image_urls && item.image_urls.length > 0 ? item.image_urls[0] : null),
+          image_urls: item.image_urls || [],
           payment_status: item.payment_status || 'unpaid',
           [fkName]: id,
         };

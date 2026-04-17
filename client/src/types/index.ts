@@ -181,6 +181,10 @@ export interface ImportOrder {
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
+  // Invoice export tracking
+  invoice_exported?: boolean;
+  invoice_exported_at?: string | null;
+  invoice_exported_by?: string | null;
   // Nested relations from API
   import_order_items?: ImportOrderItem[];
   profiles?: { full_name: string };
@@ -202,6 +206,7 @@ export interface ImportOrderItem {
   unit_price?: number;
   total_amount?: number;
   image_url?: string;
+  image_urls?: string[];
   payment_status: 'paid' | 'unpaid';
   created_at: string;
   // Nested

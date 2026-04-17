@@ -60,4 +60,42 @@ export class AccountingController {
       return res.status(400).json(errorResponse(err.message));
     }
   }
+
+  static async getInvoiceOrders(req: Request, res: Response) {
+    try {
+      const category = (req.query.category as string) || 'standard';
+      const filters = {
+        category: category as 'standard' | 'vegetable',
+        dateFrom: req.query.dateFrom as string | undefined,
+        dateTo: req.query.dateTo as string | undefined,
+        customer_id: req.query.customer_id as string | undefined,
+        invoice_status: (req.query.invoice_status as 'all' | 'exported' | 'not_exported') || 'all',
+      };
+      const data = await AccountingService.getInvoiceOrders(filters);
+      return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async bulkMarkInvoiceExported(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json(errorResponse('Authentication required', 'UNAUTHORIZED'));
+      }
+      const { ids, category, exported } = req.body;
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json(errorResponse('Vui lòng chọn ít nhất 1 đơn hàng'));
+      }
+      const result = await AccountingService.bulkMarkInvoiceExported(
+        ids,
+        category || 'standard',
+        req.user.id,
+        exported !== undefined ? exported : true,
+      );
+      return res.status(200).json(successResponse(result, `Đã cập nhật ${result.updated} đơn hàng`));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
 }

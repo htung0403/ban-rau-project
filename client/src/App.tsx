@@ -39,7 +39,10 @@ import CustomerDetailPage from './pages/customers/CustomerDetailPage';
 import CustomerDebtPage from './pages/customers/CustomerDebtPage';
 import RevenueReportPage from './pages/customers/RevenueReportPage';
 import SgCashCollectionsPage from './pages/accounting/SgCashCollectionsPage';
+import InvoiceGroceryPage from './pages/accounting/InvoiceGroceryPage';
+import InvoiceVegetablePage from './pages/accounting/InvoiceVegetablePage';
 import PrintVegetableOrdersPage from './pages/import-orders/PrintVegetableOrdersPage';
+import PrintDeliveryPage from './pages/delivery/PrintDeliveryPage';
 import React from 'react';
 
 const queryClient = new QueryClient({
@@ -102,6 +105,7 @@ function AppRoutes() {
         <Route path="/hang-hoa/kho-rau" element={<VegetableWarehousePage />} />
         <Route path="/hang-hoa/xuat-hang" element={<ExportOrdersPage />} />
         <Route path="/hang-hoa/giao-hang" element={<DeliveryPage />} />
+        <Route path="/hang-hoa/in-phieu-giao" element={<PrintDeliveryPage />} />
         <Route path="/hang-hoa/kho" element={<WarehousesPage />} />
         <Route path="/hang-hoa/cai-dat" element={<ProductSettingsPage />} />
         <Route path="/hang-hoa/cai-dat-rau" element={<VegetableProductSettingsPage />} />
@@ -137,6 +141,8 @@ function AppRoutes() {
           <Route path="cong-no" element={<CustomerDebtPage />} />
           <Route path="thu-tien-sg" element={<SgCashCollectionsPage />} />
           <Route path="doanh-thu" element={<RevenueReportPage />} />
+          <Route path="hoa-don-tap-hoa" element={<InvoiceGroceryPage />} />
+          <Route path="hoa-don-rau" element={<InvoiceVegetablePage />} />
         </Route>
 
         {/* Quan ly xe module */}

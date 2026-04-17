@@ -23,4 +23,17 @@ router.patch(
   AccountingController.confirmSgHandover
 );
 
+router.get(
+  '/invoice-orders',
+  requirePagePermission('/ke-toan/hoa-don-tap-hoa', '/ke-toan/hoa-don-rau'),
+  AccountingController.getInvoiceOrders
+);
+
+router.patch(
+  '/invoice-orders/mark-exported',
+  requirePagePermission('/ke-toan/hoa-don-tap-hoa', '/ke-toan/hoa-don-rau'),
+  requireRolesOnly('admin', 'manager', 'ke_toan'),
+  AccountingController.bulkMarkInvoiceExported
+);
+
 export default router;

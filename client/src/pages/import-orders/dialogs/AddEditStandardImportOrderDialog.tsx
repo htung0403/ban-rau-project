@@ -25,7 +25,9 @@ const importOrderItemSchema = z.object({
   package_type: z.string().optional().nullable().catch(null),
   weight_kg: z.coerce.number().optional().nullable().catch(null),
   quantity: z.coerce.number().min(1, 'SL > 0').catch(1),
+  unit_price: z.coerce.number().optional().nullable().catch(null),
   image_url: z.string().optional().nullable().catch(null),
+  image_urls: z.array(z.string()).optional().catch([]),
 });
 
 const importOrderSchema = z.object({
@@ -142,7 +144,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
     defaultValues: {
       order_date: format(new Date(), 'yyyy-MM-dd'),
       order_time: new Date().toTimeString().slice(0, 5),
-      items: [{ quantity: 1, weight_kg: '', product_id: '', image_url: null }],
+      items: [{ quantity: 1, weight_kg: '', product_id: '', unit_price: null, image_url: null, image_urls: [] }],
       payment_status: 'unpaid',
       customer_id: '',
       sender_name: '',
@@ -158,20 +160,36 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
   const watchItems = watch('items');
 
   useEffect(() => {
-    if (defaultCategory === 'standard') return;
-    if (!watchItems || !filteredProducts.length) return;
-    let sum = 0;
-    watchItems.forEach((item: any) => {
-      const product = filteredProducts.find((p: any) => p.id === item.product_id);
-      if (product && product.base_price) {
-        const qty = Number(item.quantity) || 0;
-        const amount = Math.round(qty * product.base_price);
-        sum += amount;
-      }
-    });
+    if (!watchItems) return;
 
-    if (sum > 0) {
-      setValue('total_amount', sum, { shouldValidate: true });
+    if (defaultCategory === 'standard') {
+      // For standard: sum unit_price * quantity across items
+      let sum = 0;
+      watchItems.forEach((item: any) => {
+        const qty = Number(item.quantity) || 0;
+        const price = Number(item.unit_price) || 0;
+        // unit_price is entered in shorthand (e.g. 50 = 50,000)
+        const realPrice = price > 0 && price < 100000 ? price * 1000 : price;
+        sum += Math.round(qty * realPrice);
+      });
+      if (sum > 0) {
+        setValue('total_amount', sum, { shouldValidate: true });
+      }
+    } else {
+      // For vegetable: use product base_price
+      if (!filteredProducts.length) return;
+      let sum = 0;
+      watchItems.forEach((item: any) => {
+        const product = filteredProducts.find((p: any) => p.id === item.product_id);
+        if (product && product.base_price) {
+          const qty = Number(item.quantity) || 0;
+          const amount = Math.round(qty * product.base_price);
+          sum += amount;
+        }
+      });
+      if (sum > 0) {
+        setValue('total_amount', sum, { shouldValidate: true });
+      }
     }
   }, [JSON.stringify(watchItems), filteredProducts, defaultCategory, setValue]);
 
@@ -200,7 +218,9 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
           package_type: item.package_type,
           weight_kg: item.weight_kg,
           quantity: item.quantity,
+          unit_price: item.unit_price || null,
           image_url: item.image_url || null,
+          image_urls: item.image_urls || [],
         })) || [],
         payment_status: editingOrder.import_order_items?.[0]?.payment_status || 'unpaid',
         total_amount: editingOrder.total_amount || 0,
@@ -210,7 +230,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       reset({
         order_date: format(new Date(), 'yyyy-MM-dd'),
         order_time: new Date().toTimeString().slice(0, 5),
-        items: [{ quantity: 1, weight_kg: '', product_id: '', image_url: null }],
+        items: [{ quantity: 1, weight_kg: '', product_id: '', unit_price: null, image_url: null, image_urls: [] }],
         payment_status: 'unpaid',
         customer_id: '',
         sender_name: '',
@@ -264,7 +284,11 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
     try {
       setUploadingItemIndex(index);
       const resp = await uploadApi.uploadFile(file, 'import-orders', 'items');
-      setValue(`items.${index}.image_url`, resp.url, { shouldValidate: true });
+      const currentUrls = getValues(`items.${index}.image_urls`) || [];
+      const newUrls = [...currentUrls, resp.url];
+      
+      setValue(`items.${index}.image_urls`, newUrls, { shouldValidate: true });
+      setValue(`items.${index}.image_url`, newUrls[0], { shouldValidate: true });
 
       // Tự động gán ảnh lên phần phiếu báo cáo chung nếu đang trống
       if (!getValues('receipt_image_url')) {
@@ -303,10 +327,15 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       console.log('--- FORM SUBMIT DATA BEGIN ---', data);
       const payload = { ...data };
       if (payload.items) {
-        payload.items = payload.items.map((item: any) => ({
-          ...item,
-          payment_status: payload.payment_status || 'unpaid',
-        }));
+        payload.items = payload.items.map((item: any) => {
+          const price = Number(item.unit_price) || 0;
+          const realPrice = price > 0 && price < 100000 ? price * 1000 : price;
+          return {
+            ...item,
+            unit_price: realPrice > 0 ? realPrice : null,
+            payment_status: payload.payment_status || 'unpaid',
+          };
+        });
       }
       payload.order_category = defaultCategory;
 
@@ -826,7 +855,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                   </div>
                   <button
                     type="button"
-                    onClick={() => append({ quantity: 1, weight_kg: '', product_id: '', image_url: null })}
+                    onClick={() => append({ quantity: 1, weight_kg: '', product_id: '', unit_price: null, image_url: null, image_urls: [] })}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-[12px] font-bold hover:bg-primary/90 transition-all shadow-sm shadow-primary/30 active:scale-95"
                   >
                     <Plus size={14} />
@@ -839,10 +868,12 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                     {/* Desktop Header */}
                     {/* Desktop Header */}
                     {defaultCategory === 'standard' ? (
-                      <div className="hidden md:grid grid-cols-[1fr_80px_80px_36px] gap-3 px-4 py-3 bg-white border-b border-border sticky top-0 z-10 md:items-center">
+                      <div className="hidden md:grid grid-cols-[1fr_60px_90px_100px_60px_36px] gap-3 px-4 py-3 bg-white border-b border-border sticky top-0 z-10 md:items-center">
                         <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tên Mặt Hàng</div>
                         <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">SL</div>
-                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Hình Ảnh</div>
+                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Đơn giá (k)</div>
+                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Thành tiền</div>
+                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Ảnh</div>
                         <div></div>
                       </div>
                     ) : (
@@ -861,7 +892,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           <div key={field.id} className={clsx(
                             "grid gap-2 md:gap-3 p-3 md:px-4 md:py-2 md:items-center bg-white rounded-xl md:rounded-none border border-slate-200 md:border-none shadow-sm md:shadow-none hover:bg-slate-50/50 transition-all group relative",
                             defaultCategory === 'standard' 
-                              ? "grid-cols-1 md:grid-cols-[1fr_80px_80px_36px]" 
+                              ? "grid-cols-1 md:grid-cols-[1fr_60px_90px_100px_60px_36px]" 
                               : "grid-cols-1 md:grid-cols-[60px_minmax(150px,3fr)_100px_36px]"
                           )}>
 
@@ -1033,32 +1064,36 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                                     )}
                                   </div>
 
-                                  {/* Mobile Image Button */}
-                                  <div className="md:hidden shrink-0 mt-auto">
-                                    <div className={clsx("relative", "w-12 h-12")}>
-                                      {watch(`items.${index}.image_url`) ? (
-                                        <div className="relative w-full h-full rounded-xl border border-slate-200 overflow-hidden group/img">
-                                          <img src={watch(`items.${index}.image_url`)} alt="item" className="w-full h-full object-cover" />
-                                          <button
-                                            type="button"
-                                            onClick={() => setValue(`items.${index}.image_url`, null, { shouldValidate: true })}
-                                            className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
-                                          >
-                                            <X size={14} />
-                                          </button>
-                                        </div>
-                                      ) : (
-                                        <label className="border border-slate-200 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-full h-full">
-                                          <input
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={(e) => handleItemImageUpload(index, e)}
-                                          />
-                                          {uploadingItemIndex === index ? <Loader2 size={16} className="animate-spin text-primary" /> : <ImagePlus size={16} />}
-                                        </label>
-                                      )}
-                                    </div>
+                                  {/* Mobile Multiple Images */}
+                                  <div className="md:hidden shrink-0 mt-auto flex flex-wrap gap-1 max-w-[120px]">
+                                    {(watch(`items.${index}.image_urls`) || []).map((url: string, imgIndex: number) => (
+                                      <div key={imgIndex} className="relative w-10 h-10 rounded-lg border border-slate-200 overflow-hidden group/img">
+                                        <img src={url} alt="item" className="w-full h-full object-cover" />
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const current = getValues(`items.${index}.image_urls`) || [];
+                                            const filtered = current.filter((_: any, i: number) => i !== imgIndex);
+                                            setValue(`items.${index}.image_urls`, filtered, { shouldValidate: true });
+                                            if (watch(`items.${index}.image_url`) === url) {
+                                              setValue(`items.${index}.image_url`, filtered[0] || null, { shouldValidate: true });
+                                            }
+                                          }}
+                                          className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                                        >
+                                          <X size={12} />
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <label className="border border-slate-200 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-10 h-10 shrink-0">
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => handleItemImageUpload(index, e)}
+                                      />
+                                      {uploadingItemIndex === index ? <Loader2 size={14} className="animate-spin text-primary" /> : <ImagePlus size={14} />}
+                                    </label>
                                   </div>
 
                                   {/* Mobile Delete Button */}
@@ -1072,7 +1107,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                                   </button>
                                 </div>
 
-                                <div className="grid md:contents gap-2 md:gap-3 border-t border-dashed border-slate-200 md:border-none pt-2 md:pt-0 mt-2 md:mt-0 grid-cols-1">
+                                <div className="grid md:contents gap-2 md:gap-3 border-t border-dashed border-slate-200 md:border-none pt-2 md:pt-0 mt-2 md:mt-0 grid-cols-3">
                                   {/* Số lượng */}
                                   <div className="flex flex-col justify-center space-y-1 md:space-y-0 col-span-1">
                                     <label className="text-[11px] font-bold text-slate-500 md:hidden uppercase">SL</label>
@@ -1082,37 +1117,84 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                                       className="w-full h-9 px-2 bg-white border border-slate-200 rounded-lg text-[13px] font-black text-center text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none tabular-nums transition-all"
                                     />
                                   </div>
+                                  {/* Đơn giá */}
+                                  <div className="flex flex-col justify-center space-y-1 md:space-y-0 col-span-1">
+                                    <label className="text-[11px] font-bold text-slate-500 md:hidden uppercase">Đơn giá (k)</label>
+                                    <Controller
+                                      name={`items.${index}.unit_price` as const}
+                                      control={control}
+                                      render={({ field }) => (
+                                        <input
+                                          type="number"
+                                          value={field.value ?? ''}
+                                          onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                                          onBlur={field.onBlur}
+                                          placeholder="VD: 50"
+                                          className="w-full h-9 px-2 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-center text-amber-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none tabular-nums transition-all"
+                                        />
+                                      )}
+                                    />
+                                    {(() => {
+                                      const p = Number(watch(`items.${index}.unit_price`) || 0);
+                                      if (p > 0) {
+                                        const real = p < 100000 ? p * 1000 : p;
+                                        return <span className="text-[9px] text-slate-400 text-center md:hidden">{new Intl.NumberFormat('vi-VN').format(real)}đ</span>;
+                                      }
+                                      return null;
+                                    })()}
+                                  </div>
+                                  {/* Thành tiền */}
+                                  <div className="flex flex-col justify-center space-y-1 md:space-y-0 col-span-1">
+                                    <label className="text-[11px] font-bold text-slate-500 md:hidden uppercase">Thành tiền</label>
+                                    {(() => {
+                                      const qty = Number(watch(`items.${index}.quantity`) || 0);
+                                      const price = Number(watch(`items.${index}.unit_price`) || 0);
+                                      const realPrice = price > 0 && price < 100000 ? price * 1000 : price;
+                                      const total = Math.round(qty * realPrice);
+                                      return (
+                                        <span className="text-[13px] font-bold text-primary tabular-nums h-9 flex items-center justify-end md:justify-end px-2 bg-slate-50 md:bg-transparent rounded-lg md:rounded-none border border-slate-200 md:border-none">
+                                          {total > 0 ? new Intl.NumberFormat('vi-VN').format(total) + 'đ' : '-'}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
                                 </div>
                               </>
                             )}
 
-                            {/* Desktop Image Button - only for standard */}
+                            {/* Desktop Multiple Images - only for standard */}
                             {defaultCategory === 'standard' && (
                             <div className="hidden md:flex items-center justify-center w-full">
-                              <div className={clsx("relative", "w-12 h-12")}>
-                                {watch(`items.${index}.image_url`) ? (
-                                  <div className="relative w-full h-full rounded-lg border border-slate-200 overflow-hidden group/imgDesk">
-                                    <img src={watch(`items.${index}.image_url`)} alt="item" className="w-full h-full object-cover" />
+                              <div className="flex flex-wrap gap-1 justify-center max-w-[100px]">
+                                {(watch(`items.${index}.image_urls`) || []).map((url: string, imgIndex: number) => (
+                                  <div key={imgIndex} className="relative w-8 h-8 rounded-md border border-slate-200 overflow-hidden group/imgDesk">
+                                    <img src={url} alt="item" className="w-full h-full object-cover" />
                                     <button
                                       type="button"
-                                      onClick={() => setValue(`items.${index}.image_url`, null, { shouldValidate: true })}
+                                      onClick={() => {
+                                        const current = getValues(`items.${index}.image_urls`) || [];
+                                        const filtered = current.filter((_: any, i: number) => i !== imgIndex);
+                                        setValue(`items.${index}.image_urls`, filtered, { shouldValidate: true });
+                                        if (watch(`items.${index}.image_url`) === url) {
+                                          setValue(`items.${index}.image_url`, filtered[0] || null, { shouldValidate: true });
+                                        }
+                                      }}
                                       className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/imgDesk:opacity-100 transition-opacity"
                                       title="Xoá ảnh"
                                     >
-                                      <X size={14} />
+                                      <X size={10} />
                                     </button>
                                   </div>
-                                ) : (
-                                  <label className="w-full h-full border border-slate-200 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 cursor-pointer transition-all" title="Tải ảnh">
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      className="hidden"
-                                      onChange={(e) => handleItemImageUpload(index, e)}
-                                    />
-                                    {uploadingItemIndex === index ? <Loader2 size={16} className="animate-spin text-primary" /> : <ImagePlus size={16} />}
-                                  </label>
-                                )}
+                                ))}
+                                <label className="w-8 h-8 border border-slate-200 bg-slate-50 rounded-md flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 cursor-pointer transition-all" title="Tải ảnh">
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => handleItemImageUpload(index, e)}
+                                  />
+                                  {uploadingItemIndex === index ? <Loader2 size={12} className="animate-spin text-primary" /> : <ImagePlus size={12} />}
+                                </label>
                               </div>
                             </div>
                             )}
@@ -1140,11 +1222,17 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
 
 
                 {/* Live Check Total */}
-                {defaultCategory === 'vegetable' && (
+                {(defaultCategory === 'vegetable' || (() => {
+                  // Show total for standard if any item has a price
+                  const items = watchItems || [];
+                  return defaultCategory === 'standard' && items.some((item: any) => Number(item.unit_price) > 0);
+                })()) && (
                   <div className="p-4 md:p-5 bg-primary/5 flex flex-col md:flex-row items-center justify-between border-t border-primary/10 shrink-0 gap-1 md:gap-0">
                     <div className="flex flex-col items-center md:items-start text-center md:text-left">
                       <span className="text-[12px] font-bold text-primary uppercase tracking-widest">Tổng tiền phiếu nhập</span>
-                      <span className="text-[12px] text-primary/70 font-medium">Được cộng vào Công Nợ của Khách</span>
+                      <span className="text-[12px] text-primary/70 font-medium">
+                        {defaultCategory === 'vegetable' ? 'Được cộng vào Công Nợ của Khách' : 'SL × Đơn giá'}
+                      </span>
                     </div>
                     <div className="text-3xl font-black text-primary tabular-nums drop-shadow-sm">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(watchTotalAmountInput || 0)}

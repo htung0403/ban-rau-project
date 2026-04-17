@@ -13,6 +13,7 @@ interface Props {
 
 type OrderImageRef = {
   image_url?: string | null;
+  image_urls?: string[] | null;
 };
 
 type MaybeArray<T> = T | T[] | null | undefined;
@@ -56,10 +57,7 @@ const pickRelation = <T,>(relation: MaybeArray<T>): T | undefined => {
   return relation || undefined;
 };
 
-const pickFirstImage = (...candidates: Array<string | null | undefined>): string | null => {
-  const firstValid = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0);
-  return firstValid || null;
-};
+
 
 const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose }) => {
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
@@ -70,37 +68,57 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
   const isImport = isImportOrder(order);
   const isExport = isExportOrder(order);
 
-  let importImage: string | null = null;
-  let deliveryImage: string | null = null;
+  let importImages: string[] = [];
+  let deliveryImages: string[] = [];
   let orderCode = 'N/A';
   let orderLabel = '';
+
+  const collectImages = (refs: MaybeArray<OrderImageRef> | OrderImageRef[]): string[] => {
+    const list = Array.isArray(refs) ? refs : (refs ? [refs] : []);
+    const urls: string[] = [];
+    list.forEach(ref => {
+      if (ref.image_url) urls.push(ref.image_url);
+      if (ref.image_urls) urls.push(...ref.image_urls);
+    });
+    return [...new Set(urls)].filter(u => typeof u === 'string' && u.trim().length > 0);
+  };
 
   if (isDelivery) {
     const dOrder = order;
     const linkedImportOrder = pickRelation(dOrder?.import_orders);
     const linkedVegetableOrder = pickRelation(dOrder?.vegetable_orders);
 
-    importImage = pickFirstImage(
-      linkedImportOrder?.receipt_image_url,
-      linkedVegetableOrder?.receipt_image_url,
-      linkedImportOrder?.import_order_items?.find((item) => item?.image_url)?.image_url,
-      linkedVegetableOrder?.vegetable_order_items?.find((item) => item?.image_url)?.image_url,
-    );
-    deliveryImage = pickFirstImage(
-      dOrder?.image_url,
-      dOrder?.payment_collections?.find((pc) => pc?.image_url)?.image_url,
-    );
+    importImages = [];
+    if (linkedImportOrder?.receipt_image_url) importImages.push(linkedImportOrder.receipt_image_url);
+    if (linkedVegetableOrder?.receipt_image_url) importImages.push(linkedVegetableOrder.receipt_image_url);
+    importImages.push(...collectImages(linkedImportOrder?.import_order_items));
+    importImages.push(...collectImages(linkedVegetableOrder?.vegetable_order_items));
+
+    deliveryImages = [];
+    if (dOrder?.image_url) deliveryImages.push(dOrder.image_url);
+    dOrder?.payment_collections?.forEach(pc => {
+        if (pc.image_url) deliveryImages.push(pc.image_url);
+    });
+
+    importImages = [...new Set(importImages)];
+    deliveryImages = [...new Set(deliveryImages)];
+
     orderCode = linkedImportOrder?.order_code || linkedVegetableOrder?.order_code || 'N/A';
     orderLabel = dOrder?.product_name || orderCode;
   } else if (isImport) {
     const iOrder = order;
-    importImage = iOrder?.receipt_image_url || iOrder?.import_order_items?.find((item) => item?.image_url)?.image_url || null;
-    deliveryImage = iOrder?.delivery_orders?.find((d) => d.image_url)?.image_url || null;
+    importImages = [];
+    if (iOrder.receipt_image_url) importImages.push(iOrder.receipt_image_url);
+    importImages.push(...collectImages(iOrder.import_order_items));
+    importImages = [...new Set(importImages)];
+
+    deliveryImages = collectImages(iOrder.delivery_orders);
+    
     orderCode = iOrder?.order_code || 'N/A';
     orderLabel = iOrder?.supplier_name || iOrder?.sender_name || orderCode;
   } else if (isExport) {
     const eOrder = order;
-    deliveryImage = eOrder?.image_url || null;
+    deliveryImages = eOrder?.image_url ? [eOrder.image_url] : [];
     orderCode = eOrder?.id?.slice(0, 8).toUpperCase() || 'N/A';
     orderLabel = eOrder?.product_name || eOrder?.products?.name || 'Xuất hàng';
   }
@@ -153,33 +171,33 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
 
         {/* Content */}
         <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 flex flex-col sm:flex-row gap-6">
-          {/* Ảnh Nhập Hàng */}
           <div className="flex-1 space-y-3">
             <div className="flex items-center gap-2 text-primary font-bold">
               <Package size={18} />
-              <span>Nhập hàng</span>
+              <span>Nhập hàng ({importImages.length})</span>
             </div>
-            <div 
-              className={clsx(
-                "relative bg-slate-50 border border-border rounded-2xl overflow-hidden flex flex-col group",
-                importImage ? "cursor-pointer" : "h-[220px] items-center justify-center"
-              )}
-              onClick={() => importImage && setFullscreenImage(importImage)}
-            >
-              {importImage ? (
-                <>
-                  <img src={importImage} alt="Biên nhận nhập hàng" className="w-full object-cover max-h-[300px]" />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ZoomIn size={40} className="text-white drop-shadow-lg" />
+            
+            {importImages.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {importImages.map((img, idx) => (
+                  <div 
+                    key={idx}
+                    className="relative bg-slate-50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
+                    onClick={() => setFullscreenImage(img)}
+                  >
+                    <img src={img} alt={`Nhập hàng ${idx}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ZoomIn size={24} className="text-white drop-shadow-lg" />
+                    </div>
                   </div>
-                </>
-              ) : (
-                <div className="text-slate-400 flex flex-col items-center gap-2">
-                  <ImageIcon size={40} className="opacity-20" />
-                  <p className="text-sm font-medium">Không có ảnh biên nhận mở đơn</p>
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="h-[200px] bg-slate-50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-slate-400 gap-2">
+                <ImageIcon size={40} className="opacity-20" />
+                <p className="text-sm font-medium">Không có ảnh nhập hàng</p>
+              </div>
+            )}
           </div>
 
           {/* Vạch chia luân chuyển */}
@@ -187,33 +205,33 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
              <div className="w-px h-full bg-slate-200" />
           </div>
 
-          {/* Ảnh Xuất/Giao Hàng */}
           <div className="flex-1 space-y-3">
             <div className="flex items-center gap-2 text-orange-500 font-bold">
               <Truck size={18} />
-              <span>Xuất / Giao xe</span>
+              <span>Xuất / Giao xe ({deliveryImages.length})</span>
             </div>
-            <div 
-              className={clsx(
-                "relative bg-slate-50 border border-border rounded-2xl overflow-hidden flex flex-col group",
-                deliveryImage ? "cursor-pointer" : "h-[250px] items-center justify-center"
-              )}
-              onClick={() => deliveryImage && setFullscreenImage(deliveryImage)}
-            >
-              {deliveryImage ? (
-                <>
-                  <img src={deliveryImage} alt="Ảnh giao / xuất kho" className="w-full object-cover max-h-[300px]" />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ZoomIn size={40} className="text-white drop-shadow-lg" />
+
+            {deliveryImages.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {deliveryImages.map((img, idx) => (
+                  <div 
+                    key={idx}
+                    className="relative bg-slate-50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
+                    onClick={() => setFullscreenImage(img)}
+                  >
+                    <img src={img} alt={`Giao hàng ${idx}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ZoomIn size={24} className="text-white drop-shadow-lg" />
+                    </div>
                   </div>
-                </>
-              ) : (
-                <div className="text-slate-400 flex flex-col items-center gap-2">
-                  <ImageIcon size={40} className="opacity-20" />
-                  <p className="text-sm font-medium">Không có ảnh hàng hóa</p>
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="h-[200px] bg-slate-50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-slate-400 gap-2">
+                <ImageIcon size={40} className="opacity-20" />
+                <p className="text-sm font-medium">Không có ảnh hàng hóa</p>
+              </div>
+            )}
           </div>
         </div>
 

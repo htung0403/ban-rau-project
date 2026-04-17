@@ -14,7 +14,8 @@ import AssignVehicleDialog from './dialogs/AssignVehicleDialog';
 import OrderImagesDialog from './dialogs/OrderImagesDialog';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
-import { Filter, X } from 'lucide-react';
+import { Filter, X, Printer } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { DeliveryOrder, DeliveryStatus, Vehicle } from '../../types';
 import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 import { deliveryOrderVisibleToUser, hasFullGoodsModuleAccess } from '../../utils/goodsModuleScope';
@@ -125,6 +126,7 @@ const getEffectiveDeliveryStatus = (order: DeliveryOrder, remainingQty?: number)
 };
 
 const DeliveryPage: React.FC = () => {
+  const navigate = useNavigate();
   const [startDate, setStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [statusFilter, setStatusFilter] = useState<'all' | 'can_giao' | 'hang_o_sg' | 'da_giao'>('can_giao');
@@ -327,6 +329,9 @@ const DeliveryPage: React.FC = () => {
     return true;
   });
 
+  // Sort orders by customer name from A-Z
+  filteredOrders.sort((a, b) => getReceiverDisplayName(a).localeCompare(getReceiverDisplayName(b), 'vi'));
+
   // Grouping logic: Date -> [Orders]
   const groupedOrders = (filteredOrders || []).reduce<Record<string, DeliveryOrder[]>>((acc, order) => {
     const date = order.delivery_date || 'N/A';
@@ -421,6 +426,15 @@ const DeliveryPage: React.FC = () => {
 
         {/* ACTIONS */}
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => navigate(`/hang-hoa/in-phieu-giao?dateFrom=${startDate}&dateTo=${endDate}`)}
+            className="flex items-center gap-2 justify-center h-9.5 px-3 shrink-0 border border-primary/20 rounded-xl transition-all bg-primary/10 text-primary hover:bg-primary/20 font-bold text-[13px]"
+            title="In phiếu nhập hàng tạp hóa"
+          >
+            <Printer size={16} />
+            <span className="hidden md:inline">In phiếu</span>
+          </button>
+          
           {/* MOBILE FILTER BUTTON */}
           <button
             onClick={openFilter}

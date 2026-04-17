@@ -391,15 +391,105 @@ export class DeliveryService {
   }
 
   static async confirmOrders(ids: string[]) {
-    const { data, error } = await supabaseService
+    // 1. Fetch the delivery orders being confirmed
+    const { data: sourceOrders, error: sourceError } = await supabaseService
       .from('delivery_orders')
-      .update({ status: 'can_giao' })
+      .select(`
+        *, 
+        import_orders(customer_id, receiver_name, customers(name), profiles(full_name)), 
+        vegetable_orders(customer_id, receiver_name, customers(name), profiles(full_name))
+      `)
       .in('id', ids)
-      .eq('status', 'hang_o_sg')
-      .select();
+      .eq('status', 'hang_o_sg');
 
-    if (error) throw error;
-    return data;
+    if (sourceError) throw sourceError;
+    if (!sourceOrders || sourceOrders.length === 0) return [];
+
+    const getReceiverName = (o: any) => {
+       const io = o.import_orders || o.vegetable_orders;
+       if (!io) return '-';
+       return io.customers?.name || io.receiver_name?.trim() || io.profiles?.full_name || '-';
+    };
+
+    // Group source orders by Key = `delivery_date|order_category|receiverName|product_name`
+    const groups: Record<string, any[]> = {};
+    for (const order of sourceOrders) {
+       const receiverName = getReceiverName(order);
+       const productName = (order.product_name || '').trim();
+       const key = `${order.delivery_date}|${order.order_category || 'standard'}|${receiverName}|${productName}`;
+       if (!groups[key]) groups[key] = [];
+       groups[key].push(order);
+    }
+
+    // Process each group
+    for (const key of Object.keys(groups)) {
+       const groupOrders = groups[key];
+       const firstOrder = groupOrders[0];
+       const receiverName = getReceiverName(firstOrder);
+       
+       const { data: existingCandidates } = await supabaseService
+         .from('delivery_orders')
+         .select(`
+           *, 
+           import_orders(customer_id, receiver_name, customers(name), profiles(full_name)), 
+           vegetable_orders(customer_id, receiver_name, customers(name), profiles(full_name)), 
+           delivery_vehicles(id, assigned_quantity)
+         `)
+         .eq('status', 'can_giao')
+         .eq('delivery_date', firstOrder.delivery_date)
+         .eq('order_category', firstOrder.order_category || 'standard')
+         .eq('product_name', firstOrder.product_name);
+
+       let targetOrder = null;
+       if (existingCandidates && existingCandidates.length > 0) {
+         // Find one with the same receiverName and total assigned quantity == 0
+         targetOrder = existingCandidates.find(o => {
+           const matchName = getReceiverName(o) === receiverName;
+           const assignedQty = (o.delivery_vehicles || []).reduce((sum: number, dv: any) => sum + Number(dv.assigned_quantity || 0), 0);
+           return matchName && assignedQty === 0;
+         });
+       }
+
+       if (targetOrder) {
+         // Merge all groupOrders into targetOrder
+         const addedQuantity = groupOrders.reduce((sum, o) => sum + (Number(o.total_quantity) || 0), 0);
+         const newTotal = Number(targetOrder.total_quantity || 0) + addedQuantity;
+         
+         await supabaseService
+           .from('delivery_orders')
+           .update({ total_quantity: newTotal })
+           .eq('id', targetOrder.id);
+           
+         // Delete the groupOrders
+         const idsToDelete = groupOrders.map(o => o.id);
+         await supabaseService.from('delivery_orders').delete().in('id', idsToDelete);
+       } else {
+         // Merge groupOrders into the firstOrder
+         const targetId = firstOrder.id;
+         const remainingOrders = groupOrders.slice(1);
+         
+         if (remainingOrders.length > 0) {
+           const addedQuantity = remainingOrders.reduce((sum, o) => sum + (Number(o.total_quantity) || 0), 0);
+           const newTotal = Number(firstOrder.total_quantity || 0) + addedQuantity;
+           
+           await supabaseService
+             .from('delivery_orders')
+             .update({ total_quantity: newTotal, status: 'can_giao' })
+             .eq('id', targetId);
+             
+           const idsToDelete = remainingOrders.map(o => o.id);
+           await supabaseService.from('delivery_orders').delete().in('id', idsToDelete);
+         } else {
+           // Just update its status to 'can_giao'
+           await supabaseService
+             .from('delivery_orders')
+             .update({ status: 'can_giao' })
+             .eq('id', targetId);
+         }
+       }
+    }
+    
+    return { success: true };
   }
 
   static async getInventory(orderCategory?: string, actor?: UserPayload) {

@@ -28,4 +28,30 @@ export const accountingApi = {
     const { data } = await axiosClient.patch(`/accounting/sg-import-cash/${importOrderId}/confirm-handover`);
     return data;
   },
+
+  getInvoiceOrders: async (params?: {
+    category?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    customer_id?: string;
+    invoice_status?: string;
+  }) => {
+    const q: Record<string, string> = {};
+    if (params?.category) q.category = params.category;
+    if (params?.dateFrom) q.dateFrom = params.dateFrom;
+    if (params?.dateTo) q.dateTo = params.dateTo;
+    if (params?.customer_id) q.customer_id = params.customer_id;
+    if (params?.invoice_status) q.invoice_status = params.invoice_status;
+    const { data } = await axiosClient.get('/accounting/invoice-orders', { params: q });
+    return data;
+  },
+
+  bulkMarkInvoiceExported: async (payload: {
+    ids: string[];
+    category: 'standard' | 'vegetable';
+    exported?: boolean;
+  }) => {
+    const { data } = await axiosClient.patch('/accounting/invoice-orders/mark-exported', payload);
+    return data;
+  },
 };

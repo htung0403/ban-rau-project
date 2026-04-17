@@ -75,7 +75,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       return;
     }
     try {
-      const customerType = defaultCategory === 'vegetable' ? 'vegetable' : 'grocery';
+      const customerType = defaultCategory === 'vegetable' ? 'vegetable_receiver' : 'grocery_receiver';
       const resp = await createCustomerMutation.mutateAsync({
         name: newCustomerName.trim(),
         phone: newCustomerPhone.trim() || undefined,
@@ -110,8 +110,8 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
   const filteredCustomers = React.useMemo(() => {
     const list: any[] = customers?.filter((c: any) =>
       defaultCategory === 'vegetable'
-        ? (c.customer_type === 'wholesale' || c.customer_type === 'vegetable')
-        : c.customer_type === 'grocery'
+        ? c.customer_type === 'vegetable_receiver'
+        : c.customer_type === 'grocery_receiver'
     ) || [];
     
     if (editingOrder?.customers && !list.find((c: any) => c.id === editingOrder.customer_id)) {
@@ -122,7 +122,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
 
   const filteredSenders = React.useMemo(() => {
     const list: any[] = customers?.filter((c: any) =>
-      defaultCategory === 'vegetable' ? c.customer_type === 'vegetable' : c.customer_type === 'grocery'
+      defaultCategory === 'vegetable' ? c.customer_type === 'vegetable_sender' : c.customer_type === 'grocery_sender'
     ) || [];
     if (editingOrder?.sender_customers && !list.find((c: any) => c.id === editingOrder.sender_id)) {
       list.push(editingOrder.sender_customers);
@@ -213,15 +213,21 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
         sender_id: editingOrder.sender_id || '',
         receiver_name: editingOrder.receiver_name || '',
         notes: editingOrder.notes || '',
-        items: editingOrder.import_order_items?.map((item: ImportOrderItem) => ({
-          product_id: item.product_id,
-          package_type: item.package_type,
-          weight_kg: item.weight_kg,
-          quantity: item.quantity,
-          unit_price: item.unit_price || null,
-          image_url: item.image_url || null,
-          image_urls: item.image_urls || [],
-        })) || [],
+        items: editingOrder.import_order_items?.map((item: ImportOrderItem) => {
+          let urls = [...(item.image_urls || [])];
+          if (urls.length === 0 && typeof item.image_url === 'string' && item.image_url.trim().length > 0) {
+            urls = item.image_url.includes(',') ? item.image_url.split(',').map((u: string) => u.trim()) : [item.image_url];
+          }
+          return {
+            product_id: item.product_id,
+            package_type: item.package_type,
+            weight_kg: item.weight_kg,
+            quantity: item.quantity,
+            unit_price: item.unit_price || null,
+            image_url: item.image_url || null,
+            image_urls: urls,
+          };
+        }) || [],
         payment_status: editingOrder.import_order_items?.[0]?.payment_status || 'unpaid',
         total_amount: editingOrder.total_amount || 0,
         receipt_image_url: editingOrder.receipt_image_url || null,
@@ -284,16 +290,9 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
     try {
       setUploadingItemIndex(index);
       const resp = await uploadApi.uploadFile(file, 'import-orders', 'items');
-      const currentUrls = getValues(`items.${index}.image_urls`) || [];
-      const newUrls = [...currentUrls, resp.url];
-      
-      setValue(`items.${index}.image_urls`, newUrls, { shouldValidate: true });
-      setValue(`items.${index}.image_url`, newUrls[0], { shouldValidate: true });
+      setValue(`items.${index}.image_urls`, [resp.url], { shouldValidate: true });
+      setValue(`items.${index}.image_url`, resp.url, { shouldValidate: true });
 
-      // Tự động gán ảnh lên phần phiếu báo cáo chung nếu đang trống
-      if (!getValues('receipt_image_url')) {
-        setValue('receipt_image_url', resp.url, { shouldValidate: true });
-      }
 
       toast.success('Tải ảnh thành công!');
     } catch (error) {
@@ -327,13 +326,15 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       console.log('--- FORM SUBMIT DATA BEGIN ---', data);
       const payload = { ...data };
       if (payload.items) {
-        payload.items = payload.items.map((item: any) => {
+        payload.items = payload.items.map((item: any, index: number) => {
           const price = Number(item.unit_price) || 0;
           const realPrice = price > 0 && price < 100000 ? price * 1000 : price;
           return {
             ...item,
             unit_price: realPrice > 0 ? realPrice : null,
             payment_status: payload.payment_status || 'unpaid',
+            image_urls: getValues(`items.${index}.image_urls`) || [],
+            image_url: getValues(`items.${index}.image_url`) || null,
           };
         });
       }
@@ -444,7 +445,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           }}
                           onCreate={async (name) => {
                             try {
-                              const resp = await createCustomerMutation.mutateAsync({ name, customer_type: 'grocery' });
+                              const resp = await createCustomerMutation.mutateAsync({ name, customer_type: 'grocery_sender' });
                               const newId = (resp as any)?.id || (resp as any)?.data?.id;
                               if (newId) {
                                 setValue('sender_id', newId, { shouldValidate: true });
@@ -1064,36 +1065,33 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                                     )}
                                   </div>
 
-                                  {/* Mobile Multiple Images */}
-                                  <div className="md:hidden shrink-0 mt-auto flex flex-wrap gap-1 max-w-[120px]">
-                                    {(watch(`items.${index}.image_urls`) || []).map((url: string, imgIndex: number) => (
-                                      <div key={imgIndex} className="relative w-10 h-10 rounded-lg border border-slate-200 overflow-hidden group/img">
-                                        <img src={url} alt="item" className="w-full h-full object-cover" />
+                                  {/* Mobile Single Image */}
+                                  <div className="md:hidden shrink-0 mt-auto flex justify-center w-[40px]">
+                                    {watch(`items.${index}.image_url`) ? (
+                                      <div className="relative w-10 h-10 rounded-lg border border-slate-200 overflow-hidden group/img">
+                                        <img src={watch(`items.${index}.image_url`)} alt="item" className="w-full h-full object-cover" />
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            const current = getValues(`items.${index}.image_urls`) || [];
-                                            const filtered = current.filter((_: any, i: number) => i !== imgIndex);
-                                            setValue(`items.${index}.image_urls`, filtered, { shouldValidate: true });
-                                            if (watch(`items.${index}.image_url`) === url) {
-                                              setValue(`items.${index}.image_url`, filtered[0] || null, { shouldValidate: true });
-                                            }
+                                            setValue(`items.${index}.image_urls`, [], { shouldValidate: true });
+                                            setValue(`items.${index}.image_url`, null, { shouldValidate: true });
                                           }}
                                           className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
                                         >
                                           <X size={12} />
                                         </button>
                                       </div>
-                                    ))}
-                                    <label className="border border-slate-200 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-10 h-10 shrink-0">
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={(e) => handleItemImageUpload(index, e)}
-                                      />
-                                      {uploadingItemIndex === index ? <Loader2 size={14} className="animate-spin text-primary" /> : <ImagePlus size={14} />}
-                                    </label>
+                                    ) : (
+                                      <label className="border border-slate-200 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-10 h-10 shrink-0">
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          className="hidden"
+                                          onChange={(e) => handleItemImageUpload(index, e)}
+                                        />
+                                        {uploadingItemIndex === index ? <Loader2 size={14} className="animate-spin text-primary" /> : <ImagePlus size={14} />}
+                                      </label>
+                                    )}
                                   </div>
 
                                   {/* Mobile Delete Button */}
@@ -1162,22 +1160,18 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                               </>
                             )}
 
-                            {/* Desktop Multiple Images - only for standard */}
+                            {/* Desktop Single Image - only for standard */}
                             {defaultCategory === 'standard' && (
                             <div className="hidden md:flex items-center justify-center w-full">
-                              <div className="flex flex-wrap gap-1 justify-center max-w-[100px]">
-                                {(watch(`items.${index}.image_urls`) || []).map((url: string, imgIndex: number) => (
-                                  <div key={imgIndex} className="relative w-8 h-8 rounded-md border border-slate-200 overflow-hidden group/imgDesk">
-                                    <img src={url} alt="item" className="w-full h-full object-cover" />
+                              <div className="flex justify-center w-[32px]">
+                                {watch(`items.${index}.image_url`) ? (
+                                  <div className="relative w-8 h-8 rounded-md border border-slate-200 overflow-hidden group/imgDesk">
+                                    <img src={watch(`items.${index}.image_url`)} alt="item" className="w-full h-full object-cover" />
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        const current = getValues(`items.${index}.image_urls`) || [];
-                                        const filtered = current.filter((_: any, i: number) => i !== imgIndex);
-                                        setValue(`items.${index}.image_urls`, filtered, { shouldValidate: true });
-                                        if (watch(`items.${index}.image_url`) === url) {
-                                          setValue(`items.${index}.image_url`, filtered[0] || null, { shouldValidate: true });
-                                        }
+                                        setValue(`items.${index}.image_urls`, [], { shouldValidate: true });
+                                        setValue(`items.${index}.image_url`, null, { shouldValidate: true });
                                       }}
                                       className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/imgDesk:opacity-100 transition-opacity"
                                       title="Xoá ảnh"
@@ -1185,16 +1179,17 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                                       <X size={10} />
                                     </button>
                                   </div>
-                                ))}
-                                <label className="w-8 h-8 border border-slate-200 bg-slate-50 rounded-md flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 cursor-pointer transition-all" title="Tải ảnh">
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={(e) => handleItemImageUpload(index, e)}
-                                  />
-                                  {uploadingItemIndex === index ? <Loader2 size={12} className="animate-spin text-primary" /> : <ImagePlus size={12} />}
-                                </label>
+                                ) : (
+                                  <label className="w-8 h-8 border border-slate-200 bg-slate-50 rounded-md flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 cursor-pointer transition-all" title="Tải ảnh">
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) => handleItemImageUpload(index, e)}
+                                    />
+                                    {uploadingItemIndex === index ? <Loader2 size={12} className="animate-spin text-primary" /> : <ImagePlus size={12} />}
+                                  </label>
+                                )}
                               </div>
                             </div>
                             )}

@@ -50,7 +50,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
   const { user } = useAuth();
   const createMutation = useCreateExportOrder();
   const assignVehicleMutation = useAssignVehicle();
-  const { data: customers } = useCustomers('grocery', isOpen);
+  const { data: customers } = useCustomers('grocery_receiver', isOpen);
   const { data: vehicles } = useVehicles(isOpen);
   const { data: employees } = useEmployees(isOpen);
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -182,9 +182,8 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
     }));
   }, [vehicles, employees]);
 
-  // Lọc khách tạp hóa (grocery)
   const groceryCustomers = useMemo(() => {
-    return (customers || []).filter((c: any) => c.customer_type === 'grocery');
+    return (customers || []).filter((c: any) => c.customer_type === 'grocery_receiver');
   }, [customers]);
 
   // Ref chống vòng lặp khi auto-set customer/product

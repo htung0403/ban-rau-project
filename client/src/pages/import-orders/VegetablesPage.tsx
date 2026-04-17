@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import PageHeader from '../../components/shared/PageHeader';
-import { useImportOrders } from '../../hooks/queries/useImportOrders';
+import { useImportOrders, useDeleteImportOrder } from '../../hooks/queries/useImportOrders';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Filter, FileDown, Search, X, Store, Truck, UserCircle, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Filter, FileDown, Search, X, Store, Truck, UserCircle, CalendarDays, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
@@ -12,6 +12,8 @@ import * as XLSX from 'xlsx';
 
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { ColumnSettings } from '../../components/shared/ColumnSettings';
+import AddEditVegetableImportOrderDialog from './dialogs/AddEditVegetableImportOrderDialog';
+import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { isSoftDeletedOrderRecord } from '../../utils/softDeletedOrder';
 import { useAuth } from '../../context/AuthContext';
 import { useVehicles } from '../../hooks/queries/useVehicles';
@@ -105,6 +107,7 @@ const COL_DEF: Record<string, { thClass: string, tdClass: string, render: (item:
       return <span className="text-[13px] font-bold text-primary tabular-nums">{amount != null ? formatCurrency(amount) : '-'}</span>;
     },
   },
+  actions: { thClass: 'text-center w-24', tdClass: 'text-center', render: () => null },
 };
 
 const VegetablesPage: React.FC = () => {
@@ -117,6 +120,7 @@ const VegetablesPage: React.FC = () => {
     { id: 'sl', label: 'SL', isVisible: true },
     { id: 'ten_hang', label: 'Tên Hàng', isVisible: true },
     { id: 'tong_tien', label: 'Tổng Tiền', isVisible: true },
+    { id: 'actions', label: 'Thao Tác', isVisible: true },
   ]);
 
   const visibleColumns = columns.filter(c => c.isVisible);
@@ -134,6 +138,33 @@ const VegetablesPage: React.FC = () => {
 
   const [page, setPage] = useState(1);
   const pageSize = 20;
+
+  const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDialogClosing, setIsDialogClosing] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const deleteMutation = useDeleteImportOrder();
+
+  const openEditDialog = (order: any) => {
+    setEditingOrder(order);
+    setIsDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    setIsDialogClosing(true);
+    setTimeout(() => {
+      setIsDialogOpen(false);
+      setIsDialogClosing(false);
+      setEditingOrder(null);
+    }, 350);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    await deleteMutation.mutateAsync(deleteId);
+    setDeleteId(null);
+  };
 
   const openFilter = () => setIsFilterOpen(true);
   const closeFilter = () => {
@@ -489,11 +520,35 @@ const VegetablesPage: React.FC = () => {
                       </tr>
                       {itemsInSupplier.map((item, idx) => (
                         <tr key={`${item.order?.id || 'order'}-${item.id || idx}`} className="hover:bg-muted/20 transition-colors">
-                          {visibleColumns.map((col) => (
-                            <td key={col.id} className={`px-4 py-3 ${COL_DEF[col.id].tdClass}`}>
-                              {COL_DEF[col.id].render(item, taiRankByOrderId)}
-                            </td>
-                          ))}
+                          {visibleColumns.map((col) => {
+                            if (col.id === 'actions') {
+                              return (
+                                <td key={col.id} className="px-4 py-3 text-center w-24">
+                                  <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      onClick={() => openEditDialog(item.order)}
+                                      className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
+                                      title="Chỉnh sửa phiếu nhập"
+                                    >
+                                      <Edit size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteId(item.order?.id)}
+                                      className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                                      title="Xóa phiếu nhập"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </td>
+                              );
+                            }
+                            return (
+                              <td key={col.id} className={`px-4 py-3 ${COL_DEF[col.id]?.tdClass || ''}`}>
+                                {COL_DEF[col.id]?.render(item, taiRankByOrderId)}
+                              </td>
+                            );
+                          })}
                         </tr>
                       ))}
                     </React.Fragment>
@@ -509,8 +564,11 @@ const VegetablesPage: React.FC = () => {
                           </td>
                         );
                       }
+                      if (col.id === 'actions') {
+                        return <td key={col.id} className="px-4 py-3"></td>;
+                      }
                       return (
-                        <td key={col.id} className={`${COL_DEF[col.id].tdClass} px-4 py-3 text-[14px] font-black uppercase text-foreground`}>
+                        <td key={col.id} className={`${COL_DEF[col.id]?.tdClass || ''} px-4 py-3 text-[14px] font-black uppercase text-foreground`}>
                           {idx === 0 ? 'Tổng' : ''}
                         </td>
                       );
@@ -560,7 +618,21 @@ const VegetablesPage: React.FC = () => {
                           <div className="text-[14px] font-black text-primary tabular-nums mb-1">
                             {getItemTotalAmount(item) != null ? formatCurrency(getItemTotalAmount(item)) : '-'}
                           </div>
-                          <div className="text-[12px] text-muted-foreground">SL: <span className="font-bold text-foreground">{item.quantity}</span></div>
+                          <div className="text-[12px] text-muted-foreground mb-2">SL: <span className="font-bold text-foreground">{item.quantity}</span></div>
+                          <div className="flex items-center justify-end gap-1 mt-3" onClick={(e) => e.stopPropagation()}>
+                            <button
+                               onClick={() => openEditDialog(item.order)}
+                               className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors bg-blue-50/50"
+                            >
+                               <Edit size={13} />
+                            </button>
+                            <button
+                               onClick={() => setDeleteId(item.order?.id)}
+                               className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors bg-red-50/50"
+                            >
+                               <Trash2 size={13} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -671,6 +743,26 @@ const VegetablesPage: React.FC = () => {
           />
         </div>
       </MobileFilterSheet>
+
+      <AddEditVegetableImportOrderDialog
+        isOpen={isDialogOpen}
+        isClosing={isDialogClosing}
+        editingOrder={editingOrder}
+        onClose={closeDialog}
+        defaultCategory="vegetable"
+      />
+
+      <ConfirmDialog
+        isOpen={!!deleteId}
+        title="Xóa phiếu nhập"
+        message="Bạn có chắc chắn muốn xóa toàn bộ phiếu nhập này không? Việc này sẽ xóa tất cả các mặt hàng trong phiếu."
+        confirmLabel="Xóa phiếu"
+        cancelLabel="Hủy"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteId(null)}
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 };

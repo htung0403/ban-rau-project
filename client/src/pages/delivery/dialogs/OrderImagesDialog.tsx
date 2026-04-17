@@ -77,7 +77,10 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     const list = Array.isArray(refs) ? refs : (refs ? [refs] : []);
     const urls: string[] = [];
     list.forEach(ref => {
-      if (ref.image_url) urls.push(ref.image_url);
+      if (ref.image_url) {
+        if (ref.image_url.includes(',')) urls.push(...ref.image_url.split(',').map((s: string) => s.trim()));
+        else urls.push(ref.image_url);
+      }
       if (ref.image_urls) urls.push(...ref.image_urls);
     });
     return [...new Set(urls)].filter(u => typeof u === 'string' && u.trim().length > 0);

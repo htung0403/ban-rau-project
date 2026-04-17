@@ -125,18 +125,18 @@ function AppRoutes() {
         {/* Khách hàng module */}
         <Route path="/khach-hang">
           <Route index element={<ModulePage />} />
-          <Route path="nguoi-gui-rau" element={<VegetableCustomersPage />} />
-          <Route path="vua-rau" element={<WholesaleCustomersPage />} />
-          <Route path="nguoi-gui-tap-hoa" element={<GroceryCustomersPage />} />
-          <Route path="nguoi-nhan-tap-hoa" element={<GroceryCustomersPage />} />
+          <Route path="nguoi-gui-rau" element={<VegetableCustomersPage type="vegetable_sender" />} />
+          <Route path="vua-rau" element={<WholesaleCustomersPage type="vegetable_receiver" />} />
+          <Route path="nguoi-gui-tap-hoa" element={<GroceryCustomersPage type="grocery_sender" />} />
+          <Route path="nguoi-nhan-tap-hoa" element={<GroceryCustomersPage type="grocery_receiver" />} />
         </Route>
 
         {/* Ke toan module */}
         <Route path="/ke-toan">
           <Route index element={<ModulePage />} />
-          <Route path="khach-hang-tap-hoa" element={<GroceryCustomersPage />} />
-          <Route path="khach-hang-rau" element={<VegetableCustomersPage />} />
-          <Route path="vua-rau" element={<WholesaleCustomersPage />} />
+          <Route path="khach-hang-tap-hoa" element={<GroceryCustomersPage type="grocery_sender" />} />
+          <Route path="khach-hang-rau" element={<VegetableCustomersPage type="vegetable_sender" />} />
+          <Route path="vua-rau" element={<WholesaleCustomersPage type="vegetable_receiver" />} />
           <Route path="khach-hang/:id" element={<CustomerDetailPage />} />
           <Route path="cong-no" element={<CustomerDebtPage />} />
           <Route path="thu-tien-sg" element={<SgCashCollectionsPage />} />

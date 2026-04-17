@@ -73,11 +73,16 @@ const getOrderPreviewImage = (order: DeliveryOrder) => {
   const importReceipt = (order.import_orders as { receipt_image_url?: string } | undefined)?.receipt_image_url;
   const vegetableReceipt = (order.vegetable_orders as { receipt_image_url?: string } | undefined)?.receipt_image_url;
 
+  const firstImportItemImage = (order.import_orders as any)?.import_order_items?.find((i: any) => i.image_url)?.image_url;
+  const firstVegetableItemImage = (order.vegetable_orders as any)?.vegetable_order_items?.find((i: any) => i.image_url)?.image_url;
+
   return (
     directImage ||
     order.payment_collections?.find((pc) => pc.image_url)?.image_url ||
     importReceipt ||
     vegetableReceipt ||
+    firstImportItemImage ||
+    firstVegetableItemImage ||
     null
   );
 };

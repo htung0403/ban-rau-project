@@ -168,7 +168,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
       return;
     }
     try {
-      const customerType = defaultCategory === 'vegetable' ? 'vegetable' : 'grocery';
+      const customerType = defaultCategory === 'vegetable' ? 'vegetable_receiver' : 'grocery_receiver';
       const resp = await createCustomerMutation.mutateAsync({
         name: newCustomerName.trim(),
         phone: newCustomerPhone.trim() || undefined,
@@ -203,8 +203,8 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
   const filteredCustomers = React.useMemo(() => {
     const list: any[] = customers?.filter((c: any) =>
       defaultCategory === 'vegetable'
-        ? (c.customer_type === 'wholesale' || c.customer_type === 'vegetable')
-        : c.customer_type === 'grocery'
+        ? c.customer_type === 'vegetable_receiver'
+        : c.customer_type === 'grocery_receiver'
     ) || [];
     
     if (editingOrder?.customers && !list.find((c: any) => c.id === editingOrder.customer_id)) {
@@ -215,7 +215,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
   const filteredSenders = React.useMemo(() => {
     const list: any[] = customers?.filter((c: any) =>
-      defaultCategory === 'vegetable' ? c.customer_type === 'vegetable' : c.customer_type === 'grocery'
+      defaultCategory === 'vegetable' ? c.customer_type === 'vegetable_sender' : c.customer_type === 'grocery_sender'
     ) || [];
     if (editingOrder?.sender_customers && !list.find((c: any) => c.id === editingOrder.sender_id)) {
       list.push(editingOrder.sender_customers);
@@ -706,7 +706,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                           }}
                           onCreate={async (name) => {
                             try {
-                              const customerType = defaultCategory === 'vegetable' ? 'vegetable' : 'grocery';
+                              const customerType = defaultCategory === 'vegetable' ? 'vegetable_sender' : 'grocery_sender';
                               const resp = await createCustomerMutation.mutateAsync({ name, customer_type: customerType });
                               const newId = (resp as any)?.id || (resp as any)?.data?.id;
                               if (newId) {

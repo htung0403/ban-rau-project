@@ -5,7 +5,7 @@ import { useCustomers, useDeleteCustomer } from '../../hooks/queries/useCustomer
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import AddEditCustomerDialog from './dialogs/AddEditCustomerDialog';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
@@ -18,15 +18,23 @@ const formatCurrency = (value?: number | null) => {
 
 const getCustomerTypeBadge = (type?: string) => {
   switch (type) {
+    case 'vegetable_receiver':
     case 'wholesale': return { label: 'Vựa rau', color: 'bg-emerald-100/50 text-emerald-700 border-emerald-200' };
-    case 'grocery': return { label: 'Tạp hóa', color: 'bg-blue-100/50 text-blue-700 border-blue-200' };
-    case 'vegetable': return { label: 'KH Rau', color: 'bg-purple-100/50 text-purple-700 border-purple-200' };
+    case 'grocery':
+    case 'grocery_sender':
+    case 'grocery_receiver': return { label: 'Tạp hóa', color: 'bg-blue-100/50 text-blue-700 border-blue-200' };
+    case 'vegetable':
+    case 'vegetable_sender': return { label: 'KH Rau', color: 'bg-purple-100/50 text-purple-700 border-purple-200' };
     default: return { label: 'Chưa phân loại', color: 'bg-slate-100 text-slate-700 border-slate-200' };
   }
 };
 
-const GroceryCustomersPage: React.FC = () => {
-  const { data: customers, isLoading, isError, refetch } = useCustomers('grocery');
+interface Props {
+  type?: 'grocery_sender' | 'grocery_receiver' | 'grocery';
+}
+
+const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
+  const { data: customers, isLoading, isError, refetch } = useCustomers(type);
   const deleteCustomer = useDeleteCustomer();
   const navigate = useNavigate();
 
@@ -35,6 +43,7 @@ const GroceryCustomersPage: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const closeAddDialog = () => {
     setIsAddClosing(true);
@@ -77,32 +86,73 @@ const GroceryCustomersPage: React.FC = () => {
     }
   };
 
+  const filteredAndSortedCustomers = (customers || [])
+    .filter(c => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        c.name.toLowerCase().includes(searchLower) ||
+        (c.phone && c.phone.includes(searchTerm)) ||
+        (c.address && c.address.toLowerCase().includes(searchLower))
+      );
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }));
+
+  const pageTitle = type === 'grocery_sender' ? "DS người gửi hàng tạp hóa" : 
+                    type === 'grocery_receiver' ? "DS người nhận hàng tạp hóa" : 
+                    "Danh sách KH Tạp hóa";
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
       <div className="hidden md:block">
         <PageHeader
-          title="Danh sách KH Tạp hóa"
+          title={pageTitle}
           description="Quản lý khách hàng tạp hóa"
           backPath="/khach-hang"
           actions={
-            <button
-              onClick={openCreateDialog}
-              className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all"
-            >
-              <Plus size={16} />
-              Thêm KH
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" size={16} />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm khách hàng..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 w-64 transition-all"
+                />
+              </div>
+              <button
+                onClick={openCreateDialog}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all"
+              >
+                <Plus size={16} />
+                Thêm KH
+              </button>
+            </div>
           }
         />
       </div>
+
+      {/* Mobile Search */}
+      <div className="md:hidden px-4 mb-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" size={16} />
+          <input
+            type="text"
+            placeholder="Tìm kiếm khách hàng..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+          />
+        </div>
+      </div>
+
       <div className="md:bg-white md:rounded-2xl md:border md:border-border md:shadow-sm flex flex-col flex-1 min-h-0 md:overflow-hidden -mx-4 sm:mx-0">
         {isLoading ? (
           <div className="p-4"><LoadingSkeleton rows={6} columns={5} /></div>
         ) : isError ? (
           <ErrorState onRetry={() => refetch()} />
-        ) : !customers?.length ? (
-          <EmptyState title="Chưa có khách hàng" />
+        ) : !filteredAndSortedCustomers.length ? (
+          <EmptyState title={searchTerm ? "Không tìm thấy khách hàng" : "Chưa có khách hàng"} />
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar">
             {/* Desktop View */}
@@ -121,7 +171,7 @@ const GroceryCustomersPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
-                  {customers.map((c) => (
+                  {filteredAndSortedCustomers.map((c) => (
                     <tr
                       key={c.id}
                       className="hover:bg-muted/20 transition-colors cursor-pointer"
@@ -188,7 +238,7 @@ const GroceryCustomersPage: React.FC = () => {
 
             {/* Mobile View */}
             <div className="md:hidden flex flex-col gap-3 px-4 pb-24 pt-2">
-              {customers.map((c) => (
+              {filteredAndSortedCustomers.map((c) => (
                 <div
                   key={c.id}
                   className="p-4 flex flex-col gap-3 bg-white rounded-2xl border border-border shadow-sm active:scale-[0.98] transition-transform cursor-pointer"
@@ -275,7 +325,7 @@ const GroceryCustomersPage: React.FC = () => {
         onClose={closeAddDialog}
         mode={selectedCustomer ? 'edit' : 'create'}
         customer={selectedCustomer}
-        defaultType='grocery'
+        defaultType={type}
       />
 
       <ConfirmDialog

@@ -25,7 +25,7 @@ const getTaiRank = (order: any, rankMap: Map<string, number>) =>
 
 // ─── Constants ────────────────────────────────────────────
 const ROWS_PER_A4 = 38; // ~38 data rows fit on one A4 page
-const MAX_AMOUNT_PER_SHEET = 5_000_000; // 5 triệu
+const MAX_AMOUNT_PER_SHEET = 4_500_000; // 4.5 triệu
 
 type PrintMode = 'a4' | 'amount';
 
@@ -167,7 +167,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
       }
       return result;
     } else {
-      // Mode 2: split by total amount <= 5 million
+      // Mode 2: split by total amount <= 4.5 million
       const result: FlatItem[][] = [];
       let current: FlatItem[] = [];
       let currentTotal = 0;
@@ -317,7 +317,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
                     : 'bg-muted/10 text-muted-foreground hover:bg-muted/30'
                 }`}
               >
-                Kiểu 2: Dưới 5 triệu/tờ
+                Kiểu 2: Dưới 4.5 triệu/tờ
               </button>
             </div>
           </div>
@@ -340,7 +340,10 @@ const PrintVegetableOrdersPage: React.FC = () => {
               Tổng: <strong className="text-foreground">{flatItems.length}</strong> dòng
             </span>
             <span className="text-[12px] text-muted-foreground">
-              Tổng tiền: <strong className="text-primary font-black">{formatNumber(flatItems.reduce((s, i) => s + i.totalAmount, 0))}</strong>
+              Tiền hàng: <strong className="text-foreground font-black">{formatNumber(flatItems.reduce((s, i) => s + i.totalAmount, 0))}</strong>
+            </span>
+            <span className="text-[12px] text-muted-foreground">
+              Sau thuế (8%): <strong className="text-primary font-black">{formatNumber(flatItems.reduce((s, i) => s + i.totalAmount, 0) * 1.08)}</strong>
             </span>
             <span className="text-[12px] text-muted-foreground">
               Số tờ: <strong className="text-foreground">{sheets.length}</strong>
@@ -434,11 +437,27 @@ const PrintVegetableOrdersPage: React.FC = () => {
                   </tbody>
                   <tfoot>
                     <tr style={{ borderTop: '2px solid #000' }}>
+                      <td colSpan={5} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 13, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
+                        Cộng Tiền Hàng
+                      </td>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
+                        {formatNumber(sheetTotal)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colSpan={5} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 13, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
+                        Thuế VAT (8%)
+                      </td>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
+                        {formatNumber(sheetTotal * 0.08)}
+                      </td>
+                    </tr>
+                    <tr>
                       <td colSpan={5} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 13, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>
-                        Tổng
+                        Tổng Cộng
                       </td>
                       <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>
-                        {formatNumber(sheetTotal)}
+                        {formatNumber(sheetTotal * 1.08)}
                       </td>
                     </tr>
                   </tfoot>

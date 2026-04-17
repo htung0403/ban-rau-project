@@ -2,18 +2,18 @@ import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Building2, Phone, MapPin, Plus, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useCreateCustomer, useUpdateCustomer } from '../../../hooks/queries/useCustomers';
-import { CustomSelect } from '../../../components/shared/CustomSelect';
+import { useCreateCustomer, useUpdateCustomer, useCustomers } from '../../../hooks/queries/useCustomers';
 import type { Customer } from '../../../types';
+import toast from 'react-hot-toast';
 
 const customerSchema = z.object({
   name: z.string().min(2, 'Tên khách hàng phải từ 2 ký tự'),
   phone: z.string().optional(),
   address: z.string().optional(),
-  customer_type: z.enum(['wholesale', 'grocery', 'retail', 'vegetable']).default('grocery'),
+  customer_type: z.enum(['wholesale', 'grocery', 'retail', 'vegetable', 'grocery_sender', 'grocery_receiver', 'vegetable_sender', 'vegetable_receiver']).default('grocery'),
 });
 
 type CustomerFormData = z.infer<typeof customerSchema>;
@@ -22,7 +22,7 @@ interface Props {
   isOpen: boolean;
   isClosing: boolean;
   onClose: () => void;
-  defaultType?: 'wholesale' | 'grocery' | 'retail' | 'vegetable';
+  defaultType?: string;
   mode?: 'create' | 'edit';
   customer?: Customer | null;
 }
@@ -32,13 +32,16 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
   const updateMutation = useUpdateCustomer();
   const isEditMode = mode === 'edit' && !!customer?.id;
 
+  // Fetch customers to check for duplicates
+  const { data: allCustomers } = useCustomers(undefined, isOpen);
+
   const {
     register,
     handleSubmit,
     reset,
     watch,
-    control,
-    formState: { errors },
+    formState: { errors, isSubmitting: isHookSubmitting },
+    setError,
   } = useForm<CustomerFormData>({
     resolver: zodResolver(customerSchema) as any,
     defaultValues: {
@@ -48,18 +51,33 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
     },
   });
 
+  const selectedType = watch('customer_type');
+
   useEffect(() => {
     if (isOpen) {
       reset({
         name: isEditMode ? (customer?.name || '') : '',
         phone: isEditMode ? (customer?.phone || '') : '',
         address: isEditMode ? (customer?.address || '') : '',
-        customer_type: isEditMode ? (customer?.customer_type || defaultType || 'grocery') : (defaultType || 'grocery'),
+        customer_type: (isEditMode ? customer?.customer_type : defaultType) as any || 'grocery',
       });
     }
   }, [isOpen, reset, defaultType, isEditMode, customer]);
 
   const onSubmit = async (data: CustomerFormData) => {
+    // Duplicate check
+    const isDuplicate = allCustomers?.some(c => 
+      c.name.trim().toLowerCase() === data.name.trim().toLowerCase() && 
+      c.customer_type === data.customer_type &&
+      c.id !== customer?.id
+    );
+
+    if (isDuplicate) {
+      setError('name', { message: 'Tên khách hàng này đã tồn tại trong hệ thống' });
+      toast.error('Tên khách hàng này đã tồn tại');
+      return;
+    }
+
     try {
       const payload = {
         name: data.name,
@@ -78,7 +96,7 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
     }
   };
 
-  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const isSubmitting = createMutation.isPending || updateMutation.isPending || isHookSubmitting;
 
   if (!isOpen && !isClosing) return null;
 
@@ -124,36 +142,18 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
               <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Thông tin liên hệ</span>
             </div>
             <div className="p-5 grid grid-cols-1 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Loại khách hàng <span className="text-red-500">*</span></label>
-                <Controller
-                  name="customer_type"
-                  control={control}
-                  render={({ field }) => (
-                    <CustomSelect
-                      value={field.value}
-                      onChange={field.onChange}
-                      options={[
-                        { value: 'wholesale', label: 'Vựa rau' },
-                        { value: 'grocery', label: 'Tạp hóa' },
-                        { value: 'vegetable', label: 'Khách hàng rau' }
-                      ]}
-                      className="bg-muted/10 border-border font-medium w-full text-[13px] hover:bg-muted/20"
-                    />
-                  )}
-                />
-              </div>
+              {/* customer_type is now managed automatically through props, no manual selection */}
 
               <div className="space-y-1.5">
                 <label className="text-[13px] font-bold text-foreground">
-                  {watch('customer_type') === 'wholesale' ? 'Tên vựa' : watch('customer_type') === 'vegetable' ? 'Tên khách hàng' : 'Tên tạp hóa'} <span className="text-red-500">*</span>
+                  {selectedType === 'vegetable_receiver' || selectedType === 'wholesale' ? 'Tên vựa' : 'Tên khách hàng'} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
                   <input
                     type="text"
                     {...register('name')}
-                    placeholder={watch('customer_type') === 'wholesale' ? "VD: Vựa rau chú Tám" : watch('customer_type') === 'vegetable' ? "VD: Nguyễn Văn A" : "VD: Tạp hóa cô Ba"}
+                    placeholder="Nhập tên khách hàng..."
                     className="w-full pl-10 pr-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
                   />
                   {errors.name && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.name.message}</p>}

@@ -396,8 +396,8 @@ export class DeliveryService {
       .from('delivery_orders')
       .select(`
         *, 
-        import_orders(customer_id, receiver_name, customers(name), profiles(full_name)), 
-        vegetable_orders(customer_id, receiver_name, customers(name), profiles(full_name))
+        import_orders(customer_id, receiver_name, customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
+        vegetable_orders(customer_id, receiver_name, customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name))
       `)
       .in('id', ids)
       .eq('status', 'hang_o_sg');
@@ -431,8 +431,8 @@ export class DeliveryService {
          .from('delivery_orders')
          .select(`
            *, 
-           import_orders(customer_id, receiver_name, customers(name), profiles(full_name)), 
-           vegetable_orders(customer_id, receiver_name, customers(name), profiles(full_name)), 
+           import_orders(customer_id, receiver_name, customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
+           vegetable_orders(customer_id, receiver_name, customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
            delivery_vehicles(id, assigned_quantity)
          `)
          .eq('status', 'can_giao')

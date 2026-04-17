@@ -50,6 +50,7 @@ const formatCurrency = (value?: number | null) => {
 };
 
 const defaultColumns: ColumnOption[] = [
+  { id: 'image', label: 'Ảnh', isVisible: true },
   { id: 'order_code', label: 'Mã đơn', isVisible: true },
   { id: 'order_date', label: 'Ngày', isVisible: true },
   { id: 'order_time', label: 'Giờ', isVisible: true },
@@ -388,6 +389,7 @@ const ImportOrdersPage: React.FC = () => {
                   <tr className="bg-muted/30 border-b border-border">
                     {columns.filter(c => c.isVisible).map((col) => {
                       switch (col.id) {
+                        case 'image': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-16">Ảnh</th>;
                         case 'order_code': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-34">Mã đơn</th>;
                         case 'order_date': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-28">Ngày</th>;
                         case 'order_time': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-20">Giờ</th>;
@@ -413,6 +415,35 @@ const ImportOrdersPage: React.FC = () => {
                     >
                       {columns.filter(c => c.isVisible).map((col) => {
                         switch (col.id) {
+                          case 'image': {
+                            const orderImage = order.receipt_image_url || 
+                                               order.import_order_items?.[0]?.image_url || 
+                                               (order.import_order_items?.[0]?.image_urls && order.import_order_items[0].image_urls.length > 0 ? order.import_order_items[0].image_urls[0] : null);
+                            return (
+                              <td key={col.id} className="px-4 py-2 text-center">
+                                <div 
+                                  className={clsx(
+                                    "w-9 h-9 shrink-0 bg-muted/20 rounded-md overflow-hidden transition-transform mx-auto",
+                                    orderImage && "cursor-zoom-in hover:ring-2 hover:ring-primary/40 active:scale-95"
+                                  )}
+                                  onClick={(e) => {
+                                    if (orderImage) {
+                                      e.stopPropagation();
+                                      setViewingImageOrder(order);
+                                    }
+                                  }}
+                                >
+                                  {orderImage ? (
+                                    <img src={orderImage} alt={order.order_code} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <ImageIcon size={14} className="text-muted-foreground/30" />
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          }
                           case 'order_code': return (
                             <td key={col.id} className="px-4 py-3">
                               <span className="text-[13px] font-bold text-primary">{order.order_code}</span>

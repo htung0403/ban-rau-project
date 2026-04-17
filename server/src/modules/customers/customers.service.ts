@@ -90,7 +90,7 @@ export class CustomerService {
       name?: string;
       phone?: string | null;
       address?: string | null;
-      customer_type?: 'retail' | 'wholesale' | 'grocery' | 'vegetable';
+      customer_type?: 'retail' | 'wholesale' | 'grocery' | 'vegetable' | 'grocery_sender' | 'grocery_receiver' | 'vegetable_sender' | 'vegetable_receiver';
     }
   ) {
     const { data, error } = await supabaseService

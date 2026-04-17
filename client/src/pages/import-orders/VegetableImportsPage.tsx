@@ -698,6 +698,9 @@ const VegetableImportsPage: React.FC = () => {
                       {ordersInSupplier.map((order) => {
                         const orderImage = order.receipt_image_url || order.import_order_items?.[0]?.image_url;
                         const taiRank = taiRankByOrderId.get(order.id) || 1;
+                        
+                        const totalQuantity = order.import_order_items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
+                        const itemNames = order.import_order_items?.map(item => item.products?.name).filter(Boolean).join(', ') || '';
 
                         return (
                           <div
@@ -728,12 +731,24 @@ const VegetableImportsPage: React.FC = () => {
                               <div className="mb-1.5">
                                 <span className="text-[10px] text-muted-foreground tabular-nums">{order.order_date}</span>
                               </div>
-                              <div className="mb-1">
-                                <span className="text-[10px] text-muted-foreground">Tài xế: {getOrderDriverName(order) || '-'}</span>
-                              </div>
-                              <div className="mb-1.5">
-                                <span className="text-[10px] text-amber-700">Biển số: {getOrderVehicles(order) || '-'}</span>
-                              </div>
+                              {!isDriverRole(user?.role) && (
+                                <>
+                                  <div className="mb-1">
+                                    <span className="text-[10px] text-muted-foreground">Tài xế: {getOrderDriverName(order) || '-'}</span>
+                                  </div>
+                                  <div className="mb-1.5">
+                                    <span className="text-[10px] text-amber-700">Biển số: {getOrderVehicles(order) || '-'}</span>
+                                  </div>
+                                </>
+                              )}
+                              {(totalQuantity > 0 || itemNames) && (
+                                <div className="mb-1.5">
+                                  <span className="text-[10px] text-slate-600 line-clamp-1">
+                                    Mặt hàng: <span className="font-medium text-foreground">{itemNames || '-'}</span>
+                                    {totalQuantity > 0 && <span className="ml-1 font-bold text-blue-600">({totalQuantity})</span>}
+                                  </span>
+                                </div>
+                              )}
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-1.5">
                                   {order.payment_status === 'paid' ? (

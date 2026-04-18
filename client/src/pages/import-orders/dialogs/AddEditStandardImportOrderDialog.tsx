@@ -252,7 +252,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
             package_type: item.package_type,
             weight_kg: item.weight_kg,
             quantity: item.quantity,
-            unit_price: item.unit_price || null,
+            unit_price: item.unit_price ? item.unit_price / 1000 : null,
             image_url: item.image_url || null,
             image_urls: urls,
           };
@@ -372,10 +372,10 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       // Always treat as explicit amount
       payload.is_custom_amount = true;
 
-      // Auto-convert shorthand 'k' inputs (e.g 200 -> 200,000)
-      if (payload.total_amount && payload.total_amount > 0 && payload.total_amount < 100000) {
-        payload.total_amount = payload.total_amount * 1000;
-      }
+      // Auto-convert shorthand 'k' inputs đã bị lỗi,
+      // vì total_amount được tính trực tiếp từ đơn giá và số lượng, hoặc nhập đầy đủ qua CurrencyInput
+      // Nếu cố nội suy giá trị nhỏ < 100k thành k sẽ sai lệch cực lớn.
+      // Do đó KHÔNG nhân total_amount với 1000 nữa.
 
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') delete payload[key];
@@ -412,7 +412,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       {/* Panel */}
       <div
         className={clsx(
-          'relative w-full max-w-[1200px] bg-slate-50 shadow-2xl flex flex-col h-screen border-l border-border',
+          'relative w-full max-w-[1200px] bg-slate-50 shadow-2xl flex flex-col h-[100dvh] border-l border-border',
           isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
         )}
       >
@@ -1388,7 +1388,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                       </span>
                     </div>
                     <div className="text-3xl font-black text-primary tabular-nums drop-shadow-sm">
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(watchTotalAmountInput || 0)}
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format((watchTotalAmountInput || 0) * (defaultCategory === 'standard' ? 1 : 1000))}
                     </div>
                   </div>
                 )}

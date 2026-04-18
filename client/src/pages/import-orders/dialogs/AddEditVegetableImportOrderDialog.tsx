@@ -493,11 +493,8 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
       // Always treat as explicit amount
       payload.is_custom_amount = true;
 
-      // Auto-convert shorthand 'k' inputs (e.g 200 -> 200,000)
-      // Only apply to standard imports where users may type shorthand manually.
-      if (defaultCategory === 'standard' && payload.total_amount && payload.total_amount > 0 && payload.total_amount < 100000) {
-        payload.total_amount = payload.total_amount * 1000;
-      }
+      // Vô hiệu hóa tính năng tự động nhân total_amount với 1000 vì total_amount đã được tính đúng hoặc nhập đúng,
+      // làm như vậy sẽ gây sai lệch nếu khách hàng nhập giá trị thực tế như 70000.
 
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') delete payload[key];

@@ -70,7 +70,7 @@ const ImportOrdersPage: React.FC = () => {
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
-  
+
   const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
   const [filterVehicle, setFilterVehicle] = useState<string[]>([]);
   const [filterReceiver, setFilterReceiver] = useState<string[]>([]);
@@ -90,7 +90,7 @@ const ImportOrdersPage: React.FC = () => {
   const [editingOrder, setEditingOrder] = useState<ImportOrder | null>(null);
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  
+
   const [viewingImageOrder, setViewingImageOrder] = useState<any>(null);
   const [isViewingClosing, setIsViewingClosing] = useState(false);
 
@@ -158,7 +158,7 @@ const ImportOrdersPage: React.FC = () => {
         o.receiver_phone?.includes(q)
       );
     }
-    
+
     if (!matches) return false;
     if (filterCustomer.length > 0 && chuHang && !filterCustomer.includes(chuHang)) return false;
     if (filterVehicle.length > 0) {
@@ -268,15 +268,15 @@ const ImportOrdersPage: React.FC = () => {
                 </button>
               )}
             </div>
-            
+
             <button
-               onClick={openFilter}
-               className={clsx(
-                 "md:hidden flex items-center justify-center w-[38px] shrink-0 border border-border/80 rounded-xl transition-all",
-                 (hasActiveFilters) ? "bg-primary/10 text-primary border-primary/30" : "bg-muted/20 text-muted-foreground hover:bg-muted"
-               )}
+              onClick={openFilter}
+              className={clsx(
+                "md:hidden flex items-center justify-center w-[38px] shrink-0 border border-border/80 rounded-xl transition-all",
+                (hasActiveFilters) ? "bg-primary/10 text-primary border-primary/30" : "bg-muted/20 text-muted-foreground hover:bg-muted"
+              )}
             >
-               <Filter size={18} />
+              <Filter size={18} />
             </button>
           </div>
 
@@ -416,12 +416,12 @@ const ImportOrdersPage: React.FC = () => {
                       {columns.filter(c => c.isVisible).map((col) => {
                         switch (col.id) {
                           case 'image': {
-                            const orderImage = order.receipt_image_url || 
-                                               order.import_order_items?.[0]?.image_url || 
-                                               (order.import_order_items?.[0]?.image_urls && order.import_order_items[0].image_urls.length > 0 ? order.import_order_items[0].image_urls[0] : null);
+                            const orderImage = order.receipt_image_url ||
+                              order.import_order_items?.[0]?.image_url ||
+                              (order.import_order_items?.[0]?.image_urls && order.import_order_items[0].image_urls.length > 0 ? order.import_order_items[0].image_urls[0] : null);
                             return (
                               <td key={col.id} className="px-4 py-2 text-center">
-                                <div 
+                                <div
                                   className={clsx(
                                     "w-9 h-9 shrink-0 bg-muted/20 rounded-md overflow-hidden transition-transform mx-auto",
                                     orderImage && "cursor-zoom-in hover:ring-2 hover:ring-primary/40 active:scale-95"
@@ -536,9 +536,9 @@ const ImportOrdersPage: React.FC = () => {
             {/* Mobile Card List */}
             <div className="md:hidden flex-1 overflow-y-auto p-3 flex flex-col gap-2">
               {paginatedOrders.map((order) => {
-                const orderImage = order.receipt_image_url || 
-                                   order.import_order_items?.[0]?.image_url || 
-                                   (order.import_order_items?.[0]?.image_urls && order.import_order_items[0].image_urls.length > 0 ? order.import_order_items[0].image_urls[0] : null);
+                const orderImage = order.receipt_image_url ||
+                  order.import_order_items?.[0]?.image_url ||
+                  (order.import_order_items?.[0]?.image_urls && order.import_order_items[0].image_urls.length > 0 ? order.import_order_items[0].image_urls[0] : null);
                 return (
                   <div
                     key={order.id}
@@ -546,7 +546,7 @@ const ImportOrdersPage: React.FC = () => {
                     className="bg-white rounded-xl border border-border shadow-sm cursor-pointer hover:shadow-md active:bg-muted/10 transition-all flex items-center gap-3 p-2.5 overflow-hidden"
                   >
                     {/* Left: Image */}
-                    <div 
+                    <div
                       className={clsx(
                         "w-[64px] h-[64px] shrink-0 bg-muted/20 rounded-lg overflow-hidden transition-transform active:scale-95",
                         orderImage && "cursor-zoom-in hover:ring-2 hover:ring-primary/20"
@@ -700,9 +700,9 @@ const ImportOrdersPage: React.FC = () => {
       />
 
       {/* Mobile Floating Action Button */}
-      <DraggableFAB 
-        icon={<Plus size={24} />} 
-        onClick={openAddDialog} 
+      <DraggableFAB
+        icon={<Plus size={24} />}
+        onClick={openAddDialog}
       />
 
       {/* Mobile Filter Bottom Sheet */}

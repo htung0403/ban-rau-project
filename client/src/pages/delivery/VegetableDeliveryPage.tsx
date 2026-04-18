@@ -97,6 +97,7 @@ const VegetableDeliveryPage: React.FC = () => {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'can_giao' | 'da_giao'>('can_giao');
+  const [ageFilter, setAgeFilter] = useState<'all' | 'new' | 'old'>('all');
 
   const { user } = useAuth();
   const { data: vehicles } = useVehicles();
@@ -266,6 +267,14 @@ const VegetableDeliveryPage: React.FC = () => {
     filteredOrders = filteredOrders.filter(o => normalizeVegetableStatus(o.status) === statusFilter);
   }
 
+  // Filter by age
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  if (ageFilter === 'new') {
+    filteredOrders = filteredOrders.filter(o => o.delivery_date === todayStr);
+  } else if (ageFilter === 'old') {
+    filteredOrders = filteredOrders.filter(o => o.delivery_date && o.delivery_date < todayStr);
+  }
+
     // Text & Select Filters logic
   filteredOrders = filteredOrders.filter(o => {
       const orderData = o.vegetable_orders || o.import_orders;
@@ -361,6 +370,24 @@ const VegetableDeliveryPage: React.FC = () => {
           </div>
         </div>
 
+        {/* AGE FILTER */}
+        <div className="hidden md:flex shrink-0 bg-muted/20 border border-border/80 rounded-xl p-0.5">
+          {(['all', 'new', 'old'] as const).map((age) => (
+            <button
+              key={age}
+              onClick={() => setAgeFilter(age)}
+              className={clsx(
+                "px-3 py-1.5 text-[12px] font-bold rounded-lg transition-all",
+                ageFilter === age
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {age === 'all' ? 'Tất cả' : age === 'new' ? 'Hàng mới' : 'Hàng cũ'}
+            </button>
+          ))}
+        </div>
+
         {/* DESKTOP DATE FILTER */}
         <div className="hidden md:block shrink-0">
           <DateRangePicker
@@ -443,7 +470,7 @@ const VegetableDeliveryPage: React.FC = () => {
               <table className="w-full border-collapse bg-white">
                 <thead className="sticky top-0 z-20">
                   <tr className="bg-white border-b border-slate-200 text-slate-600">
-                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left w-48 border-r border-slate-100">Mã đơn</th>
+                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-28 border-r border-slate-100">Loại</th>
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left min-w-20 border-r border-slate-100">Tên vựa / chủ</th>
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left border-r border-slate-100">Hàng</th>
                     <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-17.5 border-r border-slate-100">Trạng thái</th>
@@ -501,9 +528,13 @@ const VegetableDeliveryPage: React.FC = () => {
 
                             return (
                           <tr key={o.id} className="hover:bg-blue-50/30 transition-colors group">
-                            <td className="px-4 py-3 border-r border-slate-100">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-[13px] font-bold text-primary">{(o.vegetable_orders || o.import_orders)?.order_code || 'N/A'}</span>
+                            <td className="px-4 py-3 border-r border-slate-100 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                {o.delivery_date === todayStr ? (
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 text-emerald-700 uppercase">Mới</span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-slate-100 text-slate-600 uppercase">Cũ</span>
+                                )}
                                 <div className="flex items-center gap-1">
                                   {statusFilter === 'can_giao' && isAdmin && (
                                     <button
@@ -673,7 +704,11 @@ const VegetableDeliveryPage: React.FC = () => {
                           <div className="p-3 flex flex-col gap-2">
                             {/* Row 1: Order code + Product name */}
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[13px] font-bold text-primary">{getOrderData(o)?.order_code || 'N/A'}</span>
+                              {o.delivery_date === todayStr ? (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-700 uppercase">Mới</span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-slate-100 text-slate-600 uppercase">Cũ</span>
+                              )}
                               <div className="w-1 h-1 rounded-full bg-slate-300" />
                               <span className="text-[13px] font-bold text-slate-700">
                                 {getDisplayProductName(o)}
@@ -797,6 +832,25 @@ const VegetableDeliveryPage: React.FC = () => {
             inline
             icon={<Package size={15} />}
           />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[13px] font-bold text-muted-foreground">Phân loại hàng</label>
+          <div className="flex gap-2">
+            {(['all', 'new', 'old'] as const).map((age) => (
+              <button
+                key={age}
+                onClick={() => setAgeFilter(age)}
+                className={clsx(
+                  "flex-1 py-2.5 text-[12px] font-bold rounded-xl border transition-all",
+                  ageFilter === age
+                    ? "bg-primary border-primary text-white shadow-md"
+                    : "bg-white border-border text-muted-foreground"
+                )}
+              >
+                {age === 'all' ? 'Tất cả' : age === 'new' ? 'Hàng mới' : 'Hàng cũ'}
+              </button>
+            ))}
+          </div>
         </div>
       </MobileFilterSheet>
     </div>

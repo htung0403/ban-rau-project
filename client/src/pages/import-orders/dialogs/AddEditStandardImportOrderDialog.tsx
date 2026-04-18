@@ -489,7 +489,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           }}
                           onCreate={async (name) => {
                             try {
-                              const customerType = defaultCategory === 'vegetable' ? 'vegetable_sender' : 'grocery_sender';
+                              const customerType = (defaultCategory as string) === 'vegetable' ? 'vegetable_sender' : 'grocery_sender';
                               const resp = await createCustomerMutation.mutateAsync({ name, customer_type: customerType });
                               const newId = (resp as any)?.id || (resp as any)?.data?.id;
                               if (newId) {
@@ -739,7 +739,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           }}
                           onCreate={async (name) => {
                             try {
-                              const customerType = defaultCategory === 'vegetable' ? 'vegetable_sender' : 'grocery_sender';
+                              const customerType = (defaultCategory as string) === 'vegetable' ? 'vegetable_sender' : 'grocery_sender';
                               const resp = await createCustomerMutation.mutateAsync({ name, customer_type: customerType });
                               const newId = (resp as any)?.id || (resp as any)?.data?.id;
                               if (newId) {

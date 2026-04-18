@@ -200,8 +200,8 @@ export class DeliveryService {
       query = query.gte('delivery_date', startDate).lte('delivery_date', endDate);
     } else if (startDate) {
       query = query.eq('delivery_date', startDate);
-    } else if (startDate === undefined && endDate === undefined) {
-      // Fetch all if no dates provided (used for inventory)
+    } else if (!startDate && !endDate) {
+      // Fetch all if no dates provided or empty strings (used for inventory/full list)
     } else {
       const today = format(new Date(), 'yyyy-MM-dd');
       query = query.eq('delivery_date', today);

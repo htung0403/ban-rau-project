@@ -132,8 +132,8 @@ const getEffectiveDeliveryStatus = (order: DeliveryOrder, remainingQty?: number)
 
 const DeliveryPage: React.FC = () => {
   const navigate = useNavigate();
-  const [startDate, setStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'can_giao' | 'hang_o_sg' | 'da_giao'>('can_giao');
 
   const { user } = useAuth();

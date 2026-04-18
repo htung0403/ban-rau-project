@@ -94,8 +94,8 @@ const getOrderPaymentStatus = (order: DeliveryOrder): keyof typeof PAYMENT_STATU
 };
 
 const VegetableDeliveryPage: React.FC = () => {
-  const [startDate, setStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'can_giao' | 'da_giao'>('can_giao');
 
   const { user } = useAuth();

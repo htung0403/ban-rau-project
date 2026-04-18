@@ -69,6 +69,10 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
   const [newCustomerName, setNewCustomerName] = React.useState('');
   const [newCustomerPhone, setNewCustomerPhone] = React.useState('');
 
+  const [showNewSenderForm, setShowNewSenderForm] = React.useState(false);
+  const [newSenderName, setNewSenderName] = React.useState('');
+  const [newSenderPhone, setNewSenderPhone] = React.useState('');
+
   const handleCreateCustomer = async () => {
     if (!newCustomerName.trim()) {
       toast.error('Vui lòng nhập tên khách hàng');
@@ -88,6 +92,31 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       setNewCustomerName('');
       setNewCustomerPhone('');
       setShowNewCustomerForm(false);
+    } catch {
+      // error handled by mutation
+    }
+  };
+
+  const handleCreateSender = async () => {
+    if (!newSenderName.trim()) {
+      toast.error('Vui lòng nhập tên người gửi');
+      return;
+    }
+    try {
+      const customerType = defaultCategory === 'vegetable' ? 'vegetable_sender' : 'grocery_sender';
+      const resp = await createCustomerMutation.mutateAsync({
+        name: newSenderName.trim(),
+        phone: newSenderPhone.trim() || undefined,
+        customer_type: customerType,
+      });
+      const newId = (resp as any)?.id || (resp as any)?.data?.id;
+      if (newId) {
+        setValue('sender_id', newId, { shouldValidate: true });
+        setValue('sender_name', newSenderName.trim(), { shouldValidate: true });
+      }
+      setNewSenderName('');
+      setNewSenderPhone('');
+      setShowNewSenderForm(false);
     } catch {
       // error handled by mutation
     }
@@ -434,7 +463,22 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Người gửi</label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Người gửi</label>
+                          <button
+                            type="button"
+                            onClick={() => setShowNewSenderForm(!showNewSenderForm)}
+                            className={clsx(
+                              'flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all active:scale-95',
+                              showNewSenderForm
+                                ? 'bg-red-50 text-red-500 hover:bg-red-100 border border-red-200'
+                                : 'bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20'
+                            )}
+                          >
+                            {showNewSenderForm ? <X size={12} /> : <Plus size={12} />}
+                            {showNewSenderForm ? 'Đóng' : 'Thêm mới'}
+                          </button>
+                        </div>
                         <CreatableSearchableSelect
                           options={filteredSenders.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}` }))}
                           value={watchSenderId || ''}
@@ -445,7 +489,8 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           }}
                           onCreate={async (name) => {
                             try {
-                              const resp = await createCustomerMutation.mutateAsync({ name, customer_type: 'grocery_sender' });
+                              const customerType = defaultCategory === 'vegetable' ? 'vegetable_sender' : 'grocery_sender';
+                              const resp = await createCustomerMutation.mutateAsync({ name, customer_type: customerType });
                               const newId = (resp as any)?.id || (resp as any)?.data?.id;
                               if (newId) {
                                 setValue('sender_id', newId, { shouldValidate: true });
@@ -455,7 +500,56 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           }}
                           placeholder="Chọn hoặc tạo người gửi"
                           createMessage="Tạo mới"
+                          disabled={showNewSenderForm}
                         />
+
+                        {/* Inline Add Sender Form */}
+                        {showNewSenderForm && (
+                          <div className="mt-2 p-3 bg-primary/5 border border-primary/15 rounded-xl space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <p className="text-[11px] font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                              <UserCircle size={14} />
+                              Thêm người gửi mới
+                            </p>
+                            <input
+                              type="text"
+                              value={newSenderName}
+                              onChange={(e) => setNewSenderName(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              placeholder="Tên người gửi *"
+                            />
+                            <input
+                              type="tel"
+                              value={newSenderPhone}
+                              onChange={(e) => setNewSenderPhone(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              placeholder="Số điện thoại (không bắt buộc)"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => { setShowNewSenderForm(false); setNewSenderName(''); setNewSenderPhone(''); }}
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-[12px] font-bold hover:bg-slate-50 transition-all active:scale-[0.98]"
+                              >
+                                Hủy
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCreateSender}
+                                disabled={createCustomerMutation.isPending || !newSenderName.trim()}
+                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white text-[12px] font-bold hover:bg-primary/90 transition-all shadow-sm shadow-primary/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {createCustomerMutation.isPending ? (
+                                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                  <>
+                                    <CheckCircle2 size={14} />
+                                    Lưu & Chọn
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-1.5">
@@ -619,7 +713,22 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Chủ hàng (Người gửi)</label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Chủ hàng (Người gửi)</label>
+                          <button
+                            type="button"
+                            onClick={() => setShowNewSenderForm(!showNewSenderForm)}
+                            className={clsx(
+                              'flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all active:scale-95',
+                              showNewSenderForm
+                                ? 'bg-red-50 text-red-500 hover:bg-red-100 border border-red-200'
+                                : 'bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20'
+                            )}
+                          >
+                            {showNewSenderForm ? <X size={12} /> : <Plus size={12} />}
+                            {showNewSenderForm ? 'Đóng' : 'Thêm mới'}
+                          </button>
+                        </div>
                         <CreatableSearchableSelect
                           options={filteredSenders.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}` }))}
                           value={watchSenderId || ''}
@@ -630,7 +739,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           }}
                           onCreate={async (name) => {
                             try {
-                              const customerType = defaultCategory === 'vegetable' ? 'vegetable' : 'grocery';
+                              const customerType = defaultCategory === 'vegetable' ? 'vegetable_sender' : 'grocery_sender';
                               const resp = await createCustomerMutation.mutateAsync({ name, customer_type: customerType });
                               const newId = (resp as any)?.id || (resp as any)?.data?.id;
                               if (newId) {
@@ -641,7 +750,56 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           }}
                           placeholder="Chọn hoặc tạo chủ hàng"
                           createMessage="Tạo mới"
+                          disabled={showNewSenderForm}
                         />
+
+                        {/* Inline Add Sender Form */}
+                        {showNewSenderForm && (
+                          <div className="mt-2 p-3 bg-primary/5 border border-primary/15 rounded-xl space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <p className="text-[11px] font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                              <UserCircle size={14} />
+                              Thêm chủ hàng mới
+                            </p>
+                            <input
+                              type="text"
+                              value={newSenderName}
+                              onChange={(e) => setNewSenderName(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              placeholder="Tên chủ hàng *"
+                            />
+                            <input
+                              type="tel"
+                              value={newSenderPhone}
+                              onChange={(e) => setNewSenderPhone(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              placeholder="Số điện thoại (không bắt buộc)"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => { setShowNewSenderForm(false); setNewSenderName(''); setNewSenderPhone(''); }}
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-[12px] font-bold hover:bg-slate-50 transition-all active:scale-[0.98]"
+                              >
+                                Hủy
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCreateSender}
+                                disabled={createCustomerMutation.isPending || !newSenderName.trim()}
+                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white text-[12px] font-bold hover:bg-primary/90 transition-all shadow-sm shadow-primary/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {createCustomerMutation.isPending ? (
+                                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                  <>
+                                    <CheckCircle2 size={14} />
+                                    Lưu & Chọn
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-1.5">

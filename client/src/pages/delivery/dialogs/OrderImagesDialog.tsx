@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Image as ImageIcon, Package, Truck, ZoomIn } from 'lucide-react';
+import { X, Image as ImageIcon, Package, Truck, ZoomIn, FileText } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { DeliveryOrder, ImportOrder, ExportOrder } from '../../../types';
 
@@ -68,6 +68,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
   const isImport = isImportOrder(order);
   const isExport = isExportOrder(order);
 
+  let receiptImages: string[] = [];
   let importImages: string[] = [];
   let deliveryImages: string[] = [];
   let orderCode = 'N/A';
@@ -91,9 +92,11 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     const linkedImportOrder = pickRelation(dOrder?.import_orders);
     const linkedVegetableOrder = pickRelation(dOrder?.vegetable_orders);
 
+    receiptImages = [];
+    if (linkedImportOrder?.receipt_image_url) receiptImages.push(linkedImportOrder.receipt_image_url);
+    if (linkedVegetableOrder?.receipt_image_url) receiptImages.push(linkedVegetableOrder.receipt_image_url);
+
     importImages = [];
-    if (linkedImportOrder?.receipt_image_url) importImages.push(linkedImportOrder.receipt_image_url);
-    if (linkedVegetableOrder?.receipt_image_url) importImages.push(linkedVegetableOrder.receipt_image_url);
     importImages.push(...collectImages(linkedImportOrder?.import_order_items));
     importImages.push(...collectImages(linkedVegetableOrder?.vegetable_order_items));
 
@@ -103,6 +106,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
         if (pc.image_url) deliveryImages.push(pc.image_url);
     });
 
+    receiptImages = [...new Set(receiptImages)];
     importImages = [...new Set(importImages)];
     deliveryImages = [...new Set(deliveryImages)];
 
@@ -110,8 +114,11 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     orderLabel = dOrder?.product_name || orderCode;
   } else if (isImport) {
     const iOrder = order;
+    receiptImages = [];
+    if (iOrder.receipt_image_url) receiptImages.push(iOrder.receipt_image_url);
+    receiptImages = [...new Set(receiptImages)];
+
     importImages = [];
-    if (iOrder.receipt_image_url) importImages.push(iOrder.receipt_image_url);
     importImages.push(...collectImages(iOrder.import_order_items));
     importImages = [...new Set(importImages)];
 
@@ -145,7 +152,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
         className={clsx(
           'relative w-full bg-white flex flex-col transition-all duration-350',
           'max-h-[100dvh] sm:max-h-[90vh] min-h-0',
-          hidePhase1 ? 'sm:max-w-[450px]' : 'sm:max-w-[800px]',
+          hidePhase1 ? 'sm:max-w-[450px]' : 'sm:max-w-[1000px] lg:max-w-[1200px]',
           'rounded-t-[32px] sm:rounded-3xl shadow-2xl',
           isClosing
             ? 'animate-out slide-out-to-right-full duration-300 opacity-0'
@@ -174,39 +181,77 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
 
         {/* Content */}
         <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 flex flex-col sm:flex-row gap-6">
-          <div className="flex-1 space-y-3">
-            <div className="flex items-center gap-2 text-primary font-bold">
-              <Package size={18} />
-              <span>Nhập hàng ({importImages.length})</span>
-            </div>
-            
-            {importImages.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {importImages.map((img, idx) => (
-                  <div 
-                    key={idx}
-                    className="relative bg-slate-50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
-                    onClick={() => setFullscreenImage(img)}
-                  >
-                    <img src={img} alt={`Nhập hàng ${idx}`} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ZoomIn size={24} className="text-white drop-shadow-lg" />
-                    </div>
+          {!hidePhase1 && (
+            <>
+              <div className="flex-1 space-y-3">
+                <div className="flex items-center gap-2 text-blue-500 font-bold">
+                  <FileText size={18} />
+                  <span>Biên nhận ({receiptImages.length})</span>
+                </div>
+                
+                {receiptImages.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {receiptImages.map((img, idx) => (
+                      <div 
+                        key={idx}
+                        className="relative bg-slate-50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
+                        onClick={() => setFullscreenImage(img)}
+                      >
+                        <img src={img} alt={`Biên nhận ${idx}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ZoomIn size={24} className="text-white drop-shadow-lg" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  <div className="h-[200px] bg-slate-50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-slate-400 gap-2">
+                    <ImageIcon size={40} className="opacity-20" />
+                    <p className="text-sm font-medium">Không có ảnh biên nhận</p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="h-[200px] bg-slate-50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-slate-400 gap-2">
-                <ImageIcon size={40} className="opacity-20" />
-                <p className="text-sm font-medium">Không có ảnh nhập hàng</p>
-              </div>
-            )}
-          </div>
 
-          {/* Vạch chia luân chuyển */}
-          <div className="hidden sm:flex items-center justify-center text-slate-300">
-             <div className="w-px h-full bg-slate-200" />
-          </div>
+              {/* Vạch chia luân chuyển */}
+              <div className="hidden sm:flex items-center justify-center text-slate-300">
+                <div className="w-px h-full bg-slate-200" />
+              </div>
+
+              <div className="flex-1 space-y-3">
+                <div className="flex items-center gap-2 text-primary font-bold">
+                  <Package size={18} />
+                  <span>Nhập hàng ({importImages.length})</span>
+                </div>
+                
+                {importImages.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {importImages.map((img, idx) => (
+                      <div 
+                        key={idx}
+                        className="relative bg-slate-50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
+                        onClick={() => setFullscreenImage(img)}
+                      >
+                        <img src={img} alt={`Nhập hàng ${idx}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ZoomIn size={24} className="text-white drop-shadow-lg" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="h-[200px] bg-slate-50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-slate-400 gap-2">
+                    <ImageIcon size={40} className="opacity-20" />
+                    <p className="text-sm font-medium">Không có ảnh nhập hàng</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Vạch chia luân chuyển */}
+              <div className="hidden sm:flex items-center justify-center text-slate-300">
+                 <div className="w-px h-full bg-slate-200" />
+              </div>
+            </>
+          )}
 
           <div className="flex-1 space-y-3">
             <div className="flex items-center gap-2 text-orange-500 font-bold">

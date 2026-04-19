@@ -11,6 +11,7 @@ const importOrderItemSchema = z.object({
   quantity: z.number().int().positive(),
   unit_price: z.number().optional().nullable(),
   image_url: z.string().optional().nullable(),
+  image_urls: z.array(z.string()).optional().nullable(),
   payment_status: z.enum(['paid', 'unpaid']).default('unpaid'),
 });
 
@@ -32,6 +33,7 @@ const importOrderSchema = z.object({
   supplier_name: z.string().optional().nullable(),
   sheet_number: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  receipt_image_url: z.string().optional().nullable(),
   payment_status: z.enum(['paid', 'unpaid']).default('unpaid'),
   items: z.array(importOrderItemSchema),
 });

@@ -72,23 +72,46 @@ const getReceiverDisplayName = (order: DeliveryOrder) => {
   return orderObj?.customers?.name || orderObj?.receiver_name?.trim() || orderObj?.profiles?.full_name || '-';
 };
 
-const getOrderPreviewImage = (order: DeliveryOrder) => {
-  const directImage = (order as DeliveryOrder & { image_url?: string }).image_url;
-  const importReceipt = (order.import_orders as { receipt_image_url?: string } | undefined)?.receipt_image_url;
-  const vegetableReceipt = (order.vegetable_orders as { receipt_image_url?: string } | undefined)?.receipt_image_url;
+const pickRelation = <T,>(relation: any): T | undefined => {
+  if (Array.isArray(relation)) return relation[0];
+  return relation || undefined;
+};
 
-  const firstImportItemImage = (order.import_orders as any)?.import_order_items?.find((i: any) => i.image_url)?.image_url;
-  const firstVegetableItemImage = (order.vegetable_orders as any)?.vegetable_order_items?.find((i: any) => i.image_url)?.image_url;
+const getOrderPreviewImage = (order: any) => {
+  if (!order) return null;
+  const directImage = order.image_url;
+  if (directImage) return directImage;
 
-  return (
-    directImage ||
-    order.payment_collections?.find((pc) => pc.image_url)?.image_url ||
-    importReceipt ||
-    vegetableReceipt ||
-    firstImportItemImage ||
-    firstVegetableItemImage ||
-    null
-  );
+  const paymentImage = order.payment_collections?.find((pc: any) => pc.image_url)?.image_url;
+  if (paymentImage) return paymentImage;
+
+  const linkedImport = pickRelation<any>(order.import_orders);
+  const linkedVeg = pickRelation<any>(order.vegetable_orders);
+
+  if (linkedImport?.receipt_image_url) return linkedImport.receipt_image_url;
+  if (linkedVeg?.receipt_image_url) return linkedVeg.receipt_image_url;
+
+  const collectFirstImage = (refs: any): string | null => {
+    const list = Array.isArray(refs) ? refs : (refs ? [refs] : []);
+    for (const ref of list) {
+      if (ref.image_url) {
+        if (typeof ref.image_url === 'string' && ref.image_url.includes(',')) return ref.image_url.split(',')[0].trim();
+        if (typeof ref.image_url === 'string') return ref.image_url;
+      }
+      if (ref.image_urls && Array.isArray(ref.image_urls) && ref.image_urls.length > 0) {
+        return ref.image_urls[0];
+      }
+    }
+    return null;
+  };
+
+  const importItemImage = collectFirstImage(linkedImport?.import_order_items);
+  if (importItemImage) return importItemImage;
+
+  const vegItemImage = collectFirstImage(linkedVeg?.vegetable_order_items);
+  if (vegItemImage) return vegItemImage;
+
+  return null;
 };
 
 const getOrderPaymentStatus = (order: DeliveryOrder): keyof typeof PAYMENT_STATUS_CONFIG => {
@@ -695,6 +718,31 @@ const DeliveryPage: React.FC = () => {
                       <tr className="bg-slate-100/80 border-y border-slate-200 shadow-sm overflow-hidden">
                         <td colSpan={(isAdmin ? 11 : 10) + (eligibleVehicles.length || 10)} className="px-4 py-2.5">    
                           <div className="flex items-center gap-2">
+                            {isAdmin && (
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer mr-2"
+                                checked={groupedOrders[date].length > 0 && groupedOrders[date].every(o => selectedIds.has(o.id))}
+                                onChange={(e) => {
+                                  const isChecked = e.target.checked;
+                                  setSelectedIds(prev => {
+                                    const next = new Set(prev);
+                                    groupedOrders[date].forEach(o => {
+                                      if (isChecked) next.add(o.id);
+                                      else next.delete(o.id);
+                                    });
+                                    return next;
+                                  });
+                                }}
+                                ref={input => {
+                                  if (input) {
+                                    const someSelected = groupedOrders[date].some(o => selectedIds.has(o.id));
+                                    const allSelected = groupedOrders[date].every(o => selectedIds.has(o.id));
+                                    input.indeterminate = someSelected && !allSelected;
+                                  }
+                                }}
+                              />
+                            )}
                             <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 text-primary">
                               <Calendar size={14} />
                             </div>
@@ -919,6 +967,24 @@ const DeliveryPage: React.FC = () => {
               {sortedDates.map((date) => (
                 <div key={`mobile-${date}`} className="flex flex-col gap-2.5">
                   <div className="flex items-center gap-2 sticky top-0 bg-slate-50/95 backdrop-blur-sm p-3 -mx-3 px-5 z-10 border-b border-border/50 shadow-sm">
+                    {isAdmin && (
+                      <input
+                        type="checkbox"
+                        className="w-5 h-5 rounded-md border-slate-300 text-primary focus:ring-primary mr-1"
+                        checked={groupedOrders[date].length > 0 && groupedOrders[date].every(o => selectedIds.has(o.id))}
+                        onChange={(e) => {
+                          const isChecked = e.target.checked;
+                          setSelectedIds(prev => {
+                            const next = new Set(prev);
+                            groupedOrders[date].forEach(o => {
+                              if (isChecked) next.add(o.id);
+                              else next.delete(o.id);
+                            });
+                            return next;
+                          });
+                        }}
+                      />
+                    )}
                     <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 text-primary shrink-0">
                       <Calendar size={14} />
                     </div>
@@ -1055,7 +1121,7 @@ const DeliveryPage: React.FC = () => {
                           </div>
 
                           {/* Bottom action bar */}
-                          {(statusFilter === 'hang_o_sg' && isAdmin) || isAdmin ? (
+                          {(statusFilter === 'hang_o_sg' && isAdmin) || isAdmin || (statusFilter === 'can_giao' && canShowAssignButton) ? (
                             <div className="flex border-t border-slate-100 divide-x divide-slate-100">
                               {statusFilter === 'hang_o_sg' && isAdmin && (
                                 <button
@@ -1068,6 +1134,18 @@ const DeliveryPage: React.FC = () => {
                                 >
                                   <Check size={14} strokeWidth={2.5} />
                                   Xác nhận
+                                </button>
+                              )}
+                              {statusFilter === 'can_giao' && canShowAssignButton && remainingQty > 0 && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOrderClick(o);
+                                  }}
+                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-orange-600 hover:bg-orange-50 text-[12px] font-bold transition-colors"
+                                >
+                                  <Truck size={14} strokeWidth={2.5} />
+                                  Phân xe
                                 </button>
                               )}
                               {isAdmin && (

@@ -18,24 +18,48 @@ interface Props {
   onClose: () => void;
 }
 
-const getOrderPreviewImage = (order: DeliveryOrder, localUrl?: string) => {
+const pickRelation = <T,>(relation: any): T | undefined => {
+  if (Array.isArray(relation)) return relation[0];
+  return relation || undefined;
+};
+
+const getOrderPreviewImage = (order: any, localUrl?: string) => {
   if (localUrl) return localUrl;
-  const directImage = (order as DeliveryOrder & { image_url?: string }).image_url;
-  const importReceipt = (order.import_orders as { receipt_image_url?: string } | undefined)?.receipt_image_url;
-  const vegetableReceipt = (order.vegetable_orders as { receipt_image_url?: string } | undefined)?.receipt_image_url;
+  if (!order) return null;
+  
+  const directImage = order.image_url;
+  if (directImage) return directImage;
 
-  const firstImportItemImage = (order.import_orders as any)?.import_order_items?.find((i: any) => i.image_url)?.image_url;
-  const firstVegetableItemImage = (order.vegetable_orders as any)?.vegetable_order_items?.find((i: any) => i.image_url)?.image_url;
+  const paymentImage = order.payment_collections?.find((pc: any) => pc.image_url)?.image_url;
+  if (paymentImage) return paymentImage;
 
-  return (
-    directImage ||
-    order.payment_collections?.find((pc) => pc.image_url)?.image_url ||
-    importReceipt ||
-    vegetableReceipt ||
-    firstImportItemImage ||
-    firstVegetableItemImage ||
-    null
-  );
+  const linkedImport = pickRelation<any>(order.import_orders);
+  const linkedVeg = pickRelation<any>(order.vegetable_orders);
+
+  if (linkedImport?.receipt_image_url) return linkedImport.receipt_image_url;
+  if (linkedVeg?.receipt_image_url) return linkedVeg.receipt_image_url;
+
+  const collectFirstImage = (refs: any): string | null => {
+    const list = Array.isArray(refs) ? refs : (refs ? [refs] : []);
+    for (const ref of list) {
+      if (ref.image_url) {
+        if (typeof ref.image_url === 'string' && ref.image_url.includes(',')) return ref.image_url.split(',')[0].trim();
+        if (typeof ref.image_url === 'string') return ref.image_url;
+      }
+      if (ref.image_urls && Array.isArray(ref.image_urls) && ref.image_urls.length > 0) {
+        return ref.image_urls[0];
+      }
+    }
+    return null;
+  };
+
+  const importItemImage = collectFirstImage(linkedImport?.import_order_items);
+  if (importItemImage) return importItemImage;
+
+  const vegItemImage = collectFirstImage(linkedVeg?.vegetable_order_items);
+  if (vegItemImage) return vegItemImage;
+
+  return null;
 };
 
 const formatAmount = (val?: number) => {
@@ -270,13 +294,13 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
   };
 
   const content = (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-0">
       <div 
         className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${isClosing ? 'opacity-0' : 'opacity-100'}`}
         onClick={!isSubmitting ? onClose : undefined}
       />
       
-      <div className={`relative w-full max-w-5xl bg-white rounded-2xl shadow-xl transition-all duration-300 overflow-hidden flex flex-col max-h-[90vh] ${
+      <div className={`relative w-full h-full max-w-none bg-white shadow-xl transition-all duration-300 overflow-hidden flex flex-col ${
         isClosing ? 'opacity-0 translate-y-4 scale-95' : 'opacity-100 translate-y-0 scale-100'
       }`}>
         <div className="flex items-center justify-between p-4 border-b border-slate-100 shrink-0">
@@ -296,9 +320,11 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
         </div>
 
         <div className="p-0 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/50">
-          <form id="bulk-edit-form" onSubmit={handleSubmit} className="min-w-[800px]">
-            <table className="w-full border-collapse">
-              <thead className="sticky top-0 bg-slate-100 z-10 shadow-sm">
+          <form id="bulk-edit-form" onSubmit={handleSubmit} className="w-full">
+            {/* Desktop View */}
+            <div className="hidden md:block w-full">
+              <table className="w-full border-collapse min-w-[800px]">
+                <thead className="sticky top-0 bg-slate-100 z-10 shadow-sm">
                 <tr>
                   {!hideImage && (
                     <th className="px-4 py-3 text-[12px] font-bold text-slate-600 uppercase tracking-wide text-left w-16">Ảnh</th>
@@ -419,6 +445,134 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                 })}
               </tbody>
             </table>
+            </div>
+
+            {/* Mobile View (Card-based) */}
+            <div className="md:hidden flex flex-col gap-3 p-3 pb-6">
+              {orders.map(order => {
+                const rowData = editData[order.id];
+                if (!rowData) return null;
+                
+                const amount = (rowData.total_quantity || 0) * (rowData.unit_price || 0);
+                const previewImage = getOrderPreviewImage(order, rowData.image_url);
+
+                return (
+                  <div key={order.id} className="bg-white border border-slate-200 rounded-xl p-3 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.1)] flex flex-col gap-3 relative overflow-hidden">
+                    {/* Top Row: Image (if any) + Product, Qty, Price */}
+                    <div className="flex gap-3">
+                      {!hideImage && (
+                        <div className="shrink-0 w-16 h-16">
+                          <label className="relative block w-full h-full rounded-lg bg-muted/20 border border-border cursor-pointer overflow-hidden group">
+                            {previewImage ? (
+                              <>
+                                <img src={previewImage} alt="Receipt" className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <UploadCloud size={16} className="text-white" />
+                                </div>
+                              </>
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
+                                <UploadCloud size={16} className="opacity-50 group-hover:opacity-100 mb-0.5" />
+                                <span className="text-[9px] font-medium opacity-70">TẢI LÊN</span>
+                              </div>
+                            )}
+                            {uploadingImageId === order.id && (
+                                <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                                  <Loader2 size={16} className="text-primary animate-spin" />
+                                </div>
+                            )}
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={(e) => handleImageUpload(order.id, e)}
+                              disabled={isSubmitting || uploadingImageId === order.id}
+                            />
+                          </label>
+                        </div>
+                      )}
+                      
+                      <div className="flex-1 flex flex-col gap-2.5 min-w-0 justify-center">
+                        <div className="w-full">
+                          <CreatableSearchableSelect
+                            options={productOptions}
+                            value={rowData.product_name}
+                            onValueChange={(val) => handleProductChange(order.id, val)}
+                            onCreate={(val) => handleProductChange(order.id, val)}
+                            placeholder="Tên hàng hóa *"
+                            className="w-full bg-white border border-slate-200 rounded-lg min-h-[36px]"
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="flex-1 relative">
+                            <span className="absolute -top-1.5 left-2 bg-white px-1 text-[9px] font-bold text-slate-400 z-10 leading-none">S.LƯỢNG *</span>
+                            <input
+                              type="number"
+                              required
+                              min="0.1"
+                              step="0.1"
+                              className="w-full h-9 px-2 pt-1 border border-slate-200 rounded-lg text-[14px] font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
+                              value={rowData.total_quantity}
+                              onChange={e => updateRow(order.id, 'total_quantity', parseFloat(e.target.value) || 0)}
+                              disabled={isSubmitting}
+                            />
+                          </div>
+                          <div className="flex-1 relative">
+                            <span className="absolute -top-1.5 left-2 bg-white px-1 text-[9px] font-bold text-slate-400 z-10 leading-none">ĐƠN GIÁ</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1000"
+                              className="w-full h-9 px-2 pt-1 border border-slate-200 rounded-lg text-[14px] font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
+                              value={rowData.unit_price}
+                              onChange={e => updateRow(order.id, 'unit_price', parseInt(e.target.value) || 0)}
+                              disabled={isSubmitting}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sender & Receiver */}
+                    <div className="flex flex-col gap-2 pt-2.5 border-t border-slate-100">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase ml-1">{isVeg ? 'Người gửi (Chủ hàng)' : 'Người gửi'}</span>
+                        <CreatableSearchableSelect
+                          options={senderOptions}
+                          value={rowData.sender_id || rowData.sender_name}
+                          fallbackLabel={rowData.sender_name}
+                          onValueChange={(val) => handleSenderChange(order.id, val, false)}
+                          onCreate={(val) => handleSenderChange(order.id, val, true)}
+                          placeholder="Chọn người gửi..."
+                          className="w-full bg-white border border-slate-200 rounded-lg min-h-[40px]"
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase ml-1">{isVeg ? 'Người nhận (Tên vựa)' : 'Người nhận'}</span>
+                        <CreatableSearchableSelect
+                          options={receiverOptions}
+                          value={rowData.customer_id || rowData.receiver_name}
+                          fallbackLabel={rowData.receiver_name}
+                          onValueChange={(val) => handleReceiverChange(order.id, val, false)}
+                          onCreate={(val) => handleReceiverChange(order.id, val, true)}
+                          placeholder="Chọn người nhận..."
+                          className="w-full bg-white border border-slate-200 rounded-lg min-h-[40px]"
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Total Amount */}
+                    <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 mt-0.5">
+                      <span className="text-[12px] font-bold text-slate-400 uppercase">Thành tiền</span>
+                      <span className="text-[16px] font-black text-slate-800">{formatAmount(amount)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </form>
         </div>
 

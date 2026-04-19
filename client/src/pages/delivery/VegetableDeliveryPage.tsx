@@ -151,6 +151,7 @@ const VegetableDeliveryPage: React.FC = () => {
   );
   const myVehicleIdSet = React.useMemo(() => new Set(myVehicleIds), [myVehicleIds]);
   const myPrimaryVehicleId = myVehicleIds[0];
+  const canShowAssignButton = isAdmin || (isDriver && myVehicleIds.length > 0);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
@@ -608,6 +609,34 @@ const VegetableDeliveryPage: React.FC = () => {
                       <tr className="bg-slate-100/80 border-y border-slate-200 shadow-sm overflow-hidden">
                         <td colSpan={(isAdmin ? 10 : 9) + (eligibleVehicles.length || 10)} className="px-4 py-2.5">
                           <div className="flex items-center gap-2">
+                            {isAdmin && (() => {
+                              const dateOrders = Object.values(groupedOrders[date]).flat();
+                              return (
+                                <input
+                                  type="checkbox"
+                                  className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer mr-2"
+                                  checked={dateOrders.length > 0 && dateOrders.every(o => selectedIds.has(o.id))}
+                                  onChange={(e) => {
+                                    const isChecked = e.target.checked;
+                                    setSelectedIds(prev => {
+                                      const next = new Set(prev);
+                                      dateOrders.forEach(o => {
+                                        if (isChecked) next.add(o.id);
+                                        else next.delete(o.id);
+                                      });
+                                      return next;
+                                    });
+                                  }}
+                                  ref={input => {
+                                    if (input) {
+                                      const someSelected = dateOrders.some(o => selectedIds.has(o.id));
+                                      const allSelected = dateOrders.every(o => selectedIds.has(o.id));
+                                      input.indeterminate = someSelected && !allSelected;
+                                    }
+                                  }}
+                                />
+                              );
+                            })()}
                             <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 text-primary">
                               <Calendar size={14} />
                             </div>
@@ -813,6 +842,27 @@ const VegetableDeliveryPage: React.FC = () => {
               {sortedDates.map((date) => (
                 <div key={`mobile-${date}`} className="flex flex-col gap-2.5">
                   <div className="flex items-center gap-2 sticky top-0 bg-slate-50/95 backdrop-blur-sm p-3 -mx-3 px-5 z-10 border-b border-border/50 shadow-sm">
+                    {isAdmin && (() => {
+                      const dateOrders = Object.values(groupedOrders[date]).flat();
+                      return (
+                        <input
+                          type="checkbox"
+                          className="w-5 h-5 rounded-md border-slate-300 text-primary focus:ring-primary mr-1"
+                          checked={dateOrders.length > 0 && dateOrders.every(o => selectedIds.has(o.id))}
+                          onChange={(e) => {
+                            const isChecked = e.target.checked;
+                            setSelectedIds(prev => {
+                              const next = new Set(prev);
+                              dateOrders.forEach(o => {
+                                if (isChecked) next.add(o.id);
+                                else next.delete(o.id);
+                              });
+                              return next;
+                            });
+                          }}
+                        />
+                      );
+                    })()}
                     <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 text-primary shrink-0">
                       <Calendar size={14} />
                     </div>
@@ -917,6 +967,47 @@ const VegetableDeliveryPage: React.FC = () => {
                             )}
                           </div>
 
+                          {/* Bottom action bar */}
+                          {isAdmin || (statusFilter === 'can_giao' && canShowAssignButton) ? (
+                            <div className="flex border-t border-slate-100 divide-x divide-slate-100">
+                              {statusFilter === 'can_giao' && canShowAssignButton && remainingQty > 0 && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOrderClick(o);
+                                  }}
+                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-orange-600 hover:bg-orange-50 text-[12px] font-bold transition-colors"
+                                >
+                                  <Truck size={14} strokeWidth={2.5} />
+                                  Phân xe
+                                </button>
+                              )}
+                              {isAdmin && (
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openEdit(o);
+                                    }}
+                                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-blue-600 hover:bg-blue-50 text-[12px] font-bold transition-colors"
+                                  >
+                                    <Pencil size={14} strokeWidth={2.5} />
+                                    Sửa
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteOne(o.id);
+                                    }}
+                                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-red-600 hover:bg-red-50 text-[12px] font-bold transition-colors"
+                                  >
+                                    <Trash2 size={14} strokeWidth={2.5} />
+                                    Xóa
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          ) : null}
                         </div>
                           )
                         })}

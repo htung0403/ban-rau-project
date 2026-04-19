@@ -55,8 +55,8 @@ const defaultColumns: ColumnOption[] = [
   { id: 'order_date', label: 'Ngày', isVisible: true },
   { id: 'order_time', label: 'Giờ', isVisible: true },
   { id: 'sender', label: 'Chủ hàng', isVisible: true },
-  { id: 'vehicle', label: 'Biển số xe / Tài xế', isVisible: true },
-  { id: 'sheet_number', label: 'Số tờ', isVisible: true },
+  { id: 'item_name', label: 'Tên hàng', isVisible: true },
+  { id: 'quantity', label: 'Số lượng', isVisible: true },
   { id: 'payment_status', label: 'Tình trạng', isVisible: true },
   { id: 'total_amount', label: 'Tổng tiền', isVisible: true },
   { id: 'receiver', label: 'Người nhận', isVisible: true },
@@ -394,8 +394,8 @@ const ImportOrdersPage: React.FC = () => {
                         case 'order_date': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-28">Ngày</th>;
                         case 'order_time': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-20">Giờ</th>;
                         case 'sender': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left min-w-[100px]">Chủ hàng</th>;
-                        case 'vehicle': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-36">Biển số xe / Tài xế</th>;
-                        case 'sheet_number': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-24">Số tờ</th>;
+                        case 'item_name': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-36">Tên hàng</th>;
+                        case 'quantity': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-24">Số lượng</th>;
                         case 'payment_status': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-24">Tình trạng</th>;
                         case 'total_amount': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-36">Tổng tiền</th>;
                         case 'receiver': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Người nhận</th>;
@@ -464,22 +464,24 @@ const ImportOrdersPage: React.FC = () => {
                               <span className="text-[13px] font-bold text-foreground">{order.customers?.name || order.sender_name || '-'}</span>
                             </td>
                           );
-                          case 'vehicle': {
-                            const taiStr = getOrderVehicles(order);
+                          case 'item_name': {
+                            const items = order.import_order_items || [];
+                            const itemNames = items.map((i: any) => i.products?.name).filter(Boolean).join(', ');
                             return (
                               <td key={col.id} className="px-4 py-3">
-                                <span className="text-[12px] font-medium text-foreground tabular-nums">
-                                  {taiStr ? <span className="font-bold text-amber-700 block">{taiStr}</span> : '-'}
-                                  {order.driver_name ? <span className="text-muted-foreground block">{order.driver_name}</span> : null}
-                                </span>
+                                <span className="text-[13px] font-medium text-foreground line-clamp-2" title={itemNames}>{itemNames || '-'}</span>
                               </td>
                             );
                           }
-                          case 'sheet_number': return (
-                            <td key={col.id} className="px-4 py-3">
-                              <span className="text-[13px] font-bold text-muted-foreground">{order.sheet_number || '-'}</span>
-                            </td>
-                          );
+                          case 'quantity': {
+                            const items = order.import_order_items || [];
+                            const totalQty = items.reduce((sum: number, i: any) => sum + (i.quantity || 0), 0);
+                            return (
+                              <td key={col.id} className="px-4 py-3 text-center">
+                                <span className="text-[13px] font-bold text-foreground tabular-nums">{totalQty > 0 ? totalQty : '-'}</span>
+                              </td>
+                            );
+                          }
                           case 'payment_status': return (
                             <td key={col.id} className="px-4 py-3 text-right">
                               {order.payment_status === 'paid' ? (
@@ -573,9 +575,18 @@ const ImportOrdersPage: React.FC = () => {
                         <span className="text-[13px] font-bold text-foreground truncate">{order.customers?.name || order.sender_name || '-'}</span>
                         <StatusBadge status={order.status} label={statusLabels[order.status]} />
                       </div>
-                      <div className="mb-1.5">
+                      <div className="mb-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
                         <span className="text-[11px] font-semibold text-primary">{order.order_code}</span>
-                        <span className="text-[10px] text-muted-foreground ml-1 tabular-nums">{order.order_date}</span>
+                        <span className="text-[10px] text-muted-foreground tabular-nums">{order.order_date}</span>
+                      </div>
+                      <div className="mb-1.5 text-[12px] text-muted-foreground line-clamp-1" title={order.import_order_items?.map((i: any) => i.products?.name).filter(Boolean).join(', ')}>
+                        <span className="font-bold text-foreground">
+                          {order.import_order_items?.map((i: any) => i.products?.name).filter(Boolean).join(', ') || 'Chưa có hàng'}
+                        </span>
+                        {' • '}
+                        <span className="font-medium text-foreground">
+                          SL {order.import_order_items?.reduce((sum: number, i: any) => sum + (i.quantity || 0), 0) || 0}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">

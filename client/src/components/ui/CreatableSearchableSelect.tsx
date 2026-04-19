@@ -24,6 +24,7 @@ interface Option {
 interface CreatableSearchableSelectProps {
   options: Option[]
   value?: string
+  fallbackLabel?: string
   onValueChange: (value: string) => void
   onCreate?: (value: string) => void
   placeholder?: string
@@ -38,6 +39,7 @@ export const CreatableSearchableSelect = React.memo((props: CreatableSearchableS
   const {
     options,
     value,
+    fallbackLabel,
     onValueChange,
     onCreate,
     placeholder = "Chọn hoặc tạo mới...",
@@ -81,7 +83,7 @@ export const CreatableSearchableSelect = React.memo((props: CreatableSearchableS
           )}
         >
           <span className="truncate">
-            {selectedOption ? selectedOption.label : value ? value : placeholder}
+            {selectedOption ? selectedOption.label : fallbackLabel ? fallbackLabel : value ? value : placeholder}
           </span>
           <div className="flex items-center gap-1.5 ml-2">
             {value && !disabled && (

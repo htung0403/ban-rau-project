@@ -188,8 +188,21 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
 
   const watchItems = watch('items');
 
+  const previousItemsRef = React.useRef<string>('');
+  const previousProductsRef = React.useRef<any>(null);
+
   useEffect(() => {
     if (!watchItems) return;
+
+    const currentItemsString = JSON.stringify(watchItems);
+    
+    // Only recalculate if items literally changed or products array size changed (prevent background fetch overwrites)
+    if (currentItemsString === previousItemsRef.current && previousProductsRef.current === filteredProducts?.length) {
+      return;
+    }
+    
+    previousItemsRef.current = currentItemsString;
+    previousProductsRef.current = filteredProducts?.length;
 
     if (defaultCategory === 'standard') {
       // For standard: sum unit_price * quantity across items
@@ -277,7 +290,8 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
         receipt_image_url: null,
       });
     }
-  }, [editingOrder, reset, employees, isOpen, user?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingOrder, reset, isOpen, user?.id]);
 
   const watchTotalAmountInput = watch('total_amount');
   const watchReceiptImageUrl = watch('receipt_image_url');
@@ -372,10 +386,11 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       // Always treat as explicit amount
       payload.is_custom_amount = true;
 
-      // Auto-convert shorthand 'k' inputs đã bị lỗi,
-      // vì total_amount được tính trực tiếp từ đơn giá và số lượng, hoặc nhập đầy đủ qua CurrencyInput
-      // Nếu cố nội suy giá trị nhỏ < 100k thành k sẽ sai lệch cực lớn.
-      // Do đó KHÔNG nhân total_amount với 1000 nữa.
+      // Nếu khách tự gõ số thu gọn (nhỏ hơn 1000, vd: 90) thì tự động nhân 1000 thành 90000
+      // Hành động x1000 chỉ diễn ra lúc xác nhận (submit). Các khoản đã tính đủ 0 (>= 1000) sẽ giữ nguyên.
+      if (payload.total_amount && payload.total_amount > 0 && payload.total_amount < 1000) {
+        payload.total_amount = payload.total_amount * 1000;
+      }
 
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') delete payload[key];
@@ -939,8 +954,8 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                             render={({ field }) => (
                               <CurrencyInput
                                 {...field}
-                                value={field.value as number}
-                                onChange={field.onChange}
+                                value={field.value}
+                                onChange={(val) => field.onChange(val === undefined ? '' : val)}
                                 className="w-full px-3 py-2 bg-slate-50 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-bold text-primary tabular-nums"
                                 placeholder="Nhập tổng tiền..."
                               />

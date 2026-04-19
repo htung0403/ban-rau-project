@@ -24,6 +24,15 @@ const assignVehicleSchema = z.array(z.object({
   quantity: z.number().int().positive(),
 }));
 
+const deliveryOrderUpdateSchema = z.object({
+  product_name: z.string().min(1).optional(),
+  total_quantity: z.number().int().positive().optional(),
+  unit_price: z.number().optional(),
+  import_cost: z.number().optional(),
+  delivery_date: z.string().optional(),
+  image_url: z.string().optional().nullable(),
+});
+
 export class DeliveryController {
   static async getAllToday(req: Request, res: Response) {
     try {
@@ -45,6 +54,16 @@ export class DeliveryController {
     }
   }
 
+  static async update(req: Request, res: Response) {
+    try {
+      const validated = deliveryOrderUpdateSchema.parse(req.body);
+      const data = await DeliveryService.update(req.params.id, validated);
+      return res.status(200).json(successResponse(data, 'Delivery order updated'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
   static async assignVehicle(req: Request, res: Response) {
     try {
       const singleSchema = z.object({
@@ -60,6 +79,7 @@ export class DeliveryController {
       let assignments: any[] = [];
       let image_url: string | null | undefined = undefined;
       let export_payment_status: 'unpaid' | 'paid' | undefined = undefined;
+      let unit_price: number | undefined = undefined;
 
       if (Array.isArray(body)) {
         assignments = z.array(singleSchema).parse(body);
@@ -71,6 +91,9 @@ export class DeliveryController {
         if (Object.prototype.hasOwnProperty.call(body, 'export_payment_status')) {
           export_payment_status = z.enum(['unpaid', 'paid']).parse(body.export_payment_status);
         }
+        if (Object.prototype.hasOwnProperty.call(body, 'unit_price')) {
+          unit_price = z.number().nonnegative().parse(body.unit_price);
+        }
       } else {
         assignments = [singleSchema.parse(body)];
         if (body && Object.prototype.hasOwnProperty.call(body, 'image_url')) {
@@ -78,6 +101,9 @@ export class DeliveryController {
         }
         if (body && Object.prototype.hasOwnProperty.call(body, 'export_payment_status')) {
           export_payment_status = z.enum(['unpaid', 'paid']).parse(body.export_payment_status);
+        }
+        if (body && Object.prototype.hasOwnProperty.call(body, 'unit_price')) {
+          unit_price = z.number().nonnegative().parse(body.unit_price);
         }
       }
 
@@ -95,7 +121,8 @@ export class DeliveryController {
         normalized,
         image_url,
         req.user?.id,
-        export_payment_status
+        export_payment_status,
+        unit_price
       );
       return res.status(200).json(successResponse(data, 'Vehicles assigned'));
     } catch (err: any) {

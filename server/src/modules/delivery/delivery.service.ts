@@ -187,12 +187,12 @@ export class DeliveryService {
       driverScope = await fetchDriverScopeForUser(actor.id);
     }
 
-    let query = supabaseService
-      .from('delivery_orders')
-      .select(
-        '*, import_orders(order_code, sender_name, receiver_name, license_plate, driver_name, received_by, customers:customers!import_orders_customer_id_fkey(name), total_amount, profiles:received_by(full_name), receipt_image_url, import_order_items(image_url), deleted_at), vegetable_orders(order_code, sender_name, receiver_name, license_plate, driver_name, received_by, customers:customers!vegetable_orders_customer_id_fkey(name), total_amount, profiles:received_by(full_name), receipt_image_url, vegetable_order_items(image_url), deleted_at), delivery_vehicles(*, vehicles(license_plate)), payment_collections(id, status, vehicle_id, image_url)'
-      )
-      .order('delivery_date', { ascending: false });
+      let query = supabaseService
+        .from('delivery_orders')
+        .select(
+          '*, import_orders(order_code, sender_name, sender_id, receiver_name, customer_id, license_plate, driver_name, received_by, customers:customers!import_orders_customer_id_fkey(name), sender_customers:customers!import_orders_sender_id_fkey(name), total_amount, profiles:received_by(full_name), receipt_image_url, import_order_items(image_url), deleted_at), vegetable_orders(order_code, sender_name, sender_id, receiver_name, customer_id, license_plate, driver_name, received_by, customers:customers!vegetable_orders_customer_id_fkey(name), sender_customers:customers!vegetable_orders_sender_id_fkey(name), total_amount, profiles:received_by(full_name), receipt_image_url, vegetable_order_items(image_url), deleted_at), delivery_vehicles(*, vehicles(license_plate)), payment_collections(id, status, vehicle_id, image_url)'
+        )
+        .order('delivery_date', { ascending: false });
 
     if (orderCategory) query = query.eq('order_category', orderCategory);
 
@@ -278,18 +278,27 @@ export class DeliveryService {
     assignments: any[],
     image_url?: string | null,
     userId?: string,
-    exportPaymentStatus?: 'unpaid' | 'paid'
+    exportPaymentStatus?: 'unpaid' | 'paid',
+    unit_price?: number
   ) {
     // assignments: [{vehicle_id, driver_id, quantity}]
     
-    // Save image_url if provided
+    // Save image_url or unit_price if provided
+    const updateData: any = {};
     if (image_url !== undefined) {
-      const { error: imageUpdateError } = await supabaseService
+      updateData.image_url = image_url;
+    }
+    if (unit_price !== undefined) {
+      updateData.unit_price = unit_price;
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      const { error: doUpdateError } = await supabaseService
         .from('delivery_orders')
-        .update({ image_url })
+        .update(updateData)
         .eq('id', deliveryId);
 
-      if (imageUpdateError) throw imageUpdateError;
+      if (doUpdateError) throw doUpdateError;
     }
 
     // Remote old assignments for these vehicles to prevent duplicates
@@ -535,6 +544,18 @@ export class DeliveryService {
     }
 
     return allData;
+  }
+
+  static async update(id: string, updateData: any) {
+    const { data, error } = await supabaseService
+      .from('delivery_orders')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   static async deleteOrders(ids: string[]) {

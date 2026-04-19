@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
-import { Calendar, PlusCircle, Truck, CheckCircle, Check, Search, Store, Package, User, Image as ImageIcon, Eye } from 'lucide-react';
+import { Calendar, PlusCircle, Truck, CheckCircle, Check, Search, Store, Package, User, Image as ImageIcon, Eye, Trash2, Pencil } from 'lucide-react';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import PageHeader from '../../components/shared/PageHeader';
-import { useDeliveryOrders, useAssignVehicle, useConfirmDelivery } from '../../hooks/queries/useDelivery';
+import { useDeliveryOrders, useAssignVehicle, useConfirmDelivery, useDeleteDeliveryOrders } from '../../hooks/queries/useDelivery';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
@@ -12,6 +13,9 @@ import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import AssignVehicleDialog from './dialogs/AssignVehicleDialog';
 import OrderImagesDialog from './dialogs/OrderImagesDialog';
+import EditDeliveryDialog from './dialogs/EditDeliveryDialog';
+import BulkAssignVehicleDialog from './dialogs/BulkAssignVehicleDialog';
+import BulkEditDeliveryDialog from './dialogs/BulkEditDeliveryDialog';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { Filter, X, Printer } from 'lucide-react';
@@ -151,6 +155,9 @@ const DeliveryPage: React.FC = () => {
   }, [ordersRaw, user, vehicles]);
   const assignMutation = useAssignVehicle();
   const confirmMutation = useConfirmDelivery();
+  const deleteMutation = useDeleteDeliveryOrders();
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const [selectedOrder, setSelectedOrder] = useState<DeliveryOrder | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
@@ -160,7 +167,14 @@ const DeliveryPage: React.FC = () => {
   const [viewingImageOrder, setViewingImageOrder] = useState<DeliveryOrder | null>(null);
   const [isViewingClosing, setIsViewingClosing] = useState(false);
 
+  const [editingOrder, setEditingOrder] = useState<DeliveryOrder | null>(null);
+  const [isEditClosing, setIsEditClosing] = useState(false);
 
+  const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false);
+  const [isBulkAssignClosing, setIsBulkAssignClosing] = useState(false);
+
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [isBulkEditClosing, setIsBulkEditClosing] = useState(false);
 
   const isLoading = ordersLoading;
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
@@ -199,6 +213,38 @@ const DeliveryPage: React.FC = () => {
     setSelectedOrder(order);
     setSelectedVehicleId(vehicleId || null);
     setIsAssignOpen(true);
+  };
+
+  const openEdit = (order: DeliveryOrder) => {
+    setEditingOrder(order);
+  };
+
+  const closeEdit = () => {
+    setIsEditClosing(true);
+    setTimeout(() => {
+      setEditingOrder(null);
+      setIsEditClosing(false);
+    }, 300);
+  };
+
+  const openBulkEdit = () => setIsBulkEditOpen(true);
+  const closeBulkEdit = () => {
+    setIsBulkEditClosing(true);
+    setTimeout(() => {
+      setIsBulkEditOpen(false);
+      setIsBulkEditClosing(false);
+      setSelectedIds(new Set());
+    }, 300);
+  };
+
+  const openBulkAssign = () => setIsBulkAssignOpen(true);
+  const closeBulkAssign = () => {
+    setIsBulkAssignClosing(true);
+    setTimeout(() => {
+      setIsBulkAssignOpen(false);
+      setIsBulkAssignClosing(false);
+      setSelectedIds(new Set());
+    }, 300);
   };
 
   const closeAssign = () => {
@@ -240,16 +286,17 @@ const DeliveryPage: React.FC = () => {
       });
 
       const myExistingIndex = assignments.findIndex((p) => p.vehicle_id === clickedVehicleId);
+      const uPrice = order.unit_price || 0;
       if (myExistingIndex >= 0) {
         assignments[myExistingIndex].quantity += remainingQty;
-        assignments[myExistingIndex].expected_amount = Number(assignments[myExistingIndex].expected_amount || 0);
+        assignments[myExistingIndex].expected_amount = assignments[myExistingIndex].quantity * uPrice;
       } else {
         assignments.push({
           vehicle_id: clickedVehicleId,
           driver_id: user?.id || '',
           loader_name: '',
           quantity: remainingQty,
-          expected_amount: 0
+          expected_amount: remainingQty * uPrice
         });
       }
 
@@ -271,6 +318,40 @@ const DeliveryPage: React.FC = () => {
   const handleConfirm = async (orderIds: string[]) => {
     try {
       await confirmMutation.mutateAsync(orderIds);
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  const toggleSelectId = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Xác nhận xoá ${selectedIds.size} đơn hàng đã chọn?`)) return;
+    try {
+      await deleteMutation.mutateAsync(Array.from(selectedIds));
+      setSelectedIds(new Set());
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  const handleDeleteOne = async (id: string) => {
+    if (!window.confirm('Xác nhận xoá đơn hàng này?')) return;
+    try {
+      await deleteMutation.mutateAsync([id]);
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     } catch {
       // Error handled by mutation
     }
@@ -345,6 +426,17 @@ const DeliveryPage: React.FC = () => {
 
   // Sort orders by customer name from A-Z
   filteredOrders.sort((a, b) => getReceiverDisplayName(a).localeCompare(getReceiverDisplayName(b), 'vi'));
+
+  // Selection helpers (admin only)
+  const isAllSelected = filteredOrders.length > 0 && filteredOrders.every(o => selectedIds.has(o.id));
+  const isSomeSelected = !isAllSelected && filteredOrders.some(o => selectedIds.has(o.id));
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredOrders.map(o => o.id)));
+    }
+  };
 
   // Grouping logic: Date -> [Orders]
   const groupedOrders = (filteredOrders || []).reduce<Record<string, DeliveryOrder[]>>((acc, order) => {
@@ -554,7 +646,25 @@ const DeliveryPage: React.FC = () => {
               <table className="w-full border-collapse bg-white">
                 <thead className="sticky top-0 z-20">
                   <tr className="bg-white border-b border-slate-200 text-slate-600">
-                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-28 border-r border-slate-100">Loại</th>
+                    {isAdmin && (
+                      <th className="px-3 py-3 w-10 border-r border-slate-100">
+                        <div className="flex items-center justify-center">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                            checked={isAllSelected}
+                            onChange={toggleSelectAll}
+                            ref={input => {
+                              if (input) {
+                                input.indeterminate = isSomeSelected;
+                              }
+                            }}
+                          />
+                        </div>
+                      </th>
+                    )}
+                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-24 border-r border-slate-100">Thao tác</th>
+                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-100">Loại</th>
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left min-w-20 border-r border-slate-100">Người nhận</th>
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-14 border-r border-slate-100">Ảnh</th>
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left border-r border-slate-100">Hàng</th>
@@ -583,7 +693,7 @@ const DeliveryPage: React.FC = () => {
                     <React.Fragment key={date}>
                       {/* Date separator row */}
                       <tr className="bg-slate-100/80 border-y border-slate-200 shadow-sm overflow-hidden">
-                        <td colSpan={9 + (eligibleVehicles.length || 10)} className="px-4 py-2.5">    
+                        <td colSpan={(isAdmin ? 11 : 10) + (eligibleVehicles.length || 10)} className="px-4 py-2.5">    
                           <div className="flex items-center gap-2">
                             <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 text-primary">
                               <Calendar size={14} />
@@ -605,46 +715,87 @@ const DeliveryPage: React.FC = () => {
                         const paymentConfig = PAYMENT_STATUS_CONFIG[paymentStatus];
 
                         return (
-                          <tr key={o.id} className="hover:bg-blue-50/30 transition-colors group">
+                          <tr key={o.id} className={clsx("transition-colors group", selectedIds.has(o.id) ? "bg-blue-50/50" : "hover:bg-blue-50/30")}>
+                            {isAdmin && (
+                              <td className="px-3 py-3 border-r border-slate-100 text-center">
+                                <div className="flex items-center justify-center">
+                                  <input
+                                    type="checkbox"
+                                    className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                                    checked={selectedIds.has(o.id)}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      toggleSelectId(o.id);
+                                    }}
+                                  />
+                                </div>
+                              </td>
+                            )}
+                            <td className="px-2 py-3 border-r border-slate-100 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                {statusFilter === 'hang_o_sg' && isAdmin && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleConfirm([o.id]);
+                                    }}
+                                    disabled={confirmMutation.isPending}
+                                    className="p-1.5 rounded-md transition-colors bg-green-100 text-green-600 hover:bg-green-200 disabled:opacity-50"
+                                    title="Xác nhận giao"
+                                  >
+                                    <Check size={14} strokeWidth={2.5} />
+                                  </button>
+                                )}
+                                {statusFilter === 'can_giao' && canShowAssignButton && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOrderClick(o);
+                                    }}
+                                    className={clsx(
+                                      "p-1.5 rounded-md transition-colors",
+                                      remainingQty > 0
+                                        ? "bg-orange-100 text-orange-600 hover:bg-orange-200"
+                                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                    )}
+                                    title={remainingQty > 0 ? "Phân xe" : "Chỉnh sửa phân xe"}
+                                  >
+                                    <Truck size={14} strokeWidth={2.5} />
+                                  </button>
+                                )}
+                                {isAdmin && (
+                                  <>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openEdit(o);
+                                      }}
+                                      className="p-1.5 rounded-md transition-colors bg-blue-100 text-blue-600 hover:bg-blue-200"
+                                      title="Chỉnh sửa đơn hàng"
+                                    >
+                                      <Pencil size={14} strokeWidth={2.5} />
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteOne(o.id);
+                                      }}
+                                      className="p-1.5 rounded-md transition-colors bg-red-100 text-red-600 hover:bg-red-200"
+                                      title="Xóa đơn hàng"
+                                    >
+                                      <Trash2 size={14} strokeWidth={2.5} />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
                             <td className="px-4 py-3 border-r border-slate-100 text-center">
-                              <div className="flex items-center justify-center gap-2">
+                              <div className="flex items-center justify-center">
                                 {o.delivery_date === todayStr ? (
                                   <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 text-emerald-700 uppercase">Mới</span>
                                 ) : (
                                   <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-slate-100 text-slate-600 uppercase">Cũ</span>
                                 )}
-                                <div className="flex items-center gap-1">
-                                  {statusFilter === 'hang_o_sg' && isAdmin && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleConfirm([o.id]);
-                                      }}
-                                      disabled={confirmMutation.isPending}
-                                      className="p-1.5 rounded-md transition-colors bg-green-100 text-green-600 hover:bg-green-200 disabled:opacity-50"
-                                      title="Xác nhận giao"
-                                    >
-                                      <Check size={14} strokeWidth={2.5} />
-                                    </button>
-                                  )}
-                                  {statusFilter === 'can_giao' && canShowAssignButton && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOrderClick(o);
-                                      }}
-                                      className={clsx(
-                                        "p-1.5 rounded-md transition-colors",
-                                        remainingQty > 0
-                                          ? "bg-orange-100 text-orange-600 hover:bg-orange-200"
-                                          : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                      )}
-                                      title={remainingQty > 0 ? "Phân xe" : "Chỉnh sửa phân xe"}
-                                    >
-                                      <Truck size={14} strokeWidth={2.5} />
-                                    </button>
-                                  )}
-                                </div>
                               </div>
                             </td>
                             <td className="px-4 py-3 text-[12px] font-bold text-slate-700 border-r border-slate-100">
@@ -800,9 +951,19 @@ const DeliveryPage: React.FC = () => {
                             remainingQty > 0 && statusFilter === 'can_giao' ? "border-orange-200" : "border-slate-200"
                           )}
                         >
-                          {/* Card body */}
-                          <div className="p-3 flex flex-col gap-2.5">
-                            <div className="flex gap-3">
+                            {/* Card body */}
+                            <div className="p-3 flex flex-col gap-2.5">
+                              {isAdmin && (
+                                <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="checkbox"
+                                    className="w-5 h-5 rounded-md border-slate-300 text-primary focus:ring-primary"
+                                    checked={selectedIds.has(o.id)}
+                                    onChange={() => toggleSelectId(o.id)}
+                                  />
+                                </div>
+                              )}
+                              <div className="flex gap-3">
                               {/* Left: Image Thumbnail */}
                               <div 
                                 className="w-16 h-16 shrink-0 bg-muted/20 rounded-lg overflow-hidden border border-border/50 self-center"
@@ -893,20 +1054,48 @@ const DeliveryPage: React.FC = () => {
                             )}
                           </div>
 
-                          {/* Bottom action bar for hang_o_sg */}
-                          {statusFilter === 'hang_o_sg' && isAdmin && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleConfirm([o.id]);
-                              }}
-                              disabled={confirmMutation.isPending}
-                              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-green-50 text-green-700 border-t border-green-100 text-[12px] font-bold hover:bg-green-100 transition-colors disabled:opacity-50"
-                            >
-                              <Check size={14} strokeWidth={2.5} />
-                              Xác nhận giao
-                            </button>
-                          )}
+                          {/* Bottom action bar */}
+                          {(statusFilter === 'hang_o_sg' && isAdmin) || isAdmin ? (
+                            <div className="flex border-t border-slate-100 divide-x divide-slate-100">
+                              {statusFilter === 'hang_o_sg' && isAdmin && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleConfirm([o.id]);
+                                  }}
+                                  disabled={confirmMutation.isPending}
+                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-green-50 text-green-700 hover:bg-green-100 text-[12px] font-bold transition-colors disabled:opacity-50"
+                                >
+                                  <Check size={14} strokeWidth={2.5} />
+                                  Xác nhận
+                                </button>
+                              )}
+                              {isAdmin && (
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openEdit(o);
+                                    }}
+                                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-blue-600 hover:bg-blue-50 text-[12px] font-bold transition-colors"
+                                  >
+                                    <Pencil size={14} strokeWidth={2.5} />
+                                    Sửa
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteOne(o.id);
+                                    }}
+                                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-red-600 hover:bg-red-50 text-[12px] font-bold transition-colors"
+                                  >
+                                    <Trash2 size={14} strokeWidth={2.5} />
+                                    Xóa
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          ) : null}
                         </div>
                       )
                     })}
@@ -916,14 +1105,87 @@ const DeliveryPage: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
+        </div>
+
+      {isAdmin && selectedIds.size > 0 && createPortal(
+        <div className="fixed bottom-0 md:bottom-6 left-0 right-0 md:left-1/2 md:-translate-x-1/2 bg-white md:rounded-2xl shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.15)] md:shadow-xl border-t md:border border-slate-200 p-3 z-[900] flex flex-col md:flex-row items-center gap-3 animate-in slide-in-from-bottom-10 md:min-w-[400px]">
+          <div className="flex items-center gap-2 px-2 shrink-0 self-start md:self-auto w-full md:w-auto justify-between md:justify-start">
+            <span className="text-[13px] font-bold text-slate-700 whitespace-nowrap">Đã chọn <strong className="text-primary">{selectedIds.size}</strong></span>
+            <button onClick={() => setSelectedIds(new Set())} className="text-[12px] font-bold text-slate-500 hover:text-slate-700 underline md:hidden">Bỏ chọn</button>
+          </div>
+          
+          <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto custom-scrollbar pb-1 md:pb-0">
+            {statusFilter === 'hang_o_sg' && (
+              <button
+                onClick={() => handleConfirm(Array.from(selectedIds))}
+                disabled={confirmMutation.isPending}
+                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[12px] md:text-[13px] font-bold bg-green-500 text-white hover:bg-green-600 transition-all shadow-sm disabled:opacity-50"
+              >
+                <Check size={14} strokeWidth={2.5} />
+                Xác nhận
+              </button>
+            )}
+            {statusFilter === 'can_giao' && (
+              <button
+                onClick={openBulkAssign}
+                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[12px] md:text-[13px] font-bold bg-orange-500 text-white hover:bg-orange-600 transition-all shadow-sm"
+              >
+                <Truck size={14} strokeWidth={2.5} />
+                Phân xe
+              </button>
+            )}
+            <button
+              onClick={openBulkEdit}
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[12px] md:text-[13px] font-bold bg-blue-500 text-white hover:bg-blue-600 transition-all shadow-sm"
+            >
+              <Pencil size={14} strokeWidth={2.5} />
+              Sửa
+            </button>
+            <button
+              onClick={handleDeleteSelected}
+              disabled={deleteMutation.isPending}
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[12px] md:text-[13px] font-bold bg-red-500 text-white hover:bg-red-600 transition-all shadow-sm disabled:opacity-50"
+            >
+              <Trash2 size={14} strokeWidth={2.5} />
+              Xóa
+            </button>
+          </div>
+          
+          <button onClick={() => setSelectedIds(new Set())} className="hidden md:flex ml-auto p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+            <X size={16} />
+          </button>
+        </div>,
+        document.body
+      )}
 
       <AssignVehicleDialog
         isOpen={isAssignOpen}
         isClosing={isAssignClosing}
         order={selectedOrder}
         initialVehicleId={selectedVehicleId}
+        allOrders={orders || []}
         onClose={closeAssign}
+      />
+
+      <EditDeliveryDialog
+        isOpen={!!editingOrder}
+        isClosing={isEditClosing}
+        order={editingOrder}
+        onClose={closeEdit}
+      />
+
+      <BulkAssignVehicleDialog
+        isOpen={isBulkAssignOpen}
+        isClosing={isBulkAssignClosing}
+        orders={filteredOrders.filter(o => selectedIds.has(o.id))}
+        onClose={closeBulkAssign}
+      />
+
+      <BulkEditDeliveryDialog
+        isOpen={isBulkEditOpen}
+        isClosing={isBulkEditClosing}
+        orders={filteredOrders.filter(o => selectedIds.has(o.id))}
+        onClose={closeBulkEdit}
       />
 
       <MobileFilterSheet

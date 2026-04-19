@@ -19,6 +19,7 @@ const assignmentSchema = z.object({
   vehicle_id: z.string().min(1, 'Vui lòng chọn xe'),
   driver_id: z.string().min(1, 'Vui lòng chọn tài xế'),
   loader_name: z.string().optional().nullable(),
+  unit_price: z.coerce.number().min(0).optional().default(0),
   quantity: z.coerce.number().min(0.01, 'SL phải > 0'),
   expected_amount: z.coerce.number().min(0).optional().default(0),
 });
@@ -52,10 +53,13 @@ interface Props {
   isClosing: boolean;
   order: DeliveryOrder | null;
   initialVehicleId?: string | null;
+  allOrders?: DeliveryOrder[];
   onClose: () => void;
 }
 
-const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initialVehicleId, onClose }) => {
+const EMPTY_ARRAY: DeliveryOrder[] = [];
+
+const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initialVehicleId, allOrders = EMPTY_ARRAY, onClose }) => {
   const { data: vehicles } = useVehicles(isOpen);
   const { data: employees } = useEmployees(isOpen);
   const assignMutation = useAssignVehicle();
@@ -129,6 +133,25 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
   useEffect(() => {
     if (order && isOpen) {
+      // Define defaultUnitPrice first so we can use it
+      let defaultUnitPrice = order.unit_price || 0;
+      if (!defaultUnitPrice && allOrders.length > 0) {
+        const orderReceiverName = order.import_orders?.customers?.name || order.import_orders?.receiver_name?.trim() || order.import_orders?.profiles?.full_name || '';
+        const sameDayOrders = allOrders.filter(o => {
+          if (o.id === order.id) return false;
+          if (o.delivery_date !== order.delivery_date) return false;
+          if (o.product_name !== order.product_name) return false;
+          const oReceiverName = o.import_orders?.customers?.name || o.import_orders?.receiver_name?.trim() || o.import_orders?.profiles?.full_name || '';
+          if (oReceiverName !== orderReceiverName) return false;
+          if (!o.delivery_vehicles || o.delivery_vehicles.length === 0) return false;
+          if (!o.unit_price || o.unit_price <= 0) return false;
+          return true;
+        });
+        if (sameDayOrders.length > 0) {
+          defaultUnitPrice = sameDayOrders[0].unit_price || 0;
+        }
+      }
+
       const existingDvs = order.delivery_vehicles || [];
       const initialAssignments: any[] = [];
 
@@ -139,8 +162,9 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             vehicle_id: dv.vehicle_id,
             driver_id: dv.driver_id || '',
             loader_name: dv.loader_name || '',
+            unit_price: defaultUnitPrice,
             quantity: dv.assigned_quantity,
-            expected_amount: dv.expected_amount || (dv.assigned_quantity * (order.unit_price || 0))
+            expected_amount: dv.expected_amount || (dv.assigned_quantity * defaultUnitPrice)
           });
         });
       }
@@ -162,8 +186,9 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           vehicle_id: initialVid,
           driver_id: vehicle?.driver_id || (isDriver ? user?.id : ''),
           loader_name: '',
+          unit_price: defaultUnitPrice,
           quantity: remainingForThis,
-          expected_amount: remainingForThis * (order.unit_price || 0),
+          expected_amount: remainingForThis * defaultUnitPrice,
         });
       }
 
@@ -173,6 +198,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           vehicle_id: isDriver ? (initialVid || '') : '',
           driver_id: isDriver ? (user?.id || '') : '',
           loader_name: '',
+          unit_price: defaultUnitPrice,
           quantity: '',
           expected_amount: 0,
         });
@@ -213,7 +239,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         export_payment_status: defaultExportPaymentStatus,
       });
     }
-  }, [order, initialVehicleId, isOpen, reset, eligibleVehicles, isDriver, myVehicle, user?.id]);
+  }, [order, initialVehicleId, isOpen, reset, eligibleVehicles, isDriver, myVehicle, user?.id, allOrders]);
 
   if (!isOpen && !isClosing) return null;
 
@@ -259,6 +285,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       const payload: any = {
         assignments: normalizedAssignments,
         export_payment_status: data.export_payment_status,
+        unit_price: normalizedAssignments[0]?.unit_price || 0,
       };
       if (data.image_url) payload.image_url = data.image_url;
 
@@ -414,6 +441,29 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       />
                       {errors.assignments?.[index]?.driver_id && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.driver_id?.message}</p>}
                     </div>
+                    {/* Đơn giá */}
+                    <div className="w-full md:w-36 space-y-1.5 mt-2 md:mt-0">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                        Đơn giá
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        {...register(`assignments.${index}.unit_price` as const, {
+                          onChange: (e) => {
+                            if (isRowDisabled) return;
+                            const price = Number(e.target.value) || 0;
+                            const qty = Number(watchAssignments[index]?.quantity) || 0;
+                            const expected = qty * price;
+                            setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
+                            expectedAmountPrevDigitsRef.current[index] = amountToDigitString(expected);
+                          }
+                        })}
+                        disabled={isRowDisabled}
+                        placeholder="0"
+                        className={clsx("w-full h-10.5 px-3 bg-white border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums", isRowDisabled && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed")}
+                      />
+                    </div>
                     {/* Số lượng */}
                     <div className="w-full md:w-32 space-y-1.5 mt-2 md:mt-0">
                       <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
@@ -426,7 +476,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                           onChange: (e) => {
                             if (isRowDisabled) return;
                             const val = Number(e.target.value) || 0;
-                            const expected = val * (order?.unit_price || 0);
+                            const currentUnitPrice = Number(watchAssignments[index]?.unit_price) || 0;
+                            const expected = val * currentUnitPrice;
                             setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
                             expectedAmountPrevDigitsRef.current[index] = amountToDigitString(expected);
                           }

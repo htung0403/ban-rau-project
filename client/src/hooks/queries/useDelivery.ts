@@ -43,6 +43,18 @@ export function useCreateDelivery() {
   });
 }
 
+export function useUpdateDeliveryOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: any }) => deliveryApi.update(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: deliveryKeys.all });
+      toast.success('Cập nhật đơn giao hàng thành công');
+    },
+    onError: () => toast.error('Lỗi khi cập nhật đơn giao hàng'),
+  });
+}
+
 export function useAssignVehicle() {
   const queryClient = useQueryClient();
   return useMutation({

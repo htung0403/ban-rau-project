@@ -279,9 +279,20 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
   const watchItems = watch('items');
 
+  const previousItemsRef = React.useRef<string>('');
+  const previousProductsRef = React.useRef<any>(null);
+
   useEffect(() => {
     if (defaultCategory === 'standard') return;
     if (!watchItems || !filteredProducts.length) return;
+
+    const currentItemsString = JSON.stringify(watchItems);
+    if (currentItemsString === previousItemsRef.current && previousProductsRef.current === filteredProducts?.length) {
+      return;
+    }
+    previousItemsRef.current = currentItemsString;
+    previousProductsRef.current = filteredProducts?.length;
+
     let sum = 0;
     watchItems.forEach((item: any) => {
       const product = filteredProducts.find((p: any) => p.id === item.product_id);
@@ -398,7 +409,8 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
         receipt_image_url: null,
       });
     }
-  }, [editingOrder, reset, employees, isOpen, user?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingOrder, reset, isOpen, user?.id]);
 
   const watchTotalAmountInput = watch('total_amount');
   const watchReceiptImageUrl = watch('receipt_image_url');

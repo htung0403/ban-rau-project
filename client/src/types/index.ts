@@ -271,30 +271,36 @@ export interface DeliveryOrder {
   updated_at: string;
   // Nested
   delivery_vehicles?: DeliveryVehicle[];
-  import_orders?: {
-    order_code: string;
-    sender_name: string;
-    receiver_name: string;
-    license_plate?: string;
-    driver_name?: string | null;
-    received_by?: string | null;
-    customers?: { name: string };
-    total_amount?: number;
-    profiles?: { full_name: string };
-    deleted_at?: string | null;
-  };
-  vegetable_orders?: {
-    order_code: string;
-    sender_name: string;
-    receiver_name: string;
-    license_plate?: string;
-    driver_name?: string | null;
-    received_by?: string | null;
-    customers?: { name: string };
-    total_amount?: number;
-    profiles?: { full_name: string };
-    deleted_at?: string | null;
-  };
+    import_orders?: {
+      order_code: string;
+      sender_name: string;
+      sender_id?: string | null;
+      receiver_name: string;
+      customer_id?: string | null;
+      license_plate?: string;
+      driver_name?: string | null;
+      received_by?: string | null;
+      customers?: { name: string };
+      sender_customers?: { name: string };
+      total_amount?: number;
+      profiles?: { full_name: string };
+      deleted_at?: string | null;
+    };
+    vegetable_orders?: {
+      order_code: string;
+      sender_name: string;
+      sender_id?: string | null;
+      receiver_name: string;
+      customer_id?: string | null;
+      license_plate?: string;
+      driver_name?: string | null;
+      received_by?: string | null;
+      customers?: { name: string };
+      sender_customers?: { name: string };
+      total_amount?: number;
+      profiles?: { full_name: string };
+      deleted_at?: string | null;
+    };
   payment_collections?: {
     id: string;
     status: PaymentCollectionStatus;

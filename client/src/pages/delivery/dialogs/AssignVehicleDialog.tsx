@@ -26,7 +26,7 @@ const assignmentSchema = z.object({
 
 const schema = z.object({
   assignments: z.array(assignmentSchema).min(1, 'Cần ít nhất một sự phân bổ'),
-  image_url: z.string().optional().nullable().catch(null),
+  image_urls: z.array(z.string()).default([]),
   export_payment_status: z.enum(['unpaid', 'paid']).default('unpaid'),
 });
 
@@ -88,7 +88,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
     resolver: zodResolver(schema) as any,
     defaultValues: {
       assignments: [],
-      image_url: null,
+      image_urls: [],
       export_payment_status: 'unpaid',
     },
   });
@@ -99,7 +99,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   });
 
   const watchAssignments = watch('assignments') || [];
-  const watchImageUrl = watch('image_url');
+  const watchImageUrls = watch('image_urls') || [];
   const watchExportPaymentStatus = watch('export_payment_status');
   const totalAssignedQuantity = watchAssignments.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0);
   const persistedAssignedQuantity = (order?.delivery_vehicles || []).reduce((acc: number, dv: any) => acc + (Number(dv.assigned_quantity) || 0), 0);
@@ -112,17 +112,27 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const expectedAmountPrevDigitsRef = useRef<Record<number, string>>({});
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const invalidFiles = files.filter(file => !file.type.startsWith('image/'));
+    if (invalidFiles.length > 0) {
       toast.error('Chỉ hỗ trợ file ảnh');
       return;
     }
+
     try {
       setIsUploading(true);
-      const resp = await uploadApi.uploadFile(file, 'import-orders', 'delivery-orders');
-      setValue('image_url', resp.url, { shouldValidate: true });
-      toast.success('Tải ảnh lên thành công!');
+      const uploadPromises = files.map(file => 
+        uploadApi.uploadFile(file, 'import-orders', 'delivery-orders')
+      );
+      
+      const responses = await Promise.all(uploadPromises);
+      const newUrls = responses.map(r => r.url);
+      
+      const currentUrls = watch('image_urls') || [];
+      setValue('image_urls', [...currentUrls, ...newUrls], { shouldValidate: true });
+      toast.success(`Đã tải lên ${newUrls.length} ảnh thành công!`);
     } catch (error) {
       console.error('File upload error:', error);
       toast.error('Lỗi khi tải ảnh lên');
@@ -134,7 +144,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
   useEffect(() => {
     if (order && isOpen) {
-      // Define defaultUnitPrice first so we can use it
       let defaultUnitPrice = order.unit_price || 0;
       if (!defaultUnitPrice && allOrders.length > 0) {
         const orderReceiverName = order.import_orders?.customers?.name || order.import_orders?.receiver_name?.trim() || order.import_orders?.profiles?.full_name || '';
@@ -156,7 +165,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       const existingDvs = order.delivery_vehicles || [];
       const initialAssignments: any[] = [];
 
-      // Nạp tất cả các phân bổ hiện có
       if (existingDvs.length > 0) {
         existingDvs.forEach((dv: any) => {
           initialAssignments.push({
@@ -170,14 +178,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         });
       }
 
-      // Xử lý auto-select initialVehicleId (nếu bấm từ cột xe trống)
       let initialVid = initialVehicleId || '';
       if (isDriver) {
         initialVid = initialVid || myVehicle?.id || '';
       }
 
-      // Mở dialog ở chế độ general nhưng có xe rồi thì không cần thêm rỗng
-      // Ngược lại nếu click một xe cụ thể chưa có trong danh sách
       if (initialVid && !initialAssignments.some(a => a.vehicle_id === initialVid)) {
         const vehicle = eligibleVehicles.find(v => v.id === initialVid);
         const alreadyAssignedSum = initialAssignments.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
@@ -193,7 +198,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         });
       }
 
-      // Nếu vẫn hoàn toàn trống
       if (initialAssignments.length === 0) {
         initialAssignments.push({
           vehicle_id: isDriver ? (initialVid || '') : '',
@@ -205,7 +209,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         });
       }
 
-      // Với tài xế: luôn ưu tiên gắn tài xế hiện tại cho dòng xe của mình.
       if (isDriver && initialVid && user?.id) {
         initialAssignments.forEach((assignment) => {
           if (assignment.vehicle_id === initialVid) {
@@ -234,9 +237,16 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
       expectedAmountPrevDigitsRef.current = {};
 
+      const existingImages = (order as any).image_urls || [];
+      const legacyImage = (order as any).image_url;
+      const initialImages = Array.isArray(existingImages) ? [...existingImages] : [];
+      if (legacyImage && !initialImages.includes(legacyImage)) {
+        initialImages.push(legacyImage);
+      }
+
       reset({
         assignments: initialAssignments,
-        image_url: (order as any).image_url || null,
+        image_urls: initialImages,
         export_payment_status: defaultExportPaymentStatus,
       });
     }
@@ -289,14 +299,21 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         export_payment_status: data.export_payment_status,
         unit_price: normalizedAssignments[0]?.unit_price || 0,
       };
-      if (data.image_url) payload.image_url = data.image_url;
+      if (data.image_urls && data.image_urls.length > 0) {
+        payload.image_urls = data.image_urls;
+        // Also send singular image_url for backward compatibility if needed
+        payload.image_url = data.image_urls[0];
+      } else {
+        payload.image_urls = [];
+        payload.image_url = null;
+      }
 
       await assignMutation.mutateAsync({
         id: order.id,
         payload
       });
       onClose();
-    } catch (error) {
+    } catch {
       // Error handled by mutation toast
     }
   };
@@ -626,46 +643,50 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             <div className="space-y-1.5 pt-4 border-t border-border mt-2">
               <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                 <Camera size={12} />
-                Ảnh xuất hàng / Giao hàng
+                Ảnh xuất hàng / Giao hàng ({watchImageUrls.length})
               </label>
-              <div className="flex flex-col gap-2">
-                {watchImageUrl ? (
-                  <div className="relative inline-block w-24 h-24 rounded-xl border border-border overflow-hidden group">
-                    <img src={watchImageUrl} alt="Receipt" className="w-full h-full object-cover" />
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                {watchImageUrls.map((url, idx) => (
+                  <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden group bg-muted/20">
+                    <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
                     <button
                       type="button"
-                      onClick={() => setValue('image_url', null, { shouldValidate: true })}
+                      onClick={() => {
+                        const newUrls = watchImageUrls.filter((_, i) => i !== idx);
+                        setValue('image_urls', newUrls, { shouldValidate: true });
+                      }}
                       className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      <Trash2 size={20} />
+                      <Trash2 size={18} />
                     </button>
                   </div>
-                ) : (
-                  <div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      ref={fileInputRef}
-                      className="hidden"
-                      onChange={handleImageUpload}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                      className="w-full h-20 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-muted/5 disabled:opacity-50"
-                    >
-                      {isUploading ? (
-                        <Loader2 size={18} className="animate-spin text-primary" />
-                      ) : (
-                        <>
-                          <ImagePlus size={20} className="mb-1 text-primary" />
-                          <span className="text-[11px] font-medium text-muted-foreground">Tải ảnh lên (nếu có)</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
+                ))}
+                
+                <div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleImageUpload}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="w-full aspect-square border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-muted/5 disabled:opacity-50"
+                  >
+                    {isUploading ? (
+                      <Loader2 size={18} className="animate-spin text-primary" />
+                    ) : (
+                      <>
+                        <ImagePlus size={20} className="mb-1 text-primary" />
+                        <span className="text-[10px] font-bold text-center px-1">Thêm ảnh</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { X, Truck, ChevronRight, Calendar, Package, Plus, Trash2 } from 'lucide-react';
+import { X, Truck, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useForm, type SubmitHandler, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -152,7 +152,7 @@ const CreateDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, importOrder,
         {/* Scrollable Body */}
         <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto p-6 space-y-6">
           <div className="bg-card rounded-2xl border border-border shadow-sm p-5 space-y-4">
-             <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-orange-600">
                 <Truck size={16} />
                 <span className="text-[12px] font-bold uppercase tracking-wide">Ghép xe vận chuyển</span>
@@ -228,10 +228,10 @@ const CreateDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, importOrder,
           </div>
 
           <div className="bg-card rounded-2xl border border-border shadow-sm p-5 space-y-4">
-             <div className="flex items-center gap-2 mb-2 text-emerald-600">
+            <div className="flex items-center gap-2 mb-2 text-emerald-600">
               <span className="text-[12px] font-bold uppercase tracking-wider">Thông tin tài chính (Tùy chọn)</span>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[13px] font-bold text-foreground">Loại thanh toán</label>
@@ -271,7 +271,7 @@ const CreateDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, importOrder,
               </div>
             </div>
           </div>
-          
+
           <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100">
             <p className="text-[12px] text-orange-700 leading-relaxed">
               <strong>Lưu ý:</strong> Sau khi tạo đơn giao hàng, bạn có thể gán thêm xe hoặc cập nhật số lượng giao tại trang <strong>Hàng cần giao</strong>.

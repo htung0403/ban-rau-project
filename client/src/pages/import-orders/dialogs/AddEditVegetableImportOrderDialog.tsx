@@ -480,7 +480,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
         setValue(`items.${index}.product_id`, newId, { shouldValidate: true });
         toast.success(`Đã tạo nhanh mặt hàng: ${name}`);
       }
-    } catch (error) {
+    } catch {
       setValue(`items.${index}.product_id`, '', { shouldValidate: true });
       toast.error(`Lỗi khi tạo: ${name}`);
     }
@@ -493,9 +493,8 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
       if (payload.items) {
         payload.items = payload.items.map((item: any) => {
           const trimmedNote = item.item_note?.trim() || null;
-          const { item_note, ...restItem } = item;
           return {
-            ...restItem,
+            ...item,
             item_note: trimmedNote,
           };
         });

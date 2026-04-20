@@ -27,9 +27,10 @@ type LinkedImportOrder = {
 
 type DeliveryOrderLike = DeliveryOrder & {
   image_url?: string | null;
+  image_urls?: string[] | null;
   import_orders?: MaybeArray<LinkedImportOrder>;
   vegetable_orders?: MaybeArray<LinkedImportOrder>;
-  payment_collections?: Array<{ image_url?: string | null }>;
+  payment_collections?: Array<{ image_url?: string | null; image_urls?: string[] | null }>;
 };
 
 type ImportOrderLike = ImportOrder & {
@@ -37,6 +38,8 @@ type ImportOrderLike = ImportOrder & {
 };
 
 type ExportOrderLike = ExportOrder & {
+  image_url?: string | null;
+  image_urls?: string[] | null;
   product_name?: string | null;
 };
 
@@ -102,8 +105,10 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
 
     deliveryImages = [];
     if (dOrder?.image_url) deliveryImages.push(dOrder.image_url);
+    if (dOrder?.image_urls && Array.isArray(dOrder.image_urls)) deliveryImages.push(...dOrder.image_urls);
     dOrder?.payment_collections?.forEach(pc => {
         if (pc.image_url) deliveryImages.push(pc.image_url);
+        if (pc.image_urls && Array.isArray(pc.image_urls)) deliveryImages.push(...pc.image_urls);
     });
 
     receiptImages = [...new Set(receiptImages)];
@@ -128,7 +133,10 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     orderLabel = iOrder?.supplier_name || iOrder?.sender_name || orderCode;
   } else if (isExport) {
     const eOrder = order;
-    deliveryImages = eOrder?.image_url ? [eOrder.image_url] : [];
+    deliveryImages = [];
+    if (eOrder?.image_url) deliveryImages.push(eOrder.image_url);
+    if (eOrder?.image_urls && Array.isArray(eOrder.image_urls)) deliveryImages.push(...eOrder.image_urls);
+    deliveryImages = [...new Set(deliveryImages)];
     orderCode = eOrder?.id?.slice(0, 8).toUpperCase() || 'N/A';
     orderLabel = eOrder?.product_name || eOrder?.products?.name || 'Xuất hàng';
   }
@@ -137,7 +145,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
   const hidePhase1 = isExport;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-stretch justify-end sm:p-4">
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4">
       {/* Backdrop */}
       <div
         className={clsx(
@@ -151,12 +159,12 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
       <div
         className={clsx(
           'relative w-full bg-background flex flex-col transition-all duration-350',
-          'max-h-[100dvh] sm:max-h-[90vh] min-h-0',
+          'h-dvh sm:h-auto sm:max-h-[90vh] min-h-0',
           hidePhase1 ? 'sm:max-w-[450px]' : 'sm:max-w-[1000px] lg:max-w-[1200px]',
-          'rounded-t-[32px] sm:rounded-3xl shadow-2xl',
+          'rounded-none sm:rounded-3xl shadow-2xl',
           isClosing
-            ? 'animate-out slide-out-to-right-full duration-300 opacity-0'
-            : 'animate-in slide-in-from-right-full duration-300'
+            ? 'translate-y-full sm:translate-y-0 sm:scale-95 opacity-0'
+            : 'animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300'
         )}
       >
         {/* Header */}
@@ -284,7 +292,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
         </div>
 
         {/* Footer */}
-        <div className="p-5 sm:p-6 bg-muted/50 border-t border-border shrink-0 rounded-b-[32px] sm:rounded-b-3xl pb-safe-bottom">
+        <div className="p-5 sm:p-6 bg-muted/50 border-t border-border shrink-0 sm:rounded-b-3xl pb-safe-bottom">
           <button 
             type="button" 
             onClick={onClose} 

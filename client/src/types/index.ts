@@ -306,6 +306,7 @@ export interface DeliveryOrder {
     status: PaymentCollectionStatus;
     vehicle_id: string;
     image_url?: string;
+    image_urls?: string[];
   }[];
 }
 
@@ -395,6 +396,7 @@ export interface PaymentCollection {
   selfConfirmReason?: string;
   notes?: string;
   imageUrl?: string;
+  imageUrls?: string[];
 }
 
 export interface CreatePaymentCollectionDto {

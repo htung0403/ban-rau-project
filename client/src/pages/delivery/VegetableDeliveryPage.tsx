@@ -683,7 +683,7 @@ const VegetableDeliveryPage: React.FC = () => {
                             )}
                             <td className="px-2 py-3 border-r border-border text-center">
                               <div className="flex items-center justify-center gap-1">
-                                {statusFilter === 'can_giao' && isAdmin && (
+                                {canShowAssignButton && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -780,19 +780,19 @@ const VegetableDeliveryPage: React.FC = () => {
                                 <td
                                   key={v.id}
                                   onClick={() => {
-                                    if (statusFilter === 'can_giao' && canEdit && (qty > 0 || remainingQty > 0)) {
+                                    if (canEdit && (qty > 0 || remainingQty > 0)) {
                                       handleOrderClick(o, v.id);
                                     }
                                   }}
                                   className={clsx(
                                     "px-1 py-1 text-[13px] text-center tabular-nums border-r border-border last:border-r-0 transition-all relative",
                                     displayQty > 0 ? "font-bold text-blue-600 dark:text-blue-500 bg-blue-500/10" : "text-muted-foreground/30",
-                                    statusFilter === 'can_giao' && canEdit && (displayQty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95"
+                                    canEdit && (displayQty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95"
                                   )}
                                 >
                                   <div className="flex flex-col items-center justify-center">
                                     <span>
-                                      {displayQty > 0 ? formatNumber(displayQty) : (statusFilter === 'can_giao' && canEdit && remainingQty > 0 ? <PlusCircle size={14} className="mx-auto opacity-10 group-hover:opacity-40" /> : '-')}
+                                      {displayQty > 0 ? formatNumber(displayQty) : (canEdit && remainingQty > 0 ? <PlusCircle size={14} className="mx-auto opacity-10 group-hover:opacity-40" /> : '-')}
                                     </span>
                                     {isPaid && (
                                       <div className="mt-0.5 flex items-center justify-center gap-0.5 text-green-600 bg-green-500/10 rounded-sm px-1" title="Đã xác nhận thu tiền">
@@ -892,12 +892,11 @@ const VegetableDeliveryPage: React.FC = () => {
                         <div
                           key={`mobile-order-${o.id}`}
                           onClick={() => {
-                            if (statusFilter === 'can_giao') handleOrderClick(o);
+                            handleOrderClick(o);
                           }}
                           className={clsx(
-                            "bg-card rounded-xl border shadow-sm transition-all relative overflow-hidden",
-                            statusFilter === 'can_giao' && "cursor-pointer active:scale-[0.98]",
-                            remainingQty > 0 && statusFilter === "can_giao" ? "border-orange-500/30 dark:border-orange-500/20" : "border-border"
+                            "bg-card rounded-xl border shadow-sm transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]",
+                            remainingQty > 0 ? "border-orange-500/30 dark:border-orange-500/20" : "border-border"
                           )}
                         >
                           {/* Card body */}
@@ -969,9 +968,9 @@ const VegetableDeliveryPage: React.FC = () => {
                           </div>
 
                           {/* Bottom action bar */}
-                          {isAdmin || (statusFilter === 'can_giao' && canShowAssignButton) ? (
+                          {isAdmin || canShowAssignButton ? (
                             <div className="flex border-t border-border divide-x divide-border">
-                              {statusFilter === 'can_giao' && canShowAssignButton && remainingQty > 0 && (
+                              {canShowAssignButton && remainingQty > 0 && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1030,15 +1029,13 @@ const VegetableDeliveryPage: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto custom-scrollbar pb-1 md:pb-0">
-            {statusFilter === 'can_giao' && (
-              <button
-                onClick={openBulkAssign}
-                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[12px] md:text-[13px] font-bold bg-orange-600 text-white hover:bg-orange-600 transition-all shadow-sm"
-              >
-                <Truck size={14} strokeWidth={2.5} />
-                Phân xe
-              </button>
-            )}
+            <button
+              onClick={openBulkAssign}
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[12px] md:text-[13px] font-bold bg-orange-600 text-white hover:bg-orange-600 transition-all shadow-sm"
+            >
+              <Truck size={14} strokeWidth={2.5} />
+              Phân xe
+            </button>
             <button
               onClick={openBulkEdit}
               className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[12px] md:text-[13px] font-bold bg-blue-600 text-white hover:bg-blue-600 transition-all shadow-sm"

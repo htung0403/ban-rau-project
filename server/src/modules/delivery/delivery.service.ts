@@ -41,7 +41,7 @@ export class DeliveryService {
     const { data: deliveryOrder, error: deliveryError } = await supabaseService
       .from('delivery_orders')
       .select(
-        'id, product_name, unit_price, delivery_date, order_category, import_order_id, vegetable_order_id, image_url, total_quantity'
+        'id, product_name, unit_price, delivery_date, order_category, import_order_id, vegetable_order_id, image_url, image_urls, total_quantity'
       )
       .eq('id', deliveryId)
       .single();
@@ -120,6 +120,9 @@ export class DeliveryService {
       if (deliveryOrder.image_url) {
         updatePayload.image_url = deliveryOrder.image_url;
       }
+      if (deliveryOrder.image_urls?.length) {
+        updatePayload.image_urls = deliveryOrder.image_urls;
+      }
 
       const { error: updateError } = await supabaseService
         .from('export_orders')
@@ -158,6 +161,9 @@ export class DeliveryService {
 
     if (deliveryOrder.image_url) {
       createPayload.image_url = deliveryOrder.image_url;
+    }
+    if (deliveryOrder.image_urls?.length) {
+      createPayload.image_urls = deliveryOrder.image_urls;
     }
 
     const { error: createError } = await supabaseService
@@ -279,14 +285,15 @@ export class DeliveryService {
     image_url?: string | null,
     userId?: string,
     exportPaymentStatus?: 'unpaid' | 'paid',
-    unit_price?: number
+    unit_price?: number,
+    image_urls?: string[]
   ) {
-    // assignments: [{vehicle_id, driver_id, quantity}]
-    
-    // Save image_url or unit_price if provided
     const updateData: any = {};
     if (image_url !== undefined) {
       updateData.image_url = image_url;
+    }
+    if (image_urls !== undefined) {
+      updateData.image_urls = image_urls;
     }
     if (unit_price !== undefined) {
       updateData.unit_price = unit_price;
@@ -326,6 +333,40 @@ export class DeliveryService {
       .select();
 
     if (error) throw error;
+
+    // Tự động tạo phiếu thu nháp cho từng xe nếu có expected_amount > 0
+    {
+      const { data: doInfo } = await supabaseService
+        .from('delivery_orders')
+        .select('import_orders(customer_id), vegetable_orders(customer_id)')
+        .eq('id', deliveryId)
+        .single();
+
+      if (doInfo) {
+        const ioOrVeg: any = (doInfo as any).vegetable_orders || (doInfo as any).import_orders;
+        const sourceOrder = Array.isArray(ioOrVeg) ? ioOrVeg[0] : ioOrVeg;
+        const customerId = sourceOrder?.customer_id ?? null;
+
+        for (const dv of (data || [])) {
+          if (Number(dv.expected_amount || 0) > 0) {
+            try {
+              await supabaseService.from('payment_collections').insert({
+                delivery_order_id: deliveryId,
+                customer_id: customerId,
+                driver_id: dv.driver_id,
+                vehicle_id: dv.vehicle_id,
+                expected_amount: dv.expected_amount,
+                collected_amount: dv.expected_amount,
+                collected_at: new Date().toISOString(),
+                status: 'draft',
+              });
+            } catch (pcError) {
+              console.error('Failed to auto-create payment collection for driver', dv.driver_id, pcError);
+            }
+          }
+        }
+      }
+    }
 
     // Update vehicle status
     const vehicleIds = (assignments || []).map(a => a.vehicle_id).filter(id => !!id);

@@ -31,6 +31,7 @@ const deliveryOrderUpdateSchema = z.object({
   import_cost: z.number().optional(),
   delivery_date: z.string().optional(),
   image_url: z.string().optional().nullable(),
+  image_urls: z.array(z.string()).optional().nullable(),
 });
 
 export class DeliveryController {
@@ -78,33 +79,33 @@ export class DeliveryController {
       const body = req.body;
       let assignments: any[] = [];
       let image_url: string | null | undefined = undefined;
+      let image_urls: string[] | undefined = undefined;
       let export_payment_status: 'unpaid' | 'paid' | undefined = undefined;
       let unit_price: number | undefined = undefined;
+
+      const extractExtras = (src: any) => {
+        if (Object.prototype.hasOwnProperty.call(src, 'image_url')) {
+          image_url = src.image_url ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(src, 'image_urls')) {
+          image_urls = z.array(z.string()).parse(src.image_urls);
+        }
+        if (Object.prototype.hasOwnProperty.call(src, 'export_payment_status')) {
+          export_payment_status = z.enum(['unpaid', 'paid']).parse(src.export_payment_status);
+        }
+        if (Object.prototype.hasOwnProperty.call(src, 'unit_price')) {
+          unit_price = z.number().nonnegative().parse(src.unit_price);
+        }
+      };
 
       if (Array.isArray(body)) {
         assignments = z.array(singleSchema).parse(body);
       } else if (body && body.assignments && Array.isArray(body.assignments)) {
         assignments = z.array(singleSchema).parse(body.assignments);
-        if (Object.prototype.hasOwnProperty.call(body, 'image_url')) {
-          image_url = body.image_url ?? null;
-        }
-        if (Object.prototype.hasOwnProperty.call(body, 'export_payment_status')) {
-          export_payment_status = z.enum(['unpaid', 'paid']).parse(body.export_payment_status);
-        }
-        if (Object.prototype.hasOwnProperty.call(body, 'unit_price')) {
-          unit_price = z.number().nonnegative().parse(body.unit_price);
-        }
+        extractExtras(body);
       } else {
         assignments = [singleSchema.parse(body)];
-        if (body && Object.prototype.hasOwnProperty.call(body, 'image_url')) {
-          image_url = body.image_url ?? null;
-        }
-        if (body && Object.prototype.hasOwnProperty.call(body, 'export_payment_status')) {
-          export_payment_status = z.enum(['unpaid', 'paid']).parse(body.export_payment_status);
-        }
-        if (body && Object.prototype.hasOwnProperty.call(body, 'unit_price')) {
-          unit_price = z.number().nonnegative().parse(body.unit_price);
-        }
+        if (body) extractExtras(body);
       }
 
       // Normalize fields for service (use quantity)
@@ -122,7 +123,8 @@ export class DeliveryController {
         image_url,
         req.user?.id,
         export_payment_status,
-        unit_price
+        unit_price,
+        image_urls
       );
       return res.status(200).json(successResponse(data, 'Vehicles assigned'));
     } catch (err: any) {

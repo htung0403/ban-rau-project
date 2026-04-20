@@ -65,7 +65,7 @@ const CollectDebtDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, custom
         },
       });
       onClose();
-    } catch (error) {
+    } catch {
       // Error handled by mutation
     }
   };

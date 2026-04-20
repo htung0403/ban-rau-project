@@ -385,6 +385,20 @@ const VegetableProductSettingsPage: React.FC = () => {
 
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setBulkEditOpen(true)}
+                className="p-2 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-100 rounded-xl transition-colors flex items-center gap-2 px-3"
+              >
+                <Edit2 size={16} />
+                <span className="text-[13px] font-bold whitespace-nowrap">Sửa giá loạt</span>
+              </button>
+              <button
+                onClick={handleDeleteProducts}
+                className="p-2 bg-red-500/20 hover:bg-red-500/40 text-red-200 rounded-xl transition-colors flex items-center gap-2 px-3"
+              >
+                <Trash2 size={16} />
+                <span className="text-[13px] font-bold whitespace-nowrap">Xóa đã chọn</span>
+              </button>
+              <button
                 onClick={() => setSelectedProducts([])}
                 className="ml-2 p-1.5 rounded-xl hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
                 title="Bỏ chọn tất cả"

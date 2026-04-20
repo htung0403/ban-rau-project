@@ -209,7 +209,7 @@ const CustomerDebtPage: React.FC = () => {
       reset();
       closeCollectDialog();
       refetch();
-    } catch (e) {
+    } catch {
       // toast in hook
     }
   };

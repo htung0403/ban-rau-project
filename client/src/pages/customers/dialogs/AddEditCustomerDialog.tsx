@@ -91,7 +91,7 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
         await createMutation.mutateAsync(payload);
       }
       onClose();
-    } catch (error) {
+    } catch {
       // Error handled by mutation
     }
   };

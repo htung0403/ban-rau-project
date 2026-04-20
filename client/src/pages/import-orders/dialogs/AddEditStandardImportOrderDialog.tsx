@@ -358,7 +358,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
         setValue(`items.${index}.product_id`, newId, { shouldValidate: true });
         toast.success(`Đã tạo nhanh mặt hàng: ${name}`);
       }
-    } catch (error) {
+    } catch {
       setValue(`items.${index}.product_id`, '', { shouldValidate: true });
       toast.error(`Lỗi khi tạo: ${name}`);
     }

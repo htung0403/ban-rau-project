@@ -68,7 +68,7 @@ const AddEditWarehouseDialog: React.FC<Props> = ({ isOpen, isClosing, onClose })
       };
       await createMutation.mutateAsync(payload);
       onClose();
-    } catch (error) {
+    } catch {
       // Error handled by mutation
     }
   };

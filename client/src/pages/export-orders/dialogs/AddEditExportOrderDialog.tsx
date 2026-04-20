@@ -422,7 +422,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
       }
 
       onClose();
-    } catch (error) {
+    } catch {
       // Error handled by mutation
     }
   };

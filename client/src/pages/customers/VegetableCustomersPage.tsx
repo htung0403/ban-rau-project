@@ -81,7 +81,7 @@ const VegetableCustomersPage: React.FC<Props> = ({ type = 'vegetable_sender' }) 
       await deleteCustomer.mutateAsync(customerToDelete.id);
       setIsDeleteConfirmOpen(false);
       setCustomerToDelete(null);
-    } catch (error) {
+    } catch {
       // Error handled by mutation
     }
   };

@@ -446,24 +446,24 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
       {/* Panel */}
       <div
         className={clsx(
-          'relative w-full max-w-[600px] bg-slate-50 shadow-2xl flex flex-col h-screen border-l border-border',
+          'relative w-full max-w-[600px] bg-background shadow-2xl flex flex-col h-screen border-l border-border',
           isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 bg-white border-b border-border z-10 shadow-sm relative">
+        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 bg-card border-b border-border z-10 shadow-sm relative">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 shadow-inner">
               <Package size={20} />
             </div>
             <div>
-              <h2 className="text-lg md:text-xl font-bold text-slate-800">Tạo Phiếu Xuất Hàng</h2>
-              <p className="text-[12px] font-medium text-slate-500">Giao hàng cho khách tạp hóa</p>
+              <h2 className="text-lg md:text-xl font-bold text-foreground">Tạo Phiếu Xuất Hàng</h2>
+              <p className="text-[12px] font-medium text-muted-foreground">Giao hàng cho khách tạp hóa</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"
+            className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors"
           >
             <X size={20} />
           </button>
@@ -473,8 +473,8 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
         <form id="export-order-form" onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto custom-scrollbar p-3 md:p-6 space-y-4">
           
           {/* NGÀY GIỜ & THÔNG TIN XE */}
-          <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-border bg-slate-50/80 flex items-center gap-2">
+          <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-border bg-muted/50 flex items-center gap-2">
               <Clock size={16} className="text-emerald-600" />
               <span className="text-[12px] font-bold text-emerald-700 uppercase tracking-wider">Thông tin giao hàng</span>
             </div>
@@ -482,7 +482,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
               {/* Ngày & Giờ */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                     <Calendar size={12} />
                     Ngày
                   </label>
@@ -496,7 +496,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                   {errors.export_date && <p className="text-red-500 text-[11px] font-medium">{errors.export_date.message}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                     <Clock size={12} />
                     Giờ
                   </label>
@@ -513,7 +513,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
 
               {/* Số xe (tự động) */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                   <Truck size={12} />
                   Số xe
                   {isDriver && <span className="text-[9px] text-emerald-600 normal-case ml-1">(tự động)</span>}
@@ -522,10 +522,10 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                   "w-full px-3 py-2.5 rounded-xl text-[13px] font-semibold border",
                   (isDriver ? myVehicle?.id : selectedVehicleId)
                     ? "bg-blue-50 border-blue-200 text-blue-800" 
-                    : "bg-slate-50 border-border text-slate-400"
+                    : "bg-muted/50 border-border text-muted-foreground/40"
                 )}>
                   <div className="flex items-center gap-2">
-                    <Truck size={15} className={(isDriver ? myVehicle?.id : selectedVehicleId) ? "text-blue-500" : "text-slate-400"} />
+                    <Truck size={15} className={(isDriver ? myVehicle?.id : selectedVehicleId) ? "text-blue-500" : "text-muted-foreground/40"} />
                     {isDriver
                       ? (myVehicle ? myVehicle.license_plate : 'Chưa gắn xe')
                       : ((vehicles || []).find((v: any) => v.id === selectedVehicleId)?.license_plate || 'Chưa chọn xe')}
@@ -535,7 +535,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
 
               {isDriver ? (
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                     <User size={12} />
                     Nhân viên giao hàng
                     <span className="text-[9px] text-emerald-600 normal-case ml-1">(tự động)</span>
@@ -549,7 +549,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                     <User size={12} />
                     Tài xế xe nhỏ <span className="text-red-500">*</span>
                   </label>
@@ -572,15 +572,15 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
           </div>
 
           {/* KHÁCH HÀNG & HÀNG HÓA */}
-          <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-border bg-slate-50/80 flex items-center gap-2">
+          <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-border bg-muted/50 flex items-center gap-2">
               <ShoppingBag size={16} className="text-emerald-600" />
               <span className="text-[12px] font-bold text-emerald-700 uppercase tracking-wider">Khách hàng & Hàng hóa</span>
             </div>
             <div className="p-4 md:p-5 space-y-4">
               {/* Tên khách */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                   Tên khách <span className="text-red-500">*</span>
                 </label>
                 <SearchableSelect
@@ -597,9 +597,9 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
 
               {/* Tên hàng */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                   Tên hàng <span className="text-red-500">*</span>
-                  <span className="text-[9px] text-slate-400 normal-case ml-1">(hàng cần giao hôm nay)</span>
+                  <span className="text-[9px] text-muted-foreground/40 normal-case ml-1">(hàng cần giao hôm nay)</span>
                 </label>
                 <SearchableSelect
                   options={filteredProducts.map(p => ({
@@ -625,7 +625,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
 
               {/* Số lượng */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                   Số lượng <span className="text-red-500">*</span>
                 </label>
                 <Controller
@@ -638,22 +638,22 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                       step="0.01"
                       value={field.value}
                       onChange={field.onChange}
-                      className="w-full px-3 py-2.5 bg-slate-50 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold tabular-nums"
+                      className="w-full px-3 py-2.5 bg-muted/50 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold tabular-nums"
                       placeholder="Nhập số lượng..."
                     />
                   )}
                 />
                 {errors.quantity && <p className="text-red-500 text-[11px] font-medium">{errors.quantity.message}</p>}
                 {selectedProduct && (
-                  <p className="text-[11px] text-slate-500">
-                    SL tổng cần giao: <span className="font-bold text-slate-700">{selectedProduct.quantity.toLocaleString('vi-VN')}</span>
+                  <p className="text-[11px] text-muted-foreground">
+                    SL tổng cần giao: <span className="font-bold text-foreground">{selectedProduct.quantity.toLocaleString('vi-VN')}</span>
                   </p>
                 )}
               </div>
 
               {/* Thành tiền */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                   <DollarSign size={12} />
                   Thành tiền (VNĐ)
                 </label>
@@ -666,17 +666,17 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                       value={field.value as number | undefined}
                       onChange={field.onChange}
                       placeholder="0"
-                      className="w-full px-3 py-2.5 bg-slate-50 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold tabular-nums text-emerald-700"
+                      className="w-full px-3 py-2.5 bg-muted/50 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold tabular-nums text-emerald-700"
                     />
                   )}
                 />
                 {errors.debt_amount && <p className="text-red-500 text-[11px] font-medium">{errors.debt_amount.message}</p>}
-                {/* <p className="text-[11px] text-slate-400">Sẽ tự động cộng dồn vào tổng công nợ của khách hàng</p> */}
+                {/* <p className="text-[11px] text-muted-foreground">Sẽ tự động cộng dồn vào tổng công nợ của khách hàng</p> */}
               </div>
 
               {/* Trạng thái thanh toán */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                   <CreditCard size={12} />
                   Thanh toán
                 </label>
@@ -692,7 +692,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                           'flex-1 py-2.5 rounded-xl text-[13px] font-bold border-2 transition-all',
                           field.value === 'unpaid'
                             ? 'border-amber-400 bg-amber-50 text-amber-700 shadow-sm shadow-amber-200/50'
-                            : 'border-border bg-slate-50 text-slate-400 hover:bg-slate-100'
+                            : 'border-border bg-muted/50 text-muted-foreground/40 hover:bg-muted'
                         )}
                       >
                         Chưa thanh toán
@@ -704,7 +704,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                           'flex-1 py-2.5 rounded-xl text-[13px] font-bold border-2 transition-all',
                           field.value === 'paid'
                             ? 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-200/50'
-                            : 'border-border bg-slate-50 text-slate-400 hover:bg-slate-100'
+                            : 'border-border bg-muted/50 text-muted-foreground/40 hover:bg-muted'
                         )}
                       >
                         Đã thanh toán
@@ -715,14 +715,14 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
               </div>
 
               {/* Ảnh phiếu xuất / Ảnh sản phẩm */}
-              <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+              <div className="space-y-1.5 pt-2 border-t border-border">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                   <Camera size={12} />
                   Ảnh Upload
                 </label>
                 <div className="flex flex-col gap-2">
                   {watchImageUrl ? (
-                    <div className="relative inline-block w-24 h-24 rounded-xl border border-slate-200 overflow-hidden group">
+                    <div className="relative inline-block w-24 h-24 rounded-xl border border-border overflow-hidden group">
                       <img src={watchImageUrl} alt="Receipt" className="w-full h-full object-cover" />
                       <button
                         type="button"
@@ -745,14 +745,14 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isUploading}
-                        className="w-full h-28 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-50/50 transition-all bg-slate-50 disabled:opacity-50"
+                        className="w-full h-28 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground/40 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-50/50 transition-all bg-muted/50 disabled:opacity-50"
                       >
                         {isUploading ? (
                           <Loader2 size={20} className="animate-spin text-emerald-600" />
                         ) : (
                           <>
                             <ImagePlus size={24} className="mb-1 text-emerald-600" />
-                            <span className="text-[11px] font-medium text-slate-500">Kéo thả hoặc nhấn để tải ảnh</span>
+                            <span className="text-[11px] font-medium text-muted-foreground">Kéo thả hoặc nhấn để tải ảnh</span>
                           </>
                         )}
                       </button>
@@ -775,20 +775,20 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-[12px] text-slate-500">Khách hàng</span>
-                  <span className="text-[13px] font-bold text-slate-700">
+                  <span className="text-[12px] text-muted-foreground">Khách hàng</span>
+                  <span className="text-[13px] font-bold text-foreground">
                     {groceryCustomers.find((c: any) => c.id === customerId)?.name || '—'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-[12px] text-slate-500">Hàng hóa</span>
-                  <span className="text-[13px] font-bold text-slate-700">
+                  <span className="text-[12px] text-muted-foreground">Hàng hóa</span>
+                  <span className="text-[13px] font-bold text-foreground">
                     {selectedProduct?.name || '—'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-[12px] text-slate-500">Số lượng</span>
-                  <span className="text-[13px] font-bold text-slate-700 tabular-nums">
+                  <span className="text-[12px] text-muted-foreground">Số lượng</span>
+                  <span className="text-[13px] font-bold text-foreground tabular-nums">
                     {Number(quantity) > 0 ? Number(quantity).toLocaleString('vi-VN') : '—'}
                   </span>
                 </div>
@@ -805,11 +805,11 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
         </form>
 
         {/* Footer */}
-        <div className="bg-white border-t border-border px-4 md:px-6 py-3 md:py-4 flex items-center justify-between shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
+        <div className="bg-card border-t border-border px-4 md:px-6 py-3 md:py-4 flex items-center justify-between shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2.5 rounded-xl border border-border hover:bg-muted text-foreground text-[13px] font-bold transition-all"
+            className="px-6 py-2 rounded-xl border border-border hover:bg-muted text-foreground text-[13px] font-bold transition-all"
           >
             Hủy
           </button>

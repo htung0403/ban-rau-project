@@ -105,7 +105,7 @@ const BulkAssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, orders, o
   const vehicleOptions = eligibleVehicles.map(v => ({
     value: v.id,
     label: v.license_plate,
-    icon: <Truck size={14} className="text-slate-400" />
+    icon: <Truck size={14} className="text-muted-foreground" />
   }));
 
   const content = (
@@ -115,17 +115,17 @@ const BulkAssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, orders, o
         onClick={!isSubmitting ? onClose : undefined}
       />
       
-      <div className={`relative w-full max-w-md bg-white rounded-2xl shadow-xl transition-all duration-300 overflow-hidden flex flex-col max-h-[90vh] ${
+      <div className={`relative w-full max-w-md bg-background rounded-2xl shadow-xl transition-all duration-300 overflow-hidden flex flex-col max-h-[90vh] ${
         isClosing ? 'opacity-0 translate-y-4 scale-95' : 'opacity-100 translate-y-0 scale-100'
       }`}>
-        <div className="flex items-center justify-between p-4 border-b border-slate-100 shrink-0">
-          <h2 className="text-lg font-bold text-slate-800">Phân xe hàng loạt</h2>
+        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+          <h2 className="text-lg font-bold text-foreground">Phân xe hàng loạt</h2>
           <button 
             onClick={!isSubmitting ? onClose : undefined} 
             disabled={isSubmitting}
-            className="p-2 hover:bg-slate-100 rounded-full transition-colors disabled:opacity-50"
+            className="p-2 hover:bg-muted rounded-full transition-colors disabled:opacity-50"
           >
-            <X size={20} className="text-slate-500" />
+            <X size={20} className="text-muted-foreground" />
           </button>
         </div>
 
@@ -139,7 +139,7 @@ const BulkAssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, orders, o
 
           <form id="bulk-assign-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-bold text-slate-700">Chọn xe <span className="text-red-500">*</span></label>
+              <label className="text-[13px] font-bold text-foreground">Chọn xe <span className="text-red-500">*</span></label>
               <SearchableSelect
                 options={vehicleOptions}
                 value={selectedVehicleId}
@@ -152,12 +152,12 @@ const BulkAssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, orders, o
           </form>
         </div>
 
-        <div className="p-4 border-t border-slate-100 shrink-0 bg-slate-50/50 flex justify-end gap-2">
+        <div className="p-4 border-t border-border shrink-0 bg-muted/50 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-4 py-2.5 text-[14px] font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
+            className="px-4 py-2.5 text-[14px] font-bold text-muted-foreground bg-card border border-border rounded-xl hover:bg-muted transition-colors disabled:opacity-50"
           >
             Hủy
           </button>

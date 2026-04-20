@@ -63,11 +63,11 @@ const AddLeaveRequestDialog: React.FC<Props> = ({ isOpen, isClosing, onClose }) 
 
       <div
         className={clsx(
-          'relative w-full max-w-[500px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
+          'relative w-full max-w-[500px] bg-background shadow-2xl flex flex-col h-screen border-l border-border',
           isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
         )}
       >
-        <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
               <Calendar size={20} />
@@ -85,7 +85,7 @@ const AddLeaveRequestDialog: React.FC<Props> = ({ isOpen, isClosing, onClose }) 
             <input
               type="date"
               {...register('from_date')}
-              className="w-full px-4 py-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+              className="w-full px-4 py-3 bg-card border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
             />
             {errors.from_date && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.from_date.message}</p>}
           </div>
@@ -95,7 +95,7 @@ const AddLeaveRequestDialog: React.FC<Props> = ({ isOpen, isClosing, onClose }) 
             <input
               type="date"
               {...register('to_date')}
-              className="w-full px-4 py-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+              className="w-full px-4 py-3 bg-card border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
             />
             {errors.to_date && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.to_date.message}</p>}
           </div>
@@ -106,13 +106,13 @@ const AddLeaveRequestDialog: React.FC<Props> = ({ isOpen, isClosing, onClose }) 
               rows={4}
               placeholder="Vui lòng nhập lý do nghỉ phép"
               {...register('reason')}
-              className="w-full px-4 py-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium resize-none"
+              className="w-full px-4 py-3 bg-card border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium resize-none"
             />
             {errors.reason && <p className="text-red-500 text-[11px] font-medium mt-1">{errors.reason.message}</p>}
           </div>
         </form>
 
-        <div className="bg-white border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-card border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
           <button
             type="button"
             onClick={onClose}

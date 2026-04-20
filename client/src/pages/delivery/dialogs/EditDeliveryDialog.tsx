@@ -266,17 +266,17 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
         onClick={!isSubmitting ? onClose : undefined}
       />
       
-      <div className={`relative w-full h-full md:h-auto md:max-w-md bg-white md:rounded-2xl shadow-xl transition-all duration-300 overflow-hidden flex flex-col md:max-h-[90vh] ${
+      <div className={`relative w-full h-full md:h-auto md:max-w-md bg-background md:rounded-2xl shadow-xl transition-all duration-300 overflow-hidden flex flex-col md:max-h-[90vh] ${
         isClosing ? 'opacity-0 translate-y-4 scale-95' : 'opacity-100 translate-y-0 scale-100'
       }`}>
-        <div className="flex items-center justify-between p-4 border-b border-slate-100 shrink-0">
-          <h2 className="text-lg font-bold text-slate-800">Chỉnh sửa đơn hàng</h2>
+        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+          <h2 className="text-lg font-bold text-foreground">Chỉnh sửa đơn hàng</h2>
           <button 
             onClick={!isSubmitting ? onClose : undefined} 
             disabled={isSubmitting}
-            className="p-2 hover:bg-slate-100 rounded-full transition-colors disabled:opacity-50"
+            className="p-2 hover:bg-muted rounded-full transition-colors disabled:opacity-50"
           >
-            <X size={20} className="text-slate-500" />
+            <X size={20} className="text-muted-foreground" />
           </button>
         </div>
 
@@ -299,7 +299,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
                   </div>
                 )}
                 {isUploading && (
-                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-card/80 flex items-center justify-center">
                     <Loader2 size={24} className="text-primary animate-spin" />
                   </div>
                 )}
@@ -314,27 +314,27 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[13px] font-bold text-slate-700">Tên hàng hóa <span className="text-red-500">*</span></label>
+              <label className="text-[13px] font-bold text-foreground">Tên hàng hóa <span className="text-red-500">*</span></label>
               <CreatableSearchableSelect
                 options={productOptions}
                 value={formData.product_name}
                 onValueChange={handleProductChange}
                 onCreate={handleProductChange}
                 placeholder="Chọn hoặc nhập tên hàng..."
-                className="w-full bg-white border border-slate-200 rounded-xl"
+                className="w-full bg-card border border-border rounded-xl"
                 disabled={isSubmitting}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-slate-700">Số lượng <span className="text-red-500">*</span></label>
+                <label className="text-[13px] font-bold text-foreground">Số lượng <span className="text-red-500">*</span></label>
                 <input
                   type="number"
                   required
                   min="0.1"
                   step="0.1"
-                  className="w-full h-11 px-3 border border-slate-200 rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
+                  className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                   value={formData.total_quantity}
                   onChange={e => setFormData({ ...formData, total_quantity: parseFloat(e.target.value) || 0 })}
                   disabled={isSubmitting}
@@ -342,12 +342,12 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-slate-700">Đơn giá</label>
+                <label className="text-[13px] font-bold text-foreground">Đơn giá</label>
                 <input
                   type="number"
                   min="0"
                   step="1000"
-                  className="w-full h-11 px-3 border border-slate-200 rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
+                  className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                   value={formData.unit_price}
                   onChange={e => setFormData({ ...formData, unit_price: parseInt(e.target.value) || 0 })}
                   disabled={isSubmitting}
@@ -356,7 +356,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[13px] font-bold text-slate-700">{isVeg ? 'Người gửi (Chủ hàng)' : 'Người gửi'}</label>
+              <label className="text-[13px] font-bold text-foreground">{isVeg ? 'Người gửi (Chủ hàng)' : 'Người gửi'}</label>
               <CreatableSearchableSelect
                 options={senderOptions}
                 value={formData.sender_id || formData.sender_name}
@@ -364,13 +364,13 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
                 onValueChange={(val) => handleSenderChange(val, false)}
                 onCreate={(val) => handleSenderChange(val, true)}
                 placeholder="Chọn hoặc tạo người gửi..."
-                className="w-full bg-white border border-slate-200 rounded-xl"
+                className="w-full bg-card border border-border rounded-xl"
                 disabled={isSubmitting}
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[13px] font-bold text-slate-700">{isVeg ? 'Người nhận (Tên vựa)' : 'Người nhận'}</label>
+              <label className="text-[13px] font-bold text-foreground">{isVeg ? 'Người nhận (Tên vựa)' : 'Người nhận'}</label>
               <CreatableSearchableSelect
                 options={receiverOptions}
                 value={formData.customer_id || formData.receiver_name}
@@ -378,16 +378,16 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
                 onValueChange={(val) => handleReceiverChange(val, false)}
                 onCreate={(val) => handleReceiverChange(val, true)}
                 placeholder="Chọn hoặc tạo người nhận..."
-                className="w-full bg-white border border-slate-200 rounded-xl"
+                className="w-full bg-card border border-border rounded-xl"
                 disabled={isSubmitting}
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[13px] font-bold text-slate-700">Ngày giao</label>
+              <label className="text-[13px] font-bold text-foreground">Ngày giao</label>
               <input
                 type="date"
-                className="w-full h-11 px-3 border border-slate-200 rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
+                className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                 value={formData.delivery_date}
                 onChange={e => setFormData({ ...formData, delivery_date: e.target.value })}
                 disabled={isSubmitting}
@@ -396,12 +396,12 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
           </form>
         </div>
 
-        <div className="p-4 border-t border-slate-100 shrink-0 bg-slate-50/50 flex justify-end gap-2">
+        <div className="p-4 border-t border-border shrink-0 bg-muted/50 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-4 py-2.5 text-[14px] font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
+            className="px-4 py-2.5 text-[14px] font-bold text-muted-foreground bg-card border border-border rounded-xl hover:bg-muted transition-colors disabled:opacity-50"
           >
             Hủy
           </button>

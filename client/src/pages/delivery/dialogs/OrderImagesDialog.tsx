@@ -150,7 +150,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
       {/* Dialog Container */}
       <div
         className={clsx(
-          'relative w-full bg-white flex flex-col transition-all duration-350',
+          'relative w-full bg-background flex flex-col transition-all duration-350',
           'max-h-[100dvh] sm:max-h-[90vh] min-h-0',
           hidePhase1 ? 'sm:max-w-[450px]' : 'sm:max-w-[1000px] lg:max-w-[1200px]',
           'rounded-t-[32px] sm:rounded-3xl shadow-2xl',
@@ -160,7 +160,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
         )}
       >
         {/* Header */}
-        <div className="px-5 sm:px-6 py-4 bg-white border-b border-border flex items-center justify-between shrink-0 sm:rounded-t-3xl shadow-sm z-10 pb-safe-top">
+        <div className="px-5 sm:px-6 py-4 bg-card border-b border-border flex items-center justify-between shrink-0 sm:rounded-t-3xl shadow-sm z-10 pb-safe-top">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
               <ImageIcon size={20} />
@@ -194,7 +194,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
                     {receiptImages.map((img, idx) => (
                       <div 
                         key={idx}
-                        className="relative bg-slate-50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
+                        className="relative bg-muted/50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
                         onClick={() => setFullscreenImage(img)}
                       >
                         <img src={img} alt={`Biên nhận ${idx}`} className="w-full h-full object-cover" />
@@ -205,7 +205,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
                     ))}
                   </div>
                 ) : (
-                  <div className="h-[200px] bg-slate-50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-slate-400 gap-2">
+                  <div className="h-[200px] bg-muted/50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-muted-foreground/40 gap-2">
                     <ImageIcon size={40} className="opacity-20" />
                     <p className="text-sm font-medium">Không có ảnh biên nhận</p>
                   </div>
@@ -213,8 +213,8 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
               </div>
 
               {/* Vạch chia luân chuyển */}
-              <div className="hidden sm:flex items-center justify-center text-slate-300">
-                <div className="w-px h-full bg-slate-200" />
+              <div className="hidden sm:flex items-center justify-center text-border">
+                <div className="w-px h-full bg-border" />
               </div>
 
               <div className="flex-1 space-y-3">
@@ -228,7 +228,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
                     {importImages.map((img, idx) => (
                       <div 
                         key={idx}
-                        className="relative bg-slate-50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
+                        className="relative bg-muted/50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
                         onClick={() => setFullscreenImage(img)}
                       >
                         <img src={img} alt={`Nhập hàng ${idx}`} className="w-full h-full object-cover" />
@@ -239,7 +239,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
                     ))}
                   </div>
                 ) : (
-                  <div className="h-[200px] bg-slate-50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-slate-400 gap-2">
+                  <div className="h-[200px] bg-muted/50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-muted-foreground/40 gap-2">
                     <ImageIcon size={40} className="opacity-20" />
                     <p className="text-sm font-medium">Không có ảnh nhập hàng</p>
                   </div>
@@ -247,8 +247,8 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
               </div>
 
               {/* Vạch chia luân chuyển */}
-              <div className="hidden sm:flex items-center justify-center text-slate-300">
-                 <div className="w-px h-full bg-slate-200" />
+              <div className="hidden sm:flex items-center justify-center text-border">
+                 <div className="w-px h-full bg-border" />
               </div>
             </>
           )}
@@ -264,7 +264,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
                 {deliveryImages.map((img, idx) => (
                   <div 
                     key={idx}
-                    className="relative bg-slate-50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
+                    className="relative bg-muted/50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
                     onClick={() => setFullscreenImage(img)}
                   >
                     <img src={img} alt={`Giao hàng ${idx}`} className="w-full h-full object-cover" />
@@ -275,7 +275,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
                 ))}
               </div>
             ) : (
-              <div className="h-[200px] bg-slate-50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-slate-400 gap-2">
+              <div className="h-[200px] bg-muted/50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-muted-foreground/40 gap-2">
                 <ImageIcon size={40} className="opacity-20" />
                 <p className="text-sm font-medium">Không có ảnh hàng hóa</p>
               </div>
@@ -284,11 +284,11 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
         </div>
 
         {/* Footer */}
-        <div className="p-5 sm:p-6 bg-slate-50 border-t border-border shrink-0 rounded-b-[32px] sm:rounded-b-3xl pb-safe-bottom">
+        <div className="p-5 sm:p-6 bg-muted/50 border-t border-border shrink-0 rounded-b-[32px] sm:rounded-b-3xl pb-safe-bottom">
           <button 
             type="button" 
             onClick={onClose} 
-            className="w-full py-3 rounded-xl border border-border bg-white hover:bg-slate-50 text-foreground text-[14px] font-bold transition-all shadow-sm"
+            className="w-full py-3 rounded-xl border border-border bg-card hover:bg-muted text-foreground text-[14px] font-bold transition-all shadow-sm"
           >
             Đóng
           </button>
@@ -303,7 +303,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
         >
           <button
             onClick={() => setFullscreenImage(null)}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors z-10"
+            className="absolute top-4 right-4 p-2 rounded-full bg-card/10 text-white hover:bg-card/20 transition-colors z-10"
           >
             <X size={20} />
           </button>

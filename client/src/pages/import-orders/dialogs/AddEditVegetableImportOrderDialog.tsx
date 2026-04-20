@@ -561,26 +561,26 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
       {/* Panel */}
       <div
         className={clsx(
-          'relative w-full max-w-[1200px] bg-slate-50 shadow-2xl flex flex-col h-screen border-l border-border',
+          'relative w-full max-w-[1200px] bg-background shadow-2xl flex flex-col h-screen border-l border-border',
           isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 bg-white border-b border-border z-10 shadow-sm relative">
+        <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 bg-card border-b border-border z-10 shadow-sm relative">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shadow-inner">
               <Package size={20} />
             </div>
             <div>
-              <h2 className="text-lg md:text-xl font-bold text-slate-800 text-balance pr-6">
+              <h2 className="text-lg md:text-xl font-bold text-foreground text-balance pr-6">
                 {isEditMode ? 'Chỉnh sửa Phiếu Nhập' : 'Lập Phiếu Nhập Hàng'}
               </h2>
-              <p className="text-[12px] font-medium text-slate-500">
+              <p className="text-[12px] font-medium text-muted-foreground">
                 {defaultCategory === 'standard' ? 'Tạo phiếu nhập kho mới cho cửa hàng' : 'Lưu trữ hàng hóa về vựa và cộng công nợ chủ hàng'}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -591,10 +591,10 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
             {/* THONG TIN CHUYEN XE & KHACH HANG */}
             <div className="lg:col-span-5 xl:col-span-5 space-y-4 md:space-y-6">
-              <div className="bg-white rounded-2xl border border-border shadow-sm p-4 md:p-5 space-y-3 md:space-y-5">
+              <div className="bg-card rounded-2xl border border-border shadow-sm p-4 md:p-5 space-y-3 md:space-y-5">
                 <div className="flex items-center gap-2 pb-3 border-b border-border/50">
                   <UserCircle size={18} className="text-primary" />
-                  <span className="text-[13px] font-bold text-slate-700 uppercase tracking-wider">Thông tin Khách</span>
+                  <span className="text-[13px] font-bold text-foreground uppercase tracking-wider">Thông tin Khách</span>
                 </div>
 
                 <div className="space-y-3 md:space-y-4">
@@ -602,18 +602,18 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                     <>
                       <div className="grid grid-cols-2 gap-2 md:gap-3">
                         <div className="space-y-1.5">
-                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ngày</label>
+                          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ngày</label>
                           <Controller name="order_date" control={control} render={({ field }) => <DatePicker value={field.value as string} onChange={field.onChange} />} />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Giờ</label>
+                          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Giờ</label>
                           <Controller name="order_time" control={control} render={({ field }) => <TimePicker24h value={field.value as string} onChange={field.onChange} />} />
                         </div>
                       </div>
 
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Người gửi</label>
+                          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Người gửi</label>
                           <button
                             type="button"
                             onClick={() => setShowNewSenderForm(!showNewSenderForm)}
@@ -663,21 +663,21 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                               type="text"
                               value={newSenderName}
                               onChange={(e) => setNewSenderName(e.target.value)}
-                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                               placeholder="Tên người gửi *"
                             />
                             <input
                               type="tel"
                               value={newSenderPhone}
                               onChange={(e) => setNewSenderPhone(e.target.value)}
-                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                               placeholder="Số điện thoại (không bắt buộc)"
                             />
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => { setShowNewSenderForm(false); setNewSenderName(''); setNewSenderPhone(''); }}
-                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-[12px] font-bold hover:bg-slate-50 transition-all active:scale-[0.98]"
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-border bg-card text-muted-foreground text-[12px] font-bold hover:bg-muted/50 transition-all active:scale-[0.98]"
                               >
                                 Hủy
                               </button>
@@ -703,7 +703,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Người nhận <span className="text-red-500">*</span></label>
+                          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Người nhận <span className="text-red-500">*</span></label>
                           <button
                             type="button"
                             onClick={() => setShowNewCustomerForm(!showNewCustomerForm)}
@@ -738,21 +738,21 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                               type="text"
                               value={newCustomerName}
                               onChange={(e) => setNewCustomerName(e.target.value)}
-                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                               placeholder="Tên khách hàng *"
                             />
                             <input
                               type="tel"
                               value={newCustomerPhone}
                               onChange={(e) => setNewCustomerPhone(e.target.value)}
-                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                               placeholder="Số điện thoại (không bắt buộc)"
                             />
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => { setShowNewCustomerForm(false); setNewCustomerName(''); setNewCustomerPhone(''); }}
-                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-[12px] font-bold hover:bg-slate-50 transition-all active:scale-[0.98]"
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-border bg-card text-muted-foreground text-[12px] font-bold hover:bg-muted transition-all active:scale-[0.98]"
                               >
                                 Hủy
                               </button>
@@ -777,7 +777,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nhân viên nhận</label>
+                        <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Nhân viên nhận</label>
                         <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[13px] font-semibold text-amber-800">
                           {employees?.find((e: any) => e.id === watchReceivedBy)?.full_name || user?.full_name || 'Tự động'}
                         </div>
@@ -788,18 +788,18 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                     <>
                       <div className="grid grid-cols-2 gap-2 md:gap-3">
                         <div className="space-y-1.5">
-                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ngày</label>
+                          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ngày</label>
                           <Controller name="order_date" control={control} render={({ field }) => <DatePicker value={field.value as string} onChange={field.onChange} />} />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Giờ</label>
+                          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Giờ</label>
                           <Controller name="order_time" control={control} render={({ field }) => <TimePicker24h value={field.value as string} onChange={field.onChange} />} />
                         </div>
                       </div>
 
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Chủ hàng (Người gửi)</label>
+                          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Chủ hàng (Người gửi)</label>
                           <button
                             type="button"
                             onClick={() => setShowNewSenderForm(!showNewSenderForm)}
@@ -849,21 +849,21 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                               type="text"
                               value={newSenderName}
                               onChange={(e) => setNewSenderName(e.target.value)}
-                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                               placeholder="Tên chủ hàng *"
                             />
                             <input
                               type="tel"
                               value={newSenderPhone}
                               onChange={(e) => setNewSenderPhone(e.target.value)}
-                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                               placeholder="Số điện thoại (không bắt buộc)"
                             />
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => { setShowNewSenderForm(false); setNewSenderName(''); setNewSenderPhone(''); }}
-                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-[12px] font-bold hover:bg-slate-50 transition-all active:scale-[0.98]"
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-border bg-card text-muted-foreground text-[12px] font-bold hover:bg-muted/50 transition-all active:scale-[0.98]"
                               >
                                 Hủy
                               </button>
@@ -889,7 +889,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tên vựa (Người nhận) <span className="text-red-500">*</span></label>
+                          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Tên vựa (Người nhận) <span className="text-red-500">*</span></label>
                           <button
                             type="button"
                             onClick={() => setShowNewCustomerForm(!showNewCustomerForm)}
@@ -924,21 +924,21 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                               type="text"
                               value={newCustomerName}
                               onChange={(e) => setNewCustomerName(e.target.value)}
-                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                               placeholder="Tên khách hàng / vựa *"
                             />
                             <input
                               type="tel"
                               value={newCustomerPhone}
                               onChange={(e) => setNewCustomerPhone(e.target.value)}
-                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                              className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                               placeholder="Số điện thoại (không bắt buộc)"
                             />
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => { setShowNewCustomerForm(false); setNewCustomerName(''); setNewCustomerPhone(''); }}
-                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-[12px] font-bold hover:bg-slate-50 transition-all active:scale-[0.98]"
+                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-border bg-card text-muted-foreground text-[12px] font-bold hover:bg-muted/50 transition-all active:scale-[0.98]"
                               >
                                 Hủy
                               </button>
@@ -963,7 +963,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nhân viên nhận</label>
+                        <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Nhân viên nhận</label>
                         <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[13px] font-semibold text-amber-800">
                           {employees?.find((e: any) => e.id === watchReceivedBy)?.full_name || user?.full_name || 'Tự động'}
                         </div>
@@ -971,7 +971,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
                       {canAutoAssignDriverVehicle && (
                         <div className="space-y-1.5">
-                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Biển số xe</label>
+                          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Biển số xe</label>
                           {isVehiclesError ? (
                             <div className="w-full px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl text-[12px] font-semibold text-red-700">
                               Không tải được danh sách xe (thiếu quyền hoặc lỗi API). Vui lòng cấp quyền xe cho tài khoản này.
@@ -987,7 +987,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                 value={dialogVehiclePlateText || '-'}
                                 disabled
                                 readOnly
-                                className="w-full px-3 py-2.5 bg-slate-100 border border-border rounded-xl text-[13px] text-slate-700 font-medium cursor-not-allowed"
+                                className="w-full px-3 py-2.5 bg-muted border border-border rounded-xl text-[13px] text-foreground font-medium cursor-not-allowed"
                               />
                               {isDriverVehiclesNameFallback && (
                                 <p className="text-[11px] font-medium text-amber-700">
@@ -1008,10 +1008,10 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
                   {defaultCategory !== 'vegetable' && (
                   <div className="space-y-1.5 pt-2">
-                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ảnh biên nhận/Sản phẩm</label>
+                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ảnh biên nhận/Sản phẩm</label>
                     <div className="flex flex-col gap-2">
                       {watchReceiptImageUrl ? (
-                        <div className="relative inline-block w-24 h-24 rounded-xl border border-slate-200 overflow-hidden group">
+                        <div className="relative inline-block w-24 h-24 rounded-xl border border-border overflow-hidden group">
                           <img src={watchReceiptImageUrl} alt="Receipt" className="w-full h-full object-cover" />
                           <button
                             type="button"
@@ -1034,14 +1034,14 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isUploading}
-                            className="w-full h-28 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-slate-50 disabled:opacity-50"
+                            className="w-full h-28 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-muted/50 disabled:opacity-50"
                           >
                             {isUploading ? (
                               <Loader2 size={20} className="animate-spin text-primary" />
                             ) : (
                               <>
                                 <ImagePlus size={24} className="mb-1 text-primary" />
-                                <span className="text-[11px] font-medium text-slate-500">Kéo thả hoặc nhấn để tải ảnh</span>
+                                <span className="text-[11px] font-medium text-muted-foreground">Kéo thả hoặc nhấn để tải ảnh</span>
                               </>
                             )}
                           </button>
@@ -1056,11 +1056,11 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
             {/* BANG HANG HOA */}
             <div className={clsx('flex flex-col min-h-[500px]', defaultCategory === 'standard' ? 'lg:col-span-7 xl:col-span-7' : 'lg:col-span-7 xl:col-span-7')}>
-              <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col h-full overflow-hidden">
-                <div className="px-4 md:px-5 py-3 border-b border-border bg-slate-50 flex items-center justify-between z-10">
+              <div className="bg-card rounded-2xl border border-border shadow-sm flex flex-col h-full overflow-hidden">
+                <div className="px-4 md:px-5 py-3 border-b border-border bg-muted/50 flex items-center justify-between z-10">
                   <div className="flex items-center gap-2">
                     <FileText size={16} className="text-primary" />
-                    <span className="text-[13px] font-bold text-slate-700 uppercase tracking-wider">Danh sách Nhập</span>
+                    <span className="text-[13px] font-bold text-foreground uppercase tracking-wider">Danh sách Nhập</span>
                   </div>
                   <button
                     type="button"
@@ -1072,22 +1072,22 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                   </button>
                 </div>
 
-                <div className="flex-1 overflow-auto p-0 bg-slate-50/30 md:bg-transparent custom-scrollbar">
+                <div className="flex-1 overflow-auto p-0 bg-muted/50/30 md:bg-transparent custom-scrollbar">
                   <div className="w-full">
                     {/* Desktop Header */}
                     {/* Desktop Header */}
                     {defaultCategory === 'standard' ? (
-                      <div className="hidden md:grid grid-cols-[1fr_80px_80px_36px] gap-3 px-4 py-3 bg-white border-b border-border sticky top-0 z-10 md:items-center">
-                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tên Mặt Hàng</div>
-                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">SL</div>
-                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Hình Ảnh</div>
+                      <div className="hidden md:grid grid-cols-[1fr_80px_80px_36px] gap-3 px-4 py-3 bg-card border-b border-border sticky top-0 z-10 md:items-center">
+                        <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Tên Mặt Hàng</div>
+                        <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">SL</div>
+                        <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">Hình Ảnh</div>
                         <div></div>
                       </div>
                     ) : (
-                      <div className="hidden md:grid grid-cols-[60px_minmax(150px,3fr)_100px_36px] gap-3 px-4 py-3 bg-white border-b border-border sticky top-0 z-10 md:items-center">
-                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">SL</div>
-                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tên Hàng</div>
-                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Tổng Tiền</div>
+                      <div className="hidden md:grid grid-cols-[60px_minmax(150px,3fr)_100px_36px] gap-3 px-4 py-3 bg-card border-b border-border sticky top-0 z-10 md:items-center">
+                        <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">SL</div>
+                        <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Tên Hàng</div>
+                        <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-right">Tổng Tiền</div>
                         <div></div>
                       </div>
                     )}
@@ -1097,7 +1097,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                       {fields.map((field, index) => {
                         return (
                           <div key={field.id} className={clsx(
-                            "grid gap-2 md:gap-3 p-3 md:px-4 md:py-2 md:items-center bg-white rounded-xl md:rounded-none border border-slate-200 md:border-none shadow-sm md:shadow-none hover:bg-slate-50/50 transition-all group relative",
+                            "grid gap-2 md:gap-3 p-3 md:px-4 md:py-2 md:items-center bg-card rounded-xl md:rounded-none border border-border md:border-none shadow-sm md:shadow-none hover:bg-muted/50/50 transition-all group relative",
                             defaultCategory === 'standard' 
                               ? "grid-cols-1 md:grid-cols-[1fr_80px_80px_36px]" 
                               : "grid-cols-1 md:grid-cols-[60px_minmax(150px,3fr)_100px_36px]"
@@ -1118,7 +1118,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                         value={field.value ?? ''}
                                         onChange={(e) => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
                                         onBlur={field.onBlur}
-                                        className="w-full h-9 px-2 bg-white border border-slate-200 rounded-lg text-[13px] font-black text-center text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none tabular-nums transition-all"
+                                        className="w-full h-9 px-2 bg-card border border-border rounded-lg text-[13px] font-black text-center text-foreground focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none tabular-nums transition-all"
                                       />
                                     )}
                                   />
@@ -1136,7 +1136,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                       onValueChange={(val) => setValue(`items.${index}.product_id`, val, { shouldValidate: true })}
                                       onCreate={(name) => handleCreateProduct(index, name)}
                                       placeholder="Gõ tên hàng..."
-                                      className="h-9 border-slate-200 bg-white"
+                                      className="h-9 border-border bg-card"
                                     />
                                     {(errors.items as any)?.[index]?.product_id && (
                                       <span className="mt-1 ml-1 text-[10px] text-red-500">Thiếu</span>
@@ -1144,7 +1144,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                     {(() => {
                                       const prod = filteredProducts.find((p: any) => p.id === watch(`items.${index}.product_id`));
                                       const price = prod?.base_price || 0;
-                                      if (price > 0) return <span className="text-[9px] text-slate-400 mt-0.5 ml-1">{new Intl.NumberFormat('vi-VN').format(price)}đ</span>;
+                                      if (price > 0) return <span className="text-[9px] text-muted-foreground mt-0.5 ml-1">{new Intl.NumberFormat('vi-VN').format(price)}đ</span>;
                                       return null;
                                     })()}
                                   </div>
@@ -1158,7 +1158,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                         value={field.value ?? ''}
                                         onChange={field.onChange}
                                         onBlur={field.onBlur}
-                                        className="h-9 px-2.5 bg-white border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none"
+                                        className="h-9 px-2.5 bg-card border border-border rounded-lg text-[12px] text-foreground focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none"
                                         placeholder="Ghi chú cho sản phẩm này..."
                                       />
                                     )}
@@ -1196,7 +1196,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                 {/* Mobile layout */}
                                 <div className="md:hidden flex items-start gap-2">
                                   <div className="flex-1 flex flex-col space-y-1 relative">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase">Tên hàng</label>
+                                    <label className="text-[11px] font-bold text-muted-foreground uppercase">Tên hàng</label>
                                     <CreatableSearchableSelect
                                       options={filteredProducts.map((p: any) => ({
                                         value: p.id,
@@ -1206,7 +1206,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                       onValueChange={(val) => setValue(`items.${index}.product_id`, val, { shouldValidate: true })}
                                       onCreate={(name) => handleCreateProduct(index, name)}
                                       placeholder="Gõ tên hàng..."
-                                      className="h-9 border-slate-200 bg-white"
+                                      className="h-9 border-border bg-card"
                                     />
                                     {(errors.items as any)?.[index]?.product_id && (
                                       <span className="text-[10px] text-red-500">Thiếu</span>
@@ -1214,7 +1214,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                     {(() => {
                                       const prod = filteredProducts.find((p: any) => p.id === watch(`items.${index}.product_id`));
                                       const price = prod?.base_price || 0;
-                                      if (price > 0) return <span className="text-[9px] text-slate-400 mt-0.5">{new Intl.NumberFormat('vi-VN').format(price)}đ</span>;
+                                      if (price > 0) return <span className="text-[9px] text-muted-foreground mt-0.5">{new Intl.NumberFormat('vi-VN').format(price)}đ</span>;
                                       return null;
                                     })()}
                                   </div>
@@ -1228,9 +1228,9 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                   </button>
                                 </div>
 
-                                <div className="md:hidden grid gap-2 border-t border-dashed border-slate-200 pt-2 mt-2 grid-cols-2">
+                                <div className="md:hidden grid gap-2 border-t border-dashed border-border pt-2 mt-2 grid-cols-2">
                                   <div className="flex flex-col space-y-1 col-span-1">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase">Số lượng</label>
+                                    <label className="text-[11px] font-bold text-muted-foreground uppercase">Số lượng</label>
                                     <Controller
                                       name={`items.${index}.quantity` as const}
                                       control={control}
@@ -1240,7 +1240,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                           value={field.value ?? ''}
                                           onChange={(e) => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
                                           onBlur={field.onBlur}
-                                          className="w-full h-9 px-2 bg-white border border-slate-200 rounded-lg text-[13px] font-black text-center text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none tabular-nums transition-all"
+                                          className="w-full h-9 px-2 bg-card border border-border rounded-lg text-[13px] font-black text-center text-foreground focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none tabular-nums transition-all"
                                         />
                                       )}
                                     />
@@ -1254,10 +1254,10 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                       const total = Math.round(qty * price);
                                       return (
                                         <>
-                                          <label className="text-[11px] font-bold text-slate-500 uppercase">
+                                          <label className="text-[11px] font-bold text-muted-foreground uppercase">
                                             Tổng tiền
                                           </label>
-                                          <span className="text-[13px] font-bold text-primary tabular-nums h-9 flex items-center bg-slate-50 px-3 rounded-lg border border-slate-200">
+                                          <span className="text-[13px] font-bold text-primary tabular-nums h-9 flex items-center bg-muted/50 px-3 rounded-lg border border-border">
                                             {total > 0 ? new Intl.NumberFormat('vi-VN').format(total) : '-'}
                                           </span>
                                         </>
@@ -1265,7 +1265,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                     })()}
                                   </div>
                                   <div className="flex flex-col space-y-1 col-span-2">
-                                    <label className="text-[11px] font-bold text-slate-500 uppercase">Ghi chú</label>
+                                    <label className="text-[11px] font-bold text-muted-foreground uppercase">Ghi chú</label>
                                     <Controller
                                       name={`items.${index}.item_note` as const}
                                       control={control}
@@ -1275,7 +1275,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                           value={field.value ?? ''}
                                           onChange={field.onChange}
                                           onBlur={field.onBlur}
-                                          className="w-full h-9 px-2.5 bg-white border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none"
+                                          className="w-full h-9 px-2.5 bg-card border border-border rounded-lg text-[12px] text-foreground focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none"
                                           placeholder="Ghi chú cho sản phẩm này..."
                                         />
                                       )}
@@ -1288,7 +1288,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                 {/* Standard order: original layout */}
                                 <div className="flex items-end gap-2 md:contents">
                                   <div className="flex-1 flex flex-col justify-center space-y-1 md:space-y-0 relative">
-                                    <label className="text-[11px] font-bold text-slate-500 md:hidden uppercase">Mặt hàng</label>
+                                    <label className="text-[11px] font-bold text-muted-foreground md:hidden uppercase">Mặt hàng</label>
                                     <CreatableSearchableSelect
                                       options={filteredProducts.map((p: any) => ({
                                         value: p.id,
@@ -1298,7 +1298,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                       onValueChange={(val) => setValue(`items.${index}.product_id`, val, { shouldValidate: true })}
                                       onCreate={(name) => handleCreateProduct(index, name)}
                                       placeholder="Gõ tên hàng..."
-                                      className="h-9 border-slate-200 bg-white"
+                                      className="h-9 border-border bg-card"
                                     />
                                     {(errors.items as any)?.[index]?.product_id && (
                                       <span className="md:absolute md:bottom-[-16px] md:left-2 text-[10px] text-red-500">Thiếu</span>
@@ -1309,7 +1309,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                   <div className="md:hidden shrink-0 mt-auto">
                                     <div className={clsx("relative", "w-12 h-12")}>
                                       {watch(`items.${index}.image_url`) ? (
-                                        <div className="relative w-full h-full rounded-xl border border-slate-200 overflow-hidden group/img">
+                                        <div className="relative w-full h-full rounded-xl border border-border overflow-hidden group/img">
                                           <img src={watch(`items.${index}.image_url`)} alt="item" className="w-full h-full object-cover" />
                                           <button
                                             type="button"
@@ -1320,7 +1320,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                           </button>
                                         </div>
                                       ) : (
-                                        <label className="border border-slate-200 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-full h-full">
+                                        <label className="border border-border bg-muted/50 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-full h-full">
                                           <input
                                             type="file"
                                             accept="image/*"
@@ -1344,14 +1344,14 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                   </button>
                                 </div>
 
-                                <div className="grid md:contents gap-2 md:gap-3 border-t border-dashed border-slate-200 md:border-none pt-2 md:pt-0 mt-2 md:mt-0 grid-cols-1">
+                                <div className="grid md:contents gap-2 md:gap-3 border-t border-dashed border-border md:border-none pt-2 md:pt-0 mt-2 md:mt-0 grid-cols-1">
                                   {/* Số lượng */}
                                   <div className="flex flex-col justify-center space-y-1 md:space-y-0 col-span-1">
-                                    <label className="text-[11px] font-bold text-slate-500 md:hidden uppercase">SL</label>
+                                    <label className="text-[11px] font-bold text-muted-foreground md:hidden uppercase">SL</label>
                                     <input
                                       type="number"
                                       {...register(`items.${index}.quantity` as const)}
-                                      className="w-full h-9 px-2 bg-white border border-slate-200 rounded-lg text-[13px] font-black text-center text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none tabular-nums transition-all"
+                                      className="w-full h-9 px-2 bg-card border border-border rounded-lg text-[13px] font-black text-center text-foreground focus:border-primary focus:ring-1 focus:ring-primary/50 focus:outline-none tabular-nums transition-all"
                                     />
                                   </div>
                                 </div>
@@ -1363,7 +1363,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                             <div className="hidden md:flex items-center justify-center w-full">
                               <div className={clsx("relative", "w-12 h-12")}>
                                 {watch(`items.${index}.image_url`) ? (
-                                  <div className="relative w-full h-full rounded-lg border border-slate-200 overflow-hidden group/imgDesk">
+                                  <div className="relative w-full h-full rounded-lg border border-border overflow-hidden group/imgDesk">
                                     <img src={watch(`items.${index}.image_url`)} alt="item" className="w-full h-full object-cover" />
                                     <button
                                       type="button"
@@ -1375,7 +1375,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                     </button>
                                   </div>
                                 ) : (
-                                  <label className="w-full h-full border border-slate-200 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 cursor-pointer transition-all" title="Tải ảnh">
+                                  <label className="w-full h-full border border-border bg-muted/50 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all" title="Tải ảnh">
                                     <input
                                       type="file"
                                       accept="image/*"
@@ -1429,11 +1429,11 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
         </form>
 
         {/* Footer Actions */}
-        <div className="bg-white border-t border-border px-4 md:px-6 py-3 md:py-4 flex items-center justify-between shrink-0">
+        <div className="bg-card border-t border-border px-4 md:px-6 py-3 md:py-4 flex items-center justify-between shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-[13px] font-bold transition-all active:scale-95"
+            className="px-6 py-2.5 rounded-xl border border-border hover:bg-muted/50 text-muted-foreground text-[13px] font-bold transition-all active:scale-95"
           >
             Đóng
           </button>

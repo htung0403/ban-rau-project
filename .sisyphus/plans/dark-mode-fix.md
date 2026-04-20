@@ -37,7 +37,7 @@ Tuyệt đối **KHÔNG ĐƯỢC SỬA** các class sau vì chúng là chủ ý 
 - **Công việc:** Áp dụng toàn diện bộ token (`bg-card`, `bg-muted`, `border-border`, `text-foreground`) thay cho mã màu cứng.
 
 ### Task 4: Fix Dialog Wrappers (Critical)
-- **Files:** Toàn bộ ~18 files Dialog (VD: `CollectDebtDialog.tsx`, `WarehouseInventoryDialog.tsx`, `AddEditCustomerDialog.tsx`, v.v.)
+- [x] **Files:** Toàn bộ ~18 files Dialog (VD: `CollectDebtDialog.tsx`, `WarehouseInventoryDialog.tsx`, `AddEditCustomerDialog.tsx`, v.v.)
 - **Công việc:** Thay thế mã màu cứng `bg-[#f8fafc]` thành `bg-background` để hộp thoại đổi màu theo hệ thống. Sửa các class nền trắng thành `bg-card`.
 
 ### Task 5: Pages Module - Kho & Hàng Hóa

@@ -300,12 +300,12 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
         onClick={!isSubmitting ? onClose : undefined}
       />
       
-      <div className={`relative w-full h-full max-w-none bg-white shadow-xl transition-all duration-300 overflow-hidden flex flex-col ${
+      <div className={`relative w-full h-full max-w-none bg-background shadow-xl transition-all duration-300 overflow-hidden flex flex-col ${
         isClosing ? 'opacity-0 translate-y-4 scale-95' : 'opacity-100 translate-y-0 scale-100'
       }`}>
-        <div className="flex items-center justify-between p-4 border-b border-slate-100 shrink-0">
+        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-slate-800">Sửa hàng loạt</h2>
+            <h2 className="text-lg font-bold text-foreground">Sửa hàng loạt</h2>
             <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[12px] font-bold">
               {orders.length} đơn hàng
             </span>
@@ -313,31 +313,31 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
           <button 
             onClick={!isSubmitting ? onClose : undefined} 
             disabled={isSubmitting}
-            className="p-2 hover:bg-slate-100 rounded-full transition-colors disabled:opacity-50"
+            className="p-2 hover:bg-muted rounded-full transition-colors disabled:opacity-50"
           >
-            <X size={20} className="text-slate-500" />
+            <X size={20} className="text-muted-foreground" />
           </button>
         </div>
 
-        <div className="p-0 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/50">
+        <div className="p-0 overflow-y-auto custom-scrollbar flex-1 bg-muted/50">
           <form id="bulk-edit-form" onSubmit={handleSubmit} className="w-full">
             {/* Desktop View */}
             <div className="hidden md:block w-full">
               <table className="w-full border-collapse min-w-[800px]">
-                <thead className="sticky top-0 bg-slate-100 z-10 shadow-sm">
+                <thead className="sticky top-0 bg-muted z-10 shadow-sm">
                 <tr>
                   {!hideImage && (
-                    <th className="px-4 py-3 text-[12px] font-bold text-slate-600 uppercase tracking-wide text-left w-16">Ảnh</th>
+                    <th className="px-4 py-3 text-[12px] font-bold text-muted-foreground uppercase tracking-wide text-left w-16">Ảnh</th>
                   )}
-                  <th className="px-4 py-3 text-[12px] font-bold text-slate-600 uppercase tracking-wide text-left min-w-[150px]">{isVeg ? 'Người gửi (Chủ hàng)' : 'Người gửi'}</th>
-                  <th className="px-4 py-3 text-[12px] font-bold text-slate-600 uppercase tracking-wide text-left min-w-[150px]">{isVeg ? 'Người nhận (Tên vựa)' : 'Người nhận'}</th>
-                  <th className="px-4 py-3 text-[12px] font-bold text-slate-600 uppercase tracking-wide text-left min-w-[200px]">Tên hàng hóa <span className="text-red-500">*</span></th>
-                  <th className="px-4 py-3 text-[12px] font-bold text-slate-600 uppercase tracking-wide text-left w-24">Số lượng <span className="text-red-500">*</span></th>
-                  <th className="px-4 py-3 text-[12px] font-bold text-slate-600 uppercase tracking-wide text-left w-32">Đơn giá</th>
-                  <th className="px-4 py-3 text-[12px] font-bold text-slate-600 uppercase tracking-wide text-right w-32">Thành tiền</th>
+                  <th className="px-4 py-3 text-[12px] font-bold text-muted-foreground uppercase tracking-wide text-left min-w-[150px]">{isVeg ? 'Người gửi (Chủ hàng)' : 'Người gửi'}</th>
+                  <th className="px-4 py-3 text-[12px] font-bold text-muted-foreground uppercase tracking-wide text-left min-w-[150px]">{isVeg ? 'Người nhận (Tên vựa)' : 'Người nhận'}</th>
+                  <th className="px-4 py-3 text-[12px] font-bold text-muted-foreground uppercase tracking-wide text-left min-w-[200px]">Tên hàng hóa <span className="text-red-500">*</span></th>
+                  <th className="px-4 py-3 text-[12px] font-bold text-muted-foreground uppercase tracking-wide text-left w-24">Số lượng <span className="text-red-500">*</span></th>
+                  <th className="px-4 py-3 text-[12px] font-bold text-muted-foreground uppercase tracking-wide text-left w-32">Đơn giá</th>
+                  <th className="px-4 py-3 text-[12px] font-bold text-muted-foreground uppercase tracking-wide text-right w-32">Thành tiền</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
+              <tbody className="divide-y divide-border bg-card">
                 {orders.map(order => {
                   const rowData = editData[order.id];
                   if (!rowData) return null;
@@ -346,7 +346,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                   const previewImage = getOrderPreviewImage(order, rowData.image_url);
 
                   return (
-                    <tr key={order.id} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={order.id} className="hover:bg-muted/50 transition-colors">
                       {!hideImage && (
                         <td className="px-4 py-3">
                           <label className="relative block w-10 h-10 rounded-lg bg-muted/20 border border-border cursor-pointer overflow-hidden group">
@@ -363,7 +363,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                               </div>
                             )}
                             {uploadingImageId === order.id && (
-                               <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                               <div className="absolute inset-0 bg-card/80 flex items-center justify-center">
                                   <Loader2 size={16} className="text-primary animate-spin" />
                                </div>
                             )}
@@ -385,7 +385,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                           onValueChange={(val) => handleSenderChange(order.id, val, false)}
                           onCreate={(val) => handleSenderChange(order.id, val, true)}
                           placeholder="Chọn người gửi..."
-                          className="w-full bg-white border border-slate-200 rounded-xl min-w-[120px]"
+                          className="w-full bg-card border border-border rounded-xl min-w-[120px]"
                           disabled={isSubmitting}
                         />
                       </td>
@@ -397,7 +397,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                           onValueChange={(val) => handleReceiverChange(order.id, val, false)}
                           onCreate={(val) => handleReceiverChange(order.id, val, true)}
                           placeholder="Chọn người nhận..."
-                          className="w-full bg-white border border-slate-200 rounded-xl min-w-[120px]"
+                          className="w-full bg-card border border-border rounded-xl min-w-[120px]"
                           disabled={isSubmitting}
                         />
                       </td>
@@ -408,7 +408,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                           onValueChange={(val) => handleProductChange(order.id, val)}
                           onCreate={(val) => handleProductChange(order.id, val)}
                           placeholder="Nhập tên hàng..."
-                          className="w-full bg-white border border-slate-200 rounded-xl"
+                          className="w-full bg-card border border-border rounded-xl"
                           disabled={isSubmitting}
                         />
                       </td>
@@ -418,7 +418,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                           required
                           min="0.1"
                           step="0.1"
-                          className="w-full h-11 px-3 border border-slate-200 rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
+                          className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                           value={rowData.total_quantity}
                           onChange={e => updateRow(order.id, 'total_quantity', parseFloat(e.target.value) || 0)}
                           disabled={isSubmitting}
@@ -429,14 +429,14 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                           type="number"
                           min="0"
                           step="1000"
-                          className="w-full h-11 px-3 border border-slate-200 rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
+                          className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                           value={rowData.unit_price}
                           onChange={e => updateRow(order.id, 'unit_price', parseInt(e.target.value) || 0)}
                           disabled={isSubmitting}
                         />
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className="text-[14px] font-bold text-slate-700">
+                        <span className="text-[14px] font-bold text-foreground">
                           {formatAmount(amount)}
                         </span>
                       </td>
@@ -457,7 +457,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                 const previewImage = getOrderPreviewImage(order, rowData.image_url);
 
                 return (
-                  <div key={order.id} className="bg-white border border-slate-200 rounded-xl p-3 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.1)] flex flex-col gap-3 relative overflow-hidden">
+                  <div key={order.id} className="bg-card border border-border rounded-xl p-3 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.1)] flex flex-col gap-3 relative overflow-hidden">
                     {/* Top Row: Image (if any) + Product, Qty, Price */}
                     <div className="flex gap-3">
                       {!hideImage && (
@@ -477,7 +477,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                               </div>
                             )}
                             {uploadingImageId === order.id && (
-                                <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                                <div className="absolute inset-0 bg-card/80 flex items-center justify-center">
                                   <Loader2 size={16} className="text-primary animate-spin" />
                                 </div>
                             )}
@@ -500,31 +500,31 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                             onValueChange={(val) => handleProductChange(order.id, val)}
                             onCreate={(val) => handleProductChange(order.id, val)}
                             placeholder="Tên hàng hóa *"
-                            className="w-full bg-white border border-slate-200 rounded-lg min-h-[36px]"
+                            className="w-full bg-card border border-border rounded-lg min-h-[36px]"
                             disabled={isSubmitting}
                           />
                         </div>
                         <div className="flex gap-2">
                           <div className="flex-1 relative">
-                            <span className="absolute -top-1.5 left-2 bg-white px-1 text-[9px] font-bold text-slate-400 z-10 leading-none">S.LƯỢNG *</span>
+                            <span className="absolute -top-1.5 left-2 bg-card px-1 text-[9px] font-bold text-muted-foreground z-10 leading-none">S.LƯỢNG *</span>
                             <input
                               type="number"
                               required
                               min="0.1"
                               step="0.1"
-                              className="w-full h-9 px-2 pt-1 border border-slate-200 rounded-lg text-[14px] font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
+                              className="w-full h-9 px-2 pt-1 border border-border rounded-lg text-[14px] font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                               value={rowData.total_quantity}
                               onChange={e => updateRow(order.id, 'total_quantity', parseFloat(e.target.value) || 0)}
                               disabled={isSubmitting}
                             />
                           </div>
                           <div className="flex-1 relative">
-                            <span className="absolute -top-1.5 left-2 bg-white px-1 text-[9px] font-bold text-slate-400 z-10 leading-none">ĐƠN GIÁ</span>
+                            <span className="absolute -top-1.5 left-2 bg-card px-1 text-[9px] font-bold text-muted-foreground z-10 leading-none">ĐƠN GIÁ</span>
                             <input
                               type="number"
                               min="0"
                               step="1000"
-                              className="w-full h-9 px-2 pt-1 border border-slate-200 rounded-lg text-[14px] font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
+                              className="w-full h-9 px-2 pt-1 border border-border rounded-lg text-[14px] font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                               value={rowData.unit_price}
                               onChange={e => updateRow(order.id, 'unit_price', parseInt(e.target.value) || 0)}
                               disabled={isSubmitting}
@@ -535,9 +535,9 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                     </div>
 
                     {/* Sender & Receiver */}
-                    <div className="flex flex-col gap-2 pt-2.5 border-t border-slate-100">
+                    <div className="flex flex-col gap-2 pt-2.5 border-t border-border">
                       <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase ml-1">{isVeg ? 'Người gửi (Chủ hàng)' : 'Người gửi'}</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1">{isVeg ? 'Người gửi (Chủ hàng)' : 'Người gửi'}</span>
                         <CreatableSearchableSelect
                           options={senderOptions}
                           value={rowData.sender_id || rowData.sender_name}
@@ -545,12 +545,12 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                           onValueChange={(val) => handleSenderChange(order.id, val, false)}
                           onCreate={(val) => handleSenderChange(order.id, val, true)}
                           placeholder="Chọn người gửi..."
-                          className="w-full bg-white border border-slate-200 rounded-lg min-h-[40px]"
+                          className="w-full bg-card border border-border rounded-lg min-h-[40px]"
                           disabled={isSubmitting}
                         />
                       </div>
                       <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase ml-1">{isVeg ? 'Người nhận (Tên vựa)' : 'Người nhận'}</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1">{isVeg ? 'Người nhận (Tên vựa)' : 'Người nhận'}</span>
                         <CreatableSearchableSelect
                           options={receiverOptions}
                           value={rowData.customer_id || rowData.receiver_name}
@@ -558,16 +558,16 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                           onValueChange={(val) => handleReceiverChange(order.id, val, false)}
                           onCreate={(val) => handleReceiverChange(order.id, val, true)}
                           placeholder="Chọn người nhận..."
-                          className="w-full bg-white border border-slate-200 rounded-lg min-h-[40px]"
+                          className="w-full bg-card border border-border rounded-lg min-h-[40px]"
                           disabled={isSubmitting}
                         />
                       </div>
                     </div>
 
                     {/* Total Amount */}
-                    <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 mt-0.5">
-                      <span className="text-[12px] font-bold text-slate-400 uppercase">Thành tiền</span>
-                      <span className="text-[16px] font-black text-slate-800">{formatAmount(amount)}</span>
+                    <div className="flex items-center justify-between pt-2.5 border-t border-border mt-0.5">
+                      <span className="text-[12px] font-bold text-muted-foreground uppercase">Thành tiền</span>
+                      <span className="text-[16px] font-black text-foreground">{formatAmount(amount)}</span>
                     </div>
                   </div>
                 );
@@ -576,12 +576,12 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
           </form>
         </div>
 
-        <div className="p-4 border-t border-slate-100 shrink-0 bg-white flex justify-end gap-2 shadow-[0_-4px_10px_rgba(0,0,0,0.02)] z-20">
+        <div className="p-4 border-t border-border shrink-0 bg-card flex justify-end gap-2 shadow-[0_-4px_10px_rgba(0,0,0,0.02)] z-20">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-4 py-2.5 text-[14px] font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
+            className="px-4 py-2.5 text-[14px] font-bold text-muted-foreground bg-card border border-border rounded-xl hover:bg-muted transition-colors disabled:opacity-50"
           >
             Hủy
           </button>

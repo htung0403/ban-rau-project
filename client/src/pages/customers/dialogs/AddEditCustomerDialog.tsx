@@ -114,12 +114,12 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
       {/* Panel */}
       <div
         className={clsx(
-          'relative w-full max-w-125 bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
+          'relative w-full max-w-125 bg-background shadow-2xl flex flex-col h-screen border-l border-border',
           isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
               <Building2 size={20} />
@@ -136,7 +136,7 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
 
         {/* Form Body */}
         <form id="customer-form" onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto p-6 space-y-4">
-          <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
               <Building2 size={16} className="text-primary" />
               <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Thông tin liên hệ</span>
@@ -189,7 +189,7 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
         </form>
 
         {/* Footer */}
-        <div className="bg-white border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-card border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
           <button
             type="button"
             onClick={onClose}

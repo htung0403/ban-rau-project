@@ -86,12 +86,12 @@ const CollectDebtDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, custom
       {/* Panel */}
       <div
         className={clsx(
-          'relative w-full max-w-[500px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
+          'relative w-full max-w-[500px] bg-background shadow-2xl flex flex-col h-screen border-l border-border',
           isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600">
               <Banknote size={20} />
@@ -121,7 +121,7 @@ const CollectDebtDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, custom
              </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden mt-6">
+          <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden mt-6">
             <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
               <Banknote size={16} className="text-primary" />
               <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Thông tin thu tiền</span>
@@ -187,7 +187,7 @@ const CollectDebtDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, custom
         </form>
 
         {/* Footer */}
-        <div className="bg-white border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-card border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
           <button
             type="button"
             onClick={onClose}

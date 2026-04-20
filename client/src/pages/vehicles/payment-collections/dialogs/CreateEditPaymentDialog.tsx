@@ -152,8 +152,8 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
       />
 
       {/* Panel */}
-      <div className="relative w-full max-w-[650px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-slate-200 dialog-slide-in">
-        <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
+      <div className="relative w-full max-w-[650px] bg-background shadow-2xl flex flex-col h-screen border-l border-border dialog-slide-in">
+        <div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
               <FileText size={20} />
@@ -173,7 +173,7 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
         </div>
 
         <form id="create-edit-payment-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
-          <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
               <Tag size={16} className="text-primary" />
               <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Chi tiết khoản thu</span>
@@ -202,17 +202,17 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
               )}
 
               {isEdit && payment && (
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 space-y-1">
-                  <p className="text-[13px] text-slate-600">Đơn Hàng: <span className="font-bold text-slate-800">{payment.deliveryOrderCode}</span></p>
-                  <p className="text-[13px] text-slate-600">Khách Hàng: <span className="font-bold text-slate-800">{payment.customerName}</span></p>
-                  <p className="text-[13px] text-slate-600">Tiền Theo Phân Xe: <span className="font-bold text-slate-800">{formatCurrency(payment.expectedAmount)}</span></p>
+                <div className="bg-muted/50 p-3 rounded-lg border border-border space-y-1">
+                  <p className="text-[13px] text-muted-foreground">Đơn Hàng: <span className="font-bold text-foreground">{payment.deliveryOrderCode}</span></p>
+                  <p className="text-[13px] text-muted-foreground">Khách Hàng: <span className="font-bold text-foreground">{payment.customerName}</span></p>
+                  <p className="text-[13px] text-muted-foreground">Tiền Theo Phân Xe: <span className="font-bold text-foreground">{formatCurrency(payment.expectedAmount)}</span></p>
                 </div>
               )}
 
               {!isEdit && selectedOrder && (
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 space-y-1">
-                  <p className="text-[13px] text-slate-600">Khách Hàng: <span className="font-bold text-slate-800">{selectedOrder.customer}</span></p>
-                  <p className="text-[13px] text-slate-600">Tiền Theo Phân Xe: <span className="font-bold text-slate-800">{formatCurrency(selectedOrder.amount)}</span></p>
+                <div className="bg-muted/50 p-3 rounded-lg border border-border space-y-1">
+                  <p className="text-[13px] text-muted-foreground">Khách Hàng: <span className="font-bold text-foreground">{selectedOrder.customer}</span></p>
+                  <p className="text-[13px] text-muted-foreground">Tiền Theo Phân Xe: <span className="font-bold text-foreground">{formatCurrency(selectedOrder.amount)}</span></p>
                 </div>
               )}
 
@@ -220,7 +220,7 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
                 <label className="text-[13px] font-bold text-foreground">Ảnh xác minh giao hàng / nhận tiền</label>
                 <div className="flex flex-col gap-2">
                   {proofImageUrl ? (
-                    <div className="relative inline-block w-28 h-28 rounded-xl border border-slate-200 overflow-hidden group">
+                    <div className="relative inline-block w-28 h-28 rounded-xl border border-border overflow-hidden group">
                       <img src={proofImageUrl} alt="Ảnh xác minh" className="w-full h-full object-cover" />
                       <button
                         type="button"
@@ -243,14 +243,14 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
                         type="button"
                         onClick={() => proofInputRef.current?.click()}
                         disabled={isUploading}
-                        className="w-full h-20 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-slate-50 disabled:opacity-50"
+                        className="w-full h-20 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground/40 hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-muted/5 disabled:opacity-50"
                       >
                         {isUploading ? (
                           <Loader2 size={18} className="animate-spin text-primary" />
                         ) : (
                           <>
                             <ImagePlus size={18} className="mb-1 text-primary" />
-                            <span className="text-[11px] font-medium text-slate-500">Tải ảnh xác minh</span>
+                            <span className="text-[11px] font-medium text-muted-foreground">Tải ảnh xác minh</span>
                           </>
                         )}
                       </button>
@@ -272,7 +272,7 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
                   required 
                 />
                 {deliveryOrderId && (
-                  <p className={`text-[12px] mt-1.5 font-bold ${currentDiff < 0 ? 'text-red-500' : currentDiff > 0 ? 'text-green-500' : 'text-slate-500'}`}>
+                  <p className={`text-[12px] mt-1.5 font-bold ${currentDiff < 0 ? 'text-red-500' : currentDiff > 0 ? 'text-green-500' : 'text-muted-foreground'}`}>
                     Chênh lệch: {currentDiff < 0 ? `Thiếu ${formatCurrency(Math.abs(currentDiff))}` : currentDiff > 0 ? `Thừa ${formatCurrency(currentDiff)}` : 'Vừa đủ'}
                   </p>
                 )}
@@ -306,7 +306,7 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
           </div>
         </form>
 
-        <div className="bg-white border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-card border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
           <button
             type="button"
             onClick={onClose}

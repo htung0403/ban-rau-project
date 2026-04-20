@@ -317,7 +317,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       {/* Dialog Container */}
       <div
         className={clsx(
-          'relative w-full bg-white flex flex-col transition-all duration-350',
+          'relative w-full bg-background flex flex-col transition-all duration-350',
           'h-dvh sm:h-auto sm:max-h-[90vh] sm:max-w-200',
           'rounded-none sm:rounded-3xl shadow-2xl',
           isClosing
@@ -326,7 +326,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         )}
       >
         {/* Header */}
-        <div className="px-5 sm:px-6 py-4 bg-white border-b border-border flex items-center justify-between shrink-0 sm:rounded-t-3xl shadow-sm z-10 pb-safe-top">
+        <div className="px-5 sm:px-6 py-4 bg-card border-b border-border flex items-center justify-between shrink-0 sm:rounded-t-3xl shadow-sm z-10 pb-safe-top">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-600">
               <Truck size={20} />
@@ -348,15 +348,15 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         {/* Content */}
         <form id="assign-vehicle-form" onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 custom-scrollbar">
           {/* Order Info Summary */}
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col gap-3 shrink-0">
+          <div className="bg-muted/50 rounded-2xl p-4 border border-border flex flex-col gap-3 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tổng cần giao</span>
-                <span className="text-lg font-black text-slate-800 tabular-nums">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Tổng cần giao</span>
+                <span className="text-lg font-black text-foreground tabular-nums">
                   {order?.total_quantity.toLocaleString()}
                 </span>
               </div>
-              <div className="w-px h-8 bg-slate-200" />
+              <div className="w-px h-8 bg-border" />
               <div className="flex flex-col items-end">
                 <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">Còn lại (Chưa phân)</span>
                 <span className="text-lg font-black text-orange-600 tabular-nums transition-all">
@@ -366,8 +366,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             </div>
 
             {order?.import_orders?.total_amount != null && (
-              <div className="flex items-center justify-between pt-3 border-t border-slate-200/50">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Tổng tiền đơn hàng</span>
+              <div className="flex items-center justify-between pt-3 border-t border-border">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Tổng tiền đơn hàng</span>
                 <span className="text-[15px] font-black text-emerald-600 tabular-nums">
                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(order.import_orders.total_amount))}
                 </span>
@@ -377,7 +377,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-[13px] font-bold text-slate-800 uppercase tracking-wider">Danh sách phương tiện</h3>
+              <h3 className="text-[13px] font-bold text-foreground uppercase tracking-wider">Danh sách phương tiện</h3>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -392,7 +392,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                 const isRowDisabled = isPaid || (isDriver && !isMyVehicleRow);
 
                 return (
-                  <div key={field.id} className={clsx("relative flex flex-col md:flex-row gap-4 p-4 bg-white border border-slate-200 shadow-sm rounded-xl items-start md:items-end group transition-colors", isPaid ? "opacity-90 bg-slate-50/50" : "hover:border-primary/30")}>
+                  <div key={field.id} className={clsx("relative flex flex-col md:flex-row gap-4 p-4 bg-card border border-border shadow-sm rounded-xl items-start md:items-end group transition-colors", isPaid ? "opacity-90 bg-muted/50" : "hover:border-primary/30")}>
                     {/* Badge đã thu tiền */}
                     {isPaid && (
                       <div className="absolute -top-3 left-4 bg-green-100 border border-green-200 text-green-700 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm">
@@ -402,7 +402,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
                     {/* Xe */}
                     <div className="flex-1 w-full space-y-1.5 mt-2 md:mt-0">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                         <Truck size={12} className={isPaid ? "text-green-500" : "text-primary"} /> Chọn xe
                       </label>
                       <SearchableSelect
@@ -428,7 +428,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     </div>
                     {/* Tài xế */}
                     <div className="flex-1 w-full space-y-1.5 mt-2 md:mt-0">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                         <User size={12} className={isPaid ? "text-green-500" : "text-primary"} /> Tài xế
                       </label>
                       <SearchableSelect
@@ -445,7 +445,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     </div>
                     {/* Đơn giá */}
                     <div className="w-full md:w-36 space-y-1.5 mt-2 md:mt-0">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                         Đơn giá
                       </label>
                       <input
@@ -463,12 +463,12 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                         })}
                         disabled={isRowDisabled}
                         placeholder="0"
-                        className={clsx("w-full h-10.5 px-3 bg-white border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums", isRowDisabled && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed")}
+                        className={clsx("w-full h-10.5 px-3 bg-card border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums", isRowDisabled && "opacity-70 bg-muted text-muted-foreground cursor-not-allowed")}
                       />
                     </div>
                     {/* Số lượng */}
                     <div className="w-full md:w-32 space-y-1.5 mt-2 md:mt-0">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                         <Package size={12} className={isPaid ? "text-green-500" : "text-primary"} /> SL
                       </label>
                       <input
@@ -486,7 +486,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                         })}
                         disabled={isRowDisabled}
                         placeholder="0"
-                        className={clsx("w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums", isRowDisabled && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed")}
+                        className={clsx("w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums", isRowDisabled && "opacity-70 bg-muted text-muted-foreground cursor-not-allowed")}
                       />
                       {errors.assignments?.[index]?.quantity && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.quantity?.message}</p>}
                     </div>
@@ -494,7 +494,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     {/* Tiền thu (chỉ đơn tạp hóa/standard) */}
                     {isStandardOrder && (
                       <div className="w-full md:w-44 space-y-1.5 mt-2 md:mt-0">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Tiền thu (VND)</label>
+                        <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Tiền thu (VND)</label>
                         <input
                           type="text"
                           inputMode="numeric"
@@ -544,7 +544,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                           placeholder=""
                           className={clsx(
                             "w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums",
-                            isRowDisabled && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed"
+                            isRowDisabled && "opacity-70 bg-muted text-muted-foreground cursor-not-allowed"
                           )}
                         />
                       </div>
@@ -553,7 +553,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     {/* Người bốc xếp (chỉ đơn rau) */}
                     {!isStandardOrder && (
                       <div className="w-full md:w-52 space-y-1.5 mt-2 md:mt-0">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Người bốc xếp</label>
+                        <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Người bốc xếp</label>
                         <input
                           type="text"
                           {...register(`assignments.${index}.loader_name` as const)}
@@ -561,7 +561,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                           placeholder="Nhập tên người bốc xếp"
                           className={clsx(
                             "w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-semibold",
-                            isRowDisabled && "opacity-70 bg-slate-100 text-slate-500 cursor-not-allowed"
+                            isRowDisabled && "opacity-70 bg-muted text-muted-foreground cursor-not-allowed"
                           )}
                         />
                       </div>
@@ -572,7 +572,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       <button
                         type="button"
                         onClick={() => remove(index)}
-                        className="absolute -top-2 -right-2 md:static md:w-10 md:h-10.5 flex items-center justify-center bg-white md:bg-transparent text-red-400 hover:text-red-500 hover:bg-red-50 border border-red-100 md:border-transparent rounded-full md:rounded-lg shadow-sm md:shadow-none transition-all"
+                        className="absolute -top-2 -right-2 md:static md:w-10 md:h-10.5 flex items-center justify-center bg-card md:bg-transparent text-red-400 hover:text-red-500 hover:bg-red-50 border border-red-100 md:border-transparent rounded-full md:rounded-lg shadow-sm md:shadow-none transition-all"
                         title="Xóa xe này"
                       >
                         <Trash2 size={16} />
@@ -591,8 +591,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             )}
 
             {isStandardOrder && (
-              <div className="space-y-2 pt-4 border-t border-slate-100 mt-2">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Trạng thái thanh toán phiếu xuất</label>
+              <div className="space-y-2 pt-4 border-t border-border mt-2">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Trạng thái thanh toán phiếu xuất</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -601,7 +601,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       'h-10 rounded-xl border text-[13px] font-bold transition-all',
                       watchExportPaymentStatus === 'unpaid'
                         ? 'border-red-300 bg-red-50 text-red-700'
-                        : 'border-border bg-white text-muted-foreground hover:bg-muted/40'
+                        : 'border-border bg-card text-muted-foreground hover:bg-muted/40'
                     )}
                   >
                     Chưa thanh toán
@@ -613,7 +613,19 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       'h-10 rounded-xl border text-[13px] font-bold transition-all',
                       watchExportPaymentStatus === 'paid'
                         ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                        : 'border-border bg-white text-muted-foreground hover:bg-muted/40'
+                        : 'border-border bg-card text-muted-foreground hover:bg-muted/40'
+                    )}
+                  >
+                    Đã thanh toán
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setValue('export_payment_status', 'paid', { shouldValidate: true })}
+                    className={clsx(
+                      'h-10 rounded-xl border text-[13px] font-bold transition-all',
+                      watchExportPaymentStatus === 'paid'
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                        : 'border-border bg-card text-muted-foreground hover:bg-muted/40'
                     )}
                   >
                     Đã thanh toán
@@ -623,14 +635,14 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             )}
 
             {/* Upload Image Section */}
-            <div className="space-y-1.5 pt-4 border-t border-slate-100 mt-2">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+            <div className="space-y-1.5 pt-4 border-t border-border mt-2">
+              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                 <Camera size={12} />
                 Ảnh xuất hàng / Giao hàng
               </label>
               <div className="flex flex-col gap-2">
                 {watchImageUrl ? (
-                  <div className="relative inline-block w-24 h-24 rounded-xl border border-slate-200 overflow-hidden group">
+                  <div className="relative inline-block w-24 h-24 rounded-xl border border-border overflow-hidden group">
                     <img src={watchImageUrl} alt="Receipt" className="w-full h-full object-cover" />
                     <button
                       type="button"
@@ -653,14 +665,14 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploading}
-                      className="w-full h-20 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-slate-50 disabled:opacity-50"
+                      className="w-full h-20 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-muted/5 disabled:opacity-50"
                     >
                       {isUploading ? (
                         <Loader2 size={18} className="animate-spin text-primary" />
                       ) : (
                         <>
                           <ImagePlus size={20} className="mb-1 text-primary" />
-                          <span className="text-[11px] font-medium text-slate-500">Tải ảnh lên (nếu có)</span>
+                          <span className="text-[11px] font-medium text-muted-foreground">Tải ảnh lên (nếu có)</span>
                         </>
                       )}
                     </button>
@@ -673,7 +685,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         </form>
 
         {/* Footer Buttons */}
-        <div className="p-5 sm:p-6 pt-4 bg-white border-t border-slate-100 shrink-0 sm:rounded-b-3xl">
+        <div className="p-5 sm:p-6 pt-4 bg-card border-t border-border shrink-0 sm:rounded-b-3xl">
           <div className="flex items-center gap-3">
             <button
               type="button"

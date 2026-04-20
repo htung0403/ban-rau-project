@@ -130,12 +130,12 @@ const CreateDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, importOrder,
       {/* Panel */}
       <div
         className={clsx(
-          'relative w-full max-w-[500px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
+          'relative w-full max-w-[500px] bg-background shadow-2xl flex flex-col h-screen border-l border-border',
           isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-600">
               <Truck size={20} />
@@ -151,50 +151,7 @@ const CreateDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, importOrder,
 
         {/* Scrollable Body */}
         <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto p-6 space-y-6">
-          <div className="bg-white rounded-2xl border border-border shadow-sm p-5 space-y-4">
-            <div className="flex items-center gap-2 mb-2 text-primary">
-              <Package size={16} />
-              <span className="text-[12px] font-bold uppercase tracking-wider">Thông tin hàng hóa</span>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-bold text-foreground">Tên sản phẩm <span className="text-red-500">*</span></label>
-              <input 
-                type="text" 
-                placeholder="Ví dụ: Rau cải - Thùng" 
-                {...register('product_name')} 
-                className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium" 
-              />
-              {errors.product_name && <p className="text-red-500 text-[11px] font-medium">{errors.product_name.message}</p>}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Tổng số lượng <span className="text-red-500">*</span></label>
-                <input 
-                  type="number" 
-                  {...register('total_quantity')} 
-                  className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums" 
-                />
-                {errors.total_quantity && <p className="text-red-500 text-[11px] font-medium">{errors.total_quantity.message}</p>}
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Ngày giao <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <input 
-                    type="date" 
-                    {...register('delivery_date')} 
-                    className="w-full pl-9 pr-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium" 
-                  />
-                </div>
-                {errors.delivery_date && <p className="text-red-500 text-[11px] font-medium">{errors.delivery_date.message}</p>}
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-border shadow-sm p-5 space-y-4">
+          <div className="bg-card rounded-2xl border border-border shadow-sm p-5 space-y-4">
              <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-orange-600">
                 <Truck size={16} />
@@ -231,7 +188,7 @@ const CreateDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, importOrder,
                         <label className="text-[11px] font-bold text-muted-foreground uppercase opacity-70">Chọn xe</label>
                         <select
                           {...register(`vehicles.${index}.vehicle_id` as const)}
-                          className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                          className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
                           onChange={(e) => {
                             const vehicleId = e.target.value;
                             register(`vehicles.${index}.vehicle_id` as const).onChange(e); // Maintain hook-form state
@@ -254,7 +211,7 @@ const CreateDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, importOrder,
                         <input
                           type="number"
                           {...register(`vehicles.${index}.quantity` as const)}
-                          className="w-full px-3 py-2 bg-white border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums"
+                          className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums"
                           placeholder="SL"
                         />
                       </div>
@@ -270,7 +227,7 @@ const CreateDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, importOrder,
             )}
           </div>
 
-          <div className="bg-white rounded-2xl border border-border shadow-sm p-5 space-y-4">
+          <div className="bg-card rounded-2xl border border-border shadow-sm p-5 space-y-4">
              <div className="flex items-center gap-2 mb-2 text-emerald-600">
               <span className="text-[12px] font-bold uppercase tracking-wider">Thông tin tài chính (Tùy chọn)</span>
             </div>
@@ -323,7 +280,7 @@ const CreateDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, importOrder,
         </form>
 
         {/* Footer */}
-        <div className="bg-white border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-card border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
           <button
             type="button"
             onClick={onClose}

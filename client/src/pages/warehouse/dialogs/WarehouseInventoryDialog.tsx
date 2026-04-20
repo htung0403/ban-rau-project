@@ -45,12 +45,12 @@ const WarehouseInventoryDialog: React.FC<Props> = ({ isOpen, isClosing, onClose,
       {/* Panel */}
       <div
         className={clsx(
-          'relative w-full max-w-[600px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
+          'relative w-full max-w-[600px] bg-background shadow-2xl flex flex-col h-screen border-l border-border',
           isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-teal-500/10 flex items-center justify-center text-teal-600">
               <Package size={20} />
@@ -71,7 +71,7 @@ const WarehouseInventoryDialog: React.FC<Props> = ({ isOpen, isClosing, onClose,
         {/* Content Body */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Search Bar */}
-          <div className="p-4 bg-white border-b border-border">
+          <div className="p-4 bg-card border-b border-border">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
               <input
@@ -93,14 +93,14 @@ const WarehouseInventoryDialog: React.FC<Props> = ({ isOpen, isClosing, onClose,
                 <p className="text-[13px] font-medium">Lỗi tải dữ liệu tồn kho</p>
               </div>
             ) : !filteredInventory?.length ? (
-              <div className="flex flex-col items-center justify-center py-12 bg-white rounded-2xl border border-dashed border-border border-spacing-4">
+              <div className="flex flex-col items-center justify-center py-12 bg-card rounded-2xl border border-dashed border-border border-spacing-4">
                 <Box size={40} className="text-muted-foreground/20 mb-3" />
                 <p className="text-[13px] font-bold text-muted-foreground">Kho chưa có hàng hóa này</p>
                 <p className="text-[11px] text-muted-foreground/60">Sử dụng phiếu nhập kho để bắt đầu.</p>
               </div>
             ) : (
               filteredInventory.map((item: any) => (
-                <div key={item.id} className="bg-white rounded-xl border border-border p-4 flex items-center justify-between hover:border-primary/30 transition-all group">
+                <div key={item.id} className="bg-card rounded-xl border border-border p-4 flex items-center justify-between hover:border-primary/30 transition-all group">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-lg bg-primary/5 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
                       <Box size={18} />
@@ -122,7 +122,7 @@ const WarehouseInventoryDialog: React.FC<Props> = ({ isOpen, isClosing, onClose,
         </div>
 
         {/* Footer */}
-        <div className="bg-white border-t border-border px-6 py-4 flex items-center justify-end shrink-0">
+        <div className="bg-card border-t border-border px-6 py-4 flex items-center justify-end shrink-0">
           <button
             onClick={onClose}
             className="px-8 py-2 rounded-xl bg-muted hover:bg-muted/80 text-foreground text-[13px] font-bold transition-all"

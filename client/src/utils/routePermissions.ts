@@ -77,7 +77,7 @@ const LEGACY_ALLOWED_PATHS_BY_ROLE: Record<string, string[]> = {
 
 export const isAllRoutesAllowed = (role: UserRole): boolean => role === 'admin' || role === 'manager';
 
-const isDriverLikeRoleKey = (role: string): boolean => {
+export const isDriverLikeRoleKey = (role: string): boolean => {
   const r = role.toLowerCase();
   return r === 'driver' || r.includes('tai_xe') || r.includes('tài xế') || r.includes('lo_xe') || r.includes('lơ xe');
 };

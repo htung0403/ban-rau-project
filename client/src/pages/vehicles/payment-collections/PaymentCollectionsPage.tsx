@@ -5,12 +5,13 @@ import { clsx } from 'clsx';
 import DriverPaymentTab from './DriverPaymentTab';
 import StaffConfirmationTab from './StaffConfirmationTab';
 import ManagerSummaryTab from './ManagerSummaryTab';
+import { isDriverLikeRoleKey } from '../../../utils/routePermissions';
 
 const PaymentCollectionsPage: React.FC = () => {
   const { user } = useAuth();
   const role = user?.role || 'driver';
 
-  const isDriver = role === 'driver' || role === 'lo_xe' || role === 'lơ xe';
+  const isDriver = isDriverLikeRoleKey(role);
 
   // Default tab logic based on role
   const getDefaultTab = () => {

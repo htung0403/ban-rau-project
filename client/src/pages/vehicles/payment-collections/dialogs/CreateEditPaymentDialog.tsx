@@ -44,18 +44,17 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
     if (!deliveries) return [];
     return deliveries
       .filter(d => 
-        d.status !== 'da_giao' && 
         d.delivery_vehicles?.some(v => v.driver_id === user?.id || v.vehicles?.in_charge_id === user?.id)
       )
       .map(d => {
         const myAssignment = d.delivery_vehicles?.find(v => v.driver_id === user?.id || v.vehicles?.in_charge_id === user?.id);
         return {
           id: d.id,
-          code: d.import_orders?.order_code || 'N/A',
-          customer: d.import_orders?.customers?.name || 'Vô Danh',
+          code: d.import_orders?.order_code || d.vegetable_orders?.order_code || 'N/A',
+          customer: d.import_orders?.customers?.name || d.vegetable_orders?.customers?.name || 'Vô Danh',
           productName: d.product_name,
           quantity: myAssignment?.assigned_quantity ?? d.total_quantity,
-          amount: myAssignment?.expected_amount ?? d.import_orders?.total_amount ?? 0
+          amount: myAssignment?.expected_amount ?? d.import_orders?.total_amount ?? d.vegetable_orders?.total_amount ?? 0
         };
       });
   }, [deliveries, user?.id]);

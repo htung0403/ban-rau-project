@@ -16,7 +16,7 @@ export function goodsScopeIsStaffRole(role: string | undefined): boolean {
 export function goodsScopeIsDriverRole(role: string | undefined): boolean {
   if (!role) return false;
   const r = role.toLowerCase();
-  return r === 'driver' || r.includes('tai_xe') || r.includes('tài xế');
+  return r === 'driver' || r.includes('tai_xe') || r.includes('tài xế') || r.includes('lo_xe') || r.includes('lơ xe');
 }
 
 export function normalizePlate(p: string | undefined | null): string {
@@ -39,7 +39,7 @@ export async function fetchDriverScopeForUser(userId: string): Promise<DriverSco
   const { data, error } = await supabaseService
     .from('vehicles')
     .select('id, license_plate')
-    .eq('driver_id', userId);
+    .or(`driver_id.eq.${userId},in_charge_id.eq.${userId}`);
   if (error) throw error;
   const plates = new Set<string>();
   const vehicleIds = new Set<string>();

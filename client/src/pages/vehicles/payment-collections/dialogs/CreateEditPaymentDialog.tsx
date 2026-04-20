@@ -45,10 +45,10 @@ const CreateEditPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) 
     return deliveries
       .filter(d => 
         d.status !== 'da_giao' && 
-        d.delivery_vehicles?.some(v => v.driver_id === user?.id)
+        d.delivery_vehicles?.some(v => v.driver_id === user?.id || v.vehicles?.in_charge_id === user?.id)
       )
       .map(d => {
-        const myAssignment = d.delivery_vehicles?.find(v => v.driver_id === user?.id);
+        const myAssignment = d.delivery_vehicles?.find(v => v.driver_id === user?.id || v.vehicles?.in_charge_id === user?.id);
         return {
           id: d.id,
           code: d.import_orders?.order_code || 'N/A',

@@ -7,7 +7,7 @@ export class PaymentCollectionsService {
       .from('payment_collections')
       .select(`
         *,
-        delivery_orders ( id, import_orders ( order_code, customers ( name ) ), vegetable_orders ( order_code, customers ( name ) ) ),
+        delivery_orders ( id, import_orders ( order_code, customers!import_orders_customer_id_fkey ( name ) ), vegetable_orders ( order_code, customers!vegetable_orders_customer_id_fkey ( name ) ) ),
         drivers:profiles!payment_collections_driver_id_fkey(full_name),
         receivers:profiles!payment_collections_receiver_id_fkey(full_name),
         vehicles ( license_plate )
@@ -32,7 +32,7 @@ export class PaymentCollectionsService {
       .from('payment_collections')
       .select(`
         *,
-        delivery_orders ( id, import_orders ( order_code, customers ( name ) ), vegetable_orders ( order_code, customers ( name ) ) ),
+        delivery_orders ( id, import_orders ( order_code, customers!import_orders_customer_id_fkey ( name ) ), vegetable_orders ( order_code, customers!vegetable_orders_customer_id_fkey ( name ) ) ),
         drivers:profiles!payment_collections_driver_id_fkey(full_name),
         receivers:profiles!payment_collections_receiver_id_fkey(full_name),
         vehicles ( license_plate )
@@ -54,16 +54,17 @@ export class PaymentCollectionsService {
 
     if (doError || !doData) throw new Error('Không tìm thấy đơn giao hàng');
 
-    // 2. Get vehicle_id and expected_amount from delivery_vehicles where assigned to this driver
-    const { data: dvData, error: dvError } = await supabaseService
+    // 2. Get vehicle_id and expected_amount from delivery_vehicles where assigned to this driver or loader
+    const { data: dvDataList, error: dvError } = await supabaseService
       .from('delivery_vehicles')
-      .select('vehicle_id, expected_amount')
-      .eq('delivery_order_id', data.deliveryOrderId)
-      .eq('driver_id', driverId)
-      .limit(1)
-      .maybeSingle();
+      .select('vehicle_id, expected_amount, driver_id, vehicles(in_charge_id)')
+      .eq('delivery_order_id', data.deliveryOrderId);
 
-    if (dvError || !dvData) throw new Error('Bạn không được giao đơn hàng này');
+    if (dvError || !dvDataList || dvDataList.length === 0) throw new Error('Lỗi truy xuất xe giao hàng');
+
+    const dvData = dvDataList.find((dv: any) => dv.driver_id === driverId || dv.vehicles?.in_charge_id === driverId);
+
+    if (!dvData) throw new Error('Bạn không được giao đơn hàng này');
 
     const ioOrVeg: any = doData.vegetable_orders || doData.import_orders;
     const importOrder: any = Array.isArray(ioOrVeg) ? ioOrVeg[0] : ioOrVeg;
@@ -230,7 +231,7 @@ export class PaymentCollectionsService {
       .from('payment_collections')
       .select(`
         *,
-        delivery_orders ( id, import_orders ( order_code, customers ( name ) ), vegetable_orders ( order_code, customers ( name ) ) ),
+        delivery_orders ( id, import_orders ( order_code, customers!import_orders_customer_id_fkey ( name ) ), vegetable_orders ( order_code, customers!vegetable_orders_customer_id_fkey ( name ) ) ),
         drivers:profiles!payment_collections_driver_id_fkey(full_name),
         receivers:profiles!payment_collections_receiver_id_fkey(full_name),
         vehicles ( license_plate )

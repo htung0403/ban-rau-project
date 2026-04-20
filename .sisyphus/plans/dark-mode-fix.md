@@ -51,8 +51,9 @@ Tuyệt đối **KHÔNG ĐƯỢC SỬA** các class sau vì chúng là chủ ý 
 - **Note:** Bao gồm cả `VegetableImportsPage.tsx`, `DeliveryPage.tsx`, `VegetableDeliveryPage.tsx`.
 
 ### Task 7: Pages Module - Nhân sự & Kế toán
-- **Files:** `EmployeesPage.tsx`, `SalarySettingsPage.tsx`, `CustomerDebtPage.tsx`, v.v.
+- [x] **Files:** `EmployeesPage.tsx`, `SalarySettingsPage.tsx`, `CustomerDebtPage.tsx`, v.v.
 - **Công việc:** Cập nhật các bảng biểu, panel thông tin sang `bg-card` và `border-border`.
+- **Note:** Bao gồm các trang HR, Kế toán, và Công nợ khách hàng.
 
 ## 4. Final Verification Wave
 - **Kiểm tra biên dịch:** Chạy `npx tsc --noEmit` sau khi hoàn thành.

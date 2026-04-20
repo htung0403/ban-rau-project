@@ -162,14 +162,14 @@ const SgCashCollectionsPage: React.FC = () => {
         />
       </div>
 
-      <div className="bg-white flex flex-row w-full gap-2 items-center rounded-2xl shadow-sm border border-border p-2.5 md:mb-6 mb-3 overflow-x-auto custom-scrollbar">
+      <div className="bg-card flex flex-row w-full gap-2 items-center rounded-2xl shadow-sm border border-border p-2.5 md:mb-6 mb-3 overflow-x-auto custom-scrollbar">
         <div className="relative flex-1 min-w-[200px] md:max-w-full">
           <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
             <Search size={15} />
           </div>
           <input
             type="text"
-            className="w-full text-[13px] bg-slate-50 border border-border/80 rounded-xl pl-9 pr-7 py-2 h-[38px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all placeholder:text-muted-foreground/60 font-medium"
+            className="w-full text-[13px] bg-muted border border-border/80 rounded-xl pl-9 pr-7 py-2 h-[38px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all placeholder:text-muted-foreground/60 font-medium"
             placeholder="Tìm mã đơn, khách, xe..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -241,7 +241,7 @@ const SgCashCollectionsPage: React.FC = () => {
           <button
             type="button"
             onClick={openFilter}
-            className="flex items-center justify-center w-[38px] h-[38px] shrink-0 border border-border/80 rounded-xl transition-all bg-slate-50 text-muted-foreground hover:bg-slate-100"
+            className="flex items-center justify-center w-[38px] h-[38px] shrink-0 border border-border/80 rounded-xl transition-all bg-muted text-muted-foreground hover:bg-slate-100"
           >
             <Filter size={17} />
           </button>

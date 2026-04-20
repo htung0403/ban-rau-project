@@ -36,3 +36,8 @@
 - Replaced border-slate-* with border-border.
 - Maintained intentional overlays like bg-white/10 on image thumbnails and full-screen viewers.
 - Used bg-background for small nested elements that need to contrast with bg-muted containers.
+- Updated HR and Accounting pages to use semantic tokens (\g-card\, \g-muted\, \g-background\, \order-border\, \	ext-foreground\, \	ext-muted-foreground\) for dark mode support.
+- Replaced hardcoded \g-white\ with \g-card\ for main panels.
+- Replaced \g-slate-50\ and similar with \g-muted\ for secondary backgrounds.
+- Replaced \g-[#f8fafc]\ with \g-background\ for page/panel backgrounds.
+- Verified all changes with \lsp_diagnostics\.

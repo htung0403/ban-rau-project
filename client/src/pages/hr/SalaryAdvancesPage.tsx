@@ -84,7 +84,7 @@ const SalaryAdvancesPage = () => {
       </div>
       <DraggableFAB icon={<Plus size={24} />} onClick={() => setIsDialogOpen(true)} />
 
-      <div className="bg-white justify-between rounded-2xl md:border md:border-border sm:shadow-sm flex flex-col flex-1 min-h-0 mt-0 md:mt-4">
+      <div className="bg-card justify-between rounded-2xl md:border md:border-border sm:shadow-sm flex flex-col flex-1 min-h-0 mt-0 md:mt-4">
         {isLoading ? (
           <div className="p-4"><LoadingSkeleton columns={4} rows={6} /></div>
         ) : isError ? (
@@ -128,9 +128,9 @@ const SalaryAdvancesPage = () => {
             </table>
 
             {/* Mobile Card View */}
-            <div className="flex flex-col gap-3 p-3 md:hidden bg-slate-50/50 min-h-full pb-20">
+            <div className="flex flex-col gap-3 p-3 md:hidden bg-muted/50 min-h-full pb-20">
               {advances.map(a => (
-                <div key={a.id} className="bg-white rounded-xl border border-border/60 shadow-sm p-4 flex flex-col gap-3 relative overflow-hidden">
+                <div key={a.id} className="bg-card rounded-xl border border-border/60 shadow-sm p-4 flex flex-col gap-3 relative overflow-hidden">
                   <div className={`absolute left-0 top-0 bottom-0 w-1 ${a.status === 'approved' ? 'bg-emerald-500' : a.status === 'rejected' ? 'bg-red-500' : 'bg-amber-500'}`} />
                   
                   <div className="flex justify-between items-start pl-1 mb-1">
@@ -171,12 +171,12 @@ const SalaryAdvancesPage = () => {
           {/* Panel */}
           <div
             className={clsx(
-              'relative w-full max-w-[500px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
+              'relative w-full max-w-[500px] bg-background shadow-2xl flex flex-col h-screen border-l border-border',
               isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
             )}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                   <Banknote size={20} />
@@ -198,7 +198,7 @@ const SalaryAdvancesPage = () => {
                  Khoản ứng sẽ được trừ trực tiếp vào lương của tuần bạn chọn bên dưới.
               </p>
               
-              <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+              <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
                 <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
                   <Banknote size={16} className="text-emerald-500" />
                   <span className="text-[12px] font-bold text-emerald-500 uppercase tracking-wider">Thông tin ứng lương</span>
@@ -238,7 +238,7 @@ const SalaryAdvancesPage = () => {
             </form>
 
             {/* Footer */}
-            <div className="bg-white border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
+            <div className="bg-card border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
               <button
                 type="button"
                 onClick={closeDialog}

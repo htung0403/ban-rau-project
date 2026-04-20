@@ -27,7 +27,7 @@ const ApprovalsPage = () => {
         backPath="/hanh-chinh-nhan-su"
       />
 
-      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden mt-4">
+      <div className="bg-card rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden mt-4">
         {/* Tabs Headers */}
         <div className="flex border-b border-border bg-muted/20">
           {tabs.map((tab) => (
@@ -360,7 +360,7 @@ const ApprovalTable = ({ title, items, emptyMessage, renderRow }: { title: strin
       ) : (
         <div className="overflow-x-auto border border-border rounded-xl">
           <table className="w-full text-left border-collapse">
-            <tbody className="divide-y divide-border/50 bg-white">
+            <tbody className="divide-y divide-border/50 bg-card">
               {items.map(renderRow)}
             </tbody>
           </table>

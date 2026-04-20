@@ -308,11 +308,11 @@ const EmployeesPage: React.FC = () => {
       <DraggableFAB icon={<Plus size={24} />} onClick={handleOpenAdd} />
       <div className="flex-1 min-h-0 flex flex-col">
         {isLoading ? (
-          <div className="bg-white rounded-2xl border border-border shadow-sm p-4 flex-1"><LoadingSkeleton rows={6} columns={4} /></div>
+          <div className="bg-card rounded-2xl border border-border shadow-sm p-4 flex-1"><LoadingSkeleton rows={6} columns={4} /></div>
         ) : isError ? (
-          <div className="bg-white rounded-2xl border border-border shadow-sm flex-1"><ErrorState onRetry={() => refetch()} /></div>
+          <div className="bg-card rounded-2xl border border-border shadow-sm flex-1"><ErrorState onRetry={() => refetch()} /></div>
         ) : !employees?.length ? (
-          <div className="bg-white rounded-2xl border border-border shadow-sm flex-1"><EmptyState title="Chưa có nhân viên" /></div>
+          <div className="bg-card rounded-2xl border border-border shadow-sm flex-1"><EmptyState title="Chưa có nhân viên" /></div>
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar pb-6 px-1">
             <div className="flex flex-col gap-3">
@@ -322,7 +322,7 @@ const EmployeesPage: React.FC = () => {
                 <div
                   key={e.id}
                   onClick={isAdmin ? () => navigate(`/hanh-chinh-nhan-su/nhan-su/${e.id}`) : undefined}
-                  className={`${isAdmin ? 'cursor-pointer hover:shadow-md hover:border-primary/30' : 'cursor-default'} bg-white rounded-2xl border border-border shadow-sm transition-all duration-300 overflow-hidden flex flex-col md:flex-row items-center group relative p-4 pl-6`}
+                  className={`${isAdmin ? 'cursor-pointer hover:shadow-md hover:border-primary/30' : 'cursor-default'} bg-card rounded-2xl border border-border shadow-sm transition-all duration-300 overflow-hidden flex flex-col md:flex-row items-center group relative p-4 pl-6`}
                 >
                   {/* Left accent line */}
                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${e.is_active ? 'bg-emerald-500' : 'bg-red-500'}`} />
@@ -446,8 +446,8 @@ const EmployeesPage: React.FC = () => {
             onClick={handleCloseAdd} 
           />
           
-          <div className={`relative w-full max-w-125 bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border transition-transform duration-300 ${isClosing ? 'translate-x-full' : 'translate-x-0 animate-in slide-in-from-right'}`}>
-            <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
+          <div className={`relative w-full max-w-125 bg-background shadow-2xl flex flex-col h-screen border-l border-border transition-transform duration-300 ${isClosing ? 'translate-x-full' : 'translate-x-0 animate-in slide-in-from-right'}`}>
+            <div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                   <UserPlus size={20} />
@@ -464,7 +464,7 @@ const EmployeesPage: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
               {/* Account Credentials */}
-              <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+              <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
                 <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
                   <Lock size={16} className="text-primary" />
                   <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Tài khoản đăng nhập</span>
@@ -500,7 +500,7 @@ const EmployeesPage: React.FC = () => {
               </div>
 
               {/* Personal Information */}
-              <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+              <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
                 <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
                   <Users size={16} className="text-primary" />
                   <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Thông tin cá nhân</span>
@@ -559,7 +559,7 @@ const EmployeesPage: React.FC = () => {
 
             </div>
 
-            <div className="bg-white border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
+            <div className="bg-card border-t border-border px-6 py-4 flex items-center justify-between shrink-0">
               <button
                 onClick={handleCloseAdd}
                 className="px-6 py-2 rounded-xl border border-border hover:bg-muted text-foreground text-[13px] font-bold transition-all"
@@ -589,7 +589,7 @@ const EmployeesPage: React.FC = () => {
       {assignRoleModal && createPortal(
         <div className="fixed inset-0 z-99999 flex items-center justify-center">
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm animate-in fade-in" onClick={() => !assignUserRolesMutation.isPending && setAssignRoleModal(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl border border-border w-full max-w-130 mx-4 animate-in zoom-in-95 fade-in duration-200">
+          <div className="relative bg-card rounded-2xl shadow-2xl border border-border w-full max-w-130 mx-4 animate-in zoom-in-95 fade-in duration-200">
             <div className="p-6 border-b border-border">
               <h3 className="text-[17px] font-bold text-foreground">Cài đặt quyền nhân sự</h3>
               <p className="text-[13px] text-muted-foreground mt-1">Nhân sự: <span className="font-bold text-foreground">{assignRoleModal.name}</span></p>
@@ -636,7 +636,7 @@ const EmployeesPage: React.FC = () => {
       {callDialog && createPortal(
         <div className="fixed inset-0 z-99999 flex items-center justify-center">
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in" onClick={() => setCallDialog(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl border border-border w-full max-w-95 mx-4 animate-in zoom-in-95 fade-in duration-200">
+          <div className="relative bg-card rounded-2xl shadow-2xl border border-border w-full max-w-95 mx-4 animate-in zoom-in-95 fade-in duration-200">
             <div className="p-6 border-b border-border">
               <h3 className="text-[17px] font-bold text-foreground">Chọn cách gọi</h3>
               <p className="text-[13px] text-muted-foreground mt-1">
@@ -685,7 +685,7 @@ const EmployeesPage: React.FC = () => {
       {deleteConfirm && createPortal(
         <div className="fixed inset-0 z-99999 flex items-center justify-center">
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm animate-in fade-in" onClick={() => !deleteMutation.isPending && setDeleteConfirm(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl border border-border w-full max-w-100 mx-4 animate-in zoom-in-95 fade-in duration-200">
+          <div className="relative bg-card rounded-2xl shadow-2xl border border-border w-full max-w-100 mx-4 animate-in zoom-in-95 fade-in duration-200">
             <div className="p-6 text-center">
               <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle size={28} className="text-red-500" />

@@ -226,14 +226,14 @@ const CustomerDebtPage: React.FC = () => {
         </div>
 
         <div className="flex w-full md:w-auto items-center gap-3 flex-shrink-0 mb-1 md:mb-0">
-          <div className="flex flex-col flex-1 md:flex-none md:min-w-[120px] bg-white p-2.5 px-4 rounded-2xl border border-border shadow-sm">
+          <div className="flex flex-col flex-1 md:flex-none md:min-w-[120px] bg-card p-2.5 px-4 rounded-2xl border border-border shadow-sm">
              <span className="text-[10px] font-bold text-muted-foreground uppercase opacity-70 mb-1">Số lượng khách</span>
              <span className="text-[16px] font-black text-foreground tabular-nums">
                {numberOfCustomersInDebt} <span className="text-[12px] font-semibold text-muted-foreground">người</span>
              </span>
           </div>
 
-          <div className="flex flex-col flex-1 md:flex-none md:min-w-[140px] bg-white p-2.5 px-4 rounded-2xl border border-red-200 shadow-sm">
+          <div className="flex flex-col flex-1 md:flex-none md:min-w-[140px] bg-card p-2.5 px-4 rounded-2xl border border-red-200 shadow-sm">
              <span className="text-[10px] font-bold text-red-500 uppercase opacity-80 mb-1">Dư nợ hệ thống</span>
              <span className="text-[16px] font-black text-red-600 tabular-nums">
                {formatCurrency(totalUncollectedDebt)}
@@ -242,7 +242,7 @@ const CustomerDebtPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white flex flex-row w-full gap-2 items-center rounded-2xl shadow-sm border border-border p-2.5 md:mb-6 mb-3 overflow-x-auto custom-scrollbar">
+      <div className="bg-card flex flex-row w-full gap-2 items-center rounded-2xl shadow-sm border border-border p-2.5 md:mb-6 mb-3 overflow-x-auto custom-scrollbar">
         {/* SEARCH BAR */}
         <div className="relative flex-1 min-w-[200px] md:max-w-full">
           <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
@@ -250,7 +250,7 @@ const CustomerDebtPage: React.FC = () => {
           </div>
           <input
             type="text"
-            className="w-full text-[13px] bg-slate-50 border border-border/80 rounded-xl pl-9 pr-7 py-2 h-[38px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/50 transition-all placeholder:text-muted-foreground/60 font-medium"
+            className="w-full text-[13px] bg-muted border border-border/80 rounded-xl pl-9 pr-7 py-2 h-[38px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/50 transition-all placeholder:text-muted-foreground/60 font-medium"
             placeholder="Tìm mã đơn, khách, xe..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -312,14 +312,14 @@ const CustomerDebtPage: React.FC = () => {
           {/* MOBILE FILTER BUTTON */}
           <button
             onClick={openFilter}
-            className="md:hidden flex items-center justify-center w-[38px] h-[38px] shrink-0 border border-border/80 rounded-xl transition-all bg-slate-50 text-muted-foreground hover:bg-slate-100"
+            className="md:hidden flex items-center justify-center w-[38px] h-[38px] shrink-0 border border-border/80 rounded-xl transition-all bg-muted text-muted-foreground hover:bg-slate-100"
           >
             <Filter size={17} />
           </button>
         </div>
       </div>
 
-      <div className="md:bg-white md:rounded-2xl md:border md:border-border md:shadow-sm flex flex-col flex-1 min-h-0 md:overflow-hidden -mx-4 sm:mx-0">
+      <div className="md:bg-card md:rounded-2xl md:border md:border-border md:shadow-sm flex flex-col flex-1 min-h-0 md:overflow-hidden -mx-4 sm:mx-0">
         {isLoading ? (
           <div className="p-4"><LoadingSkeleton rows={10} columns={6} /></div>
         ) : isError ? (
@@ -332,30 +332,30 @@ const CustomerDebtPage: React.FC = () => {
             <div className="hidden md:block">
               <table className="w-full border-separate border-spacing-0">
               <thead className="sticky top-0 z-20">
-                <tr className="bg-slate-50/80 backdrop-blur-md border-b border-border">
-                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-left min-w-[80px] border-b border-border">Nguồn</th>
-                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-left min-w-[120px] border-b border-border">Mã đơn</th>
-                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-left border-b border-border">Khách hàng</th>
-                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-left min-w-[200px] border-b border-border">Nội dung</th>
-                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-right border-b border-border">Giá trị HĐ (chưa bù)</th>
-                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-right border-b border-border">Tồn nợ (phải xử lý)</th>
-                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-center border-b border-border w-32">Trạng thái</th>
-                  <th className="px-4 py-4 text-[11px] font-bold text-slate-500 uppercase tracking-tight text-center border-b border-border w-28">Thao tác</th>
+                <tr className="bg-muted/80 backdrop-blur-md border-b border-border">
+                  <th className="px-4 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-left min-w-[80px] border-b border-border">Nguồn</th>
+                  <th className="px-4 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-left min-w-[120px] border-b border-border">Mã đơn</th>
+                  <th className="px-4 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-left border-b border-border">Khách hàng</th>
+                  <th className="px-4 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-left min-w-[200px] border-b border-border">Nội dung</th>
+                  <th className="px-4 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-right border-b border-border">Giá trị HĐ (chưa bù)</th>
+                  <th className="px-4 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-right border-b border-border">Tồn nợ (phải xử lý)</th>
+                  <th className="px-4 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-center border-b border-border w-32">Trạng thái</th>
+                  <th className="px-4 py-4 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-center border-b border-border w-28">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {sortedDates.map((date) => (
                   <React.Fragment key={date}>
-                    <tr className="bg-slate-50/50">
+                    <tr className="bg-muted/50">
                       <td colSpan={8} className="px-4 py-2 border-y border-slate-100/10">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-lg bg-red-500/10 flex items-center justify-center text-red-600">
                             <Calendar size={13} />
                           </div>
-                          <span className="text-[12px] font-black text-slate-700 uppercase tracking-wider">
+                          <span className="text-[12px] font-black text-foreground uppercase tracking-wider">
                             Ngày phát sinh: {date !== 'N/A' ? format(new Date(date), 'dd/MM/yyyy') : 'Chưa định dạng'}
                           </span>
-                          <div className="h-[1px] flex-1 bg-slate-100 ml-2" />
+                          <div className="h-[1px] flex-1 bg-border ml-2" />
                         </div>
                       </td>
                     </tr>
@@ -433,11 +433,11 @@ const CustomerDebtPage: React.FC = () => {
             <div className="md:hidden flex flex-col gap-4 px-3 pt-0 pb-20 relative">
               {sortedDates.map((date) => (
                 <div key={`mobile-${date}`} className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2 sticky top-0 bg-slate-50/95 backdrop-blur-sm p-3 -mx-3 px-5 z-20 border-b border-border/50 shadow-sm">
+                  <div className="flex items-center gap-2 sticky top-0 bg-muted/95 backdrop-blur-sm p-3 -mx-3 px-5 z-20 border-b border-border/50 shadow-sm">
                     <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-red-500/10 text-red-600 shrink-0">
                       <Calendar size={14} />
                     </div>
-                    <span className="text-[13px] font-black text-slate-800 uppercase tracking-wider">
+                    <span className="text-[13px] font-black text-foreground uppercase tracking-wider">
                       Ngày phát sinh: {date !== 'N/A' ? format(new Date(date), 'dd/MM/yyyy') : 'Chưa định dạng'}
                     </span>
                   </div>
@@ -452,7 +452,7 @@ const CustomerDebtPage: React.FC = () => {
                       const itemName = isExport ? (order.item_name || 'Xuất hàng') : 'Nhập hàng / CC';
 
                       return (
-                        <div key={`mob-order-${order.id}`} className="bg-white rounded-2xl border border-border shadow-sm p-4 flex flex-col gap-3">
+                        <div key={`mob-order-${order.id}`} className="bg-card rounded-2xl border border-border shadow-sm p-4 flex flex-col gap-3">
                           <div className="flex justify-between items-start gap-2">
                             <div className="flex flex-col gap-1">
                               <span className="text-[15px] font-bold text-foreground leading-tight">
@@ -522,11 +522,11 @@ const CustomerDebtPage: React.FC = () => {
           />
           <div
             className={clsx(
-              'relative w-full max-w-[500px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
+              'relative w-full max-w-[500px] bg-background shadow-2xl flex flex-col h-screen border-l border-border',
               isCollectClosing ? 'dialog-slide-out' : 'dialog-slide-in',
             )}
           >
-            <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600">
                   <Banknote size={20} />
@@ -539,7 +539,7 @@ const CustomerDebtPage: React.FC = () => {
             </div>
 
             <form id="pay-form" onSubmit={handleSubmit(onSubmitPayment)} className="flex-1 overflow-y-auto p-6 space-y-6">
-              <div className="bg-white rounded-2xl border border-border shadow-sm p-5 space-y-5">
+              <div className="bg-card rounded-2xl border border-border shadow-sm p-5 space-y-5">
                 <div>
                   <label className="text-[11px] font-black text-muted-foreground uppercase opacity-60 tracking-wider">Khách hàng</label>
                   <p className="text-[16px] font-black mt-1 text-foreground">{selectedCustomerName}</p>
@@ -572,7 +572,7 @@ const CustomerDebtPage: React.FC = () => {
                       <CurrencyInput
                          value={field.value as number | undefined}
                          onChange={field.onChange}
-                         className="w-full px-4 py-4 bg-slate-50 border-2 border-border rounded-xl text-[20px] font-black focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all text-emerald-600 tabular-nums"
+                         className="w-full px-4 py-4 bg-muted border-2 border-border rounded-xl text-[20px] font-black focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all text-emerald-600 tabular-nums"
                       />
                     )}
                   />
@@ -589,7 +589,7 @@ const CustomerDebtPage: React.FC = () => {
                          <DatePicker
                            value={field.value}
                            onChange={field.onChange}
-                           className="w-full h-[46px] bg-slate-50 border-border rounded-xl focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all"
+                           className="w-full h-[46px] bg-muted border-border rounded-xl focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all"
                          />
                       )}
                     />
@@ -605,7 +605,7 @@ const CustomerDebtPage: React.FC = () => {
                         <TimePicker24h
                           value={field.value}
                           onChange={field.onChange}
-                          className="w-full h-[46px] bg-slate-50 border-border rounded-xl focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all"
+                          className="w-full h-[46px] bg-muted border-border rounded-xl focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/5 transition-all"
                         />
                       )}
                     />
@@ -642,7 +642,7 @@ const CustomerDebtPage: React.FC = () => {
                         {...field}
                         rows={3}
                         placeholder="Nội dung khoản thu... (ví dụ: Chuyển khoản Vietcombank)"
-                        className="w-full px-4 py-3 bg-slate-50 border border-border rounded-xl text-[14px] focus:outline-none focus:border-primary/50 transition-all resize-none"
+                        className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-[14px] focus:outline-none focus:border-primary/50 transition-all resize-none"
                       />
                     )}
                   />
@@ -650,11 +650,11 @@ const CustomerDebtPage: React.FC = () => {
               </div>
             </form>
 
-            <div className="bg-white border-t border-border px-6 py-4 flex items-center justify-between shrink-0 gap-3">
+            <div className="bg-card border-t border-border px-6 py-4 flex items-center justify-between shrink-0 gap-3">
               <button
                 type="button"
                 onClick={closeCollectDialog}
-                className="flex-1 py-3 rounded-xl border border-border text-[13px] font-bold hover:bg-slate-50 transition-colors"
+                className="flex-1 py-3 rounded-xl border border-border text-[13px] font-bold hover:bg-muted transition-colors"
               >
                 Hủy bỏ
               </button>

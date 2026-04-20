@@ -59,7 +59,7 @@ const LeaveRequestsPage: React.FC = () => {
         />
       </div>
       <DraggableFAB icon={<Plus size={24} />} onClick={() => setIsAddOpen(true)} />
-      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0">
+      <div className="bg-card rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0">
         {isLoading ? (
           <div className="p-4"><LoadingSkeleton rows={5} columns={5} /></div>
         ) : isError ? (
@@ -108,9 +108,9 @@ const LeaveRequestsPage: React.FC = () => {
             </table>
 
             {/* Mobile Card View */}
-            <div className="flex flex-col gap-3 p-3 md:hidden bg-slate-50/50 min-h-full pb-20">
+            <div className="flex flex-col gap-3 p-3 md:hidden bg-muted/50 min-h-full pb-20">
               {requests.map((r) => (
-                <div key={r.id} className="bg-white rounded-xl border border-border/60 shadow-sm p-4 flex flex-col gap-3 relative overflow-hidden">
+                <div key={r.id} className="bg-card rounded-xl border border-border/60 shadow-sm p-4 flex flex-col gap-3 relative overflow-hidden">
                   {/* Status Indicator Line */}
                   <div className={`absolute left-0 top-0 bottom-0 w-1 ${r.status === 'approved' ? 'bg-emerald-500' : r.status === 'rejected' ? 'bg-red-500' : 'bg-amber-500'}`} />
                   

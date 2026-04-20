@@ -182,14 +182,14 @@ const InvoiceOrdersPage: React.FC<InvoiceOrdersPageProps> = ({
       </div>
 
       {/* Toolbar */}
-      <div className="bg-white flex flex-row w-full gap-2 items-center rounded-2xl shadow-sm border border-border p-2.5 md:mb-6 mb-3 overflow-x-auto custom-scrollbar">
+      <div className="bg-card flex flex-row w-full gap-2 items-center rounded-2xl shadow-sm border border-border p-2.5 md:mb-6 mb-3 overflow-x-auto custom-scrollbar">
         <div className="relative flex-1 min-w-[200px] md:max-w-full">
           <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
             <Search size={15} />
           </div>
           <input
             type="text"
-            className="w-full text-[13px] bg-slate-50 border border-border/80 rounded-xl pl-9 pr-7 py-2 h-[38px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all placeholder:text-muted-foreground/60 font-medium"
+            className="w-full text-[13px] bg-muted border border-border/80 rounded-xl pl-9 pr-7 py-2 h-[38px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all placeholder:text-muted-foreground/60 font-medium"
             placeholder="Tìm mã đơn, khách hàng, người gửi..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -220,7 +220,7 @@ const InvoiceOrdersPage: React.FC<InvoiceOrdersPageProps> = ({
             <select
               value={invoiceStatus}
               onChange={(e) => setInvoiceStatus(e.target.value as InvoiceStatusFilter)}
-              className="w-full h-[38px] text-[13px] font-medium bg-slate-50 border border-border/80 rounded-xl px-3 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+              className="w-full h-[38px] text-[13px] font-medium bg-muted border border-border/80 rounded-xl px-3 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
             >
               {INVOICE_STATUS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -254,7 +254,7 @@ const InvoiceOrdersPage: React.FC<InvoiceOrdersPageProps> = ({
           <button
             type="button"
             onClick={openFilter}
-            className="flex items-center justify-center w-[38px] h-[38px] shrink-0 border border-border/80 rounded-xl transition-all bg-slate-50 text-muted-foreground hover:bg-slate-100"
+            className="flex items-center justify-center w-[38px] h-[38px] shrink-0 border border-border/80 rounded-xl transition-all bg-muted text-muted-foreground hover:bg-slate-100"
           >
             <Filter size={17} />
           </button>
@@ -476,7 +476,7 @@ const InvoiceOrdersPage: React.FC<InvoiceOrdersPageProps> = ({
 
             {/* Mobile bulk action */}
             {selectedCount > 0 && canExport && (
-              <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-border p-3 shadow-lg z-50 flex items-center gap-2 animate-in slide-in-from-bottom-4 duration-300">
+              <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border p-3 shadow-lg z-50 flex items-center gap-2 animate-in slide-in-from-bottom-4 duration-300">
                 <span className="text-[13px] font-bold text-primary flex-1">
                   {selectedCount} đơn đã chọn
                 </span>

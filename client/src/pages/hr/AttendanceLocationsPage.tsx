@@ -210,7 +210,7 @@ const AttendanceLocationsPage: React.FC = () => {
         <p className="text-[12px] text-muted-foreground mt-0.5">Thay đổi được lưu ngay khi bạn thêm, sửa hoặc xóa điểm.</p>
       </div>
 
-      <div className="bg-slate-50/50 md:bg-white md:rounded-2xl md:border border-border md:shadow-sm flex flex-col flex-1 min-h-0 p-4 md:p-6 gap-4">
+      <div className="bg-muted/50 md:bg-card md:rounded-2xl md:border border-border md:shadow-sm flex flex-col flex-1 min-h-0 p-4 md:p-6 gap-4">
         {!hydrated || isLoading ? (
           <LoadingSkeleton rows={4} columns={1} />
         ) : (
@@ -303,11 +303,11 @@ const AttendanceLocationsPage: React.FC = () => {
             />
             <div
               className={clsx(
-                'relative w-full max-w-[480px] bg-[#f8fafc] shadow-2xl flex flex-col h-screen border-l border-border',
+                'relative w-full max-w-[480px] bg-background shadow-2xl flex flex-col h-screen border-l border-border',
                 panelClosing ? 'dialog-slide-out' : 'dialog-slide-in'
               )}
             >
-              <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-border shrink-0">
+              <div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
                     <MapPin size={20} />
@@ -370,7 +370,7 @@ const AttendanceLocationsPage: React.FC = () => {
                 </button>
               </div>
 
-              <div className="p-6 bg-white border-t border-border flex gap-3 shrink-0">
+              <div className="p-6 bg-card border-t border-border flex gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={closePanel}

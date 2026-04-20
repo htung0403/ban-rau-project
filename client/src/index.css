@@ -14,6 +14,9 @@
   --accent: #f1f5f9;
   --accent-foreground: #0f172a;
   --ring: #3EB489;
+  --input: #ffffff;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
 }
 
 .dark {
@@ -26,6 +29,9 @@
   --accent: #1e293b;
   --accent-foreground: #f8fafc;
   --ring: #3EB489;
+  --input: #0f172a;
+  --popover: #0f172a;
+  --popover-foreground: #f8fafc;
 }
 
 @theme {
@@ -40,6 +46,9 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
 }
@@ -237,5 +246,9 @@
 
   .soft-overlay {
     background: linear-gradient(to bottom, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.5));
+  }
+
+  .dark .soft-overlay {
+    background: linear-gradient(to bottom, rgba(15, 23, 42, 0.2), rgba(15, 23, 42, 0.5));
   }
 }

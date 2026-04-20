@@ -46,8 +46,9 @@ Tuyệt đối **KHÔNG ĐƯỢC SỬA** các class sau vì chúng là chủ ý 
 - **Note:** Bao gồm cả `VegetableProductSettingsPage.tsx`.
 
 ### Task 6: Pages Module - Đơn hàng & Giao vận
-- **Files:** `ExportOrdersPage.tsx`, `ImportOrdersPage.tsx`, `CreateDeliveryDialog.tsx`, v.v.
+- [x] **Files:** `ExportOrdersPage.tsx`, `ImportOrdersPage.tsx`, `CreateDeliveryDialog.tsx`, v.v.
 - **Công việc:** Thay `bg-white` thành `bg-card`, chú ý không đụng vào `bg-white/10` ở các ảnh overlay.
+- **Note:** Bao gồm cả `VegetableImportsPage.tsx`, `DeliveryPage.tsx`, `VegetableDeliveryPage.tsx`.
 
 ### Task 7: Pages Module - Nhân sự & Kế toán
 - **Files:** `EmployeesPage.tsx`, `SalarySettingsPage.tsx`, `CustomerDebtPage.tsx`, v.v.

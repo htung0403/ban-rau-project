@@ -248,7 +248,7 @@ const ImportOrdersPage: React.FC = () => {
       </div>
 
       {/* Main Card */}
-      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0">
+      <div className="bg-card rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0">
         {/* Toolbar */}
         <div className="p-3 border-b border-border flex flex-col md:flex-row items-stretch md:items-center gap-2">
           {/* Search and Mobile Filter Toggle */}
@@ -351,7 +351,7 @@ const ImportOrdersPage: React.FC = () => {
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="hidden md:flex items-center gap-1 px-3 py-2 rounded-xl border border-dashed border-red-300 text-red-500 text-[12px] font-bold hover:bg-red-50 transition-all shrink-0"
+              className="hidden md:flex items-center gap-1 px-3 py-2 rounded-xl border border-dashed border-red-300 text-red-500 text-[12px] font-bold hover:bg-red-500/10 transition-all shrink-0"
             >
               <X size={14} />
               Xóa lọc
@@ -483,15 +483,15 @@ const ImportOrdersPage: React.FC = () => {
                             );
                           }
                           case 'payment_status': return (
-                            <td key={col.id} className="px-4 py-3 text-right">
-                              {order.payment_status === 'paid' ? (
-                                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Đã trả</span>
-                              ) : order.payment_status === 'partial' ? (
-                                <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">1 phần</span>
-                              ) : (
-                                <span className="text-[11px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md">Chưa trả</span>
-                              )}
-                            </td>
+                              <td key={col.id} className="px-4 py-3 text-right">
+                                {order.payment_status === 'paid' ? (
+                                  <span className="text-[11px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded-md">Đã trả</span>
+                                ) : order.payment_status === 'partial' ? (
+                                  <span className="text-[11px] font-bold text-amber-600 bg-amber-500/10 px-2 py-1 rounded-md">1 phần</span>
+                                ) : (
+                                  <span className="text-[11px] font-bold text-red-500 bg-red-500/10 px-2 py-1 rounded-md">Chưa trả</span>
+                                )}
+                              </td>
                           );
                           case 'total_amount': return (
                             <td key={col.id} className="px-4 py-3 text-right text-[13px] font-black text-primary tabular-nums">
@@ -510,20 +510,20 @@ const ImportOrdersPage: React.FC = () => {
                           );
                           case 'actions': return (
                             <td key={col.id} className="px-4 py-3 flex items-center justify-center gap-1">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
-                                className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
-                                title="Sửa"
-                              >
-                                <Edit size={14} />
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
-                                className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
-                                title="Xóa"
-                              >
-                                <Trash2 size={14} />
-                              </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
+                                  className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors"
+                                  title="Sửa"
+                                >
+                                  <Edit size={14} />
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
+                                  className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                                  title="Xóa"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
                             </td>
                           );
                           default: return null;
@@ -545,7 +545,7 @@ const ImportOrdersPage: React.FC = () => {
                   <div
                     key={order.id}
                     onClick={() => openEditDialog(order)}
-                    className="bg-white rounded-xl border border-border shadow-sm cursor-pointer hover:shadow-md active:bg-muted/10 transition-all flex items-center gap-3 p-2.5 overflow-hidden"
+                    className="bg-card rounded-xl border border-border shadow-sm cursor-pointer hover:shadow-md active:bg-muted/10 transition-all flex items-center gap-3 p-2.5 overflow-hidden"
                   >
                     {/* Left: Image */}
                     <div
@@ -591,11 +591,11 @@ const ImportOrdersPage: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           {order.payment_status === 'paid' ? (
-                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Đã trả</span>
+                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded">Đã trả</span>
                           ) : order.payment_status === 'partial' ? (
-                            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">1 phần</span>
+                            <span className="text-[9px] font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded">1 phần</span>
                           ) : (
-                            <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">Chưa trả</span>
+                            <span className="text-[9px] font-bold text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">Chưa trả</span>
                           )}
                           {(order.total_amount && order.total_amount > 0) ? (
                             <span className="text-[13px] font-black text-primary tabular-nums">
@@ -610,20 +610,20 @@ const ImportOrdersPage: React.FC = () => {
                                 e.stopPropagation();
                                 setViewingImageOrder(order);
                               }}
-                              className="p-1 rounded-lg text-violet-500 hover:bg-violet-50 transition-colors"
+                              className="p-1 rounded-lg text-violet-500 hover:bg-violet-500/10 transition-colors"
                             >
                               <Eye size={13} />
                             </button>
                           )}
                           <button
                             onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
-                            className="p-1 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
+                            className="p-1 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors"
                           >
                             <Edit size={13} />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
-                            className="p-1 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
+                            className="p-1 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
                           >
                             <Trash2 size={13} />
                           </button>

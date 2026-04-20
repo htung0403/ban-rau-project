@@ -385,7 +385,7 @@ const VegetableImportsPage: React.FC = () => {
       </div>
 
       {/* Main Card */}
-      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0">
+      <div className="bg-card rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0">
         {/* Toolbar */}
         <div className="p-3 border-b border-border flex flex-col md:flex-row items-stretch md:items-center gap-2">
           {/* Search and Mobile Filter Toggle */}
@@ -495,7 +495,7 @@ const VegetableImportsPage: React.FC = () => {
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="hidden md:flex items-center gap-1 px-3 py-2 rounded-xl border border-dashed border-red-300 text-red-500 text-[12px] font-bold hover:bg-red-50 transition-all shrink-0"
+              className="hidden md:flex items-center gap-1 px-3 py-2 rounded-xl border border-dashed border-red-300 text-red-500 text-[12px] font-bold hover:bg-red-500/10 transition-all shrink-0"
             >
               <X size={14} />
               Xóa lọc
@@ -554,7 +554,7 @@ const VegetableImportsPage: React.FC = () => {
                   {groupedByDateThenCustomer.map(([dateKey, customerGroups]) => (
                     <React.Fragment key={`date-${dateKey}`}>
                       {/* Date header */}
-                      <tr className="bg-blue-50/80">
+                      <tr className="bg-blue-500/10">
                         <td colSpan={columns.filter(c => c.isVisible).length} className="px-4 py-2">
                           <span className="text-[12px] font-black text-blue-700 uppercase tracking-wider flex items-center gap-1.5"><Calendar size={13} /> {formatDateDMY(dateKey)}</span>
                         </td>
@@ -592,7 +592,7 @@ const VegetableImportsPage: React.FC = () => {
                                   );
                                   case 'tai_rank': return (
                                     <td key={col.id} className="px-4 py-3 text-center">
-                                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-50 text-amber-700 text-[12px] font-black">
+                                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/10 text-amber-700 text-[12px] font-black">
                                         {taiRankByOrderId.get(order.id) || 1}
                                       </span>
                                     </td>
@@ -625,11 +625,11 @@ const VegetableImportsPage: React.FC = () => {
                                   case 'payment_status': return (
                                     <td key={col.id} className="px-4 py-3 text-right">
                                       {order.payment_status === 'paid' ? (
-                                        <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Đã trả</span>
+                                        <span className="text-[11px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded-md">Đã trả</span>
                                       ) : order.payment_status === 'partial' ? (
-                                        <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">1 phần</span>
+                                        <span className="text-[11px] font-bold text-amber-600 bg-amber-500/10 px-2 py-1 rounded-md">1 phần</span>
                                       ) : (
-                                        <span className="text-[11px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md">Chưa trả</span>
+                                        <span className="text-[11px] font-bold text-red-500 bg-red-500/10 px-2 py-1 rounded-md">Chưa trả</span>
                                       )}
                                     </td>
                                   );
@@ -650,20 +650,20 @@ const VegetableImportsPage: React.FC = () => {
                                   );
                                   case 'actions': return (
                                     <td key={col.id} className="px-4 py-3 flex items-center justify-center gap-1">
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
-                                        className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
-                                        title="Sửa"
-                                      >
-                                        <Edit size={14} />
-                                      </button>
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
-                                        className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
-                                        title="Xóa"
-                                      >
-                                        <Trash2 size={14} />
-                                      </button>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
+                                          className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors"
+                                          title="Sửa"
+                                        >
+                                          <Edit size={14} />
+                                        </button>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
+                                          className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                                          title="Xóa"
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
                                     </td>
                                   );
                                   default: return null;
@@ -682,11 +682,11 @@ const VegetableImportsPage: React.FC = () => {
             {/* Mobile Card List */}
             <div className="md:hidden flex-1 overflow-y-auto p-3 flex flex-col gap-2">
               {groupedByDateThenCustomer.map(([dateKey, customerGroups]) => (
-                <div key={`mobile-date-${dateKey}`} className="flex flex-col gap-2">
-                  {/* Date header */}
-                  <div className="px-2 py-2 rounded-lg bg-blue-50 border border-blue-100">
-                    <span className="text-[11px] font-black text-blue-700 uppercase tracking-wider flex items-center gap-1"><Calendar size={12} /> {formatDateDMY(dateKey)}</span>
-                  </div>
+                  <div key={`mobile-date-${dateKey}`} className="flex flex-col gap-2">
+                    {/* Date header */}
+                    <div className="px-2 py-2 rounded-lg bg-blue-500/10 border border-blue-100/20">
+                      <span className="text-[11px] font-black text-blue-700 uppercase tracking-wider flex items-center gap-1"><Calendar size={12} /> {formatDateDMY(dateKey)}</span>
+                    </div>
 
                   {customerGroups.map(([supplierName, ordersInSupplier]) => (
                     <div key={`mobile-${dateKey}-${supplierName}`} className="flex flex-col gap-2">
@@ -706,7 +706,7 @@ const VegetableImportsPage: React.FC = () => {
                           <div
                             key={order.id}
                             onClick={() => openEditDialog(order)}
-                            className="bg-white rounded-xl border border-border shadow-sm cursor-pointer hover:shadow-md active:bg-muted/10 transition-all flex items-center gap-3 p-2.5 overflow-hidden"
+                            className="bg-card rounded-xl border border-border shadow-sm cursor-pointer hover:shadow-md active:bg-muted/10 transition-all flex items-center gap-3 p-2.5 overflow-hidden"
                           >
                             {/* Left: Image */}
                             <div className="w-[64px] h-[64px] shrink-0 bg-muted/20 rounded-lg overflow-hidden">
@@ -723,10 +723,10 @@ const VegetableImportsPage: React.FC = () => {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-0.5 gap-2">
                                 <span className="text-[13px] font-bold text-foreground truncate">{getSupplierName(order)}</span>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-50 text-amber-700 text-[11px] font-black">{taiRank}</span>
-                                  <StatusBadge status={order.status} label={statusLabels[order.status]} />
-                                </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/10 text-amber-700 text-[11px] font-black">{taiRank}</span>
+                                    <StatusBadge status={order.status} label={statusLabels[order.status]} />
+                                  </div>
                               </div>
                               <div className="mb-1.5">
                                 <span className="text-[10px] text-muted-foreground tabular-nums">{order.order_date}</span>
@@ -743,7 +743,7 @@ const VegetableImportsPage: React.FC = () => {
                               )}
                               {(totalQuantity > 0 || itemNames) && (
                                 <div className="mb-1.5">
-                                  <span className="text-[10px] text-slate-600 line-clamp-1">
+                                  <span className="text-[10px] text-muted-foreground line-clamp-1">
                                     Mặt hàng: <span className="font-medium text-foreground">{itemNames || '-'}</span>
                                     {totalQuantity > 0 && <span className="ml-1 font-bold text-blue-600">({totalQuantity})</span>}
                                   </span>
@@ -752,11 +752,11 @@ const VegetableImportsPage: React.FC = () => {
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-1.5">
                                   {order.payment_status === 'paid' ? (
-                                    <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Đã trả</span>
+                                    <span className="text-[9px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded">Đã trả</span>
                                   ) : order.payment_status === 'partial' ? (
-                                    <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">1 phần</span>
+                                    <span className="text-[9px] font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded">1 phần</span>
                                   ) : (
-                                    <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">Chưa trả</span>
+                                    <span className="text-[9px] font-bold text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">Chưa trả</span>
                                   )}
                                   {(order.total_amount && order.total_amount > 0) ? (
                                     <span className="text-[13px] font-black text-primary tabular-nums">
@@ -765,32 +765,32 @@ const VegetableImportsPage: React.FC = () => {
                                   ) : null}
                                 </div>
                                 <div className="flex items-center gap-0.5">
-                                  {orderImage && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const imgs: string[] = [];
-                                        if (order.receipt_image_url) imgs.push(order.receipt_image_url);
-                                        order.import_order_items?.forEach(item => { if (item.image_url && !imgs.includes(item.image_url)) imgs.push(item.image_url); });
-                                        if (imgs.length > 0) { setViewingImages(imgs); setViewingImageIndex(0); }
-                                      }}
-                                      className="p-1 rounded-lg text-violet-500 hover:bg-violet-50 transition-colors"
-                                    >
-                                      <Eye size={13} />
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
-                                    className="p-1 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
-                                  >
-                                    <Edit size={13} />
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
-                                    className="p-1 rounded-lg text-red-400 hover:bg-red-50 transition-colors"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
+                                      {orderImage && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const imgs: string[] = [];
+                                            if (order.receipt_image_url) imgs.push(order.receipt_image_url);
+                                            order.import_order_items?.forEach(item => { if (item.image_url && !imgs.includes(item.image_url)) imgs.push(item.image_url); });
+                                            if (imgs.length > 0) { setViewingImages(imgs); setViewingImageIndex(0); }
+                                          }}
+                                          className="p-1 rounded-lg text-violet-500 hover:bg-violet-500/10 transition-colors"
+                                        >
+                                          <Eye size={13} />
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
+                                        className="p-1 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors"
+                                      >
+                                        <Edit size={13} />
+                                      </button>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
+                                        className="p-1 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
                                 </div>
                               </div>
                             </div>

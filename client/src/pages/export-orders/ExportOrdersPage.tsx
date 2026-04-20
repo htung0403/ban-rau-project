@@ -93,7 +93,7 @@ const ExportOrdersPage: React.FC = () => {
           }
         />
       </div>
-      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0">
+      <div className="bg-card rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0">
         {/* Toolbar */}
         <div className="p-3 border-b border-border flex flex-col md:flex-row items-stretch md:items-center gap-2">
           <div className="flex w-full md:flex-1 gap-2">
@@ -166,7 +166,7 @@ const ExportOrdersPage: React.FC = () => {
           {(searchText || filterDateFrom || filterDateTo) && (
             <button
               onClick={() => { setSearchText(''); setFilterDateFrom(''); setFilterDateTo(''); }}
-              className="flex items-center gap-1 px-3 py-2 rounded-xl border border-dashed border-red-300 text-red-500 text-[12px] font-bold hover:bg-red-50 transition-all shrink-0 justify-center"
+              className="flex items-center gap-1 px-3 py-2 rounded-xl border border-dashed border-red-300 text-red-500 text-[12px] font-bold hover:bg-red-500/10 transition-all shrink-0 justify-center"
             >
               <X size={14} />
               Xóa lọc
@@ -221,7 +221,7 @@ const ExportOrdersPage: React.FC = () => {
                         <td className="px-3 py-3 w-10">
                           <input
                             type="checkbox"
-                            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
+                            className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
                             checked={selectedIds.has(o.id)}
                             onChange={(e) => {
                               const next = new Set(selectedIds);
@@ -264,7 +264,7 @@ const ExportOrdersPage: React.FC = () => {
                               setSelectedIds(new Set([o.id]));
                               setShowDeleteConfirm(true);
                             }}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-all"
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all"
                             title="Xóa"
                           >
                             <Trash2 size={15} />
@@ -282,7 +282,7 @@ const ExportOrdersPage: React.FC = () => {
               {filteredOrders.map((o) => (
                 <div
                   key={o.id}
-                  className={`bg-white rounded-2xl border shadow-sm p-3 hover:shadow-md active:bg-muted/10 transition-all flex flex-col gap-2 ${isAdmin && selectedIds.has(o.id) ? 'border-primary/40 bg-primary/5' : 'border-border'}`}
+                  className={`bg-card rounded-2xl border shadow-sm p-3 hover:shadow-md active:bg-muted/10 transition-all flex flex-col gap-2 ${isAdmin && selectedIds.has(o.id) ? 'border-primary/40 bg-primary/5' : 'border-border'}`}
                 >
                   <div className="flex gap-3">
                     {/* Checkbox (admin only) */}
@@ -342,7 +342,7 @@ const ExportOrdersPage: React.FC = () => {
                       </div>
 
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-[12px] font-bold text-slate-700">{(o as any).product_name}</span>
+                        <span className="text-[12px] font-bold text-foreground">{(o as any).product_name}</span>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted px-1.5 py-0.5 rounded">SL: {o.quantity.toLocaleString('vi-VN')}</span>
                           <span className="text-[11px] text-muted-foreground tabular-nums">{o.export_date}</span>

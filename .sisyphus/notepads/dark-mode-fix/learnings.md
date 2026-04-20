@@ -27,3 +27,12 @@
 - Replaced g-slate-50 with g-muted.
 - Replaced g-[#f8fafc] with g-background in inputs and backgrounds.
 - Maintained intentional colors like g-red-50, g-orange-100, and g-emerald-50 where they serve specific UI purposes (alerts, status, etc.).
+
+### Đơn hàng & Giao vận Module Dark Mode Updates
+- Replaced bg-white with bg-card for main panels.
+- Replaced bg-slate-50 with bg-muted for secondary backgrounds.
+- Updated STATUS_COLORS and PAYMENT_STATUS_CONFIG to use semantic tokens and translucent backgrounds (e.g., bg-emerald-500/10) for better dark mode compatibility.
+- Replaced hardcoded text-slate-* with text-foreground or text-muted-foreground.
+- Replaced border-slate-* with border-border.
+- Maintained intentional overlays like bg-white/10 on image thumbnails and full-screen viewers.
+- Used bg-background for small nested elements that need to contrast with bg-muted containers.

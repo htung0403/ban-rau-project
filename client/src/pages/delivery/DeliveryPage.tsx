@@ -37,16 +37,16 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
-  all: { bg: 'bg-slate-100', text: 'text-slate-700', dot: 'bg-slate-500' },
-  hang_o_sg: { bg: 'bg-blue-50', text: 'text-blue-600', dot: 'bg-blue-500' },
-  can_giao: { bg: 'bg-orange-50', text: 'text-orange-600', dot: 'bg-orange-500' },
-  da_giao: { bg: 'bg-green-50', text: 'text-green-600', dot: 'bg-green-500' },
+  all: { bg: 'bg-muted', text: 'text-muted-foreground', dot: 'bg-muted-foreground' },
+  hang_o_sg: { bg: 'bg-blue-500/10', text: 'text-blue-600', dot: 'bg-blue-500' },
+  can_giao: { bg: 'bg-orange-500/10', text: 'text-orange-600', dot: 'bg-orange-500' },
+  da_giao: { bg: 'bg-green-500/10', text: 'text-green-600', dot: 'bg-green-500' },
 };
 
 const PAYMENT_STATUS_CONFIG = {
-  unpaid: { label: 'Chưa thu', className: 'bg-red-50 text-red-700 border-red-200' },
-  partial: { label: 'Thu một phần', className: 'bg-amber-50 text-amber-700 border-amber-200' },
-  paid: { label: 'Đã thu', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  unpaid: { label: 'Chưa thu', className: 'bg-red-500/10 text-red-700 border-red-200/20' },
+  partial: { label: 'Thu một phần', className: 'bg-amber-500/10 text-amber-700 border-amber-200/20' },
+  paid: { label: 'Đã thu', className: 'bg-emerald-500/10 text-emerald-700 border-emerald-200/20' },
 };
 
 type VehicleAssignment = {
@@ -537,16 +537,16 @@ const DeliveryPage: React.FC = () => {
         {/* AGE FILTER */}
         <div className="hidden md:flex shrink-0 bg-muted/20 border border-border/80 rounded-xl p-0.5">
           {(['all', 'new', 'old'] as const).map((age) => (
-            <button
-              key={age}
-              onClick={() => setAgeFilter(age)}
-              className={clsx(
-                "px-3 py-1.5 text-[12px] font-bold rounded-lg transition-all",
-                ageFilter === age
-                  ? "bg-white text-primary shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
+                  <button
+                    key={age}
+                    onClick={() => setAgeFilter(age)}
+                    className={clsx(
+                      "px-3 py-1.5 text-[12px] font-bold rounded-lg transition-all",
+                      ageFilter === age
+                        ? "bg-background text-primary shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
               {age === 'all' ? 'Tất cả' : age === 'new' ? 'Hàng mới' : 'Hàng cũ'}
             </button>
           ))}
@@ -594,9 +594,9 @@ const DeliveryPage: React.FC = () => {
       </div>
 
 
-      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className="bg-card rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
         {/* Status Tabs */}
-        <div className="flex flex-col shrink-0 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex flex-col shrink-0 border-b border-border bg-muted/50">
           <div className="grid grid-cols-4 gap-1 px-3 py-2 md:flex md:items-center md:gap-1 md:overflow-x-auto custom-scrollbar">
             {(['can_giao', 'hang_o_sg', 'da_giao', 'all'] as const).map(status => {
               const colors = STATUS_COLORS[status];
@@ -664,18 +664,18 @@ const DeliveryPage: React.FC = () => {
             description={`Không có đơn hàng nào với trạng thái "${STATUS_LABELS[statusFilter]}" phù hợp với bộ lọc.`} 
           />
         ) : (
-          <div className="flex-1 overflow-auto custom-scrollbar bg-slate-50/30 md:bg-transparent relative">
+          <div className="flex-1 overflow-auto custom-scrollbar bg-muted/30 md:bg-transparent relative">
             {/* Desktop View */}
             <div className="hidden md:block">
-              <table className="w-full border-collapse bg-white">
+              <table className="w-full border-collapse bg-card">
                 <thead className="sticky top-0 z-20">
-                  <tr className="bg-white border-b border-slate-200 text-slate-600">
+                  <tr className="bg-card border-b border-border text-muted-foreground">
                     {isAdmin && (
-                      <th className="px-3 py-3 w-10 border-r border-slate-100">
+                      <th className="px-3 py-3 w-10 border-r border-border">
                         <div className="flex items-center justify-center">
                           <input
                             type="checkbox"
-                            className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                            className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
                             checked={isAllSelected}
                             onChange={toggleSelectAll}
                             ref={input => {
@@ -687,42 +687,42 @@ const DeliveryPage: React.FC = () => {
                         </div>
                       </th>
                     )}
-                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-24 border-r border-slate-100">Thao tác</th>
-                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-100">Loại</th>
-                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left min-w-20 border-r border-slate-100">Người nhận</th>
-                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-14 border-r border-slate-100">Ảnh</th>
-                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left border-r border-slate-100">Hàng</th>
-                    <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-17.5 border-r border-slate-100">Trạng thái</th>
-                    <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-28 border-r border-slate-100">Thanh toán</th>
-                    <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-100">SL Tổng</th>
-                    <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-100">Còn lại</th>
-                    <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-slate-200">Dư</th>
+                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-24 border-r border-border">Thao tác</th>
+                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-border">Loại</th>
+                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left min-w-20 border-r border-border">Người nhận</th>
+                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-14 border-r border-border">Ảnh</th>
+                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left border-r border-border">Hàng</th>
+                    <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-17.5 border-r border-border">Trạng thái</th>
+                    <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-28 border-r border-border">Thanh toán</th>
+                    <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-border">SL Tổng</th>
+                    <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-border">Còn lại</th>
+                    <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-border">Dư</th>
                     {eligibleVehicles.map(v => (
                       <th key={v.id} className={clsx(
-                        "px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-28 border-r border-slate-100 last:border-r-0",
+                        "px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-28 border-r border-border last:border-r-0",
                         myVehicleIdSet.has(v.id) && "bg-primary/5 text-primary"
                       )}>
                         {v.license_plate}
                       </th>
                     ))}
                     {eligibleVehicles.length === 0 && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => (
-                      <th key={col} className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-12 border-r border-slate-100 last:border-r-0">
+                      <th key={col} className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-12 border-r border-border last:border-r-0">
                         {col}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-border">
                   {sortedDates.map((date) => (
                     <React.Fragment key={date}>
                       {/* Date separator row */}
-                      <tr className="bg-slate-100/80 border-y border-slate-200 shadow-sm overflow-hidden">
+                      <tr className="bg-muted border-y border-border shadow-sm overflow-hidden">
                         <td colSpan={(isAdmin ? 11 : 10) + (eligibleVehicles.length || 10)} className="px-4 py-2.5">    
                           <div className="flex items-center gap-2">
                             {isAdmin && (
                               <input
                                 type="checkbox"
-                                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer mr-2"
+                                className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer mr-2"
                                 checked={groupedOrders[date].length > 0 && groupedOrders[date].every(o => selectedIds.has(o.id))}
                                 onChange={(e) => {
                                   const isChecked = e.target.checked;
@@ -747,7 +747,7 @@ const DeliveryPage: React.FC = () => {
                             <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 text-primary">
                               <Calendar size={14} />
                             </div>
-                            <span className="text-[13px] font-black text-slate-800 uppercase tracking-wider">Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}</span>
+                            <span className="text-[13px] font-black text-foreground uppercase tracking-wider">Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}</span>
                           </div>
                         </td>
                       </tr>
@@ -766,11 +766,11 @@ const DeliveryPage: React.FC = () => {
                         return (
                           <tr key={o.id} className={clsx("transition-colors group", selectedIds.has(o.id) ? "bg-blue-50/50" : "hover:bg-blue-50/30")}>
                             {isAdmin && (
-                              <td className="px-3 py-3 border-r border-slate-100 text-center">
+                              <td className="px-3 py-3 border-r border-border text-center">
                                 <div className="flex items-center justify-center">
                                   <input
                                     type="checkbox"
-                                    className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                                    className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
                                     checked={selectedIds.has(o.id)}
                                     onChange={(e) => {
                                       e.stopPropagation();
@@ -780,7 +780,7 @@ const DeliveryPage: React.FC = () => {
                                 </div>
                               </td>
                             )}
-                            <td className="px-2 py-3 border-r border-slate-100 text-center">
+                            <td className="px-2 py-3 border-r border-border text-center">
                               <div className="flex items-center justify-center gap-1">
                                 {statusFilter === 'hang_o_sg' && isAdmin && (
                                   <button
@@ -789,7 +789,7 @@ const DeliveryPage: React.FC = () => {
                                       handleConfirm([o.id]);
                                     }}
                                     disabled={confirmMutation.isPending}
-                                    className="p-1.5 rounded-md transition-colors bg-green-100 text-green-600 hover:bg-green-200 disabled:opacity-50"
+                                    className="p-1.5 rounded-md transition-colors bg-green-500/10 text-green-600 hover:bg-green-500/20 disabled:opacity-50"
                                     title="Xác nhận giao"
                                   >
                                     <Check size={14} strokeWidth={2.5} />
@@ -804,8 +804,8 @@ const DeliveryPage: React.FC = () => {
                                     className={clsx(
                                       "p-1.5 rounded-md transition-colors",
                                       remainingQty > 0
-                                        ? "bg-orange-100 text-orange-600 hover:bg-orange-200"
-                                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                        ? "bg-orange-500/10 text-orange-600 hover:bg-orange-500/20"
+                                        : "bg-muted text-muted-foreground hover:bg-muted/80"
                                     )}
                                     title={remainingQty > 0 ? "Phân xe" : "Chỉnh sửa phân xe"}
                                   >
@@ -819,7 +819,7 @@ const DeliveryPage: React.FC = () => {
                                         e.stopPropagation();
                                         openEdit(o);
                                       }}
-                                      className="p-1.5 rounded-md transition-colors bg-blue-100 text-blue-600 hover:bg-blue-200"
+                                      className="p-1.5 rounded-md transition-colors bg-blue-500/10 text-blue-600 hover:bg-blue-500/20"
                                       title="Chỉnh sửa đơn hàng"
                                     >
                                       <Pencil size={14} strokeWidth={2.5} />
@@ -829,7 +829,7 @@ const DeliveryPage: React.FC = () => {
                                         e.stopPropagation();
                                         handleDeleteOne(o.id);
                                       }}
-                                      className="p-1.5 rounded-md transition-colors bg-red-100 text-red-600 hover:bg-red-200"
+                                      className="p-1.5 rounded-md transition-colors bg-red-500/10 text-red-600 hover:bg-red-500/20"
                                       title="Xóa đơn hàng"
                                     >
                                       <Trash2 size={14} strokeWidth={2.5} />
@@ -838,19 +838,19 @@ const DeliveryPage: React.FC = () => {
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 py-3 border-r border-slate-100 text-center">
+                            <td className="px-4 py-3 border-r border-border text-center">
                               <div className="flex items-center justify-center">
                                 {o.delivery_date === todayStr ? (
-                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 text-emerald-700 uppercase">Mới</span>
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/10 text-emerald-700 uppercase">Mới</span>
                                 ) : (
-                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-slate-100 text-slate-600 uppercase">Cũ</span>
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-muted text-muted-foreground uppercase">Cũ</span>
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-[12px] font-bold text-slate-700 border-r border-slate-100">
+                            <td className="px-4 py-3 text-[12px] font-bold text-foreground border-r border-border">
                               {getReceiverDisplayName(o)}
                             </td>
-                            <td className="px-2 py-3 text-center border-r border-slate-100 cursor-pointer" onClick={(e) => {
+                            <td className="px-2 py-3 text-center border-r border-border cursor-pointer" onClick={(e) => {
                               const previewImage = getOrderPreviewImage(o);
                               if (previewImage) {
                                 e.stopPropagation();
@@ -870,27 +870,27 @@ const DeliveryPage: React.FC = () => {
                                 </div>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-[13px] font-medium text-slate-600 border-r border-slate-100">
+                            <td className="px-4 py-3 text-[13px] font-medium text-muted-foreground border-r border-border">
                               {getDisplayProductName(o)}
                             </td>
-                            <td className="px-2 py-3 border-r border-slate-100">
+                            <td className="px-2 py-3 border-r border-border">
                               <div className={clsx("flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold mx-auto w-fit", statusColor.bg, statusColor.text)}>
                                 <div className={clsx("w-1.5 h-1.5 rounded-full", statusColor.dot)} />
                                 {STATUS_LABELS[effectiveStatus] || effectiveStatus}
                               </div>
                             </td>
-                            <td className="px-2 py-3 border-r border-slate-100 text-center">
+                            <td className="px-2 py-3 border-r border-border text-center">
                               <span className={clsx("inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[10px] font-bold border", paymentConfig.className)}>
                                 {paymentConfig.label}
                               </span>
                             </td>
-                            <td className="px-2 py-3 text-[13px] font-bold text-slate-500 text-center tabular-nums border-r border-slate-100">
+                            <td className="px-2 py-3 text-[13px] font-bold text-muted-foreground text-center tabular-nums border-r border-border">
                               {formatNumber(o.total_quantity)}
                             </td>
-                            <td className="px-2 py-3 text-[13px] font-black text-orange-600 text-center tabular-nums border-r border-slate-100">
+                            <td className="px-2 py-3 text-[13px] font-black text-orange-600 text-center tabular-nums border-r border-border">
                               {formatNumber(remainingQty > 0 ? remainingQty : 0)}
                             </td>
-                            <td className="px-2 py-3 text-[13px] font-black text-red-600 text-center tabular-nums border-r border-slate-200">
+                            <td className="px-2 py-3 text-[13px] font-black text-red-600 text-center tabular-nums border-r border-border">
                               {remainingQty < 0 ? formatNumber(remainingQty) : '-'}
                             </td>
                             {eligibleVehicles.map(v => {
@@ -912,8 +912,8 @@ const DeliveryPage: React.FC = () => {
                                     }
                                   }}
                                   className={clsx(
-                                    "px-1 py-1 text-[13px] text-center tabular-nums border-r border-slate-100 last:border-r-0 transition-all relative",
-                                    qty > 0 ? "font-bold text-blue-600 bg-blue-50/10" : "text-slate-300",
+                                    "px-1 py-1 text-[13px] text-center tabular-nums border-r border-border last:border-r-0 transition-all relative",
+                                    qty > 0 ? "font-bold text-blue-600 bg-blue-500/10" : "text-muted-foreground/30",
                                     statusFilter === 'can_giao' && canEdit && (qty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95"
                                   )}
                                 >
@@ -922,7 +922,7 @@ const DeliveryPage: React.FC = () => {
                                       {qty > 0 ? formatNumber(qty) : (statusFilter === 'can_giao' && canEdit && remainingQty > 0 ? <PlusCircle size={14} className="mx-auto opacity-10 group-hover:opacity-40" /> : '-')}
                                     </span>
                                     {isPaid && (
-                                      <div className="mt-0.5 flex items-center justify-center gap-0.5 text-green-600 bg-green-100 rounded-sm px-1" title="Đã xác nhận thu tiền">
+                                      <div className="mt-0.5 flex items-center justify-center gap-0.5 text-green-600 bg-green-500/10 rounded-sm px-1" title="Đã xác nhận thu tiền">
                                         <CheckCircle size={8} strokeWidth={3} />
                                         <span className="text-[9px] font-black leading-none pb-px">Thu</span>
                                       </div>
@@ -946,8 +946,8 @@ const DeliveryPage: React.FC = () => {
                                 <td
                                   key={col}
                                   className={clsx(
-                                    "px-2 py-3 text-[13px] text-center tabular-nums border-r border-slate-100 last:border-r-0",
-                                    qty > 0 ? "font-bold text-orange-600 bg-orange-50/30" : "text-slate-300"
+                                    "px-2 py-3 text-[13px] text-center tabular-nums border-r border-border last:border-r-0",
+                                    qty > 0 ? "font-bold text-orange-600 bg-orange-500/10" : "text-muted-foreground/30"
                                   )}
                                 >
                                   {qty > 0 ? formatNumber(qty) : '-'}
@@ -967,11 +967,11 @@ const DeliveryPage: React.FC = () => {
             <div className="md:hidden flex flex-col gap-3 px-3 pt-0 pb-20 relative">
               {sortedDates.map((date) => (
                 <div key={`mobile-${date}`} className="flex flex-col gap-2.5">
-                  <div className="flex items-center gap-2 sticky top-0 bg-slate-50/95 backdrop-blur-sm p-3 -mx-3 px-5 z-10 border-b border-border/50 shadow-sm">
+                  <div className="flex items-center gap-2 sticky top-0 bg-card/95 backdrop-blur-sm p-3 -mx-3 px-5 z-10 border-b border-border/50 shadow-sm">
                     {isAdmin && (
                       <input
                         type="checkbox"
-                        className="w-5 h-5 rounded-md border-slate-300 text-primary focus:ring-primary mr-1"
+                        className="w-5 h-5 rounded-md border-border text-primary focus:ring-primary mr-1"
                         checked={groupedOrders[date].length > 0 && groupedOrders[date].every(o => selectedIds.has(o.id))}
                         onChange={(e) => {
                           const isChecked = e.target.checked;
@@ -989,7 +989,7 @@ const DeliveryPage: React.FC = () => {
                     <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 text-primary shrink-0">
                       <Calendar size={14} />
                     </div>
-                    <span className="text-[13px] font-black text-slate-800 uppercase tracking-wider">
+                    <span className="text-[13px] font-black text-foreground uppercase tracking-wider">
                       Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}
                     </span>
                   </div>
@@ -1013,9 +1013,9 @@ const DeliveryPage: React.FC = () => {
                             if (statusFilter === 'can_giao') handleOrderClick(o);
                           }}
                           className={clsx(
-                            "bg-white rounded-xl border shadow-sm transition-all relative overflow-hidden",
+                            "bg-card rounded-xl border shadow-sm transition-all relative overflow-hidden",
                             statusFilter === 'can_giao' && "cursor-pointer active:scale-[0.98]",
-                            remainingQty > 0 && statusFilter === 'can_giao' ? "border-orange-200" : "border-slate-200"
+                            remainingQty > 0 && statusFilter === 'can_giao' ? "border-orange-200" : "border-border"
                           )}
                         >
                             {/* Card body */}

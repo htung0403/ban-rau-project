@@ -75,7 +75,7 @@ export function MultiSearchableSelect({
       disabled={disabled}
       onClick={() => inline && setOpen(!open)}
       className={cn(
-        "flex h-[38px] w-full items-center justify-between rounded-xl border border-border bg-white shadow-sm px-3 py-2 text-[13px] font-bold text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/10",
+        "flex h-[38px] w-full items-center justify-between rounded-xl border border-border bg-card shadow-sm px-3 py-2 text-[13px] font-bold text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/10",
         open && "border-primary ring-2 ring-primary/5",
         value.length > 0 && "text-foreground",
         className
@@ -155,7 +155,7 @@ export function MultiSearchableSelect({
           open ? "grid-rows-[1fr] opacity-100 mt-2" : "grid-rows-[0fr] opacity-0 mt-0"
         )}>
           <div className="overflow-hidden">
-            <div className="rounded-2xl border border-border/60 shadow-sm bg-white">
+            <div className="rounded-2xl border border-border/60 shadow-sm bg-popover">
               {content}
             </div>
           </div>

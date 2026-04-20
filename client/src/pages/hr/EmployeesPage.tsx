@@ -124,16 +124,26 @@ const EmployeesPage: React.FC = () => {
     return map;
   }, [appRoles, salaryRoles]);
 
-  /** Biển số xe theo tài xế được gán ở Quản lý xe (driver_id). */
-  const licensePlatesByDriverId = useMemo(() => {
-    const map = new Map<string, string[]>();
+  /** Xe được gán ở Quản lý xe (driver_id hoặc in_charge_id). */
+  const assignedVehiclesByEmployeeId = useMemo(() => {
+    const map = new Map<string, Array<{ plate: string; type: string }>>();
     (vehicles || []).forEach((v) => {
       const did = v.driver_id?.trim();
+      const inChargeId = v.in_charge_id?.trim();
       const plate = v.license_plate?.trim();
-      if (!did || !plate) return;
-      const list = map.get(did) || [];
-      if (!list.includes(plate)) list.push(plate);
-      map.set(did, list);
+      const type = v.vehicle_type?.trim() || 'Chưa phân loại xe';
+      if (!plate) return;
+
+      const addInfo = (employeeId: string) => {
+        const list = map.get(employeeId) || [];
+        if (!list.some(item => item.plate === plate)) {
+          list.push({ plate, type });
+        }
+        map.set(employeeId, list);
+      };
+
+      if (did) addInfo(did);
+      if (inChargeId) addInfo(inChargeId);
     });
     return map;
   }, [vehicles]);
@@ -307,8 +317,7 @@ const EmployeesPage: React.FC = () => {
           <div className="flex-1 overflow-auto custom-scrollbar pb-6 px-1">
             <div className="flex flex-col gap-3">
               {(sortedEmployees || []).map((e) => {
-                const driverAssignedPlates =
-                  inferSystemRole(e.role) === 'driver' ? licensePlatesByDriverId.get(e.id) : undefined;
+                const assignedVehicles = assignedVehiclesByEmployeeId.get(e.id);
                 return (
                 <div
                   key={e.id}
@@ -333,14 +342,17 @@ const EmployeesPage: React.FC = () => {
                         <span className="w-fit px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-muted/10 text-muted-foreground border border-border/50 whitespace-nowrap">
                           {roleNameByKey[e.role] || e.role}
                         </span>
-                        {driverAssignedPlates?.length ? (
-                          <span
-                            title="Xe phụ trách (Quản lý xe)"
-                            className="w-fit inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-primary/8 text-primary border border-primary/25 whitespace-nowrap"
-                          >
-                            <Car size={11} className="shrink-0 opacity-90" aria-hidden />
-                            {driverAssignedPlates.join(', ')}
-                          </span>
+                        {assignedVehicles?.length ? (
+                          assignedVehicles.map(v => (
+                            <span
+                              key={v.plate}
+                              title="Xe phụ trách (Quản lý xe)"
+                              className="w-fit inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-primary/8 text-primary border border-primary/25 whitespace-nowrap"
+                            >
+                              <Car size={11} className="shrink-0 opacity-90" aria-hidden />
+                              {v.type !== 'Chưa phân loại xe' ? `${v.type} - ` : ''}{v.plate}
+                            </span>
+                          ))
                         ) : null}
                       </div>
                     </div>

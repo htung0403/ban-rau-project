@@ -1,0 +1,116 @@
+- generic [ref=e42]:
+  - complementary [ref=e43]:
+    - img [ref=e46]
+    - navigation [ref=e51]:
+      - link "Trang chủ" [ref=e52] [cursor=pointer]:
+        - /url: /
+        - img [ref=e54]
+      - link "Hàng hóa" [ref=e57] [cursor=pointer]:
+        - /url: /hang-hoa
+        - img [ref=e59]
+      - link "Khách hàng" [ref=e62] [cursor=pointer]:
+        - /url: /khach-hang
+        - img [ref=e64]
+      - link "Hành chính nhân sự" [ref=e68] [cursor=pointer]:
+        - /url: /hanh-chinh-nhan-su
+        - img [ref=e70]
+      - link "Kế toán" [ref=e75] [cursor=pointer]:
+        - /url: /ke-toan
+        - img [ref=e77]
+      - link "Quản lý xe" [ref=e80] [cursor=pointer]:
+        - /url: /quan-ly-xe
+        - img [ref=e82]
+      - link "Thông tin bản quyền" [ref=e87] [cursor=pointer]:
+        - /url: /ban-quyen
+        - img [ref=e89]
+  - generic [ref=e92]:
+    - banner [ref=e93]:
+      - generic [ref=e94]:
+        - button [ref=e95]:
+          - img [ref=e96]
+        - generic [ref=e98]:
+          - link [ref=e99] [cursor=pointer]:
+            - /url: /
+            - img [ref=e100]
+          - img [ref=e104]
+          - link "Trang chủ" [ref=e106] [cursor=pointer]:
+            - /url: /
+      - generic [ref=e107]:
+        - generic [ref=e108]:
+          - generic [ref=e109]:
+            - img [ref=e110]
+            - generic [ref=e113]: 00:23:58
+          - generic [ref=e115]:
+            - img [ref=e116]
+            - generic [ref=e118]: Thứ 3, 21/4/2026
+        - button "4" [ref=e120]:
+          - img [ref=e121]
+          - generic [ref=e124]: "4"
+        - generic [ref=e126] [cursor=pointer]:
+          - img "Avatar" [ref=e129]
+          - generic [ref=e131]:
+            - generic [ref=e132]:
+              - generic [ref=e133]: Admin Demo
+              - img [ref=e134]
+            - generic [ref=e136]: Quản trị
+    - main [ref=e137]:
+      - generic [ref=e139]:
+        - heading "Chào buổi sáng, Admin Demo 👋" [level=1] [ref=e141]:
+          - text: Chào buổi sáng,
+          - generic [ref=e142]: Admin Demo
+          - text: 👋
+        - generic [ref=e144]:
+          - button "Chức năng" [ref=e145]
+          - button "Đánh dấu" [ref=e146]
+          - button "Tất cả" [ref=e147]
+        - generic [ref=e148]:
+          - link "Hàng hóa Kho, nhập hàng, xuất hàng, tồn kho." [ref=e149] [cursor=pointer]:
+            - /url: /hang-hoa
+            - img [ref=e151]
+            - generic [ref=e154]:
+              - img [ref=e156]
+              - heading "Hàng hóa" [level=3] [ref=e159]
+              - paragraph [ref=e160]: Kho, nhập hàng, xuất hàng, tồn kho.
+          - link "Hành chính nhân sự Quản lý nhân sự và các thủ tục hành chính." [ref=e161] [cursor=pointer]:
+            - /url: /hanh-chinh-nhan-su
+            - img [ref=e163]
+            - generic [ref=e166]:
+              - img [ref=e168]
+              - heading "Hành chính nhân sự" [level=3] [ref=e173]
+              - paragraph [ref=e174]: Quản lý nhân sự và các thủ tục hành chính.
+          - link "Kế toán Công nợ, danh sách khách hàng." [ref=e175] [cursor=pointer]:
+            - /url: /ke-toan
+            - img [ref=e177]
+            - generic [ref=e180]:
+              - img [ref=e182]
+              - heading "Kế toán" [level=3] [ref=e185]
+              - paragraph [ref=e186]: Công nợ, danh sách khách hàng.
+          - link "Quản lý xe Theo dõi và quản lý phương tiện." [ref=e187] [cursor=pointer]:
+            - /url: /quan-ly-xe
+            - img [ref=e189]
+            - generic [ref=e192]:
+              - img [ref=e194]
+              - heading "Quản lý xe" [level=3] [ref=e198]
+              - paragraph [ref=e199]: Theo dõi và quản lý phương tiện.
+          - link "Thông tin bản quyền Quản lý sở hữu trí tuệ." [ref=e200] [cursor=pointer]:
+            - /url: /ban-quyen
+            - img [ref=e202]
+            - generic [ref=e205]:
+              - img [ref=e207]
+              - heading "Thông tin bản quyền" [level=3] [ref=e210]
+              - paragraph [ref=e211]: Quản lý sở hữu trí tuệ.
+          - link "Chat Zalo Chat Zalo Chuyển sang ứng dụng Zalo chat" [ref=e212] [cursor=pointer]:
+            - /url: https://chat.zalo.me/
+            - img [ref=e214]
+            - generic [ref=e217]:
+              - img "Chat Zalo" [ref=e218]
+              - heading "Chat Zalo" [level=3] [ref=e219]
+              - paragraph [ref=e220]: Chuyển sang ứng dụng Zalo chat
+    - generic [ref=e221]:
+      - button [ref=e222]:
+        - img [ref=e223]
+      - button [ref=e225]:
+        - img [ref=e226]
+      - button "4" [ref=e229]:
+        - img [ref=e230]
+        - generic [ref=e233]: "4"

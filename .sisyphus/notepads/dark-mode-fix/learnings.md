@@ -41,3 +41,11 @@
 - Replaced \g-slate-50\ and similar with \g-muted\ for secondary backgrounds.
 - Replaced \g-[#f8fafc]\ with \g-background\ for page/panel backgrounds.
 - Verified all changes with \lsp_diagnostics\.
+
+### Delivery Pages Dark Mode Optimization
+- Replaced hardcoded text-blue-600, text-orange-600, text-green-600, text-red-600 with dark mode variants (dark:text-blue-500, etc.) in DeliveryPage.tsx and VegetableDeliveryPage.tsx.
+- Updated sticky headers to use bg-muted/80 dark:bg-muted/40 backdrop-blur-md for better contrast and consistency.
+- Replaced bg-white with bg-card and border-slate-200 with border-border in the bulk action bar.
+- Updated mobile card borders to use border-orange-500/30 dark:border-orange-500/20 for cards with remaining quantity.
+- Replaced text-slate-* and bg-slate-* with semantic tokens like text-muted-foreground, text-foreground, bg-muted, and bg-border.
+- Updated hover states to use bg-primary/5 dark:bg-primary/10 instead of hardcoded bg-blue-50/50.

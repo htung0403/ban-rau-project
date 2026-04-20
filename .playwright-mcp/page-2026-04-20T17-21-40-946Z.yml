@@ -1,0 +1,30 @@
+- main [ref=e4]:
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - heading "Chào mừng trở lại" [level=1] [ref=e8]
+      - paragraph [ref=e9]: Đăng nhập để làm việc
+    - generic [ref=e10]:
+      - generic [ref=e37]:
+        - img [ref=e38]
+        - text: Request failed with status code 400
+      - generic [ref=e11]:
+        - generic [ref=e12]: Số điện thoại
+        - generic [ref=e13]:
+          - img [ref=e14]
+          - 'textbox "VD: 0901234567" [ref=e17]': "0900000001"
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e20]: Mật khẩu
+          - link "Quên mật khẩu?" [ref=e21] [cursor=pointer]:
+            - /url: "#"
+        - generic [ref=e22]:
+          - img [ref=e23]
+          - textbox "••••••••" [ref=e26]: password123
+          - button [ref=e27]:
+            - img [ref=e28]
+      - generic [ref=e31]:
+        - checkbox "Ghi nhớ đăng nhập" [ref=e32]
+        - generic [ref=e33] [cursor=pointer]: Ghi nhớ đăng nhập
+      - button "Đăng nhập" [ref=e34]:
+        - text: Đăng nhập
+        - img [ref=e40]

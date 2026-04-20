@@ -31,26 +31,26 @@ const InputDialog: React.FC<{
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-slate-50">
-          <h2 className="text-[15px] font-bold text-slate-800">{title}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:bg-slate-200 p-1.5 rounded-full transition-colors">
+      <div className="relative bg-card rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted">
+          <h2 className="text-[15px] font-bold text-foreground">{title}</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:bg-muted p-1.5 rounded-full transition-colors">
             <X size={18} />
           </button>
         </div>
         <div className="p-5">
-          <label className="text-[12px] font-medium text-slate-700 mb-1 block">Tên hàng hóa</label>
+          <label className="text-[12px] font-medium text-muted-foreground mb-1 block">Tên hàng hóa</label>
           <input
             type="text"
             autoFocus
             value={val}
             onChange={e => setVal(e.target.value)}
             placeholder={placeholder}
-            className="w-full px-3 py-2.5 mb-3 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-slate-700"
+            className="w-full px-3 py-2.5 mb-3 bg-background border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium text-foreground"
           />
         </div>
-        <div className="px-5 py-4 border-t border-border bg-slate-50 flex items-center justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-200 transition-colors">
+        <div className="px-5 py-4 border-t border-border bg-muted flex items-center justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-[13px] font-bold text-muted-foreground hover:bg-muted transition-colors">
             Hủy
           </button>
           <button
@@ -61,7 +61,7 @@ const InputDialog: React.FC<{
                 setVal('');
               }
             }}
-            className="px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 shadow-sm bg-primary text-white hover:bg-primary/90 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed"
+            className="px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all flex items-center gap-2 shadow-sm bg-primary text-white hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:cursor-not-allowed"
           >
             {isSubmitting && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
             Xác nhận
@@ -86,21 +86,21 @@ const ConfirmDialog: React.FC<{
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={isLoading ? undefined : onCancel} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-slate-50">
-          <h2 className="text-[15px] font-bold text-slate-800">{title}</h2>
-          <button onClick={isLoading ? undefined : onCancel} className="text-slate-400 hover:bg-slate-200 p-1.5 rounded-full transition-colors disabled:opacity-50">
+      <div className="relative bg-card rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted">
+          <h2 className="text-[15px] font-bold text-foreground">{title}</h2>
+          <button onClick={isLoading ? undefined : onCancel} className="text-muted-foreground hover:bg-muted p-1.5 rounded-full transition-colors disabled:opacity-50">
             <X size={18} />
           </button>
         </div>
         <div className="p-5">
-          <p className="text-[13px] text-slate-700">{message}</p>
+          <p className="text-[13px] text-foreground">{message}</p>
         </div>
-        <div className="px-5 py-4 border-t border-border bg-slate-50 flex items-center justify-end gap-3">
+        <div className="px-5 py-4 border-t border-border bg-muted flex items-center justify-end gap-3">
           <button
             disabled={isLoading}
             onClick={onCancel}
-            className="px-4 py-2 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-50"
+            className="px-4 py-2 rounded-xl text-[13px] font-bold text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
           >
             Hủy
           </button>
@@ -209,7 +209,7 @@ const ProductSettingsPage: React.FC = () => {
     return (
       <div
         key={p.id}
-        className={`group flex items-center justify-between p-3 rounded-xl border transition-all ${isSelected ? 'bg-blue-50/50 border-blue-200' : 'bg-white border-transparent hover:border-slate-200 hover:bg-slate-50 shadow-sm hover:shadow-md'}`}
+        className={`group flex items-center justify-between p-3 rounded-xl border transition-all ${isSelected ? 'bg-blue-50/50 border-blue-200' : 'bg-card border-transparent hover:border-border hover:bg-muted shadow-sm hover:shadow-md'}`}
       >
         <div className="flex items-center gap-3">
           <label className="hidden md:flex items-center justify-center p-1 cursor-pointer" onClick={(e) => e.stopPropagation()}>
@@ -217,7 +217,7 @@ const ProductSettingsPage: React.FC = () => {
               type="checkbox"
               checked={isSelected}
               onChange={() => handleToggleProduct(p.id)}
-              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              className="w-4 h-4 rounded border-border text-blue-600 focus:ring-blue-500 cursor-pointer"
             />
           </label>
           <div
@@ -229,7 +229,7 @@ const ProductSettingsPage: React.FC = () => {
               editingId: p.id
             })}
           >
-            <span className="text-[14px] font-bold text-slate-800 group-hover:text-primary transition-colors">{p.name}</span>
+            <span className="text-[14px] font-bold text-foreground group-hover:text-primary transition-colors">{p.name}</span>
           </div>
         </div>
 
@@ -241,7 +241,7 @@ const ProductSettingsPage: React.FC = () => {
               mode: 'edit',
               editingId: p.id
             })}
-            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            className="p-1.5 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
             title="Sửa"
           >
             <Edit2 size={16} />
@@ -251,7 +251,7 @@ const ProductSettingsPage: React.FC = () => {
               setSelectedProducts([p.id]);
               setDeleteConfirm(true);
             }}
-            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            className="p-1.5 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
             title="Xóa"
           >
             <Trash2 size={16} />
@@ -277,7 +277,7 @@ const ProductSettingsPage: React.FC = () => {
       {selectedProducts.length > 0 && (
         <div className="hidden md:block fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in zoom-in-95 duration-200">
           <div className="flex items-center gap-3 bg-slate-800 text-white px-4 py-3 rounded-2xl shadow-2xl border border-white/10">
-            <div className="flex items-center gap-2 pr-4 border-r border-slate-600">
+            <div className="flex items-center gap-2 pr-4 border-r border-border">
               <span className="flex items-center justify-center w-5 h-5 bg-blue-500 rounded-full text-[10px] font-bold text-white">
                 {selectedProducts.length}
               </span>
@@ -286,16 +286,8 @@ const ProductSettingsPage: React.FC = () => {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={handleDeleteProducts}
-                disabled={isDeleting}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/20 text-red-200 hover:bg-red-500/30 transition-colors text-[13px] font-bold disabled:opacity-50"
-              >
-                <Trash2 size={14} />
-                Xóa
-              </button>
-              <button
                 onClick={() => setSelectedProducts([])}
-                className="ml-2 p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                className="ml-2 p-1.5 rounded-xl hover:bg-white/10 text-muted-foreground hover:text-white transition-colors"
                 title="Bỏ chọn tất cả"
               >
                 <X size={16} />
@@ -311,23 +303,23 @@ const ProductSettingsPage: React.FC = () => {
         <ErrorState onRetry={refetchProducts} />
       ) : (
         <div className="bg-card rounded-2xl border border-border flex-1 overflow-hidden flex flex-col shadow-sm relative">
-          <div className="px-6 py-4 border-b border-border bg-white flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-10">
+          <div className="px-6 py-4 border-b border-border bg-card flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-10">
             <div className="flex items-center gap-2">
               <Database size={18} className="text-primary hidden md:block" />
               <div className="relative w-full md:w-64 flex gap-2">
                 <div className="relative flex-1">
-                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Tìm hàng hoá..."
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[13px] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all focus:bg-white"
+                    className="w-full pl-9 pr-3 py-2 bg-muted border border-border rounded-xl text-[13px] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all focus:bg-background"
                   />
                 </div>
                 <button 
                   onClick={() => setIsFilterOpen(true)}
-                  className="md:hidden flex items-center justify-center p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors"
+                  className="md:hidden flex items-center justify-center p-2.5 bg-muted border border-border rounded-xl text-foreground hover:bg-muted transition-colors"
                 >
                    <Filter size={18} />
                 </button>
@@ -336,7 +328,7 @@ const ProductSettingsPage: React.FC = () => {
 
             <div className="hidden md:flex items-center gap-3 w-full md:w-auto">
               <div className="relative flex items-center gap-2 w-full md:w-auto">
-                <ArrowUpDown size={14} className="text-slate-400 hidden sm:block" />
+                <ArrowUpDown size={14} className="text-muted-foreground hidden sm:block" />
                 <CustomSelect
                   value={sortBy}
                   onChange={val => setSortBy(val as any)}
@@ -344,17 +336,17 @@ const ProductSettingsPage: React.FC = () => {
                     { value: 'nameAsc', label: 'Tên (A-Z)' },
                     { value: 'nameDesc', label: 'Tên (Z-A)' },
                   ]}
-                  className="w-full md:w-auto min-w-[160px] bg-slate-50 border-slate-200 hover:bg-slate-100 font-medium"
+                  className="w-full md:w-auto min-w-[160px] bg-muted border-border hover:bg-muted font-medium"
                   align="end"
                 />
               </div>
             </div>
           </div>
 
-          <div className="p-6 overflow-y-auto custom-scrollbar bg-slate-50/50 flex-1">
+          <div className="p-6 overflow-y-auto custom-scrollbar bg-muted/50 flex-1">
             <div className="flex flex-col">
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
-                <h3 className="text-[15px] font-bold text-slate-800 flex items-center gap-2">
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-border">
+                <h3 className="text-[15px] font-bold text-foreground flex items-center gap-2">
                   <Box size={18} className="text-blue-500" />
                   Hàng tạp hóa
                 </h3>
@@ -366,7 +358,7 @@ const ProductSettingsPage: React.FC = () => {
               <div className="flex flex-col gap-1.5 mb-4 flex-1">
                 {standardProducts.map((p: any) => renderProductRow(p))}
                 {standardProducts.length === 0 && (
-                  <div className="py-8 text-center bg-white border border-dashed border-slate-200 rounded-xl">
+                  <div className="py-8 text-center bg-card border border-dashed border-border rounded-xl">
                     <span className="text-[13px] text-muted-foreground italic">Không có kết quả nào.</span>
                   </div>
                 )}
@@ -413,7 +405,7 @@ const ProductSettingsPage: React.FC = () => {
         hideDateFilter={true}
       >
         <div className="space-y-1.5 z-10 w-full mt-2">
-          <label className="text-[12px] uppercase tracking-wider font-bold text-slate-500">Sắp xếp theo</label>
+          <label className="text-[12px] uppercase tracking-wider font-bold text-muted-foreground">Sắp xếp theo</label>
           <div className="flex flex-col gap-1.5">
             {[
               { value: 'nameAsc', label: 'Tên (A-Z)' },
@@ -425,7 +417,7 @@ const ProductSettingsPage: React.FC = () => {
                 className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-[13px] font-bold transition-all ${
                   draftSortBy === opt.value
                     ? 'bg-primary text-white border-primary shadow-sm'
-                    : 'bg-white border-border text-slate-600 hover:bg-slate-50'
+                    : 'bg-card border-border text-muted-foreground hover:bg-muted'
                 }`}
               >
                 <span>{opt.label}</span>

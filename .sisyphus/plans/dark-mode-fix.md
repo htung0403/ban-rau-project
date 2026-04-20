@@ -41,8 +41,9 @@ Tuyệt đối **KHÔNG ĐƯỢC SỬA** các class sau vì chúng là chủ ý 
 - **Công việc:** Thay thế mã màu cứng `bg-[#f8fafc]` thành `bg-background` để hộp thoại đổi màu theo hệ thống. Sửa các class nền trắng thành `bg-card`.
 
 ### Task 5: Pages Module - Kho & Hàng Hóa
-- **Files:** `WarehousesPage.tsx`, `VegetableWarehousePage.tsx`, `ProductSettingsPage.tsx`
+- [x] **Files:** `WarehousesPage.tsx`, `VegetableWarehousePage.tsx`, `ProductSettingsPage.tsx`
 - **Công việc:** Thay đổi bề mặt nền trắng thành `bg-card`, cập nhật text và border cho đồng bộ. 
+- **Note:** Bao gồm cả `VegetableProductSettingsPage.tsx`.
 
 ### Task 6: Pages Module - Đơn hàng & Giao vận
 - **Files:** `ExportOrdersPage.tsx`, `ImportOrdersPage.tsx`, `CreateDeliveryDialog.tsx`, v.v.

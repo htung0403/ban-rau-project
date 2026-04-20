@@ -19,3 +19,11 @@
 - Replaced \g-white\ with \g-card\ for dialog panels and internal cards.
 - Replaced hardcoded slate colors (\	ext-slate-*\, \g-slate-*\, \order-slate-*\) with semantic tokens (\	ext-foreground\, \	ext-muted-foreground\, \g-muted\, \order-border\).
 - Verified all changes with \lsp_diagnostics\ and ensured zero errors.
+## Kho & Hàng Hóa Module Dark Mode Standardization
+- Updated WarehousesPage.tsx, VegetableWarehousePage.tsx, ProductSettingsPage.tsx, and VegetableProductSettingsPage.tsx.
+- Replaced g-white with g-card for main panels and cards.
+- Replaced 	ext-slate-* with 	ext-foreground or 	ext-muted-foreground.
+- Replaced order-slate-* and order-gray-300 with order-border.
+- Replaced g-slate-50 with g-muted.
+- Replaced g-[#f8fafc] with g-background in inputs and backgrounds.
+- Maintained intentional colors like g-red-50, g-orange-100, and g-emerald-50 where they serve specific UI purposes (alerts, status, etc.).

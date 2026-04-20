@@ -164,7 +164,7 @@ const WarehousesPage: React.FC = () => {
         />
       </div>
 
-      <div className="bg-white rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0">
+      <div className="bg-card rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0">
         {/* Search & Filter Bar */}
         <div className="p-3 border-b border-border flex flex-row items-center gap-2">
           {isAdmin && selectedIds.size > 0 ? (
@@ -285,7 +285,7 @@ const WarehousesPage: React.FC = () => {
                       <th className="px-3 py-4 w-10">
                         <input
                           type="checkbox"
-                          className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
+                          className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
                           checked={filteredItems.length > 0 && filteredItems.every((i: any) => selectedIds.has(i.id))}
                           onChange={(e) => {
                             if (e.target.checked) {
@@ -314,7 +314,7 @@ const WarehousesPage: React.FC = () => {
                         <td className="px-3 py-4 w-10">
                           <input
                             type="checkbox"
-                            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
+                            className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
                             checked={selectedIds.has(item.id)}
                             onChange={(e) => {
                               const next = new Set(selectedIds);
@@ -347,7 +347,7 @@ const WarehousesPage: React.FC = () => {
                         </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5 text-[13px] font-bold text-slate-700">
+                        <div className="flex items-center gap-1.5 text-[13px] font-bold text-foreground">
                           <User size={14} className="text-muted-foreground" />
                           {(() => {
                             const o = item.vegetable_orders || item.import_orders || {};
@@ -356,7 +356,7 @@ const WarehousesPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-[13px] font-medium text-slate-600">
+                        <div className="text-[13px] font-medium text-muted-foreground">
                           {(() => {
                             const o = item.vegetable_orders || item.import_orders || {};
                             const sender = o.sender_name;
@@ -373,7 +373,7 @@ const WarehousesPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <span className="text-[14px] font-bold text-slate-500 tabular-nums">
+                        <span className="text-[14px] font-bold text-muted-foreground tabular-nums">
                           {formatNumber(item.total_quantity)}
                         </span>
                       </td>
@@ -410,7 +410,7 @@ const WarehousesPage: React.FC = () => {
               {filteredItems.map((item) => (
                 <div
                   key={item.id}
-                  className={`bg-white rounded-2xl border shadow-sm p-4 cursor-pointer hover:shadow-md active:bg-muted/10 transition-all flex flex-col gap-3 group ${isAdmin && selectedIds.has(item.id) ? 'border-primary/40 bg-primary/5' : 'border-border'}`}
+                  className={`bg-card rounded-2xl border shadow-sm p-4 cursor-pointer hover:shadow-md active:bg-muted/10 transition-all flex flex-col gap-3 group ${isAdmin && selectedIds.has(item.id) ? 'border-primary/40 bg-primary/5' : 'border-border'}`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -454,7 +454,7 @@ const WarehousesPage: React.FC = () => {
                   <div className="space-y-1.5 p-3 bg-muted/20 rounded-xl">
                     <div className="flex items-center gap-2">
                       <Box size={12} className="text-teal-500 shrink-0" />
-                      <span className="text-[13px] font-bold text-slate-700">{item.product_name}</span>
+                      <span className="text-[13px] font-bold text-foreground">{item.product_name}</span>
                     </div>
                     {(() => {
                       const o = item.vegetable_orders || item.import_orders || {};
@@ -481,7 +481,7 @@ const WarehousesPage: React.FC = () => {
                   <div className="flex items-center justify-between pt-2 border-t border-border/50">
                     <div className="flex flex-col">
                       <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Tổng SL</span>
-                      <span className="text-[13px] font-bold text-slate-500 tabular-nums">
+                      <span className="text-[13px] font-bold text-muted-foreground tabular-nums">
                         {formatNumber(item.total_quantity)}
                       </span>
                     </div>

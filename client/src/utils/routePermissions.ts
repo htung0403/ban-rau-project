@@ -79,7 +79,7 @@ export const isAllRoutesAllowed = (role: UserRole): boolean => role === 'admin' 
 
 const isDriverLikeRoleKey = (role: string): boolean => {
   const r = role.toLowerCase();
-  return r === 'driver' || r.includes('tai_xe') || r.includes('tài xế');
+  return r === 'driver' || r.includes('tai_xe') || r.includes('tài xế') || r.includes('lo_xe') || r.includes('lơ xe');
 };
 
 export const buildAllowedRouteSet = (role: UserRole): Set<string> => {

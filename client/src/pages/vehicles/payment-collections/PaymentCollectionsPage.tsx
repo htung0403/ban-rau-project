@@ -10,16 +10,18 @@ const PaymentCollectionsPage: React.FC = () => {
   const { user } = useAuth();
   const role = user?.role || 'driver';
 
+  const isDriver = role === 'driver' || role === 'lo_xe' || role === 'lơ xe';
+
   // Default tab logic based on role
   const getDefaultTab = () => {
-    if (role === 'driver') return 'thu-tien';
+    if (isDriver) return 'thu-tien';
     return 'xac-nhan';
   };
 
   const [activeTab, setActiveTab] = useState<'thu-tien' | 'xac-nhan' | 'tong-hop'>(getDefaultTab());
 
   const tabs = [];
-  if (role === 'driver' || role === 'staff' || role === 'manager' || role === 'admin') {
+  if (isDriver || role === 'staff' || role === 'manager' || role === 'admin') {
     tabs.push({ id: 'thu-tien', label: 'Thu Tiền' });
   }
   if (role === 'staff' || role === 'manager' || role === 'admin') {
@@ -65,7 +67,7 @@ const PaymentCollectionsPage: React.FC = () => {
 
       <div className="flex-1 -mx-4 px-4 md:mx-0 md:px-0">
         <div className="pt-2 md:pt-0">
-          {activeTab === 'thu-tien' && <DriverPaymentTab readonly={role !== 'driver'} />}
+          {activeTab === 'thu-tien' && <DriverPaymentTab readonly={!isDriver} />}
           {activeTab === 'xac-nhan' && <StaffConfirmationTab />}
           {activeTab === 'tong-hop' && <ManagerSummaryTab />}
         </div>

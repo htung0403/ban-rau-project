@@ -9,3 +9,8 @@
 - Updated \MultiSearchableSelect.tsx\ to use \g-card\ for the trigger and \g-popover\ for the inline content.
 - Verified that \CreatableSearchableSelect.tsx\ and \SearchableSelect.tsx\ already use semantic tokens like \g-muted/10\ and \order-border\.
 - No \	ext-slate-*\ or \order-slate-*\ colors were found in these specific files, suggesting they were either already updated or didn't use them.
+
+- Updated shared UI components to use semantic tokens for better dark mode support.
+- Replaced hardcoded slate colors (bg-slate-50, text-slate-400, etc.) with semantic equivalents (bg-muted, text-muted-foreground).
+- Mapped bg-white to bg-card for main containers and bg-popover for floating elements.
+- Verified that semantic tokens like border-border and text-foreground are used consistently across shared components.

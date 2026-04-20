@@ -51,7 +51,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={onCancel}
       />
-      <div className="relative bg-white rounded-2xl shadow-2xl border border-border max-w-md w-full animate-in zoom-in-95 fade-in duration-200">
+      <div className="relative bg-card rounded-2xl shadow-2xl border border-border max-w-md w-full animate-in zoom-in-95 fade-in duration-200">
         <div className="p-6">
           <div className="flex items-start gap-4">
             <div className={clsx('w-12 h-12 rounded-xl flex items-center justify-center shrink-0', styles.icon)}>

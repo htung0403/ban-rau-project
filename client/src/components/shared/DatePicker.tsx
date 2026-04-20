@@ -49,16 +49,16 @@ export const DatePicker: React.FC<DatePickerProps> = ({
         <button
           type="button"
           className={clsx(
-            "flex items-center justify-between w-full px-3 py-2 bg-slate-50 border border-border rounded-xl text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all",
-            !dateObj && "text-slate-400",
+            "flex items-center justify-between w-full px-3 py-2 bg-muted border border-border rounded-xl text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all",
+            !dateObj && "text-muted-foreground",
             className
           )}
         >
           <span>{dateObj ? format(dateObj, 'dd/MM/yyyy') : placeholder}</span>
-          <CalendarIcon size={16} className="text-slate-400" />
+          <CalendarIcon size={16} className="text-muted-foreground" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-2 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border-slate-200 bg-white" align="start">
+      <PopoverContent className="w-auto p-2 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border-border bg-popover" align="start">
         <Calendar
           mode="single"
           selected={dateObj}

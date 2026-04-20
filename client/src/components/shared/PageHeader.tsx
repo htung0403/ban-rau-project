@@ -18,7 +18,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ title, description, backPath, a
         {backPath && (
           <button
             onClick={() => navigate(backPath)}
-            className="p-2 rounded-xl border border-border bg-white text-muted-foreground hover:bg-muted transition-colors shrink-0"
+            className="p-2 rounded-xl border border-border bg-card text-muted-foreground hover:bg-muted transition-colors shrink-0"
           >
             <ChevronLeft size={18} />
           </button>

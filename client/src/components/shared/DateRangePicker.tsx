@@ -245,7 +245,7 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
   const trigger = (
     <button
       onClick={() => inline && setIsOpen(!isOpen)}
-      className={cn("relative flex items-center justify-center md:justify-between px-3 md:pl-3 md:pr-2 h-[38px] bg-white border border-border rounded-xl shadow-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors font-bold text-[13px] w-full md:w-[240px]", className)}
+      className={cn("relative flex items-center justify-center md:justify-between px-3 md:pl-3 md:pr-2 h-[38px] bg-card border border-border rounded-xl shadow-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors font-bold text-[13px] w-full md:w-[240px]", className)}
     >
       <div className="flex items-center gap-2 overflow-hidden w-full md:w-auto justify-center md:justify-start">
         {icon && <span className="text-muted-foreground/60 shrink-0">{icon}</span>}
@@ -260,7 +260,7 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
   );
 
   const content = (
-    <div className="flex py-2 flex-col md:flex-row bg-white">
+    <div className="flex py-2 flex-col md:flex-row bg-popover">
       <div className="flex">
         <div className="flex flex-col w-full">
           {isSmallScreen && !hidePresets && (
@@ -348,7 +348,7 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
           isOpen ? "grid-rows-[1fr] opacity-100 mt-2" : "grid-rows-[0fr] opacity-0 mt-0"
         )}>
           <div className="overflow-hidden">
-            <div className="rounded-2xl border border-border/60 shadow-sm bg-white flex flex-col">
+            <div className="rounded-2xl border border-border/60 shadow-sm bg-card flex flex-col">
               {content}
               {actions}
             </div>

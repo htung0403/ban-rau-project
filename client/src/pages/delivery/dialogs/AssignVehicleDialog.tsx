@@ -618,18 +618,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                   >
                     Đã thanh toán
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setValue('export_payment_status', 'paid', { shouldValidate: true })}
-                    className={clsx(
-                      'h-10 rounded-xl border text-[13px] font-bold transition-all',
-                      watchExportPaymentStatus === 'paid'
-                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                        : 'border-border bg-card text-muted-foreground hover:bg-muted/40'
-                    )}
-                  >
-                    Đã thanh toán
-                  </button>
                 </div>
               </div>
             )}

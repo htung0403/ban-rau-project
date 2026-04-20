@@ -72,8 +72,9 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   );
 
   const normalizedRole = (user?.role || '').toLowerCase();
-  const isDriver = normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('driver');
-  const myVehicle = eligibleVehicles.find(v => v.driver_id === user?.id);
+  const isLoader = normalizedRole.includes('lo_xe');
+  const isDriver = normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('driver') || isLoader;
+  const myVehicle = eligibleVehicles.find(v => v.driver_id === user?.id || v.in_charge_id === user?.id);
 
   const {
     register,
@@ -184,7 +185,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
         initialAssignments.push({
           vehicle_id: initialVid,
-          driver_id: vehicle?.driver_id || (isDriver ? user?.id : ''),
+          driver_id: vehicle?.driver_id || vehicle?.in_charge_id || (isDriver ? user?.id : ''),
           loader_name: '',
           unit_price: defaultUnitPrice,
           quantity: remainingForThis,
@@ -252,6 +253,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           const resolvedDriverId =
             assignment.driver_id ||
             vehicle?.driver_id ||
+            vehicle?.in_charge_id ||
             (isDriver && assignment.vehicle_id === myVehicle?.id ? user?.id || '' : '');
 
           return {
@@ -415,8 +417,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                           setValue(`assignments.${index}.vehicle_id`, val, { shouldValidate: true });
                           // Auto fill driver
                           const vehicle = eligibleVehicles.find(v => v.id === val);
-                          if (vehicle?.driver_id) {
-                            setValue(`assignments.${index}.driver_id`, vehicle.driver_id, { shouldValidate: true });
+                          if (vehicle?.driver_id || vehicle?.in_charge_id) {
+                            setValue(`assignments.${index}.driver_id`, vehicle.driver_id || vehicle.in_charge_id || '', { shouldValidate: true });
                           }
                         }}
                         placeholder="Biển số..."
@@ -430,7 +432,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                         <User size={12} className={isPaid ? "text-green-500" : "text-primary"} /> Tài xế
                       </label>
                       <SearchableSelect
-                        options={(employees || []).filter(e => e.role === 'driver' || e.role?.toLowerCase().includes('tài xế') || e.role?.toLowerCase().includes('tai xe') || e.role?.toLowerCase().includes('tai_xe')).map(e => ({ value: e.id, label: e.full_name }))}
+                        options={(employees || []).filter(e => e.role === 'driver' || e.role?.toLowerCase().includes('tài xế') || e.role?.toLowerCase().includes('tai xe') || e.role?.toLowerCase().includes('tai_xe') || e.role?.toLowerCase().includes('lơ xe') || e.role?.toLowerCase().includes('lo xe') || e.role?.toLowerCase().includes('lo_xe')).map(e => ({ value: e.id, label: e.full_name }))}
                         value={watchAssignments[index]?.driver_id || ''}
                         onValueChange={(val) => {
                           if (isRowDisabled) return;

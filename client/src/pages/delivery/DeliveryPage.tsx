@@ -202,18 +202,19 @@ const DeliveryPage: React.FC = () => {
   const isLoading = ordersLoading;
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
   const normalizedRole = (user?.role || '').toLowerCase();
+  const isLoader = normalizedRole.includes('lo_xe');
   const isDriver = normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('driver');
   const eligibleVehicles = React.useMemo(
     () => (vehicles || []).filter((vehicle) => vehicleSupportsGoodsCategory(vehicle, 'grocery')),
     [vehicles]
   );
   const myVehicleIds = React.useMemo(
-    () => eligibleVehicles.filter((v) => v.driver_id === user?.id).map((v) => v.id),
+    () => eligibleVehicles.filter((v) => v.driver_id === user?.id || v.in_charge_id === user?.id).map((v) => v.id),
     [eligibleVehicles, user?.id]
   );
   const myVehicleIdSet = React.useMemo(() => new Set(myVehicleIds), [myVehicleIds]);
   const myPrimaryVehicleId = myVehicleIds[0];
-  const canShowAssignButton = isAdmin || (isDriver && myVehicleIds.length > 0);
+  const canShowAssignButton = isAdmin || isLoader || (isDriver && myVehicleIds.length > 0);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
@@ -281,7 +282,7 @@ const DeliveryPage: React.FC = () => {
   };
 
   const handleOrderClick = async (order: DeliveryOrder, vehicleId?: string) => {
-    if (isDriver && myVehicleIds.length === 0) return;
+    if (isDriver && !isLoader && myVehicleIds.length === 0) return;
 
     const existingDvs = order.delivery_vehicles || [];
     const totalAssigned = existingDvs.reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);

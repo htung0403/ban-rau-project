@@ -57,8 +57,9 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
   const { data: deliveryOrders } = useDeliveryOrders(today, today, 'standard');
 
   const normalizedRole = (user?.role || '').toLowerCase();
-  const isDriver = normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('driver');
-  const myVehicle = vehicles?.find(v => v.driver_id === user?.id);
+  const isLoader = normalizedRole.includes('lo_xe');
+  const isDriver = normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('driver') || isLoader;
+  const myVehicle = vehicles?.find(v => v.driver_id === user?.id || v.in_charge_id === user?.id);
 
   const smallVehicleOptions = useMemo(() => {
     const normalize = (value?: string) =>
@@ -106,6 +107,9 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
     (vehicles || []).forEach((v: any) => {
       if (v.driver_id && !vehiclesByDriverId.has(v.driver_id)) {
         vehiclesByDriverId.set(v.driver_id, v);
+      }
+      if (v.in_charge_id && !vehiclesByDriverId.has(v.in_charge_id)) {
+        vehiclesByDriverId.set(v.in_charge_id, v);
       }
     });
 
@@ -371,7 +375,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
 
       const selectedVehicle = (vehicles || []).find((v: any) => v.id === data.vehicle_id);
       const assignedVehicleId = data.vehicle_id || myVehicle?.id;
-      const assignedDriverId = data.delivery_staff || selectedVehicle?.driver_id || user?.id;
+      const assignedDriverId = data.delivery_staff || selectedVehicle?.driver_id || selectedVehicle?.in_charge_id || user?.id;
 
       if (deliveryOrder && assignedVehicleId && assignedDriverId) {
         const existingDvs = deliveryOrder.delivery_vehicles || [];

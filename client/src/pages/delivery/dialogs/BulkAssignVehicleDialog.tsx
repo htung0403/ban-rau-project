@@ -69,7 +69,7 @@ const BulkAssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, orders, o
           const uPrice = order.unit_price || 0;
           const newAssignment = {
             vehicle_id: selectedVehicleId,
-            driver_id: selectedVehicle.driver_id || '',
+            driver_id: selectedVehicle.driver_id || selectedVehicle.in_charge_id || '',
             loader_name: '',
             quantity: remainingQty,
             expected_amount: remainingQty * uPrice

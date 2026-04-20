@@ -40,7 +40,7 @@ const normalizeRoleText = (value?: string | null) =>
 
 const isDriverRole = (role?: string | null) => {
   const normalized = normalizeRoleText(role).replace(/\s+/g, '_');
-  return normalized === 'driver' || normalized.includes('tai_xe') || normalized.includes('driver');
+  return normalized === 'driver' || normalized.includes('tai_xe') || normalized.includes('driver') || normalized.includes('lo_xe');
 };
 
 const normalizePersonName = (value?: string | null) =>

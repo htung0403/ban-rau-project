@@ -14,7 +14,7 @@ const DriverCheckinPage: React.FC = () => {
 
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
   const { data: vehicles } = useVehicles();
-  const driverVehicles = vehicles?.filter(v => v.driver_id === user?.id) || [];
+  const driverVehicles = vehicles?.filter(v => v.driver_id === user?.id || v.in_charge_id === user?.id) || [];
 
   const { data: checkins, isLoading, isError, refetch } = useDriverCheckins(selectedVehicleId);
   const checkinMutation = useCheckinDriver();
@@ -61,7 +61,7 @@ const DriverCheckinPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (user?.role === 'driver') {
+    if (user?.role === 'driver' || user?.role?.includes('lo_xe') || user?.role?.includes('tai_xe')) {
       requestLocation();
     }
   }, [user]);

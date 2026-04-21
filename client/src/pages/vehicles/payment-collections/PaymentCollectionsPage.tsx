@@ -68,7 +68,7 @@ const PaymentCollectionsPage: React.FC = () => {
 
       <div className="flex-1 -mx-4 px-4 md:mx-0 md:px-0">
         <div className="pt-2 md:pt-0">
-          {activeTab === 'thu-tien' && <DriverPaymentTab readonly={!isDriver} />}
+          {activeTab === 'thu-tien' && <DriverPaymentTab readonly={!(isDriver || role === 'staff' || role === 'manager' || role === 'admin')} />}
           {activeTab === 'xac-nhan' && <StaffConfirmationTab />}
           {activeTab === 'tong-hop' && <ManagerSummaryTab />}
         </div>

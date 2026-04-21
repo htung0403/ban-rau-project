@@ -1,16 +1,52 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../../context/AuthContext';
+import { clsx } from 'clsx';
+import { isDriverLikeRoleKey } from '../../../utils/routePermissions';
 import { usePaymentCollections } from '../../../hooks/queries/usePaymentCollections';
+import { useEmployees } from '../../../hooks/queries/useHR';
+import { useVehicles } from '../../../hooks/queries/useVehicles';
 import { Search, CheckCircle } from 'lucide-react';
+import { DatePicker } from '../../../components/shared/DatePicker';
+import { CustomSelect } from '../../../components/shared/CustomSelect';
+import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import MobileFilterSheet from '../../../components/shared/MobileFilterSheet';
 import EmptyState from '../../../components/shared/EmptyState';
 import ErrorState from '../../../components/shared/ErrorState';
 import ConfirmReceptionDialog from './dialogs/ConfirmReceptionDialog';
 import { formatCurrency, formatDate, formatTime } from '../../../utils/formatters';
 import type { PaymentCollection } from '../../../types';
+import { Filter } from 'lucide-react';
 
 const StaffConfirmationTab: React.FC = () => {
-  const { data: collections, isLoading, isError, refetch } = usePaymentCollections();
+  const { user } = useAuth();
+  const isDriver = isDriverLikeRoleKey(user?.role || '');
   
   const [filterSearch, setFilterSearch] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [filterDriverId, setFilterDriverId] = useState('');
+  const [filterVehicleId, setFilterVehicleId] = useState('');
+
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isFilterClosing, setIsFilterClosing] = useState(false);
+
+  const closeFilter = () => {
+    setIsFilterClosing(true);
+    setTimeout(() => {
+      setIsFilterOpen(false);
+      setIsFilterClosing(false);
+    }, 300);
+  };
+
+  const { data: collections, isLoading, isError, refetch } = usePaymentCollections({
+    driverId: isDriver ? user?.id : (filterDriverId || undefined),
+    vehicleId: filterVehicleId || undefined,
+    status: 'submitted',
+    dateFrom: filterDate || undefined,
+    dateTo: filterDate || undefined,
+  });
+
+  const { data: employees } = useEmployees(!isDriver);
+  const { data: vehicles } = useVehicles();
   
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [selectedPC, setSelectedPC] = useState<PaymentCollection | null>(null);
@@ -33,23 +69,99 @@ const StaffConfirmationTab: React.FC = () => {
     setIsConfirmOpen(true);
   };
 
+  const hasActiveFilters = filterDate || filterDriverId || filterVehicleId;
+
   return (
     <div className="space-y-6">
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <div className="relative">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 w-full md:flex-1">
+          <div className="relative flex-1">
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
              <input 
                type="text" 
-               placeholder="Tìm mã đơn, tài xế..." 
+               placeholder="Tìm mã đơn, khách..." 
                value={filterSearch} 
                onChange={e => setFilterSearch(e.target.value)} 
-               className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-[13px] w-full sm:w-[300px]" 
+               className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-[13px] w-full bg-white h-[38px]" 
              />
           </div>
+          <button 
+            onClick={() => setIsFilterOpen(true)}
+            className={clsx(
+              "md:hidden flex items-center justify-center w-[38px] h-[38px] rounded-lg border border-slate-200 bg-white text-slate-600 shrink-0 relative",
+              hasActiveFilters && "text-primary border-primary bg-primary/5"
+            )}
+          >
+            <Filter size={18} />
+            {hasActiveFilters && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary rounded-full border-2 border-white" />
+            )}
+          </button>
+        </div>
+
+        <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-3 flex-1 w-full max-w-[800px]">
+          <DatePicker value={filterDate} onChange={setFilterDate} placeholder="Chọn ngày..." className="bg-white h-[38px]" />
+
+          {!isDriver && (
+            <SearchableSelect
+              value={filterDriverId}
+              onValueChange={setFilterDriverId}
+              placeholder="Tất cả tài xế"
+              options={employees?.filter(e => isDriverLikeRoleKey(e.role)).map(e => ({ value: e.id, label: e.full_name })) || []}
+              className="bg-white h-[38px] border-slate-200 rounded-lg"
+            />
+          )}
+
+          <SearchableSelect
+            value={filterVehicleId}
+            onValueChange={setFilterVehicleId}
+            placeholder="Tất cả xe"
+            options={vehicles?.map(v => ({ value: v.id, label: v.license_plate })) || []}
+            className="bg-white h-[38px] border-slate-200 rounded-lg"
+          />
         </div>
       </div>
+
+      <MobileFilterSheet
+        isOpen={isFilterOpen}
+        isClosing={isFilterClosing}
+        onClose={closeFilter}
+        onApply={(filters) => {
+          setFilterDate(filters.dateFrom);
+        }}
+        onClear={() => {
+          setFilterDate('');
+          setFilterDriverId('');
+          setFilterVehicleId('');
+        }}
+        initialDateFrom={filterDate}
+        initialDateTo={filterDate}
+        dateLabel="Lọc theo ngày nộp"
+      >
+        {!isDriver && (
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-bold text-muted-foreground">Tài xế</label>
+            <SearchableSelect
+              value={filterDriverId}
+              onValueChange={setFilterDriverId}
+              placeholder="Tất cả tài xế"
+              options={employees?.filter(e => isDriverLikeRoleKey(e.role)).map(e => ({ value: e.id, label: e.full_name })) || []}
+              className="bg-muted/20 border-border/40 h-[44px]"
+            />
+          </div>
+        )}
+        <div className="space-y-1.5">
+          <label className="text-[13px] font-bold text-muted-foreground">Biển số xe</label>
+          <SearchableSelect
+            value={filterVehicleId}
+            onValueChange={setFilterVehicleId}
+            placeholder="Tất cả xe"
+            options={vehicles?.map(v => ({ value: v.id, label: v.license_plate })) || []}
+            className="bg-muted/20 border-border/40 h-[44px]"
+          />
+        </div>
+      </MobileFilterSheet>
 
       {/* Lists & Tables */}
       <div className="bg-transparent md:bg-white border-0 md:border border-slate-200 md:rounded-xl md:shadow-sm md:overflow-hidden">
@@ -79,9 +191,13 @@ const StaffConfirmationTab: React.FC = () => {
                     <div className="grid grid-cols-2 gap-2 mb-3 pl-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
                       <div>
                         <p className="text-slate-500 text-[11px]">Tài xế</p>
-                        <p className="font-bold text-slate-800 text-[13px]">{pc.driverName}</p>
+                        <p className="font-bold text-slate-800 text-[13px]">{pc.driverName || '--'}</p>
                       </div>
                       <div className="text-right">
+                        <p className="text-slate-500 text-[11px]">Biển số xe</p>
+                        <p className="font-bold text-slate-800 text-[13px]">{pc.licensePlate || '--'}</p>
+                      </div>
+                      <div className="col-span-2 flex justify-between items-center pt-1 border-t border-slate-200/60 mt-1">
                         <p className="text-slate-500 text-[11px]">Tiền Thực Thu</p>
                         <p className="font-bold text-slate-800 text-[13px]">{formatCurrency(pc.collectedAmount)}</p>
                       </div>
@@ -111,9 +227,9 @@ const StaffConfirmationTab: React.FC = () => {
                 <tr className="bg-slate-50/50 border-b border-slate-200 text-[12px] font-bold text-slate-600 uppercase tracking-wider">
                   <th className="px-4 py-3">Phiếu / Khách Hàng</th>
                   <th className="px-4 py-3">Tài Xế</th>
+                  <th className="px-4 py-3">Biển Số Xe</th>
                   <th className="px-4 py-3">Tiền Thực Thu</th>
                   <th className="px-4 py-3">Người Nhận</th>
-                  <th className="px-4 py-3">Trạng Thái</th>
                   <th className="px-4 py-3">Ngày Nộp</th>
                   <th className="px-4 py-3 text-right">Thao Tác</th>
                 </tr>
@@ -126,7 +242,10 @@ const StaffConfirmationTab: React.FC = () => {
                       <div className="text-slate-500">{pc.customerName}</div>
                     </td>
                     <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
-                      {pc.driverName}
+                      {pc.driverName || '--'}
+                    </td>
+                    <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
+                      {pc.licensePlate || '--'}
                     </td>
                     <td className="px-4 py-3 text-[13px] font-bold text-slate-800">
                       {formatCurrency(pc.collectedAmount)}
@@ -136,15 +255,6 @@ const StaffConfirmationTab: React.FC = () => {
                         <span className="font-medium">{pc.receiverName}</span>
                       ) : (
                         <span className="text-slate-400 italic">--</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] font-medium text-slate-600 space-y-1">
-                      {pc.difference < 0 ? (
-                        <span className="inline-block text-red-600 border border-red-200 bg-red-50 px-2 py-0.5 rounded-md">Thiếu {formatCurrency(Math.abs(pc.difference))}</span>
-                      ) : pc.difference > 0 ? (
-                        <span className="inline-block text-green-600 border border-green-200 bg-green-50 px-2 py-0.5 rounded-md">Thừa {formatCurrency(pc.difference)}</span>
-                      ) : (
-                        <span className="inline-block text-slate-500">Đủ đơn</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-[13px] text-slate-600">

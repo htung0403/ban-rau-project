@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
-
+import { useAuth } from '../../../context/AuthContext';
+import { clsx } from 'clsx';
+import { isDriverLikeRoleKey } from '../../../utils/routePermissions';
 import { usePaymentCollections, useRevertPaymentCollection } from '../../../hooks/queries/usePaymentCollections';
-import { Plus, Download, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { useEmployees } from '../../../hooks/queries/useHR';
+import { useVehicles } from '../../../hooks/queries/useVehicles';
+import { Plus, Download, CheckCircle, AlertCircle, RefreshCw, Search } from 'lucide-react';
+
 import EmptyState from '../../../components/shared/EmptyState';
 import ErrorState from '../../../components/shared/ErrorState';
 import CreateEditPaymentDialog from './dialogs/CreateEditPaymentDialog';
@@ -10,8 +15,11 @@ import SelfConfirmDialog from './dialogs/SelfConfirmDialog';
 import DraggableFAB from '../../../components/shared/DraggableFAB';
 import { DatePicker } from '../../../components/shared/DatePicker';
 import { CustomSelect } from '../../../components/shared/CustomSelect';
+import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import MobileFilterSheet from '../../../components/shared/MobileFilterSheet';
 import { formatCurrency, formatDate, formatTime } from '../../../utils/formatters';
 import type { PaymentCollection, PaymentCollectionStatus } from '../../../types';
+import { Filter } from 'lucide-react';
 
 interface Props {
   readonly?: boolean;
@@ -24,12 +32,39 @@ const getLocalDateKey = (value: string) => {
 };
 
 const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
-  const { data: collections, isLoading, isError, refetch } = usePaymentCollections();
-
+  const { user } = useAuth();
+  const isDriver = isDriverLikeRoleKey(user?.role || '');
+  
   const [filterDate, setFilterDate] = useState('');
   const [filterStatus, setFilterStatus] = useState<PaymentCollectionStatus | ''>('');
+  const [filterSearch, setFilterSearch] = useState('');
+  const [filterDriverId, setFilterDriverId] = useState('');
+  const [filterVehicleId, setFilterVehicleId] = useState('');
+
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isFilterClosing, setIsFilterClosing] = useState(false);
+
+  const closeFilter = () => {
+    setIsFilterClosing(true);
+    setTimeout(() => {
+      setIsFilterOpen(false);
+      setIsFilterClosing(false);
+    }, 300);
+  };
+
+  const { data: collections, isLoading, isError, refetch } = usePaymentCollections({
+    driverId: isDriver ? user?.id : (filterDriverId || undefined),
+    vehicleId: filterVehicleId || undefined,
+    status: filterStatus || undefined,
+    dateFrom: filterDate || undefined,
+    dateTo: filterDate || undefined,
+  });
+
+  const { data: employees } = useEmployees(!isDriver);
+  const { data: vehicles } = useVehicles();
 
   // Dialogs state
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedPC, setSelectedPC] = useState<PaymentCollection | null>(null);
 
@@ -39,8 +74,15 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
   const { mutate: revert } = useRevertPaymentCollection();
 
   const filtered = collections?.filter(c => {
-    if (filterDate && getLocalDateKey(c.collectedAt) !== filterDate) return false;
-    if (filterStatus && c.status !== filterStatus) return false;
+    if (filterSearch) {
+      const term = filterSearch.toLowerCase();
+      return (
+        c.deliveryOrderCode.toLowerCase().includes(term) ||
+        c.customerName.toLowerCase().includes(term) ||
+        c.driverName?.toLowerCase().includes(term) ||
+        c.licensePlate?.toLowerCase().includes(term)
+      );
+    }
     return true;
   }) || [];
 
@@ -68,7 +110,9 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
 
   const pendingCount = collections?.filter(c => c.status === 'submitted').length || 0;
   const confirmedCount = collections?.filter(c => c.status === 'confirmed' || c.status === 'self_confirmed').length || 0;
-  const missingAmount = collections?.filter(c => c.difference < 0 && c.status !== 'draft').reduce((sum, c) => sum + Math.abs(c.difference), 0) || 0;
+  const missingAmount = collections?.filter(c => (c.difference || 0) < 0 && c.status !== 'draft').reduce((sum, c) => sum + Math.abs(c.difference || 0), 0) || 0;
+
+  const hasActiveFilters = filterDate || filterStatus || filterDriverId || filterVehicleId;
 
   return (
     <div className="space-y-6">
@@ -113,35 +157,127 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <div className="w-[140px] sm:w-[150px] shrink-0">
-            <DatePicker value={filterDate} onChange={setFilterDate} placeholder="Chọn ngày..." className="bg-white" />
-          </div>
-          <div className="w-full min-w-[150px] sm:w-[170px]">
-            <CustomSelect
-              value={filterStatus}
-              onChange={(val) => setFilterStatus(val as any)}
-              options={[
-                { value: '', label: 'Tất cả trạng thái' },
-                { value: 'draft', label: 'Chưa Nộp' },
-                { value: 'submitted', label: 'Chờ Xác Nhận' },
-                { value: 'confirmed', label: 'Đã Xác Nhận' },
-                { value: 'self_confirmed', label: 'Tự Xác Nhận' }
-              ]}
-              className="bg-white"
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 w-full md:flex-1">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input
+              type="text"
+              placeholder="Tìm mã đơn, khách..."
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
+              className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-[13px] w-full bg-white h-[38px]"
             />
           </div>
+          <button 
+            onClick={() => setIsFilterOpen(true)}
+            className={clsx(
+              "md:hidden flex items-center justify-center w-[38px] h-[38px] rounded-lg border border-slate-200 bg-white text-slate-600 shrink-0 relative",
+              hasActiveFilters && "text-primary border-primary bg-primary/5"
+            )}
+          >
+            <Filter size={18} />
+            {hasActiveFilters && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary rounded-full border-2 border-white" />
+            )}
+          </button>
         </div>
+
+        <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-3 flex-1 w-full max-w-[800px]">
+          <DatePicker value={filterDate} onChange={setFilterDate} placeholder="Chọn ngày..." className="bg-white h-[38px]" />
+
+          <CustomSelect
+            value={filterStatus}
+            onChange={(val) => setFilterStatus(val as any)}
+            options={[
+              { value: '', label: 'Tất cả trạng thái' },
+              { value: 'draft', label: 'Chưa Nộp' },
+              { value: 'submitted', label: 'Chờ Xác Nhận' },
+              { value: 'confirmed', label: 'Đã Xác Nhận' },
+              { value: 'self_confirmed', label: 'Tự Xác Nhận' }
+            ]}
+            className="bg-white h-[38px]"
+          />
+
+          {!isDriver && (
+            <SearchableSelect
+              value={filterDriverId}
+              onValueChange={setFilterDriverId}
+              placeholder="Tất cả tài xế"
+              options={employees?.filter(e => isDriverLikeRoleKey(e.role)).map(e => ({ value: e.id, label: e.full_name })) || []}
+              className="bg-white h-[38px] border-slate-200 rounded-lg"
+            />
+          )}
+
+          <SearchableSelect
+            value={filterVehicleId}
+            onValueChange={setFilterVehicleId}
+            placeholder="Tất cả xe"
+            options={vehicles?.map(v => ({ value: v.id, label: v.license_plate })) || []}
+            className="bg-white h-[38px] border-slate-200 rounded-lg"
+          />
+        </div>
+
         {!readonly && (
-          <div className="hidden md:block">
-            <button onClick={() => { setSelectedPC(null); setIsCreateOpen(true); }} className="px-4 py-2 bg-primary text-white text-[13px] font-bold rounded-lg hover:bg-primary/90 flex items-center gap-2">
-              <Plus size={16} />
-              Tạo Phiếu Thu
-            </button>
-          </div>
+          <button 
+            onClick={() => { setSelectedPC(null); setIsCreateOpen(true); }} 
+            className="hidden md:flex md:w-auto shrink-0 px-4 py-2 bg-primary text-white text-[13px] font-bold rounded-lg hover:bg-primary/90 items-center justify-center gap-2 h-[38px]"
+          >
+            <Plus size={16} />
+            Tạo Phiếu Thu
+          </button>
         )}
       </div>
+
+      <MobileFilterSheet
+        isOpen={isFilterOpen}
+        isClosing={isFilterClosing}
+        onClose={closeFilter}
+        onApply={(filters) => {
+          setFilterDate(filters.dateFrom);
+          setFilterStatus(filters.status);
+        }}
+        onClear={() => {
+          setFilterDate('');
+          setFilterStatus('');
+          setFilterDriverId('');
+          setFilterVehicleId('');
+        }}
+        initialDateFrom={filterDate}
+        initialDateTo={filterDate}
+        initialStatus={filterStatus}
+        statusOptions={[
+          { value: '', label: 'Tất cả trạng thái' },
+          { value: 'draft', label: 'Chưa Nộp' },
+          { value: 'submitted', label: 'Chờ Xác Nhận' },
+          { value: 'confirmed', label: 'Đã Xác Nhận' },
+          { value: 'self_confirmed', label: 'Tự Xác Nhận' }
+        ]}
+        dateLabel="Lọc theo ngày thu"
+      >
+        {!isDriver && (
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-bold text-muted-foreground">Tài xế</label>
+            <SearchableSelect
+              value={filterDriverId}
+              onValueChange={setFilterDriverId}
+              placeholder="Tất cả tài xế"
+              options={employees?.filter(e => isDriverLikeRoleKey(e.role)).map(e => ({ value: e.id, label: e.full_name })) || []}
+              className="bg-muted/20 border-border/40 h-[44px]"
+            />
+          </div>
+        )}
+        <div className="space-y-1.5">
+          <label className="text-[13px] font-bold text-muted-foreground">Biển số xe</label>
+          <SearchableSelect
+            value={filterVehicleId}
+            onValueChange={setFilterVehicleId}
+            placeholder="Tất cả xe"
+            options={vehicles?.map(v => ({ value: v.id, label: v.license_plate })) || []}
+            className="bg-muted/20 border-border/40 h-[44px]"
+          />
+        </div>
+      </MobileFilterSheet>
 
       {!readonly && (
         <DraggableFAB icon={<Plus size={24} />} onClick={() => { setSelectedPC(null); setIsCreateOpen(true); }} />
@@ -173,25 +309,25 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
                     
                     <div className="grid grid-cols-2 gap-y-2 mb-3 pl-2 text-[13px]">
                        <div>
+                         <p className="text-slate-500 text-[11px]">Tài xế</p>
+                         <p className="font-medium text-slate-600">{pc.driverName || '--'}</p>
+                       </div>
+                       <div className="text-right">
+                         <p className="text-slate-500 text-[11px]">Biển số xe</p>
+                         <p className="font-medium text-slate-600">{pc.licensePlate || '--'}</p>
+                       </div>
+                       <div>
                          <p className="text-slate-500 text-[11px]">Tiền Theo Đơn</p>
                          <p className="font-bold text-slate-600">{formatCurrency(pc.expectedAmount)}</p>
                        </div>
-                       <div className="text-right">
-                         <p className="text-slate-500 text-[11px]">Tiền Thực Thu</p>
-                         <p className="font-bold text-slate-800">{formatCurrency(pc.collectedAmount)}</p>
-                       </div>
-                    </div>
-                    {(pc.difference !== 0) && (
-                      <div className="mb-3 pl-2">
-                        {pc.difference < 0 ? (
-                          <span className="text-[12px] text-red-600 border border-red-200 bg-red-50 px-2 py-0.5 rounded-md font-bold">Thiếu {formatCurrency(Math.abs(pc.difference))}</span>
-                        ) : (
-                          <span className="text-[12px] text-green-600 border border-green-200 bg-green-50 px-2 py-0.5 rounded-md font-bold">Thừa {formatCurrency(pc.difference)}</span>
-                        )}
-                      </div>
-                    )}
+                        <div className="text-right">
+                          <p className="text-slate-500 text-[11px]">Tiền Thực Thu</p>
+                          <p className="font-bold text-slate-800">{formatCurrency(pc.collectedAmount)}</p>
+                        </div>
+                     </div>
+ 
+                     <div className="flex justify-between items-center pt-3 border-t border-slate-100 pl-2">
 
-                    <div className="flex justify-between items-center pt-3 border-t border-slate-100 pl-2">
                        <div className="text-[11px] text-slate-500">
                          {formatDate(pc.collectedAt)} {formatTime(pc.collectedAt)}
                        </div>
@@ -219,9 +355,10 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
                 <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-200 text-[12px] font-bold text-slate-600 uppercase tracking-wider">
                   <th className="px-4 py-3">Mã Đơn / Khách Hàng</th>
+                  <th className="px-4 py-3">Tài Xế</th>
+                  <th className="px-4 py-3">Biển Số Xe</th>
                   <th className="px-4 py-3">Tiền Theo Đơn</th>
                   <th className="px-4 py-3">Tiền Thực Thu</th>
-                  <th className="px-4 py-3">Chênh Lệch</th>
                   <th className="px-4 py-3">Thu Lúc</th>
                   <th className="px-4 py-3">Người Nhận</th>
                   <th className="px-4 py-3">Trạng Thái</th>
@@ -236,19 +373,16 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
                       <div className="text-slate-500">{pc.customerName}</div>
                     </td>
                     <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
+                      {pc.driverName || '--'}
+                    </td>
+                    <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
+                      {pc.licensePlate || '--'}
+                    </td>
+                    <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
                       {formatCurrency(pc.expectedAmount)}
                     </td>
                     <td className="px-4 py-3 text-[13px] font-bold text-slate-800">
                       {formatCurrency(pc.collectedAmount)}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] font-medium">
-                      {pc.difference < 0 ? (
-                        <span className="text-red-600 border border-red-200 bg-red-50 px-2 py-0.5 rounded-md">Thiếu {formatCurrency(Math.abs(pc.difference))}</span>
-                      ) : pc.difference > 0 ? (
-                        <span className="text-green-600 border border-green-200 bg-green-50 px-2 py-0.5 rounded-md">Thừa {formatCurrency(pc.difference)}</span>
-                      ) : (
-                        <span className="text-slate-500">Đủ</span>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-[13px] text-slate-600">
                       {formatDate(pc.collectedAt)} {formatTime(pc.collectedAt)}

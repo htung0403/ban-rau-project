@@ -2,11 +2,10 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
-import { Calendar, PlusCircle, Truck, CheckCircle, Search, Store, Package, User, Trash2, Pencil } from 'lucide-react';
+import { Calendar, PlusCircle, Truck, CheckCircle, Search, Store, Package, User, Trash2, Pencil, RotateCcw } from 'lucide-react';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import PageHeader from '../../components/shared/PageHeader';
-import { useDeliveryOrders, useAssignVehicle, useDeleteDeliveryOrders } from '../../hooks/queries/useDelivery';
-import { useVehicles } from '../../hooks/queries/useVehicles';
+import { useDeliveryOrders, useAssignVehicle, useDeleteDeliveryOrders } from '../../hooks/queries/useDelivery';import { useVehicles } from '../../hooks/queries/useVehicles';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
@@ -15,6 +14,7 @@ import AssignVehicleDialog from './dialogs/AssignVehicleDialog';
 import EditDeliveryDialog from './dialogs/EditDeliveryDialog';
 import BulkAssignVehicleDialog from './dialogs/BulkAssignVehicleDialog';
 import BulkEditDeliveryDialog from './dialogs/BulkEditDeliveryDialog';
+import RevertVehicleDialog from './dialogs/RevertVehicleDialog';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { Filter, X } from 'lucide-react';
@@ -23,8 +23,8 @@ import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 import { deliveryOrderVisibleToUser, hasFullGoodsModuleAccess } from '../../utils/goodsModuleScope';
 
 const formatNumber = (val?: number) => {
-  if (val == null) return '0.00';
-  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+  if (val == null) return '0';
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(val);
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -134,7 +134,8 @@ const VegetableDeliveryPage: React.FC = () => {
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const [isBulkEditClosing, setIsBulkEditClosing] = useState(false);
 
-
+  const [revertingOrder, setRevertingOrder] = useState<DeliveryOrder | null>(null);
+  const [isRevertClosing, setIsRevertClosing] = useState(false);
 
   const isLoading = ordersLoading;
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
@@ -185,6 +186,15 @@ const VegetableDeliveryPage: React.FC = () => {
       setSelectedOrder(null);
       setSelectedVehicleId(null);
     }, 350);
+  };
+
+  const openRevert = (order: DeliveryOrder) => setRevertingOrder(order);
+  const closeRevert = () => {
+    setIsRevertClosing(true);
+    setTimeout(() => {
+      setRevertingOrder(null);
+      setIsRevertClosing(false);
+    }, 300);
   };
 
   const openEdit = (order: DeliveryOrder) => setEditingOrder(order);
@@ -314,7 +324,11 @@ const VegetableDeliveryPage: React.FC = () => {
     return {
       all: orders.length,
       can_giao: orders.filter((o) => normalizeVegetableStatus(o.status) === 'can_giao').length,
-      da_giao: orders.filter((o) => o.status === 'da_giao').length,
+      da_giao: orders.filter((o) => {
+        if (o.status === 'da_giao') return true;
+        const totalAssigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
+        return totalAssigned > 0 && totalAssigned < o.total_quantity;
+      }).length,
     };
   }, [orders]);
 
@@ -345,7 +359,16 @@ const VegetableDeliveryPage: React.FC = () => {
 
     // Filter by status
   if (statusFilter !== 'all') {
-    filteredOrders = filteredOrders.filter(o => normalizeVegetableStatus(o.status) === statusFilter);
+    filteredOrders = filteredOrders.filter(o => {
+      const normalized = normalizeVegetableStatus(o.status);
+      if (statusFilter === 'can_giao') return normalized === 'can_giao';
+      if (statusFilter === 'da_giao') {
+        if (normalized === 'da_giao') return true;
+        const totalAssigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
+        return totalAssigned > 0 && totalAssigned < o.total_quantity;
+      }
+      return true;
+    });
   }
 
   // Filter by age
@@ -724,6 +747,18 @@ const VegetableDeliveryPage: React.FC = () => {
                                     </button>
                                   </>
                                 )}
+                                {statusFilter === 'da_giao' && (isAdmin || (isDriver && myVehicleIds.length > 0) || isLoader) && totalAssigned > 0 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openRevert(o);
+                                    }}
+                                    className="p-1.5 rounded-md transition-colors bg-amber-500/10 text-amber-600 dark:text-amber-500 hover:bg-amber-500/20"
+                                    title="Hoàn tác giao hàng"
+                                  >
+                                    <RotateCcw size={14} strokeWidth={2.5} />
+                                  </button>
+                                )}
                               </div>
                             </td>
                             <td className="px-4 py-3 border-r border-border text-center">
@@ -754,6 +789,17 @@ const VegetableDeliveryPage: React.FC = () => {
                             </td>
                             <td className="px-2 py-3 text-[13px] font-bold text-muted-foreground text-center tabular-nums border-r border-border">
                               {formatNumber(o.total_quantity)}
+                              {(() => {
+                                const isPartial = totalAssigned > 0 && totalAssigned < o.total_quantity;
+                                if (isPartial && statusFilter === 'da_giao') {
+                                  return (
+                                    <div className="text-[10px] text-green-600 dark:text-green-500 mt-0.5 font-bold">
+                                      Đã giao: {formatNumber(totalAssigned)}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </td>
                             <td className="px-2 py-3 text-[13px] font-black text-orange-600 dark:text-orange-500 text-center tabular-nums border-r border-border">
                               {formatNumber(remainingQty > 0 ? remainingQty : 0)}
@@ -940,6 +986,17 @@ const VegetableDeliveryPage: React.FC = () => {
                                 <div className="flex items-center gap-1">
                                   <span className="text-[10px] uppercase font-black tracking-wider text-muted-foreground/60">SL:</span>
                                   <span className="text-[14px] font-bold text-foreground tabular-nums">{formatNumber(o.total_quantity)}</span>
+                                  {(() => {
+                                    const isPartial = totalAssigned > 0 && totalAssigned < o.total_quantity;
+                                    if (isPartial && statusFilter === 'da_giao') {
+                                      return (
+                                        <span className="text-[11px] font-bold text-green-600 dark:text-green-500 ml-1">
+                                          (Giao: {formatNumber(totalAssigned)})
+                                        </span>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
                                 </div>
                               </div>
                             </div>
@@ -1005,6 +1062,18 @@ const VegetableDeliveryPage: React.FC = () => {
                                     Xóa
                                   </button>
                                 </>
+                              )}
+                              {statusFilter === 'da_giao' && (isAdmin || (isDriver && myVehicleIds.length > 0) || isLoader) && totalAssigned > 0 && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openRevert(o);
+                                  }}
+                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-amber-600 dark:text-amber-500 hover:bg-amber-500/10 text-[12px] font-bold transition-colors"
+                                >
+                                  <RotateCcw size={14} strokeWidth={2.5} />
+                                  Hoàn tác
+                                </button>
                               )}
                             </div>
                           ) : null}
@@ -1089,6 +1158,15 @@ const VegetableDeliveryPage: React.FC = () => {
         orders={filteredOrders.filter(o => selectedIds.has(o.id))}
         hideImage={true}
         onClose={closeBulkEdit}
+      />
+
+      <RevertVehicleDialog
+        isOpen={!!revertingOrder}
+        isClosing={isRevertClosing}
+        order={revertingOrder}
+        isAdmin={isAdmin}
+        myVehicleIds={myVehicleIds}
+        onClose={closeRevert}
       />
 
       <MobileFilterSheet

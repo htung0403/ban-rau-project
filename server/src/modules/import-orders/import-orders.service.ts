@@ -251,7 +251,7 @@ export class ImportOrderService {
     const fkName = isVeg ? 'vegetable_order_id' : 'import_order_id';
 
     // 1. Update main order
-    const orderUpdate: Record<string, unknown> = {
+    const orderUpdateRaw: Record<string, unknown> = {
       order_date: mainData.order_date,
       order_time: mainData.order_time,
       warehouse_id: mainData.warehouse_id,
@@ -261,18 +261,21 @@ export class ImportOrderService {
       driver_name: mainData.driver_name,
       supplier_name: mainData.supplier_name,
       sender_name: mainData.sender_name,
-      sender_id: mainData.sender_id || null,
+      sender_id: mainData.sender_id !== undefined ? (mainData.sender_id || null) : undefined,
       receiver_name: mainData.receiver_name,
       sheet_number: mainData.sheet_number,
       customer_id: mainData.customer_id,
-      is_custom_amount: mainData.is_custom_amount || false,
+      is_custom_amount: mainData.is_custom_amount !== undefined ? (mainData.is_custom_amount || false) : undefined,
       total_amount: mainData.total_amount,
       receipt_image_url: mainData.receipt_image_url,
-      payment_status: mainData.payment_status || 'unpaid',
+      payment_status: mainData.payment_status !== undefined ? (mainData.payment_status || 'unpaid') : undefined,
     };
     if (mainData.received_by != null && String(mainData.received_by).trim() !== '') {
-      orderUpdate.received_by = mainData.received_by;
+      orderUpdateRaw.received_by = mainData.received_by;
     }
+    const orderUpdate: Record<string, unknown> = Object.fromEntries(
+      Object.entries(orderUpdateRaw).filter(([, v]) => v !== undefined)
+    );
 
     const { data: order, error: orderError } = await supabaseService
       .from(tName)

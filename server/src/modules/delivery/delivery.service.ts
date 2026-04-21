@@ -599,6 +599,80 @@ export class DeliveryService {
     return data;
   }
 
+  static async revertVehicle(deliveryId: string, vehicleId: string) {
+    const { error: deleteError } = await supabaseService
+      .from('delivery_vehicles')
+      .delete()
+      .eq('delivery_order_id', deliveryId)
+      .eq('vehicle_id', vehicleId);
+
+    if (deleteError) throw deleteError;
+
+    await supabaseService
+      .from('payment_collections')
+      .delete()
+      .eq('delivery_order_id', deliveryId)
+      .eq('vehicle_id', vehicleId)
+      .in('status', ['draft']);
+
+    const { data: allDvs } = await supabaseService
+      .from('delivery_vehicles')
+      .select('assigned_quantity')
+      .eq('delivery_order_id', deliveryId);
+
+    const totalAssigned = (allDvs || []).reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
+
+    const { data: doData } = await supabaseService
+      .from('delivery_orders')
+      .select('total_quantity, status, order_category')
+      .eq('id', deliveryId)
+      .single();
+
+    if (doData) {
+      const nextStatus = this.resolveDeliveryStatusFromAssignedQuantity(
+        doData.total_quantity,
+        totalAssigned,
+        { previousStatus: doData.status, preserveHangOsgWhenUnassigned: false }
+      );
+      await supabaseService.from('delivery_orders').update({ status: nextStatus }).eq('id', deliveryId);
+
+      if (doData.order_category === 'standard' || !doData.order_category) {
+        const { data: existingExport } = await supabaseService
+          .from('export_orders')
+          .select('id, debt_amount, paid_amount')
+          .eq('product_id', deliveryId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingExport) {
+          const { data: remainingDvs } = await supabaseService
+            .from('delivery_vehicles')
+            .select('assigned_quantity, expected_amount')
+            .eq('delivery_order_id', deliveryId);
+
+          const newQty = (remainingDvs || []).reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
+          const newDebt = (remainingDvs || []).reduce((sum: number, dv: any) => sum + Number(dv.expected_amount || 0), 0);
+
+          if (newQty === 0) {
+            await supabaseService.from('export_orders').delete().eq('id', existingExport.id);
+          } else {
+            const newPaid = Math.min(Number(existingExport.paid_amount || 0), newDebt);
+            const newPaymentStatus = newPaid <= 0 ? 'unpaid' : newPaid >= newDebt ? 'paid' : 'partial';
+            await supabaseService.from('export_orders').update({
+              quantity: newQty,
+              debt_amount: newDebt,
+              paid_amount: newPaid,
+              payment_status: newPaymentStatus,
+            }).eq('id', existingExport.id);
+          }
+        }
+      }
+    }
+
+    return { success: true };
+  }
+
   static async deleteOrders(ids: string[]) {
     // Delete related delivery_vehicles first (foreign key)
     const { error: dvError } = await supabaseService

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
-import { Calendar, PlusCircle, Truck, CheckCircle, Check, Search, Store, Package, User, Image as ImageIcon, Eye, Trash2, Pencil } from 'lucide-react';
+import { Calendar, PlusCircle, Truck, CheckCircle, Check, Search, Store, Package, User, Image as ImageIcon, Eye, Trash2, Pencil, RotateCcw } from 'lucide-react';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import PageHeader from '../../components/shared/PageHeader';
 import { useDeliveryOrders, useAssignVehicle, useConfirmDelivery, useDeleteDeliveryOrders } from '../../hooks/queries/useDelivery';
@@ -16,6 +16,7 @@ import OrderImagesDialog from './dialogs/OrderImagesDialog';
 import EditDeliveryDialog from './dialogs/EditDeliveryDialog';
 import BulkAssignVehicleDialog from './dialogs/BulkAssignVehicleDialog';
 import BulkEditDeliveryDialog from './dialogs/BulkEditDeliveryDialog';
+import RevertVehicleDialog from './dialogs/RevertVehicleDialog';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { Filter, X, Printer } from 'lucide-react';
@@ -25,8 +26,8 @@ import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 import { deliveryOrderVisibleToUser, hasFullGoodsModuleAccess } from '../../utils/goodsModuleScope';
 
 const formatNumber = (val?: number) => {
-  if (val == null) return '0.00';
-  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+  if (val == null) return '0';
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(val);
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -180,6 +181,9 @@ const DeliveryPage: React.FC = () => {
   const confirmMutation = useConfirmDelivery();
   const deleteMutation = useDeleteDeliveryOrders();
 
+  const [revertingOrder, setRevertingOrder] = useState<DeliveryOrder | null>(null);
+  const [isRevertClosing, setIsRevertClosing] = useState(false);
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const [selectedOrder, setSelectedOrder] = useState<DeliveryOrder | null>(null);
@@ -279,6 +283,15 @@ const DeliveryPage: React.FC = () => {
       setSelectedOrder(null);
       setSelectedVehicleId(null);
     }, 350);
+  };
+
+  const openRevert = (order: DeliveryOrder) => setRevertingOrder(order);
+  const closeRevert = () => {
+    setIsRevertClosing(true);
+    setTimeout(() => {
+      setRevertingOrder(null);
+      setIsRevertClosing(false);
+    }, 300);
   };
 
   const handleOrderClick = async (order: DeliveryOrder, vehicleId?: string) => {
@@ -387,8 +400,16 @@ const DeliveryPage: React.FC = () => {
     return {
       all: orders.length,
       hang_o_sg: orders.filter((o) => getEffectiveDeliveryStatus(o) === 'hang_o_sg').length,
-      can_giao: orders.filter((o) => getEffectiveDeliveryStatus(o) === 'can_giao').length,
-      da_giao: orders.filter((o) => getEffectiveDeliveryStatus(o) === 'da_giao').length,
+      can_giao: orders.filter((o) => {
+        const eff = getEffectiveDeliveryStatus(o);
+        return eff === 'can_giao';
+      }).length,
+      da_giao: orders.filter((o) => {
+        const eff = getEffectiveDeliveryStatus(o);
+        if (eff === 'da_giao') return true;
+        const totalAssigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
+        return totalAssigned > 0 && totalAssigned < o.total_quantity;
+      }).length,
     };
   }, [orders]);
 
@@ -416,9 +437,19 @@ const DeliveryPage: React.FC = () => {
 
   let filteredOrders = orders || [];
 
-    // Filter by status (theo trạng thái hiệu dụng: còn hàng → Cần giao)
+  // Filter by status
   if (statusFilter !== 'all') {
-    filteredOrders = filteredOrders.filter((o) => getEffectiveDeliveryStatus(o) === statusFilter);
+    filteredOrders = filteredOrders.filter((o) => {
+      const eff = getEffectiveDeliveryStatus(o);
+      if (statusFilter === 'hang_o_sg') return eff === 'hang_o_sg';
+      if (statusFilter === 'can_giao') return eff === 'can_giao';
+      if (statusFilter === 'da_giao') {
+        if (eff === 'da_giao') return true;
+        const totalAssigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
+        return totalAssigned > 0 && totalAssigned < o.total_quantity;
+      }
+      return true;
+    });
   }
 
   // Filter by age
@@ -836,6 +867,18 @@ const DeliveryPage: React.FC = () => {
                                     </button>
                                   </>
                                 )}
+                                {statusFilter === 'da_giao' && (isAdmin || (isDriver && myVehicleIds.length > 0) || isLoader) && totalAssigned > 0 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openRevert(o);
+                                    }}
+                                    className="p-1.5 rounded-md transition-colors bg-amber-500/10 text-amber-600 dark:text-amber-500 hover:bg-amber-500/20"
+                                    title="Hoàn tác giao hàng"
+                                  >
+                                    <RotateCcw size={14} strokeWidth={2.5} />
+                                  </button>
+                                )}
                               </div>
                             </td>
                             <td className="px-4 py-3 border-r border-border text-center">
@@ -886,6 +929,18 @@ const DeliveryPage: React.FC = () => {
                             </td>
                             <td className="px-2 py-3 text-[13px] font-bold text-muted-foreground text-center tabular-nums border-r border-border">
                               {formatNumber(o.total_quantity)}
+                              {(() => {
+                                const assigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
+                                const isPartial = assigned > 0 && assigned < o.total_quantity;
+                                if (isPartial && statusFilter === 'da_giao') {
+                                  return (
+                                    <div className="text-[10px] text-green-600 dark:text-green-500 mt-0.5 font-bold">
+                                      Đã giao: {formatNumber(assigned)}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </td>
                             <td className="px-2 py-3 text-[13px] font-black text-orange-600 dark:text-orange-500 text-center tabular-nums border-r border-border">
                               {formatNumber(remainingQty > 0 ? remainingQty : 0)}
@@ -1091,6 +1146,18 @@ const DeliveryPage: React.FC = () => {
                                     <div className="flex items-center gap-1">
                                       <span className="text-[10px] uppercase font-black tracking-wider text-muted-foreground/60">SL:</span>
                                       <span className="text-[14px] font-bold text-foreground tabular-nums">{formatNumber(o.total_quantity)}</span>
+                                      {(() => {
+                                        const assigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
+                                        const isPartial = assigned > 0 && assigned < o.total_quantity;
+                                        if (isPartial && statusFilter === 'da_giao') {
+                                          return (
+                                            <span className="text-[11px] font-bold text-green-600 dark:text-green-500 ml-1">
+                                              (Giao: {formatNumber(assigned)})
+                                            </span>
+                                          );
+                                        }
+                                        return null;
+                                      })()}
                                     </div>
                                   </div>
                                 </div>
@@ -1171,6 +1238,18 @@ const DeliveryPage: React.FC = () => {
                                     Xóa
                                   </button>
                                 </>
+                              )}
+                              {statusFilter === 'da_giao' && (isAdmin || (isDriver && myVehicleIds.length > 0) || isLoader) && totalAssigned > 0 && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openRevert(o);
+                                  }}
+                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-amber-600 dark:text-amber-500 hover:bg-amber-500/10 text-[12px] font-bold transition-colors"
+                                >
+                                  <RotateCcw size={14} strokeWidth={2.5} />
+                                  Hoàn tác
+                                </button>
                               )}
                             </div>
                           ) : null}
@@ -1262,6 +1341,15 @@ const DeliveryPage: React.FC = () => {
         isClosing={isBulkEditClosing}
         orders={filteredOrders.filter(o => selectedIds.has(o.id))}
         onClose={closeBulkEdit}
+      />
+
+      <RevertVehicleDialog
+        isOpen={!!revertingOrder}
+        isClosing={isRevertClosing}
+        order={revertingOrder}
+        isAdmin={isAdmin}
+        myVehicleIds={myVehicleIds}
+        onClose={closeRevert}
       />
 
       <MobileFilterSheet

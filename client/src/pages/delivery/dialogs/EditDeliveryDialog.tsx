@@ -138,6 +138,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
             uPrice = p.base_price || 0;
          }
       }
+      if (uPrice && uPrice >= 10000) uPrice = uPrice / 1000;
 
       let defaultVehicleId = '';
       let defaultDriverId = '';
@@ -205,7 +206,9 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
       }
 
       if (formData.total_quantity !== order.total_quantity) payload.total_quantity = Number(formData.total_quantity);
-      if (formData.unit_price !== order.unit_price) payload.unit_price = Number(formData.unit_price);
+      const rawPrice = Number(formData.unit_price) || 0;
+      const normalizedPrice = rawPrice > 0 && rawPrice < 10000 ? rawPrice * 1000 : rawPrice;
+      if (normalizedPrice !== order.unit_price) payload.unit_price = normalizedPrice;
       if (formData.delivery_date && formData.delivery_date !== order.delivery_date) payload.delivery_date = formData.delivery_date;
       if (formData.image_url && formData.image_url !== (order as any).image_url) payload.image_url = formData.image_url;
 
@@ -382,7 +385,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
                 <input
                   type="number"
                   min="0"
-                  step="1000"
+                  step="1"
                   className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                   value={formData.unit_price}
                   onChange={e => setFormData({ ...formData, unit_price: parseInt(e.target.value) || 0 })}

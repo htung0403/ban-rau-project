@@ -125,6 +125,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                 uPrice = p.base_price || 0;
              }
           }
+          if (uPrice && uPrice >= 10000) uPrice = uPrice / 1000;
 
           initial[o.id] = {
             product_name: displayProductName,
@@ -199,7 +200,9 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
           }
 
           if (current.total_quantity !== order.total_quantity) payload.total_quantity = current.total_quantity;
-          if (current.unit_price !== order.unit_price) payload.unit_price = current.unit_price;
+          const rawPrice = Number(current.unit_price) || 0;
+          const normalizedPrice = rawPrice > 0 && rawPrice < 10000 ? rawPrice * 1000 : rawPrice;
+          if (normalizedPrice !== order.unit_price) payload.unit_price = normalizedPrice;
           if (current.image_url && current.image_url !== (order as any).image_url) payload.image_url = current.image_url;
 
           if (Object.keys(payload).length > 0) {
@@ -428,7 +431,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                         <input
                           type="number"
                           min="0"
-                          step="1000"
+                          step="1"
                           className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                           value={rowData.unit_price}
                           onChange={e => updateRow(order.id, 'unit_price', parseInt(e.target.value) || 0)}
@@ -523,7 +526,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                             <input
                               type="number"
                               min="0"
-                              step="1000"
+                              step="1"
                               className="w-full h-9 px-2 pt-1 border border-border rounded-lg text-[14px] font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                               value={rowData.unit_price}
                               onChange={e => updateRow(order.id, 'unit_price', parseInt(e.target.value) || 0)}

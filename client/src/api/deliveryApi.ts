@@ -59,4 +59,9 @@ export const deliveryApi = {
     const { data } = await axiosClient.post('/delivery/delete', { ids });
     return data;
   },
+
+  revertVehicle: async (id: string, vehicleId: string) => {
+    const { data } = await axiosClient.put(`/delivery/${id}/revert-vehicle`, { vehicle_id: vehicleId });
+    return data;
+  },
 };

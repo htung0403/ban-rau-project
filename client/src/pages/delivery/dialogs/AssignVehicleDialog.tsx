@@ -144,7 +144,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
   useEffect(() => {
     if (order && isOpen) {
-      let defaultUnitPrice = order.unit_price || 0;
+      const toDisplayPrice = (p: number) => (p >= 10000 ? p / 1000 : p);
+      let defaultUnitPrice = toDisplayPrice(order.unit_price || 0);
       if (!defaultUnitPrice && allOrders.length > 0) {
         const orderReceiverName = order.import_orders?.customers?.name || order.import_orders?.receiver_name?.trim() || order.import_orders?.profiles?.full_name || '';
         const sameDayOrders = allOrders.filter(o => {
@@ -158,7 +159,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           return true;
         });
         if (sameDayOrders.length > 0) {
-          defaultUnitPrice = sameDayOrders[0].unit_price || 0;
+          defaultUnitPrice = toDisplayPrice(sameDayOrders[0].unit_price || 0);
         }
       }
 
@@ -266,15 +267,21 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             vehicle?.in_charge_id ||
             (isDriver && assignment.vehicle_id === myVehicle?.id ? user?.id || '' : '');
 
+          const rawPrice = Number(assignment.unit_price) || 0;
+          const normalizedPrice = rawPrice > 0 && rawPrice < 10000 ? rawPrice * 1000 : rawPrice;
+          const qty = Number(assignment.quantity) || 0;
+          const normalizedAmount = qty * normalizedPrice;
+
           return {
             ...assignment,
             driver_id: resolvedDriverId,
+            unit_price: normalizedPrice,
+            expected_amount: normalizedAmount > 0 ? normalizedAmount : Number(assignment.expected_amount) || 0,
           };
         })
         .filter((assignment) => {
           if (UUID_REGEX.test(assignment.driver_id)) return true;
 
-          // Driver cannot edit other rows; skip locked rows that have broken historical data.
           if (isDriver && assignment.vehicle_id !== myVehicle?.id) return false;
 
           return true;

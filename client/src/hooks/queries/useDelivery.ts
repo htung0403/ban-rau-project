@@ -93,3 +93,17 @@ export function useDeleteDeliveryOrders() {
     onError: () => toast.error('Lỗi khi xóa đơn giao hàng'),
   });
 }
+
+export function useRevertVehicle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, vehicleId }: { id: string; vehicleId: string }) =>
+      deliveryApi.revertVehicle(id, vehicleId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: deliveryKeys.all });
+      queryClient.invalidateQueries({ queryKey: exportOrderKeys.all });
+      toast.success('Đã hoàn tác xe');
+    },
+    onError: () => toast.error('Lỗi khi hoàn tác xe'),
+  });
+}

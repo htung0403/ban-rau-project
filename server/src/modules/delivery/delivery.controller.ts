@@ -163,6 +163,16 @@ export class DeliveryController {
     }
   }
 
+  static async revertVehicle(req: Request, res: Response) {
+    try {
+      const { vehicle_id } = z.object({ vehicle_id: z.string().uuid() }).parse(req.body);
+      const data = await DeliveryService.revertVehicle(req.params.id, vehicle_id);
+      return res.status(200).json(successResponse(data, 'Đã hoàn tác xe'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
   static async deleteOrders(req: Request, res: Response) {
     try {
       const { ids } = z.object({ ids: z.array(z.string().uuid()) }).parse(req.body);

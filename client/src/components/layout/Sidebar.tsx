@@ -18,13 +18,13 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
   const { user } = useAuth();
   const { data: myPermissionsData, isSuccess: permissionsReady } = useMyPermissions(!!user);
-  const { mustCheckIn } = useAttendanceGate();
+  const { mustCheckIn, isLocked } = useAttendanceGate();
   const allowedPaths = permissionsReady
     ? new Set(myPermissionsData?.page_paths || [])
     : buildAllowedRouteSet(user?.role);
 
   const visibleSidebarMenu = sidebarMenu.filter((item) => {
-    if (mustCheckIn && !isPathAllowedBeforeCheckin(item.path)) return false;
+    if ((mustCheckIn || isLocked) && !isPathAllowedBeforeCheckin(item.path)) return false;
 
     const moduleSections = moduleData[item.path];
 
@@ -40,7 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
     return canAccessRoute(item.path, user?.role, allowedPaths);
   });
 
-  const visibleExtraMenuItems = mustCheckIn
+  const visibleExtraMenuItems = (mustCheckIn || isLocked)
     ? []
     : extraMenuItems.filter((item) => canAccessRoute(item.path, user?.role, allowedPaths));
 

@@ -7,10 +7,26 @@ import { useAttendanceGate } from '../../hooks/useAttendanceGate';
 const MobileBottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { mustCheckIn } = useAttendanceGate();
+  const { mustCheckIn, isLocked } = useAttendanceGate();
 
   const isHome = location.pathname === '/';
   const isAttendancePage = location.pathname === '/hanh-chinh-nhan-su/cham-cong';
+
+  if (isLocked) {
+    return (
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-slate-900 border-t border-slate-800 z-40 px-6 flex items-center justify-center pb-safe shadow-2xl">
+        <button 
+          onClick={() => navigate('/')}
+          className={clsx(
+            "p-3 rounded-full transition-all",
+            isHome ? "bg-primary text-white" : "text-slate-400 hover:text-white"
+          )}
+        >
+          <Home size={28} />
+        </button>
+      </div>
+    );
+  }
 
   if (mustCheckIn) {
     return (

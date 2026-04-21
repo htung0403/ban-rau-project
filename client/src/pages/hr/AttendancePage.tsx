@@ -5,6 +5,7 @@ import { useEmployees, useMarkAttendance, useAttendance, useCreateCompensatoryAt
 import { useRoleSalaries, useGeneralSetting } from '../../hooks/queries/usePriceSettings';
 import { resolveActiveGeofencePoints, matchGeofence } from '../../lib/attendanceGeo';
 import { useAuth } from '../../context/AuthContext';
+import { getVietnamTodayStr, getVietnamNowTimeStr } from '../../hooks/useAttendanceGate';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
 import EmptyState from '../../components/shared/EmptyState';
@@ -20,7 +21,7 @@ import { TimePicker24h } from '../../components/shared/TimePicker24h';
 
 const AttendancePage: React.FC = () => {
   const { user } = useAuth();
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedDate, setSelectedDate] = useState(getVietnamTodayStr());
   
   // Calculate week range (Monday to Sunday)
   const weekStart = startOfWeek(new Date(selectedDate), { weekStartsOn: 1 });
@@ -51,7 +52,7 @@ const AttendancePage: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [attType, setAttType] = useState<'in' | 'out'>('in');
-  const [attTime, setAttTime] = useState(format(new Date(), 'HH:mm'));
+  const [attTime, setAttTime] = useState(getVietnamNowTimeStr());
   const [attEmployee, setAttEmployee] = useState<any>(null);
   const [reason, setReason] = useState('');
 
@@ -60,7 +61,7 @@ const AttendancePage: React.FC = () => {
   const [dialogDate, setDialogDate] = useState(selectedDate);
   const createCompensatory = useCreateCompensatoryAttendance();
 
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = getVietnamTodayStr();
   const isPastDate = dialogDate < todayStr;
   const isFutureDate = dialogDate > todayStr;
 
@@ -82,7 +83,7 @@ const AttendancePage: React.FC = () => {
       return;
     }
     const targetEmp = emp || user;
-    setAttTime(format(new Date(), 'HH:mm'));
+    setAttTime(getVietnamNowTimeStr());
     setAttEmployee(targetEmp);
     setDialogDate(d);
     setReason('');
@@ -116,7 +117,7 @@ const AttendancePage: React.FC = () => {
     }
 
     if (dialogDate === todayStr) {
-      const currentTime = format(new Date(), 'HH:mm');
+      const currentTime = getVietnamNowTimeStr();
       if (attTime > currentTime && attType !== 'out') {
         // Technically can check out later today, but usually shouldn't check in/out in the future.
         // The prompt says "chỉ cho phép giờ <= giờ hiện tại đối với chấm công"
@@ -553,7 +554,7 @@ const AttendancePage: React.FC = () => {
                           className="w-full !h-[48px] !px-4 !bg-white border-border/80 rounded-xl text-[14px] font-bold text-foreground focus:ring-2 focus:ring-primary/10 transition-all"
                         />
                         <button
-                          onClick={() => setAttTime(format(new Date(), 'HH:mm'))}
+                          onClick={() => setAttTime(getVietnamNowTimeStr())}
                           className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-[11px] font-bold hover:bg-emerald-100 transition-all z-10"
                         >
                           Giờ hiện tại

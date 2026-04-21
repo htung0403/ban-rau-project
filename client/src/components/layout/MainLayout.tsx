@@ -8,10 +8,10 @@ import { useAttendanceGate, isPathAllowedBeforeCheckin } from '../../hooks/useAt
 
 const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { mustCheckIn } = useAttendanceGate();
+  const { mustCheckIn, isLocked } = useAttendanceGate();
   const location = useLocation();
 
-  if (mustCheckIn && !isPathAllowedBeforeCheckin(location.pathname)) {
+  if ((mustCheckIn || isLocked) && !isPathAllowedBeforeCheckin(location.pathname)) {
     return <Navigate to="/" replace />;
   }
 

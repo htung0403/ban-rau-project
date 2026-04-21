@@ -188,7 +188,7 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
 
           <CustomSelect
             value={filterStatus}
-            onChange={(val) => setFilterStatus(val as any)}
+            onChange={(val: string) => setFilterStatus(val as any)}
             options={[
               { value: '', label: 'Tất cả trạng thái' },
               { value: 'draft', label: 'Chưa Nộp' },

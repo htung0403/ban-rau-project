@@ -7,7 +7,6 @@ import { useEmployees } from '../../../hooks/queries/useHR';
 import { useVehicles } from '../../../hooks/queries/useVehicles';
 import { Search, CheckCircle } from 'lucide-react';
 import { DatePicker } from '../../../components/shared/DatePicker';
-import { CustomSelect } from '../../../components/shared/CustomSelect';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import MobileFilterSheet from '../../../components/shared/MobileFilterSheet';
 import EmptyState from '../../../components/shared/EmptyState';

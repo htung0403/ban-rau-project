@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ActionCard } from '../components/ui/ActionCard';
 import type { ActionCardProps } from '../components/ui/ActionCard';
-import { Box, Users, Wallet, Car, Copyright, Search } from 'lucide-react';
+import { Box, Users, Wallet, Car, Copyright, Search, ClipboardList, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
 import { moduleData } from '../data/moduleData';
 import { ModuleCard } from '../components/ui/ModuleCard';
 import ZaloLogo from '../assets/zalo-seeklogo.svg';
 import { buildAllowedRouteSet, canAccessModuleRoute, canAccessRoute } from '../utils/routePermissions';
 import { useMyPermissions } from '../hooks/queries/useRoles';
+import { useAttendanceGate } from '../hooks/useAttendanceGate';
+import { Link } from 'react-router-dom';
 
 const dashboardModules: ActionCardProps[] = [
   {
@@ -57,6 +59,7 @@ const dashboardModules: ActionCardProps[] = [
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const { mustCheckIn } = useAttendanceGate();
   const [activeTab, setActiveTab] = useState<'chuc-nang' | 'danh-dau' | 'tat-ca'>('chuc-nang');
   const [greeting, setGreeting] = useState('Chào bạn');
 
@@ -97,6 +100,34 @@ const Dashboard: React.FC = () => {
         </h1>
       </div>
 
+      {mustCheckIn && (
+        <div className="mb-6 lg:mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 lg:p-8 flex flex-col items-center gap-4 text-center shadow-sm">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center">
+              <ClipboardList size={28} className="text-amber-600" />
+            </div>
+            <div className="space-y-1.5">
+              <h2 className="text-[16px] lg:text-[18px] font-bold text-amber-800">
+                Bạn chưa chấm công hôm nay
+              </h2>
+              <p className="text-[13px] text-amber-600 max-w-md">
+                Vui lòng chấm công trước khi sử dụng các chức năng khác của hệ thống.
+              </p>
+            </div>
+            <Link
+              to="/hanh-chinh-nhan-su/cham-cong"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[14px] font-bold shadow-lg shadow-amber-500/20 transition-all active:scale-95"
+            >
+              <ClipboardList size={18} />
+              Chấm công ngay
+              <ChevronRight size={16} />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {!mustCheckIn && (
+        <>
       <div className={clsx(
         "bg-card sm:rounded-xl shadow-sm border-y border-border sm:border py-1.5 px-4 sm:p-2 flex flex-row items-center gap-1.5 sm:gap-3 mb-6 lg:mb-8 transition-all duration-300 relative z-10 w-[calc(100%+2rem)] -ml-4 sm:ml-0 overflow-hidden",
         activeTab === 'tat-ca' ? "sm:w-full" : "sm:w-max"
@@ -204,6 +235,8 @@ const Dashboard: React.FC = () => {
             })}
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

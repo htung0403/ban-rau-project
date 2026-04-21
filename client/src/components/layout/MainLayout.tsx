@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation, Navigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import MobileBottomNav from './MobileBottomNav';
 import { clsx } from 'clsx';
+import { useAttendanceGate, isPathAllowedBeforeCheckin } from '../../hooks/useAttendanceGate';
 
 const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { mustCheckIn } = useAttendanceGate();
+  const location = useLocation();
+
+  if (mustCheckIn && !isPathAllowedBeforeCheckin(location.pathname)) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">

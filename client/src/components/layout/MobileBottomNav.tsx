@@ -1,13 +1,44 @@
 import React from 'react';
-import { ArrowLeft, Home, Bell } from 'lucide-react';
+import { ArrowLeft, Home, Bell, ClipboardList } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
+import { useAttendanceGate } from '../../hooks/useAttendanceGate';
 
 const MobileBottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { mustCheckIn } = useAttendanceGate();
 
   const isHome = location.pathname === '/';
+  const isAttendancePage = location.pathname === '/hanh-chinh-nhan-su/cham-cong';
+
+  if (mustCheckIn) {
+    return (
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border z-40 px-6 flex items-center justify-between pb-safe">
+        <button 
+          onClick={() => navigate('/')}
+          className={clsx(
+            "p-2 transition-colors",
+            isHome ? "text-primary" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Home size={24} />
+        </button>
+
+        <button
+          onClick={() => navigate('/hanh-chinh-nhan-su/cham-cong')}
+          className={clsx(
+            "w-12 h-12 rounded-full flex items-center justify-center -translate-y-4 shadow-lg transition-transform hover:scale-105 active:scale-95",
+            isAttendancePage ? "bg-primary text-white" : "bg-amber-500 text-white animate-pulse"
+          )}
+        >
+          <ClipboardList size={24} />
+        </button>
+
+        <div className="w-10" />
+      </div>
+    );
+  }
 
   return (
     <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border z-40 px-6 flex items-center justify-between pb-safe">

@@ -8,10 +8,12 @@ import { sidebarMenu } from '../data/sidebarMenu';
 import { useAuth } from '../context/AuthContext';
 import { buildAllowedRouteSet, canAccessRoute } from '../utils/routePermissions';
 import { useMyPermissions } from '../hooks/queries/useRoles';
+import { useAttendanceGate, isPathAllowedBeforeCheckin } from '../hooks/useAttendanceGate';
 
 const ModulePage: React.FC = () => {
   const { user } = useAuth();
   const { data: myPermissionsData, isSuccess: permissionsReady } = useMyPermissions(!!user);
+  const { mustCheckIn } = useAttendanceGate();
   const [activeTab, setActiveTab] = useState<'tat-ca' | 'danh-dau'>('tat-ca');
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
@@ -98,6 +100,10 @@ const ModulePage: React.FC = () => {
           {data.map((section, idx) => {
             // Filter items by effective permission + search query.
             const filteredItems = section.items.filter(item => {
+              if (mustCheckIn && !isPathAllowedBeforeCheckin(item.path || '')) {
+                return false;
+              }
+
               if (!canAccessRoute(item.path, user?.role, allowedPaths)) {
                 return false;
               }

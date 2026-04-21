@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { moduleData } from '../../data/moduleData';
 import { buildAllowedRouteSet, canAccessModuleRoute, canAccessRoute } from '../../utils/routePermissions';
 import { useMyPermissions } from '../../hooks/queries/useRoles';
+import { useAttendanceGate, isPathAllowedBeforeCheckin } from '../../hooks/useAttendanceGate';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -17,11 +18,14 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
   const { user } = useAuth();
   const { data: myPermissionsData, isSuccess: permissionsReady } = useMyPermissions(!!user);
+  const { mustCheckIn } = useAttendanceGate();
   const allowedPaths = permissionsReady
     ? new Set(myPermissionsData?.page_paths || [])
     : buildAllowedRouteSet(user?.role);
 
   const visibleSidebarMenu = sidebarMenu.filter((item) => {
+    if (mustCheckIn && !isPathAllowedBeforeCheckin(item.path)) return false;
+
     const moduleSections = moduleData[item.path];
 
     if (moduleSections) {
@@ -36,7 +40,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
     return canAccessRoute(item.path, user?.role, allowedPaths);
   });
 
-  const visibleExtraMenuItems = extraMenuItems.filter((item) => canAccessRoute(item.path, user?.role, allowedPaths));
+  const visibleExtraMenuItems = mustCheckIn
+    ? []
+    : extraMenuItems.filter((item) => canAccessRoute(item.path, user?.role, allowedPaths));
 
   return (
     <>

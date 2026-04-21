@@ -5,7 +5,7 @@ import { isDriverLikeRoleKey } from '../../../utils/routePermissions';
 import { usePaymentCollections, useRevertPaymentCollection } from '../../../hooks/queries/usePaymentCollections';
 import { useEmployees } from '../../../hooks/queries/useHR';
 import { useVehicles } from '../../../hooks/queries/useVehicles';
-import { Plus, Download, CheckCircle, AlertCircle, RefreshCw, Search } from 'lucide-react';
+import { Plus, Download, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 
 import EmptyState from '../../../components/shared/EmptyState';
 import ErrorState from '../../../components/shared/ErrorState';
@@ -20,6 +20,8 @@ import MobileFilterSheet from '../../../components/shared/MobileFilterSheet';
 import { formatCurrency, formatDate, formatTime } from '../../../utils/formatters';
 import type { PaymentCollection, PaymentCollectionStatus } from '../../../types';
 import { Filter } from 'lucide-react';
+import { SearchInput } from '../../../components/ui/SearchInput';
+import { matchesSearch } from '../../../lib/str-utils';
 
 interface Props {
   readonly?: boolean;
@@ -75,12 +77,11 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
 
   const filtered = collections?.filter(c => {
     if (filterSearch) {
-      const term = filterSearch.toLowerCase();
       return (
-        c.deliveryOrderCode.toLowerCase().includes(term) ||
-        c.customerName.toLowerCase().includes(term) ||
-        c.driverName?.toLowerCase().includes(term) ||
-        c.licensePlate?.toLowerCase().includes(term)
+        matchesSearch(c.deliveryOrderCode, filterSearch) ||
+        matchesSearch(c.customerName, filterSearch) ||
+        matchesSearch(c.driverName || '', filterSearch) ||
+        matchesSearch(c.licensePlate || '', filterSearch)
       );
     }
     return true;
@@ -159,14 +160,10 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-2 w-full md:flex-1">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            <input
-              type="text"
+          <div className="flex-1">
+            <SearchInput
               placeholder="Tìm mã đơn, khách..."
-              value={filterSearch}
-              onChange={(e) => setFilterSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-[13px] w-full bg-white h-[38px]"
+              onSearch={(raw) => setFilterSearch(raw)}
             />
           </div>
           <button 

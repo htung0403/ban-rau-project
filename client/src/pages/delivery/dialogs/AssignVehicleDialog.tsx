@@ -74,7 +74,23 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const normalizedRole = (user?.role || '').toLowerCase();
   const isLoader = normalizedRole.includes('lo_xe');
   const isDriver = normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('driver') || isLoader;
-  const myVehicle = eligibleVehicles.find(v => v.driver_id === user?.id || v.in_charge_id === user?.id);
+  
+  const myEmployee = React.useMemo(() => {
+    if (!user) return null;
+    return (employees || []).find(e => e.id === user.id || (user.full_name && e.full_name === user.full_name));
+  }, [employees, user]);
+  
+  const myEmployeeId = myEmployee?.id || user?.id;
+
+  const myVehicle = React.useMemo(() => {
+    if (!myEmployeeId && !user?.full_name) return undefined;
+    return eligibleVehicles.find(v => 
+      v.driver_id === myEmployeeId || 
+      v.in_charge_id === myEmployeeId ||
+      (user?.full_name && v.profiles?.full_name === user.full_name) ||
+      (user?.full_name && v.responsible_profile?.full_name === user.full_name)
+    );
+  }, [eligibleVehicles, myEmployeeId, user?.full_name]);
 
   const {
     register,
@@ -191,7 +207,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
         initialAssignments.push({
           vehicle_id: initialVid,
-          driver_id: vehicle?.driver_id || vehicle?.in_charge_id || (isDriver ? user?.id : ''),
+          driver_id: vehicle?.driver_id || vehicle?.in_charge_id || (isDriver ? myEmployeeId : ''),
           loader_name: '',
           unit_price: defaultUnitPrice,
           quantity: remainingForThis,
@@ -202,7 +218,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       if (initialAssignments.length === 0) {
         initialAssignments.push({
           vehicle_id: isDriver ? (initialVid || '') : '',
-          driver_id: isDriver ? (user?.id || '') : '',
+          driver_id: isDriver ? (myEmployeeId || '') : '',
           loader_name: '',
           unit_price: defaultUnitPrice,
           quantity: '',
@@ -210,10 +226,10 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         });
       }
 
-      if (isDriver && initialVid && user?.id) {
+      if (isDriver && initialVid && myEmployeeId) {
         initialAssignments.forEach((assignment) => {
           if (assignment.vehicle_id === initialVid) {
-            assignment.driver_id = user.id;
+            assignment.driver_id = myEmployeeId;
           }
         });
       }
@@ -251,7 +267,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         export_payment_status: defaultExportPaymentStatus,
       });
     }
-  }, [order, initialVehicleId, isOpen, reset, eligibleVehicles, isDriver, myVehicle, user?.id, allOrders]);
+  }, [order, initialVehicleId, isOpen, reset, eligibleVehicles, isDriver, myVehicle, myEmployeeId, allOrders]);
 
   if (!isOpen && !isClosing) return null;
 
@@ -265,7 +281,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             assignment.driver_id ||
             vehicle?.driver_id ||
             vehicle?.in_charge_id ||
-            (isDriver && assignment.vehicle_id === myVehicle?.id ? user?.id || '' : '');
+            (isDriver && assignment.vehicle_id === myVehicle?.id ? myEmployeeId || '' : '');
 
           const rawPrice = Number(assignment.unit_price) || 0;
           const normalizedPrice = rawPrice > 0 && rawPrice < 10000 ? rawPrice * 1000 : rawPrice;
@@ -467,29 +483,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       />
                       {errors.assignments?.[index]?.driver_id && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.driver_id?.message}</p>}
                     </div>
-                    {/* Đơn giá */}
-                    <div className="w-full md:w-36 space-y-1.5 mt-2 md:mt-0">
-                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-                        Đơn giá
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        {...register(`assignments.${index}.unit_price` as const, {
-                          onChange: (e) => {
-                            if (isRowDisabled) return;
-                            const price = Number(e.target.value) || 0;
-                            const qty = Number(watchAssignments[index]?.quantity) || 0;
-                            const expected = qty * price;
-                            setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
-                            expectedAmountPrevDigitsRef.current[index] = amountToDigitString(expected);
-                          }
-                        })}
-                        disabled={isRowDisabled}
-                        placeholder="0"
-                        className={clsx("w-full h-10.5 px-3 bg-card border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums", isRowDisabled && "opacity-70 bg-muted text-muted-foreground cursor-not-allowed")}
-                      />
-                    </div>
                     {/* Số lượng */}
                     <div className="w-full md:w-32 space-y-1.5 mt-2 md:mt-0">
                       <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
@@ -501,7 +494,12 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                         {...register(`assignments.${index}.quantity` as const, {
                           onChange: (e) => {
                             if (isRowDisabled) return;
-                            const val = Number(e.target.value) || 0;
+                            let valStr = e.target.value;
+                            if (valStr.length > 1 && valStr.startsWith('0') && valStr[1] !== '.') {
+                              valStr = valStr.replace(/^0+/, '');
+                              e.target.value = valStr;
+                            }
+                            const val = Number(valStr) || 0;
                             const currentUnitPrice = Number(watchAssignments[index]?.unit_price) || 0;
                             const expected = val * currentUnitPrice;
                             setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
@@ -513,6 +511,35 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                         className={clsx("w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums", isRowDisabled && "opacity-70 bg-muted text-muted-foreground cursor-not-allowed")}
                       />
                       {errors.assignments?.[index]?.quantity && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.quantity?.message}</p>}
+                    </div>
+
+                    {/* Đơn giá */}
+                    <div className="w-full md:w-36 space-y-1.5 mt-2 md:mt-0">
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                        Đơn giá
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        {...register(`assignments.${index}.unit_price` as const, {
+                          onChange: (e) => {
+                            if (isRowDisabled) return;
+                            let valStr = e.target.value;
+                            if (valStr.length > 1 && valStr.startsWith('0') && valStr[1] !== '.') {
+                              valStr = valStr.replace(/^0+/, '');
+                              e.target.value = valStr;
+                            }
+                            const price = Number(valStr) || 0;
+                            const qty = Number(watchAssignments[index]?.quantity) || 0;
+                            const expected = qty * price;
+                            setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
+                            expectedAmountPrevDigitsRef.current[index] = amountToDigitString(expected);
+                          }
+                        })}
+                        disabled={isRowDisabled}
+                        placeholder="0"
+                        className={clsx("w-full h-10.5 px-3 bg-card border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums", isRowDisabled && "opacity-70 bg-muted text-muted-foreground cursor-not-allowed")}
+                      />
                     </div>
 
                     {/* Tiền thu (chỉ đơn tạp hóa/standard) */}

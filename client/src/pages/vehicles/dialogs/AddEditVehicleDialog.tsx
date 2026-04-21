@@ -14,6 +14,8 @@ import { MultiSearchableSelect } from '../../../components/ui/MultiSearchableSel
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import type { Vehicle } from '../../../types';
 
+import { removeAccents } from '../../../lib/str-utils';
+
 const vehicleSchema = z.object({
   license_plate: z.string().min(5, 'Biển số phải từ 5 ký tự'),
   vehicle_type: z.string().optional(),
@@ -29,11 +31,8 @@ const vehicleSchema = z.object({
 type VehicleFormData = z.infer<typeof vehicleSchema>;
 
 const normalizeText = (value?: string | null) =>
-  (value || '')
+  removeAccents(value || '')
     .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
     .replace(/[^a-z0-9\s_]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();

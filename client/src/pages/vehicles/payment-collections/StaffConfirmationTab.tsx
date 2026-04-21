@@ -5,7 +5,7 @@ import { isDriverLikeRoleKey } from '../../../utils/routePermissions';
 import { usePaymentCollections } from '../../../hooks/queries/usePaymentCollections';
 import { useEmployees } from '../../../hooks/queries/useHR';
 import { useVehicles } from '../../../hooks/queries/useVehicles';
-import { Search, CheckCircle } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 import { DatePicker } from '../../../components/shared/DatePicker';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import MobileFilterSheet from '../../../components/shared/MobileFilterSheet';
@@ -13,6 +13,8 @@ import EmptyState from '../../../components/shared/EmptyState';
 import ErrorState from '../../../components/shared/ErrorState';
 import ConfirmReceptionDialog from './dialogs/ConfirmReceptionDialog';
 import { formatCurrency, formatDate, formatTime } from '../../../utils/formatters';
+import { SearchInput } from '../../../components/ui/SearchInput';
+import { matchesSearch } from '../../../lib/str-utils';
 import type { PaymentCollection } from '../../../types';
 import { Filter } from 'lucide-react';
 
@@ -55,11 +57,10 @@ const StaffConfirmationTab: React.FC = () => {
   let filtered = collections?.filter(c => c.status === 'submitted') || [];
 
   if (filterSearch) {
-    const term = filterSearch.toLowerCase();
     filtered = filtered.filter(c => 
-      c.deliveryOrderCode.toLowerCase().includes(term) ||
-      c.driverName?.toLowerCase().includes(term) ||
-      c.customerName?.toLowerCase().includes(term)
+      matchesSearch(c.deliveryOrderCode, filterSearch) ||
+      matchesSearch(c.driverName || '', filterSearch) ||
+      matchesSearch(c.customerName || '', filterSearch)
     );
   }
 
@@ -75,14 +76,10 @@ const StaffConfirmationTab: React.FC = () => {
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-2 w-full md:flex-1">
-          <div className="relative flex-1">
-             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-             <input 
-               type="text" 
+          <div className="flex-1">
+             <SearchInput 
                placeholder="Tìm mã đơn, khách..." 
-               value={filterSearch} 
-               onChange={e => setFilterSearch(e.target.value)} 
-               className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-[13px] w-full bg-white h-[38px]" 
+               onSearch={(raw) => setFilterSearch(raw)} 
              />
           </div>
           <button 

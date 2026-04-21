@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
-import { Calendar, PlusCircle, Truck, CheckCircle, Search, Store, Package, User, Trash2, Pencil, RotateCcw } from 'lucide-react';
+import { Calendar, PlusCircle, Truck, CheckCircle, Store, Package, User, Trash2, Pencil, RotateCcw } from 'lucide-react';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import PageHeader from '../../components/shared/PageHeader';
 import { useDeliveryOrders, useAssignVehicle, useDeleteDeliveryOrders } from '../../hooks/queries/useDelivery';import { useVehicles } from '../../hooks/queries/useVehicles';
@@ -18,6 +18,8 @@ import RevertVehicleDialog from './dialogs/RevertVehicleDialog';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { Filter, X } from 'lucide-react';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { matchesSearch } from '../../lib/str-utils';
 import type { DeliveryOrder, Vehicle } from '../../types';
 import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 import { deliveryOrderVisibleToUser, hasFullGoodsModuleAccess } from '../../utils/goodsModuleScope';
@@ -387,8 +389,12 @@ const VegetableDeliveryPage: React.FC = () => {
       const pName = getDisplayProductName(o);
 
       if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        if (!cName?.toLowerCase().includes(q) && !rName?.toLowerCase().includes(q) && !pName?.toLowerCase().includes(q) && !(orderData?.order_code?.toLowerCase().includes(q))) {
+        if (
+          !matchesSearch(cName || '', searchQuery) && 
+          !matchesSearch(rName || '', searchQuery) && 
+          !matchesSearch(pName || '', searchQuery) && 
+          !matchesSearch(orderData?.order_code || '', searchQuery)
+        ) {
           return false;
         }
       }
@@ -431,22 +437,12 @@ const VegetableDeliveryPage: React.FC = () => {
 
       <div className="bg-card flex flex-row w-full gap-2 items-center rounded-2xl shadow-sm border border-border p-2.5 md:mb-6 mb-3 overflow-x-auto custom-scrollbar">
         {/* SEARCH BAR */}
-        <div className="relative flex-1 min-w-50 md:max-w-full">
-          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
-            <Search size={15} />
-          </div>
-          <input
-            type="text"
-            className="w-full text-[13px] bg-muted/20 border border-border/80 rounded-xl pl-9 pr-7 py-2 h-9.5 focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-muted-foreground/60 font-medium"
+        <div className="flex-1 min-w-50 md:max-w-full">
+          <SearchInput
             placeholder="Tìm mã, vựa, hàng..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onSearch={(raw) => setSearchQuery(raw)}
+            className="h-9.5"
           />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <X size={14} />
-            </button>
-          )}
         </div>
 
         {/* DESKTOP ADVANCED FILTERS */}

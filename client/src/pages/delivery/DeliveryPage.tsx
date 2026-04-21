@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
-import { Calendar, PlusCircle, Truck, CheckCircle, Check, Search, Store, Package, User, Image as ImageIcon, Eye, Trash2, Pencil, RotateCcw } from 'lucide-react';
+import { Calendar, PlusCircle, Truck, CheckCircle, Check, Store, Package, User, Image as ImageIcon, Eye, Trash2, Pencil, RotateCcw } from 'lucide-react';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import PageHeader from '../../components/shared/PageHeader';
 import { useDeliveryOrders, useAssignVehicle, useConfirmDelivery, useDeleteDeliveryOrders } from '../../hooks/queries/useDelivery';
@@ -21,6 +21,8 @@ import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { Filter, X, Printer } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { matchesSearch } from '../../lib/str-utils';
 import type { DeliveryOrder, DeliveryStatus, Vehicle } from '../../types';
 import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 import { deliveryOrderVisibleToUser, hasFullGoodsModuleAccess } from '../../utils/goodsModuleScope';
@@ -467,8 +469,12 @@ const DeliveryPage: React.FC = () => {
     const pName = getDisplayProductName(o);
 
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      if (!cName?.toLowerCase().includes(q) && !rName?.toLowerCase().includes(q) && !pName?.toLowerCase().includes(q) && !(o.import_orders?.order_code?.toLowerCase().includes(q))) {
+      if (
+        !matchesSearch(cName || '', searchQuery) && 
+        !matchesSearch(rName || '', searchQuery) && 
+        !matchesSearch(pName || '', searchQuery) && 
+        !matchesSearch(o.import_orders?.order_code || '', searchQuery)
+      ) {
         return false;
       }
     }
@@ -511,22 +517,12 @@ const DeliveryPage: React.FC = () => {
 
       <div className="bg-card flex flex-row w-full gap-2 items-center rounded-2xl shadow-sm border border-border p-2.5 md:mb-6 mb-3 overflow-x-auto custom-scrollbar">
         {/* SEARCH BAR */}
-        <div className="relative flex-1 min-w-50 md:max-w-full">
-          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
-            <Search size={15} />
-          </div>
-          <input
-            type="text"
-            className="w-full text-[13px] bg-muted/20 border border-border/80 rounded-xl pl-9 pr-7 py-2 h-9.5 focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-muted-foreground/60 font-medium"
+        <div className="flex-1 min-w-50 md:max-w-full">
+          <SearchInput
             placeholder="Tìm mã, vựa, hàng..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onSearch={(raw) => setSearchQuery(raw)}
+            className="h-9.5"
           />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <X size={14} />
-            </button>
-          )}
         </div>
 
         {/* DESKTOP ADVANCED FILTERS */}
@@ -826,7 +822,7 @@ const DeliveryPage: React.FC = () => {
                                     <Check size={14} strokeWidth={2.5} />
                                   </button>
                                 )}
-                                {canShowAssignButton && (
+                                {canShowAssignButton && statusFilter !== 'hang_o_sg' && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -962,19 +958,19 @@ const DeliveryPage: React.FC = () => {
                                 <td
                                   key={v.id}
                                   onClick={() => {
-                                    if (canEdit && (qty > 0 || remainingQty > 0)) {
+                                    if (canEdit && statusFilter !== 'hang_o_sg' && (qty > 0 || remainingQty > 0)) {
                                       handleOrderClick(o, v.id);
                                     }
                                   }}
                                   className={clsx(
                                     "px-1 py-1 text-[13px] text-center tabular-nums border-r border-border last:border-r-0 transition-all relative",
                                     qty > 0 ? "font-bold text-blue-600 dark:text-blue-500 bg-blue-500/10" : "text-muted-foreground/30",
-                                    canEdit && (qty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95"
+                                    canEdit && statusFilter !== 'hang_o_sg' && (qty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95"
                                   )}
                                 >
                                   <div className="flex flex-col items-center justify-center">
                                     <span>
-                                      {qty > 0 ? formatNumber(qty) : (canEdit && remainingQty > 0 ? <PlusCircle size={14} className="mx-auto opacity-10 group-hover:opacity-40" /> : '-')}
+                                      {qty > 0 ? formatNumber(qty) : (canEdit && statusFilter !== 'hang_o_sg' && remainingQty > 0 ? <PlusCircle size={14} className="mx-auto opacity-10 group-hover:opacity-40" /> : '-')}
                                     </span>
                                     {isPaid && (
                                       <div className="mt-0.5 flex items-center justify-center gap-0.5 text-green-600 bg-green-500/10 rounded-sm px-1" title="Đã xác nhận thu tiền">
@@ -1203,7 +1199,7 @@ const DeliveryPage: React.FC = () => {
                                   Xác nhận
                                 </button>
                               )}
-                              {canShowAssignButton && remainingQty > 0 && (
+                               {canShowAssignButton && statusFilter !== 'hang_o_sg' && remainingQty > 0 && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1282,13 +1278,15 @@ const DeliveryPage: React.FC = () => {
                 Xác nhận
               </button>
             )}
-            <button
-              onClick={openBulkAssign}
-              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[12px] md:text-[13px] font-bold bg-orange-600 text-white hover:bg-orange-600 transition-all shadow-sm"
-            >
-              <Truck size={14} strokeWidth={2.5} />
-              Phân xe
-            </button>
+            {statusFilter !== 'hang_o_sg' && (
+              <button
+                onClick={openBulkAssign}
+                className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[12px] md:text-[13px] font-bold bg-orange-600 text-white hover:bg-orange-600 transition-all shadow-sm"
+              >
+                <Truck size={14} strokeWidth={2.5} />
+                Phân xe
+              </button>
+            )}
             <button
               onClick={openBulkEdit}
               className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-[12px] md:text-[13px] font-bold bg-blue-600 text-white hover:bg-blue-600 transition-all shadow-sm"

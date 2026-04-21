@@ -100,7 +100,6 @@ export const hrApi = {
     work_date: string; 
     is_present?: boolean; 
     check_in_time?: string | null; 
-    check_out_time?: string | null; 
     note?: string 
   }) => {
     const { data } = await axiosClient.post<Attendance>('/hr/attendance', payload);
@@ -116,7 +115,6 @@ export const hrApi = {
   createCompensatoryAttendance: async (payload: { 
     work_date: string; 
     check_in_time?: string | null; 
-    check_out_time?: string | null; 
     reason: string;
   }) => {
     const { data } = await axiosClient.post<CompensatoryAttendance>('/hr/compensatory-attendances', payload);

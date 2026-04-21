@@ -21,6 +21,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { hasFullGoodsModuleAccess, importOrderVisibleToUser } from '../../utils/goodsModuleScope';
 
+import { removeAccents, matchesSearch } from '../../lib/str-utils';
+
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'Chờ xử lý',
   processing: 'Đang xử lý',
@@ -83,11 +85,8 @@ const getOrderReceiverName = (order: any) => {
 };
 
 const normalizeRoleText = (value?: string | null) =>
-  (value || '')
+  removeAccents(value || '')
     .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
     .replace(/[^a-z0-9\s_]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -200,13 +199,12 @@ const VegetableImportsPage: React.FC = () => {
 
     let matches = true;
     if (searchText.trim()) {
-      const q = searchText.toLowerCase();
       matches = (
-        o.order_code?.toLowerCase().includes(q) ||
-        chuHang?.toLowerCase().includes(q) ||
-        driverName?.toLowerCase().includes(q) ||
-        receiver?.toLowerCase().includes(q) ||
-        o.receiver_phone?.includes(q)
+        matchesSearch(o.order_code || '', searchText) ||
+        matchesSearch(chuHang || '', searchText) ||
+        matchesSearch(driverName || '', searchText) ||
+        matchesSearch(receiver || '', searchText) ||
+        (o.receiver_phone || '').includes(searchText.trim())
       );
     }
     

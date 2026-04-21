@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, X, ChevronLeft, ChevronRight, Edit, Trash2, Filter, Store, Truck, UserCircle, Image as ImageIcon, Eye } from 'lucide-react';
+import { Plus, X, ChevronLeft, ChevronRight, Edit, Trash2, Filter, Store, Truck, UserCircle, Image as ImageIcon, Eye } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useImportOrders, useDeleteImportOrder } from '../../hooks/queries/useImportOrders';
 import type { ImportOrder, ImportOrderFilters, OrderStatus } from '../../types';
@@ -16,6 +16,8 @@ import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 import { ColumnSettings, type ColumnOption } from '../../components/shared/ColumnSettings';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { matchesSearch } from '../../lib/str-utils';
 import { useAuth } from '../../context/AuthContext';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { hasFullGoodsModuleAccess, importOrderVisibleToUser } from '../../utils/goodsModuleScope';
@@ -150,12 +152,11 @@ const ImportOrdersPage: React.FC = () => {
 
     let matches = true;
     if (searchText.trim()) {
-      const q = searchText.toLowerCase();
       matches = (
-        o.order_code?.toLowerCase().includes(q) ||
-        chuHang?.toLowerCase().includes(q) ||
-        receiver?.toLowerCase().includes(q) ||
-        o.receiver_phone?.includes(q)
+        matchesSearch(o.order_code || '', searchText) ||
+        matchesSearch(chuHang || '', searchText) ||
+        matchesSearch(receiver || '', searchText) ||
+        (o.receiver_phone || '').includes(searchText.trim())
       );
     }
 
@@ -253,20 +254,11 @@ const ImportOrdersPage: React.FC = () => {
         <div className="p-3 border-b border-border flex flex-col md:flex-row items-stretch md:items-center gap-2">
           {/* Search and Mobile Filter Toggle */}
           <div className="flex w-full md:flex-1 gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
-              <input
-                type="text"
+            <div className="flex-1">
+              <SearchInput
                 placeholder="Tìm kiếm theo mã đơn, người gửi, người nhận..."
-                value={searchText}
-                onChange={(e) => { setSearchText(e.target.value); setPage(1); }}
-                className="w-full pl-9 pr-8 py-2 bg-muted/20 border border-border/80 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                onSearch={(raw) => { setSearchText(raw); setPage(1); }}
               />
-              {searchText && (
-                <button onClick={() => setSearchText('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  <X size={14} />
-                </button>
-              )}
             </div>
 
             <button

@@ -50,6 +50,7 @@ export function useAttendanceGate() {
   const todayStr = getVietnamTodayStr();
   const currentHour = getVietnamCurrentHour();
   const isAdmin = user?.role === 'admin';
+  const isNhanVienNhanHang = user?.role === 'nhan_vien_nhan_hang';
 
   const { data: attendanceData, isLoading } = useAttendance(todayStr, todayStr, todayStr);
 
@@ -59,7 +60,7 @@ export function useAttendanceGate() {
   }, [user, attendanceData]);
 
   const isAfterHours = currentHour >= 19;
-  const isLocked = !!user && !isAdmin && isAfterHours;
+  const isLocked = !!user && !isAdmin && !isNhanVienNhanHang && isAfterHours;
   const mustCheckIn = !!user && !isAdmin && !isLoading && !hasCheckedIn && !isLocked;
 
   return { mustCheckIn, isLoading, hasCheckedIn, isLocked };

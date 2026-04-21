@@ -6,7 +6,7 @@ import { useCustomers, useUpdateCustomerPayment } from '../../hooks/queries/useC
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Banknote, Calendar, Info, X, Search, Filter, Store, Truck } from 'lucide-react';
+import { Banknote, Calendar, Info, X, Filter, Store, Truck } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { useForm, Controller } from 'react-hook-form';
@@ -15,6 +15,8 @@ import { z } from 'zod';
 import CurrencyInput from '../../components/shared/CurrencyInput';
 import { format } from 'date-fns';
 import { useEmployees } from '../../hooks/queries/useHR';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { matchesSearch } from '../../lib/str-utils';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import { DatePicker } from '../../components/shared/DatePicker';
@@ -113,8 +115,12 @@ const CustomerDebtPage: React.FC = () => {
       const orderCode = o._type === 'export' ? `#${o.id?.slice(0, 8).toUpperCase()}` : (o.order_code || `#${o.id?.slice(0, 8).toUpperCase()}`);
 
       if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        if (!cName?.toLowerCase().includes(q) && !vName?.toLowerCase().includes(q) && !pName?.toLowerCase().includes(q) && !orderCode.toLowerCase().includes(q)) {
+        if (
+          !matchesSearch(cName || '', searchQuery) && 
+          !matchesSearch(vName || '', searchQuery) && 
+          !matchesSearch(pName || '', searchQuery) && 
+          !matchesSearch(orderCode || '', searchQuery)
+        ) {
           return false;
         }
       }
@@ -244,22 +250,12 @@ const CustomerDebtPage: React.FC = () => {
 
       <div className="bg-card flex flex-row w-full gap-2 items-center rounded-2xl shadow-sm border border-border p-2.5 md:mb-6 mb-3 overflow-x-auto custom-scrollbar">
         {/* SEARCH BAR */}
-        <div className="relative flex-1 min-w-[200px] md:max-w-full">
-          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
-            <Search size={15} />
-          </div>
-          <input
-            type="text"
-            className="w-full text-[13px] bg-muted border border-border/80 rounded-xl pl-9 pr-7 py-2 h-[38px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/50 transition-all placeholder:text-muted-foreground/60 font-medium"
+        <div className="flex-1 min-w-[200px] md:max-w-full">
+          <SearchInput
             placeholder="Tìm mã đơn, khách, xe..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onSearch={(raw) => setSearchQuery(raw)}
+            className="h-[38px]"
           />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <X size={14} />
-            </button>
-          )}
         </div>
 
         {/* DESKTOP ADVANCED FILTERS */}

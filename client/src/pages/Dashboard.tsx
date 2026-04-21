@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ActionCard } from '../components/ui/ActionCard';
 import type { ActionCardProps } from '../components/ui/ActionCard';
-import { Box, Users, Wallet, Car, Copyright, Search, ClipboardList, ChevronRight, Lock } from 'lucide-react';
+import { Box, Users, Wallet, Car, Copyright, ClipboardList, ChevronRight, Lock } from 'lucide-react';
 import { clsx } from 'clsx';
 import { moduleData } from '../data/moduleData';
 import { ModuleCard } from '../components/ui/ModuleCard';
@@ -11,6 +11,8 @@ import { buildAllowedRouteSet, canAccessModuleRoute, canAccessRoute } from '../u
 import { useMyPermissions } from '../hooks/queries/useRoles';
 import { useAttendanceGate, getVietnamCurrentHour } from '../hooks/useAttendanceGate';
 import { Link } from 'react-router-dom';
+import { SearchInput } from '../components/ui/SearchInput';
+import { matchesSearch } from '../lib/str-utils';
 
 const dashboardModules: ActionCardProps[] = [
   {
@@ -199,14 +201,12 @@ const Dashboard: React.FC = () => {
 
         {/* Search Bar (Only shown on "Tất cả" tab) */}
         {activeTab === 'tat-ca' && (
-          <div className="flex-1 flex min-w-0 items-center bg-muted/50 rounded-lg h-9 sm:h-10 px-2.5 sm:px-3 animate-in slide-in-from-left-2 duration-300">
-            <Search size={14} className="text-muted-foreground shrink-0 sm:w-4 sm:h-4" />
-            <input
-              type="text"
+          <div className="flex-1 flex min-w-0 items-center animate-in slide-in-from-left-2 duration-300">
+            <SearchInput
               placeholder="Tìm kiếm..."
-              className="bg-transparent border-none outline-none text-[12px] sm:text-[13px] text-foreground w-full ml-1.5 sm:ml-2 placeholder:text-muted-foreground/60 focus:ring-0"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onSearch={(raw) => setSearchQuery(raw)}
+              className="h-9 sm:h-10 border-none bg-transparent"
+              containerClassName="bg-muted/50 rounded-lg"
             />
           </div>
         )}
@@ -238,8 +238,8 @@ const Dashboard: React.FC = () => {
                   return false;
                 }
 
-                return item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                       item.description.toLowerCase().includes(searchQuery.toLowerCase());
+                return matchesSearch(item.title, searchQuery) ||
+                       matchesSearch(item.description, searchQuery);
               });
 
               if (filteredItems.length === 0) return null;

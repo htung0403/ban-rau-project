@@ -482,7 +482,6 @@ export interface Attendance {
   work_date: string;
   is_present: boolean;
   check_in_time?: string | null;
-  check_out_time?: string | null;
   note?: string;
 }
 
@@ -494,7 +493,6 @@ export interface CompensatoryAttendance {
   employee_id: string;
   work_date: string;
   check_in_time?: string | null;
-  check_out_time?: string | null;
   reason: string;
   status: CompensatoryStatus;
   approved_by?: string;

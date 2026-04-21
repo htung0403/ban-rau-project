@@ -104,8 +104,8 @@ const PayrollPage: React.FC = () => {
 
   const currentWeekPayrolls = allPayrolls?.filter(p => p.week_start === weekStartStr) || [];
 
-  // Active employees
-  const targetEmployees = employees?.filter(e => e.is_active && ['admin', 'manager', 'staff', 'driver'].includes(e.role)) || [];
+  // All employees
+  const targetEmployees = employees || [];
 
   const payrollActions = (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">

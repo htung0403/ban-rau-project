@@ -308,14 +308,31 @@ export class DeliveryService {
       if (doUpdateError) throw doUpdateError;
     }
 
-    // Remote old assignments for these vehicles to prevent duplicates
+    // Fetch existing assigned vehicle IDs for this delivery order to handle un-assignments
+    const { data: existingDvs } = await supabaseService
+      .from('delivery_vehicles')
+      .select('vehicle_id')
+      .eq('delivery_order_id', deliveryId);
+
+    const existingVids = (existingDvs || []).map((dv: any) => dv.vehicle_id).filter(Boolean);
     const vIds = assignments.map(a => a.vehicle_id).filter(Boolean);
-    if (vIds.length > 0) {
+    // Union of existing + new vIds: ensures removed vehicles are also deleted
+    const allVidsToDelete = Array.from(new Set([...existingVids, ...vIds]));
+
+    if (allVidsToDelete.length > 0) {
       await supabaseService
         .from('delivery_vehicles')
         .delete()
         .eq('delivery_order_id', deliveryId)
-        .in('vehicle_id', vIds);
+        .in('vehicle_id', allVidsToDelete);
+
+      // Delete old draft payment_collections to prevent duplicates on re-assign
+      await supabaseService
+        .from('payment_collections')
+        .delete()
+        .eq('delivery_order_id', deliveryId)
+        .in('vehicle_id', allVidsToDelete)
+        .in('status', ['draft']);
     }
 
     const insertData = assignments.map(a => ({

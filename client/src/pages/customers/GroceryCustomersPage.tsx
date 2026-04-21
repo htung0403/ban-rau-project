@@ -5,10 +5,12 @@ import { useCustomers, useDeleteCustomer } from '../../hooks/queries/useCustomer
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import AddEditCustomerDialog from './dialogs/AddEditCustomerDialog';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { matchesSearch } from '../../lib/str-utils';
 import type { Customer } from '../../types';
 
 const formatCurrency = (value?: number | null) => {
@@ -88,11 +90,10 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
 
   const filteredAndSortedCustomers = (customers || [])
     .filter(c => {
-      const searchLower = searchTerm.toLowerCase();
       return (
-        c.name.toLowerCase().includes(searchLower) ||
+        matchesSearch(c.name, searchTerm) ||
         (c.phone && c.phone.includes(searchTerm)) ||
-        (c.address && c.address.toLowerCase().includes(searchLower))
+        matchesSearch(c.address || '', searchTerm)
       );
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }));
@@ -110,16 +111,11 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
           backPath="/khach-hang"
           actions={
             <div className="flex items-center gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" size={16} />
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm khách hàng..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 bg-white border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 w-64 transition-all"
-                />
-              </div>
+              <SearchInput
+                placeholder="Tìm kiếm khách hàng..."
+                onSearch={(raw) => setSearchTerm(raw)}
+                className="w-64"
+              />
               <button
                 onClick={openCreateDialog}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all"
@@ -134,16 +130,10 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
 
       {/* Mobile Search */}
       <div className="md:hidden px-4 mb-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" size={16} />
-          <input
-            type="text"
-            placeholder="Tìm kiếm khách hàng..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
-          />
-        </div>
+        <SearchInput
+          placeholder="Tìm kiếm khách hàng..."
+          onSearch={(raw) => setSearchTerm(raw)}
+        />
       </div>
 
       <div className="md:bg-white md:rounded-2xl md:border md:border-border md:shadow-sm flex flex-col flex-1 min-h-0 md:overflow-hidden -mx-4 sm:mx-0">

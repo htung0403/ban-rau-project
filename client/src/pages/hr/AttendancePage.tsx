@@ -51,7 +51,6 @@ const AttendancePage: React.FC = () => {
   // Dialog state
   const [isOpen, setIsOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
-  const [attType, setAttType] = useState<'in' | 'out'>('in');
   const [attTime, setAttTime] = useState(getVietnamNowTimeStr());
   const [attEmployee, setAttEmployee] = useState<any>(null);
   const [reason, setReason] = useState('');
@@ -88,13 +87,6 @@ const AttendancePage: React.FC = () => {
     setDialogDate(d);
     setReason('');
 
-    const existing = targetEmp ? (localAttendance[targetEmp.id] || {})[d] : undefined;
-    if (existing && existing.check_in_time) {
-      setAttType('out');
-    } else {
-      setAttType('in');
-    }
-
     setIsOpen(true);
     setIsClosing(false);
   };
@@ -118,14 +110,7 @@ const AttendancePage: React.FC = () => {
 
     if (dialogDate === todayStr) {
       const currentTime = getVietnamNowTimeStr();
-      if (attTime > currentTime && attType !== 'out') {
-        // Technically can check out later today, but usually shouldn't check in/out in the future.
-        // The prompt says "chỉ cho phép giờ <= giờ hiện tại đối với chấm công"
-        if (attTime > currentTime) {
-          toast.error('Giờ chấm công không được lớn hơn giờ hiện tại');
-          return;
-        }
-      } else if (attTime > currentTime) {
+      if (attTime > currentTime) {
         toast.error('Giờ chấm công không được lớn hơn giờ hiện tại');
         return;
       }
@@ -137,7 +122,6 @@ const AttendancePage: React.FC = () => {
     }
 
     const checkLocationAndSave = async () => {
-      const existing = (localAttendance[attEmployee.id] || {})[dialogDate] || {};
       const ensureSeconds = (t: string | null | undefined) => {
         if (!t) return null;
         if (t.split(':').length === 2) return `${t}:00`;
@@ -147,8 +131,7 @@ const AttendancePage: React.FC = () => {
       if (isPastDate) {
         await createCompensatory.mutateAsync({
           work_date: dialogDate,
-          check_in_time: attType === 'in' ? ensureSeconds(attTime) : (existing.check_in_time || null),
-          check_out_time: attType === 'out' ? ensureSeconds(attTime) : (existing.check_out_time || null),
+          check_in_time: ensureSeconds(attTime),
           reason: reason.trim(),
         });
       } else {
@@ -156,8 +139,7 @@ const AttendancePage: React.FC = () => {
           employee_id: attEmployee.id,
           work_date: dialogDate,
           is_present: true,
-          check_in_time: attType === 'in' ? ensureSeconds(attTime) : (existing.check_in_time || null),
-          check_out_time: attType === 'out' ? ensureSeconds(attTime) : (existing.check_out_time || null),
+          check_in_time: ensureSeconds(attTime),
         });
       }
 
@@ -328,13 +310,9 @@ const AttendancePage: React.FC = () => {
                                   isPresent ? "bg-emerald-50 text-emerald-700 border border-emerald-100/50" : "hover:bg-muted text-muted-foreground/40 border border-transparent"
                                 )}
                               >
-                                {isPresent ? (
-                                  <>
+                                  {isPresent ? (
                                     <span className="text-[11px] font-bold">{att?.check_in_time?.substring(0, 5) || '--:--'}</span>
-                                    <div className="w-full h-[1px] bg-emerald-200/50 my-0.5 mx-2"></div>
-                                    <span className="text-[11px] font-bold">{att?.check_out_time?.substring(0, 5) || '--:--'}</span>
-                                  </>
-                                ) : (
+                                  ) : (
                                   <div className="py-2 opacity-0 group-hover/cell:opacity-100 transition-opacity">
                                     <Plus size={14} className="text-primary/50" />
                                   </div>
@@ -416,13 +394,9 @@ const AttendancePage: React.FC = () => {
                                   isPresent ? "bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm" : "bg-muted/50 text-muted-foreground border border-border hover:bg-muted"
                                 )}
                               >
-                                {isPresent ? (
-                                  <>
+                                  {isPresent ? (
                                     <span className="text-[10px] font-bold leading-tight">{att?.check_in_time?.substring(0, 5) || '--:--'}</span>
-                                    <div className="w-[12px] h-[1px] bg-emerald-300 my-0.5"></div>
-                                    <span className="text-[10px] font-bold leading-tight">{att?.check_out_time?.substring(0, 5) || '--:--'}</span>
-                                  </>
-                                ) : (
+                                  ) : (
                                   <div className="flex flex-col items-center gap-0.5 opacity-70">
                                     <span className="text-[9px] uppercase font-bold">{format(day, 'E', { locale: vi })}</span>
                                     <span className="text-[11px] font-medium">{format(day, 'dd/MM')}</span>
@@ -531,22 +505,10 @@ const AttendancePage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Loại & Giờ */}
+                  {/* Giờ */}
                   <div className="grid grid-cols-1 gap-5 pt-4 border-t border-border/50">
                     <div className="space-y-1.5">
-                      <label className="text-[13px] font-bold text-foreground flex items-center gap-2">Loại chấm công</label>
-                      <select
-                        value={attType}
-                        onChange={(e) => setAttType(e.target.value as any)}
-                        className="w-full px-4 py-2.5 bg-white border border-border rounded-xl text-[13px] font-bold text-foreground focus:ring-2 focus:ring-primary/10 transition-all outline-none"
-                      >
-                        <option value="in">Giờ vào làm</option>
-                        <option value="out">Giờ tan làm</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[13px] font-bold text-foreground flex items-center gap-2">Giờ hiện tại <span className="text-red-500">*</span></label>
+                      <label className="text-[13px] font-bold text-foreground flex items-center gap-2">Giờ chấm công <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <TimePicker24h
                           value={attTime}

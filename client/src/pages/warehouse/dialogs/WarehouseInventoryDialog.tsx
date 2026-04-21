@@ -1,9 +1,11 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X, Box, Search, Package, AlertCircle } from 'lucide-react';
+import { X, Box, Package, AlertCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useQuery } from '@tanstack/react-query';
 import { inventoryApi } from '../../../api/inventoryApi';
+import { SearchInput } from '../../../components/ui/SearchInput';
+import { matchesSearch } from '../../../lib/str-utils';
 import LoadingSkeleton from '../../../components/shared/LoadingSkeleton';
 
 interface Props {
@@ -28,7 +30,7 @@ const WarehouseInventoryDialog: React.FC<Props> = ({ isOpen, isClosing, onClose,
   if (!isOpen && !isClosing) return null;
 
   const filteredInventory = inventory?.filter((item: any) =>
-    item.products?.name.toLowerCase().includes(searchQuery.toLowerCase())
+    matchesSearch(item.products?.name || '', searchQuery)
   );
 
   return createPortal(
@@ -72,16 +74,10 @@ const WarehouseInventoryDialog: React.FC<Props> = ({ isOpen, isClosing, onClose,
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Search Bar */}
           <div className="p-4 bg-card border-b border-border">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
-              <input
-                type="text"
-                placeholder="Tìm hàng hóa trong kho..."
-                className="w-full pl-10 pr-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+            <SearchInput
+              placeholder="Tìm hàng hóa trong kho..."
+              onSearch={(raw) => setSearchQuery(raw)}
+            />
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">

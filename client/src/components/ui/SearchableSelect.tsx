@@ -2,6 +2,7 @@ import * as React from "react"
 import { Check, ChevronDown, X } from "lucide-react"
 
 import { cn } from "../../lib/utils"
+import { removeAccents } from "../../lib/str-utils"
 import {
   Command,
   CommandEmpty,
@@ -84,7 +85,14 @@ export function SearchableSelect({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-full min-w-[var(--radix-popover-trigger-width)] p-0 shadow-xl border-border/60">
-        <Command className="rounded-xl overflow-hidden">
+        <Command 
+          className="rounded-xl overflow-hidden"
+          filter={(value, search) => {
+            const normalizedValue = removeAccents(value).toLowerCase();
+            const normalizedSearch = removeAccents(search).toLowerCase();
+            return normalizedValue.includes(normalizedSearch) ? 1 : 0;
+          }}
+        >
           <CommandInput 
             placeholder={searchPlaceholder} 
             className="h-10 border-none text-[13px] focus:ring-0"

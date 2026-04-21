@@ -5,10 +5,12 @@ import { useDeliveryOrders, useDeleteDeliveryOrders } from '../../hooks/queries/
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Leaf, Search, Calendar, User, Truck, Package, Filter, X, Trash2 } from 'lucide-react';
+import { Leaf, Calendar, User, Truck, Package, Filter, X, Trash2 } from 'lucide-react';
 import AssignVehicleDialog from '../delivery/dialogs/AssignVehicleDialog';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { matchesSearch } from '../../lib/str-utils';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { useAuth } from '../../context/AuthContext';
@@ -116,12 +118,11 @@ const VegetableWarehousePage: React.FC = () => {
     const code = orderData.order_code || '';
 
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      const matchesSearch = item.product_name.toLowerCase().includes(q) ||
-        code.toLowerCase().includes(q) ||
-        rName.toLowerCase().includes(q) ||
-        sName.toLowerCase().includes(q);
-      if (!matchesSearch) return false;
+      const isMatch = matchesSearch(item.product_name, searchQuery) ||
+        matchesSearch(code, searchQuery) ||
+        matchesSearch(rName, searchQuery) ||
+        matchesSearch(sName, searchQuery);
+      if (!isMatch) return false;
     }
 
     // Receiver filter
@@ -175,14 +176,10 @@ const VegetableWarehousePage: React.FC = () => {
               </button>
             </div>
           ) : (
-            <div className="relative flex-1 min-w-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" size={15} />
-              <input
-                type="text"
+            <div className="flex-1 min-w-0">
+              <SearchInput
                 placeholder="Tìm kiếm hàng rau, mã đơn..."
-                className="w-full pl-9 pr-4 py-2 bg-muted/20 border border-border/80 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onSearch={(raw) => setSearchQuery(raw)}
               />
             </div>
           )}

@@ -12,7 +12,9 @@ import { useCustomers } from '../../hooks/queries/useCustomers';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { useEmployees } from '../../hooks/queries/useHR';
 import { format, subMonths } from 'date-fns';
-import { CheckCircle2, Clock, Search, X, Store, Truck, User, Filter } from 'lucide-react';
+import { CheckCircle2, Clock, Store, Truck, User, Filter } from 'lucide-react';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { matchesSearch } from '../../lib/str-utils';
 
 const formatCurrency = (value?: number | null) => {
   if (value == null) return '-';
@@ -117,23 +119,24 @@ const SgCashCollectionsPage: React.FC = () => {
       }
 
       if (searchQuery.trim()) {
-        const q = searchQuery.trim().toLowerCase();
-        const code = (row.order_code || '').toLowerCase();
-        const cname = (row.customers?.name || '').toLowerCase();
-        const cphone = (row.customers?.phone || '').toLowerCase();
-        const recvName = (row.receiver_name || '').toLowerCase();
-        const drvName = (row.driver_name || '').toLowerCase();
-        const collName = (row.collector?.full_name || '').toLowerCase();
-        const lp = plate.toLowerCase();
-        const hit =
-          code.includes(q) ||
-          cname.includes(q) ||
-          cphone.includes(q) ||
-          recvName.includes(q) ||
-          drvName.includes(q) ||
-          collName.includes(q) ||
-          lp.includes(q);
-        if (!hit) return false;
+        const code = (row.order_code || '');
+        const cname = (row.customers?.name || '');
+        const cphone = (row.customers?.phone || '');
+        const recvName = (row.receiver_name || '');
+        const drvName = (row.driver_name || '');
+        const collName = (row.collector?.full_name || '');
+        const lp = plate;
+
+        const isHit =
+          matchesSearch(code, searchQuery) ||
+          matchesSearch(cname, searchQuery) ||
+          matchesSearch(cphone, searchQuery) ||
+          matchesSearch(recvName, searchQuery) ||
+          matchesSearch(drvName, searchQuery) ||
+          matchesSearch(collName, searchQuery) ||
+          matchesSearch(lp, searchQuery);
+          
+        if (!isHit) return false;
       }
 
       return true;
@@ -163,26 +166,12 @@ const SgCashCollectionsPage: React.FC = () => {
       </div>
 
       <div className="bg-card flex flex-row w-full gap-2 items-center rounded-2xl shadow-sm border border-border p-2.5 md:mb-6 mb-3 overflow-x-auto custom-scrollbar">
-        <div className="relative flex-1 min-w-[200px] md:max-w-full">
-          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
-            <Search size={15} />
-          </div>
-          <input
-            type="text"
-            className="w-full text-[13px] bg-muted border border-border/80 rounded-xl pl-9 pr-7 py-2 h-[38px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all placeholder:text-muted-foreground/60 font-medium"
+        <div className="flex-1 min-w-[200px] md:max-w-full">
+          <SearchInput
             placeholder="Tìm mã đơn, khách, xe..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onSearch={(raw) => setSearchQuery(raw)}
+            className="h-[38px]"
           />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X size={14} />
-            </button>
-          )}
         </div>
 
         <div className="hidden md:flex gap-2 items-center shrink-0">

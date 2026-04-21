@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, ChevronLeft } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { clsx } from 'clsx';
 import { ModuleCard } from '../components/ui/ModuleCard';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -9,6 +9,8 @@ import { useAuth } from '../context/AuthContext';
 import { buildAllowedRouteSet, canAccessRoute } from '../utils/routePermissions';
 import { useMyPermissions } from '../hooks/queries/useRoles';
 import { useAttendanceGate, isPathAllowedBeforeCheckin } from '../hooks/useAttendanceGate';
+import { SearchInput } from '../components/ui/SearchInput';
+import { matchesSearch } from '../lib/str-utils';
 
 const ModulePage: React.FC = () => {
   const { user } = useAuth();
@@ -76,16 +78,11 @@ const ModulePage: React.FC = () => {
         </div>
 
         {/* Search Input */}
-        <div className="relative flex-1 min-w-0 h-9 sm:h-10">
-          <div className="absolute inset-y-0 left-2.5 sm:left-3 flex items-center pointer-events-none text-muted-foreground">
-            <Search size={14} className="sm:w-4 sm:h-4" />
-          </div>
-          <input
-            type="text"
-            className="w-full h-full text-[12px] sm:text-[13px] bg-transparent border border-border rounded-lg pl-7 sm:pl-9 pr-2 sm:pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/60"
+        <div className="flex-1 min-w-0 h-9 sm:h-10">
+          <SearchInput
             placeholder="Tìm module..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onSearch={(raw) => setSearchQuery(raw)}
+            className="h-full border-none bg-transparent"
           />
         </div>
       </div>
@@ -108,8 +105,8 @@ const ModulePage: React.FC = () => {
                 return false;
               }
 
-              return item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                     item.description.toLowerCase().includes(searchQuery.toLowerCase());
+              return matchesSearch(item.title, searchQuery) || 
+                     matchesSearch(item.description || '', searchQuery);
             });
 
             if (filteredItems.length === 0) return null;
@@ -133,7 +130,7 @@ const ModulePage: React.FC = () => {
             );
           })}
           
-          {searchQuery && !data.some(s => s.items.some(i => i.title.toLowerCase().includes(searchQuery.toLowerCase()) || i.description.toLowerCase().includes(searchQuery.toLowerCase()))) && (
+          {searchQuery && !data.some(s => s.items.some(i => matchesSearch(i.title, searchQuery) || matchesSearch(i.description || '', searchQuery))) && (
             <div className="text-center py-16 text-muted-foreground bg-card/50 rounded-2xl border border-border">
               Không tìm thấy kết quả phù hợp cho "{searchQuery}"
             </div>

@@ -4,10 +4,12 @@ import { useImportOrders, useDeleteImportOrder } from '../../hooks/queries/useIm
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Filter, FileDown, Search, X, Store, Truck, UserCircle, CalendarDays, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
+import { Filter, FileDown, Store, Truck, UserCircle, CalendarDays, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { matchesSearch } from '../../lib/str-utils';
 import * as XLSX from 'xlsx';
 
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
@@ -245,12 +247,11 @@ const VegetablesPage: React.FC = () => {
       const tai = getAssignedVehicles(i);
       const receiver = getReceiverName(i);
 
-      let matches = false;
-      if (!searchQuery) {
-        matches = true;
-      } else {
-        const q = searchQuery.toLowerCase();
-        matches = (chuHang?.toLowerCase() || '').includes(q) || (receiver?.toLowerCase() || '').includes(q) || (i.products?.name?.toLowerCase() || '').includes(q);
+      let matches = true;
+      if (searchQuery) {
+        matches = matchesSearch(chuHang || '', searchQuery) || 
+                  matchesSearch(receiver || '', searchQuery) || 
+                  matchesSearch(i.products?.name || '', searchQuery);
       }
 
       if (!matches) return false;
@@ -387,22 +388,12 @@ const VegetablesPage: React.FC = () => {
 
       <div className="bg-card flex flex-row w-full gap-2 items-center rounded-2xl shadow-sm border border-border p-2.5 md:mb-6 mb-3 overflow-x-auto custom-scrollbar">
         {/* SEARCH BAR */}
-        <div className="relative flex-1 min-w-50 md:max-w-full">
-          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
-            <Search size={15} />
-          </div>
-          <input
-            type="text"
-            className="w-full text-[13px] bg-muted/20 border border-border/80 rounded-xl pl-9 pr-7 py-2 h-9.5 focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-muted-foreground/60 font-medium"
+        <div className="flex-1 min-w-50 md:max-w-full">
+          <SearchInput
             placeholder="Tên vựa, hàng..."
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+            onSearch={(raw) => { setSearchQuery(raw); setPage(1); }}
+            className="h-9.5"
           />
-          {searchQuery && (
-            <button onClick={() => { setSearchQuery(''); setPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <X size={14} />
-            </button>
-          )}
         </div>
 
         {/* DESKTOP ADVANCED FILTERS */}

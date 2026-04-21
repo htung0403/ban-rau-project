@@ -6,7 +6,7 @@ import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import StatusBadge from '../../components/shared/StatusBadge';
-import { Plus, Search, X, Filter, Image as ImageIcon, Eye, Trash2 } from 'lucide-react';
+import { Plus, X, Filter, Image as ImageIcon, Eye, Trash2 } from 'lucide-react';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import { clsx } from 'clsx';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
@@ -14,6 +14,8 @@ import DraggableFAB from '../../components/shared/DraggableFAB';
 import AddEditExportOrderDialog from './dialogs/AddEditExportOrderDialog';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { useAuth } from '../../context/AuthContext';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { matchesSearch } from '../../lib/str-utils';
 
 const paymentLabels: Record<string, string> = {
   unpaid: 'Chưa thanh toán',
@@ -57,8 +59,7 @@ const ExportOrdersPage: React.FC = () => {
 
   const filteredOrders = (orders || []).filter((o) => {
     if (searchText.trim()) {
-      const q = searchText.toLowerCase();
-      if (!(o as any).product_name?.toLowerCase().includes(q)) {
+      if (!matchesSearch((o as any).product_name || '', searchText)) {
         return false;
       }
     }
@@ -110,20 +111,11 @@ const ExportOrdersPage: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
-                <input
-                  type="text"
+              <div className="flex-1">
+                <SearchInput
                   placeholder="Tìm kiếm theo mặt hàng..."
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 bg-muted/20 border border-border/80 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                  onSearch={(raw) => setSearchText(raw)}
                 />
-                {searchText && (
-                  <button onClick={() => setSearchText('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                    <X size={14} />
-                  </button>
-                )}
               </div>
             )}
 

@@ -11,9 +11,11 @@ import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect
 import { RangeNumberFilter, type RangeValue } from '../../components/shared/RangeNumberFilter';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import {
-  TrendingUp, Banknote, PackageOpen, FileText, ArrowUpRight, Search, X, BarChart2, Filter, Calendar, Store, Truck
+  TrendingUp, Banknote, PackageOpen, FileText, ArrowUpRight, BarChart2, Filter, Calendar, Store, Truck
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { matchesSearch } from '../../lib/str-utils';
 import type { ExportOrder } from '../../types';
 
 export interface SelectOption {
@@ -131,12 +133,19 @@ const RevenueReportPage: React.FC = () => {
   const filterOrder = (order: any, type: 'export' | 'import') => {
     // Search
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      const code = (order.order_code || order.id || '').toLowerCase();
-      const cname = getSafeName(order.customers, order.sender_name || 'Khách lẻ').toLowerCase();
-      const pname = type === 'export' ? getSafeName(order.products).toLowerCase() : getSafeName(order.import_order_items?.[0]?.products || order.products).toLowerCase();
-      const plate = (order.license_plate || '').toLowerCase();
-      if (!code.includes(q) && !cname.includes(q) && !pname.includes(q) && !plate.includes(q)) return false;
+      const code = (order.order_code || order.id || '');
+      const cname = getSafeName(order.customers, order.sender_name || 'Khách lẻ');
+      const pname = type === 'export' ? getSafeName(order.products) : getSafeName(order.import_order_items?.[0]?.products || order.products);
+      const plate = (order.license_plate || '');
+      
+      if (
+        !matchesSearch(code, searchQuery) && 
+        !matchesSearch(cname, searchQuery) && 
+        !matchesSearch(pname, searchQuery) && 
+        !matchesSearch(plate, searchQuery)
+      ) {
+        return false;
+      }
     }
 
     // Date
@@ -451,22 +460,12 @@ const RevenueReportPage: React.FC = () => {
       </div>
 
       <div className="bg-white flex flex-row w-full gap-2 items-stretch rounded-2xl shadow-sm border border-border p-2.5 mb-4 lg:mb-6 overflow-x-auto custom-scrollbar shrink-0">
-        <div className="relative flex-1 min-w-[200px]">
-          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-muted-foreground/60">
-            <Search size={15} />
-          </div>
-          <input
-            type="text"
-            className="w-full text-[13px] bg-muted/20 border border-border/80 rounded-xl pl-9 pr-7 py-2 h-[38px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+        <div className="flex-1 min-w-[200px]">
+          <SearchInput
             placeholder="Tìm mã, khách..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onSearch={(raw) => setSearchQuery(raw)}
+            className="h-[38px]"
           />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <X size={14} />
-            </button>
-          )}
         </div>
 
         {/* Date Ranges */}

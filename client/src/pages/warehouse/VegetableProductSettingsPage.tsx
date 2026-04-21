@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import PageHeader from '../../components/shared/PageHeader';
 import { useProducts, useCreateProduct, useDeleteProduct, useUpdateProduct } from '../../hooks/queries/useProducts';
-import { Database, Leaf, Plus, X, Trash2, Edit2, Search, ArrowUpDown, Filter, Check } from 'lucide-react';
+import { Database, Leaf, Plus, X, Trash2, Edit2, ArrowUpDown, Filter, Check } from 'lucide-react';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
 import CurrencyInput from '../../components/shared/CurrencyInput';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { matchesSearch } from '../../lib/str-utils';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 
@@ -235,8 +237,7 @@ const VegetableProductSettingsPage: React.FC = () => {
     if (!products) return [];
     let p = products.filter((item: any) => item.category === 'vegetable');
     if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      p = p.filter((item: any) => item.name.toLowerCase().includes(term));
+      p = p.filter((item: any) => matchesSearch(item.name, searchTerm));
     }
     p.sort((a: any, b: any) => {
       if (sortBy === 'nameAsc') return a.name.localeCompare(b.name);
@@ -420,14 +421,10 @@ const VegetableProductSettingsPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <Database size={18} className="text-primary hidden md:block" />
               <div className="relative w-full md:w-64 flex gap-2">
-                <div className="relative flex-1">
-                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                <div className="flex-1">
+                  <SearchInput
                     placeholder="Tìm hàng rau..."
-                    className="w-full pl-9 pr-3 py-2 bg-muted border border-border rounded-xl text-[13px] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all focus:bg-background"
+                    onSearch={(raw) => setSearchTerm(raw)}
                   />
                 </div>
                 <button 

@@ -227,8 +227,7 @@ const CompensatoryApprovalTab = () => {
               <div className="text-[11px] text-amber-600 mt-1 bg-amber-50 rounded-md px-2 py-1 inline-block">Ngày bù: {format(new Date(item.work_date), 'dd/MM/yyyy')}</div>
             </td>
             <td className="p-4 text-[12px]">
-              <div>Vào: {item.check_in_time?.substring(0,5) || '--:--'}</div>
-              <div>Ra: {item.check_out_time?.substring(0,5) || '--:--'}</div>
+              <div>Giờ chấm công: {item.check_in_time?.substring(0,5) || '--:--'}</div>
             </td>
             <td className="p-4 text-[12px] italic opacity-80 max-w-[200px] truncate" title={item.reason}>
               "{item.reason}"

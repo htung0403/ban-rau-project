@@ -26,14 +26,12 @@ const markAttendanceSchema = z.object({
   work_date: z.string(),
   is_present: z.boolean().optional(),
   check_in_time: z.string().nullable().optional(),
-  check_out_time: z.string().nullable().optional(),
   note: z.string().optional(),
 });
 
 const createCompensatorySchema = z.object({
   work_date: z.string(),
   check_in_time: z.string().nullable().optional(),
-  check_out_time: z.string().nullable().optional(),
   reason: z.string().min(1, 'Reason is required'),
 });
 

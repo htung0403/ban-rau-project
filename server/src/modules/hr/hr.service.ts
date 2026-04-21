@@ -262,7 +262,6 @@ export class HRService {
     work_date: string; 
     is_present?: boolean; 
     check_in_time?: string | null; 
-    check_out_time?: string | null; 
     note?: string 
   }) {
     const { data, error } = await supabaseService
@@ -347,7 +346,6 @@ export class HRService {
         work_date: request.work_date,
         is_present: true,
         check_in_time: request.check_in_time,
-        check_out_time: request.check_out_time,
         note: request.reason,
       }, { onConflict: 'employee_id,work_date' });
     }

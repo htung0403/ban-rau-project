@@ -16,6 +16,8 @@ import { useRoleSalaries } from '../../hooks/queries/usePriceSettings';
 import { useAuth } from '../../context/AuthContext';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 
+import { removeAccents } from '../../lib/str-utils';
+
 const getRoleDisplayName = (roleName: string, roleKey?: string) => {
   if (roleKey === 'customer' || roleName.trim().toLowerCase() === 'customer') {
     return 'Khách hàng';
@@ -24,11 +26,8 @@ const getRoleDisplayName = (roleName: string, roleKey?: string) => {
 };
 
 const normalizeText = (value?: string | null) =>
-  (value || '')
+  removeAccents(value || '')
     .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
     .replace(/[^a-z0-9\s_]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();

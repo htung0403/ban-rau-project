@@ -148,7 +148,6 @@ const VegetableImportsPage: React.FC = () => {
   if (filterDateFrom) filters.dateFrom = filterDateFrom;
   if (filterDateTo) filters.dateTo = filterDateTo;
   if (filterStatus.length > 0) filters.status = filterStatus.join(',');
-  if (searchText.trim()) filters.sender = searchText.trim();
   filters.order_category = 'vegetable';
 
   const { data: vehicles } = useVehicles();

@@ -566,7 +566,7 @@ const ExpensesPage = () => {
 
       <ConfirmDialog
         isOpen={!!deleteId}
-        onClose={() => setDeleteId(null)}
+        onCancel={() => setDeleteId(null)}
         onConfirm={() => {
           if (deleteId) {
             deleteMutation.mutate(deleteId, {
@@ -575,16 +575,16 @@ const ExpensesPage = () => {
           }
         }}
         title="Xóa chi phí"
-        description="Bạn có chắc chắn muốn xóa chi phí này? Hành động này không thể hoàn tác."
-        confirmText="Xóa"
-        cancelText="Hủy"
-        isDestructive
+        message="Bạn có chắc chắn muốn xóa chi phí này? Hành động này không thể hoàn tác."
+        confirmLabel="Xóa"
+        cancelLabel="Hủy"
+        variant="danger"
         isLoading={deleteMutation.isPending}
       />
 
       <ConfirmDialog
         isOpen={!!confirmId}
-        onClose={() => setConfirmId(null)}
+        onCancel={() => setConfirmId(null)}
         onConfirm={() => {
           if (confirmId) {
             confirmMutation.mutate(confirmId, {
@@ -593,7 +593,7 @@ const ExpensesPage = () => {
           }
         }}
         title="Xác nhận chi phí"
-        description={
+        message={
           confirmingExpense ? (
             <div className="space-y-1">
               <p>Xác nhận chi phí này đã được thanh toán và hợp lệ?</p>
@@ -608,8 +608,9 @@ const ExpensesPage = () => {
             </div>
           ) : "Xác nhận chi phí này đã được thanh toán và hợp lệ?"
         }
-        confirmText="Xác nhận"
-        cancelText="Hủy"
+        confirmLabel="Xác nhận"
+        cancelLabel="Hủy"
+        variant="primary"
         isLoading={confirmMutation.isPending}
       />
     </div>

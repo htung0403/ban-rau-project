@@ -6,7 +6,7 @@ import { clsx } from 'clsx';
 interface ConfirmDialogProps {
   isOpen: boolean;
   title: string;
-  message: string;
+  message: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: 'danger' | 'warning' | 'primary';

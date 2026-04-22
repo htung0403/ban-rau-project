@@ -12,9 +12,11 @@ import DraggableFAB from '../../components/shared/DraggableFAB';
 import { DatePicker } from '../../components/shared/DatePicker';
 import CurrencyInput from '../../components/shared/CurrencyInput';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { SearchInput } from '../../components/ui/SearchInput';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { uploadApi } from '../../api/uploadApi';
 import { format } from 'date-fns';
+import { matchesSearch } from '../../lib/str-utils';
 import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, Eye, ChevronLeft, ChevronRight as ChevronRightIcon, Camera } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
@@ -57,6 +59,30 @@ const ExpensesPage = () => {
     image_urls: [] as string[],
     payment_status: 'unpaid' as 'unpaid' | 'paid',
   });
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterEmployee, setFilterEmployee] = useState('');
+  const [filterVehicle, setFilterVehicle] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+
+  const filteredExpenses = React.useMemo(() => {
+    if (!expenses) return [];
+    return expenses.filter(e => {
+      if (searchQuery && !matchesSearch(e.expense_name, searchQuery)) {
+        return false;
+      }
+      if (filterEmployee && e.employee_id !== filterEmployee) {
+        return false;
+      }
+      if (filterVehicle && e.vehicle_id !== filterVehicle) {
+        return false;
+      }
+      if (filterStatus && e.payment_status !== filterStatus) {
+        return false;
+      }
+      return true;
+    });
+  }, [expenses, searchQuery, filterEmployee, filterVehicle, filterStatus]);
 
   const closeDialog = () => {
     setIsClosing(true);
@@ -240,9 +266,61 @@ const ExpensesPage = () => {
         ) : !expenses || expenses.length === 0 ? (
           <EmptyState title="Chưa có chi phí nào" />
         ) : (
-          <div className="flex-1 overflow-auto custom-scrollbar">
-            {/* Desktop Table View */}
-            <table className="w-full text-left border-collapse hidden md:table">
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Filter Bar */}
+            <div className="p-3 border-b border-border/50 flex flex-col sm:flex-row gap-3 shrink-0 bg-muted/5">
+              <div className="flex-1 min-w-[200px]">
+                <SearchInput
+                  placeholder="Tìm tên chi phí..."
+                  onSearch={(val) => setSearchQuery(val)}
+                  className="bg-background"
+                />
+              </div>
+              <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 sm:pb-0">
+                {user?.role === 'admin' && (
+                  <div className="w-[150px] shrink-0">
+                    <CustomSelect
+                      value={filterEmployee}
+                      onChange={setFilterEmployee}
+                      options={[{ value: '', label: 'Tất cả nhân viên' }, ...employeeOptions]}
+                      placeholder="Nhân viên"
+                      className="h-10 w-full bg-background"
+                    />
+                  </div>
+                )}
+                <div className="w-[140px] shrink-0">
+                  <CustomSelect
+                    value={filterVehicle}
+                    onChange={setFilterVehicle}
+                    options={[{ value: '', label: 'Tất cả xe' }, ...vehicleOptions.filter(v => v.value !== '')]}
+                    placeholder="Xe"
+                    className="h-10 w-full bg-background"
+                  />
+                </div>
+                <div className="w-[150px] shrink-0">
+                  <CustomSelect
+                    value={filterStatus}
+                    onChange={setFilterStatus}
+                    options={[
+                      { value: '', label: 'Tất cả trạng thái' },
+                      { value: 'unpaid', label: 'Chưa thanh toán' },
+                      { value: 'paid', label: 'Đã thanh toán' },
+                      { value: 'confirmed', label: 'Đã xác nhận' }
+                    ]}
+                    placeholder="Trạng thái"
+                    className="h-10 w-full bg-background"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto custom-scrollbar">
+              {filteredExpenses.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">Không tìm thấy kết quả phù hợp</div>
+              ) : (
+                <>
+                  {/* Desktop Table View */}
+                  <table className="w-full text-left border-collapse hidden md:table">
               <thead className="bg-muted/30 sticky top-0 z-10 backdrop-blur-xl">
                 <tr>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap min-w-[200px] border-b border-border/50">Tên chi phí</th>
@@ -255,7 +333,7 @@ const ExpensesPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {expenses.map(e => (
+                {filteredExpenses.map(e => (
                   <tr key={e.id} className="group hover:bg-muted/10 transition-colors">
                     <td className="px-6 py-4 border-r border-border/10">
                       <div className="flex items-center gap-2">
@@ -346,7 +424,7 @@ const ExpensesPage = () => {
 
             {/* Mobile Card View */}
             <div className="flex flex-col gap-3 p-3 md:hidden bg-muted/50 min-h-full pb-20">
-              {expenses.map(e => (
+              {filteredExpenses.map(e => (
                 <div key={e.id} className="bg-card rounded-xl border border-border/60 shadow-sm p-4 flex flex-col gap-3 relative overflow-hidden">
                   <div className={`absolute left-0 top-0 bottom-0 w-1 ${e.payment_status === 'confirmed' ? 'bg-emerald-500' : e.payment_status === 'unpaid' ? 'bg-red-500' : 'bg-amber-500'}`} />
                   
@@ -424,6 +502,9 @@ const ExpensesPage = () => {
                   </div>
                 </div>
               ))}
+            </div>
+                </>
+              )}
             </div>
           </div>
         )}

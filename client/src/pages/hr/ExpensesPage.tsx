@@ -540,17 +540,34 @@ const ExpensesPage = () => {
 
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-bold text-foreground">Trạng thái thanh toán</label>
-                    <CustomSelect
-                      value={formData.payment_status}
-                      onChange={(val) => setFormData({ ...formData, payment_status: val as 'unpaid' | 'paid' })}
-                      options={[
-                        { value: 'unpaid', label: 'Chưa thanh toán' },
-                        { value: 'paid', label: 'Đã thanh toán' }
-                      ]}
-                      className="w-full h-11"
-                      align="start"
-                      disabled={isViewOnly}
-                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, payment_status: 'unpaid' })}
+                        disabled={isViewOnly}
+                        className={clsx(
+                          "flex items-center justify-center gap-2 h-11 rounded-xl border text-[13px] font-bold transition-all",
+                          formData.payment_status === 'unpaid'
+                            ? "bg-red-50 border-red-200 text-red-600 ring-2 ring-red-500/10"
+                            : "bg-background border-border text-muted-foreground hover:bg-muted"
+                        )}
+                      >
+                        Chưa thanh toán
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, payment_status: 'paid' })}
+                        disabled={isViewOnly}
+                        className={clsx(
+                          "flex items-center justify-center gap-2 h-11 rounded-xl border text-[13px] font-bold transition-all",
+                          formData.payment_status === 'paid'
+                            ? "bg-emerald-50 border-emerald-200 text-emerald-600 ring-2 ring-emerald-500/10"
+                            : "bg-background border-border text-muted-foreground hover:bg-muted"
+                        )}
+                      >
+                        Đã thanh toán
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">

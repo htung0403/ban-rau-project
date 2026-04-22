@@ -15,7 +15,7 @@ import { CustomSelect } from '../../components/shared/CustomSelect';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { uploadApi } from '../../api/uploadApi';
 import { format } from 'date-fns';
-import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, Eye, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, Eye, ChevronLeft, ChevronRight as ChevronRightIcon, Camera } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import type { Expense } from '../../types';
@@ -46,6 +46,7 @@ const ExpensesPage = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadType, setUploadType] = useState<'camera' | 'file' | null>(null);
 
   const [formData, setFormData] = useState({
     employee_id: user?.id || '',
@@ -121,6 +122,7 @@ const ExpensesPage = () => {
     const newUrls: string[] = [];
     
     try {
+      setUploadType(e.target.capture ? 'camera' : 'file');
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const res = await uploadApi.uploadFile(file, 'expenses', 'receipts');
@@ -134,6 +136,7 @@ const ExpensesPage = () => {
       toast.error('Lỗi khi tải ảnh lên');
     } finally {
       setIsUploading(false);
+      setUploadType(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -568,21 +571,49 @@ const ExpensesPage = () => {
                             </div>
                           ))}
                           {!isViewOnly && (
-                            <button
-                              type="button"
-                              onClick={() => fileInputRef.current?.click()}
-                              disabled={isUploading}
-                              className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-emerald-500/50 hover:bg-emerald-50/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {isUploading ? (
-                                <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                <>
-                                  <Upload size={20} />
-                                  <span className="text-[11px] font-medium">Tải ảnh lên</span>
-                                </>
-                              )}
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (fileInputRef.current) {
+                                    fileInputRef.current.removeAttribute('capture');
+                                    fileInputRef.current.click();
+                                  }
+                                }}
+                                disabled={isUploading}
+                                className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-emerald-500/50 hover:bg-emerald-50/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {isUploading && uploadType === 'file' ? (
+                                  <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <>
+                                    <Upload size={20} />
+                                    <span className="text-[11px] font-medium text-center px-1 leading-tight">Tải ảnh lên</span>
+                                  </>
+                                )}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (fileInputRef.current) {
+                                    fileInputRef.current.setAttribute('capture', 'environment');
+                                    fileInputRef.current.click();
+                                  }
+                                }}
+                                disabled={isUploading}
+                                className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-blue-500/50 hover:bg-blue-50/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed md:hidden"
+                              >
+                                {isUploading && uploadType === 'camera' ? (
+                                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <>
+                                    <Camera size={20} />
+                                    <span className="text-[11px] font-medium text-center px-1 leading-tight">Chụp ảnh</span>
+                                  </>
+                                )}
+                              </button>
+                            </>
                           )}
                           <input
                             type="file"

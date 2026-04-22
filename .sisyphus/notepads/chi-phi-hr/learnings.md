@@ -29,3 +29,4 @@ Registered ExpensesPage route in App.tsx after RolePermissionsPage.
 - StatusBadge maps 'confirmed' -> 'pending' variant (blue) which is semantically odd but matches existing StatusBadge API.
 - Implemented short-unit conversion in ExpensesPage.tsx: user enters 500, system stores 500,000. View shows 500.
 Created migration 64 to initialize 'expenses' storage bucket and set up RLS policies.
+Removed ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY; from 64_create_expenses_bucket.sql to avoid ownership errors in Supabase migrations.

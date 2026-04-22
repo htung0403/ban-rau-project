@@ -3,9 +3,6 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('expenses', 'expenses', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Enable RLS for storage.objects
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
-
 -- Policy: Allow authenticated users to select objects in 'expenses' bucket
 CREATE POLICY "Allow authenticated users to select expenses"
 ON storage.objects FOR SELECT

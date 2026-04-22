@@ -72,11 +72,17 @@ const ExpensesPage = () => {
   const openDialog = (expense?: Expense) => {
     if (expense) {
       setEditingExpense(expense);
+      
+      let displayAmount = expense.amount;
+      if (expense.amount % 1000 === 0 && expense.amount / 1000 < 10000) {
+        displayAmount = expense.amount / 1000;
+      }
+
       setFormData({
         employee_id: expense.employee_id,
         vehicle_id: expense.vehicle_id || '',
         expense_name: expense.expense_name,
-        amount: expense.amount,
+        amount: displayAmount,
         expense_date: expense.expense_date,
         image_urls: expense.image_urls || [],
         payment_status: expense.payment_status === 'confirmed' ? 'paid' : expense.payment_status,
@@ -142,11 +148,16 @@ const ExpensesPage = () => {
       return;
     }
 
+    let finalAmount = formData.amount;
+    if (finalAmount < 10000) {
+      finalAmount = finalAmount * 1000;
+    }
+
     const payload = {
       employee_id: formData.employee_id,
       vehicle_id: formData.vehicle_id || null,
       expense_name: formData.expense_name,
-      amount: formData.amount,
+      amount: finalAmount,
       expense_date: formData.expense_date,
       image_urls: formData.image_urls,
       payment_status: formData.payment_status,

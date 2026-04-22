@@ -27,3 +27,4 @@ Registered ExpensesPage route in App.tsx after RolePermissionsPage.
 - Manager role cannot see confirm button in UI (only admin). Backend allows managers via HR_APPROVALS. This is a design choice, not a bug.
 - payment_status writeable by users at creation ('unpaid'/'paid') is per plan spec - the form explicitly has toggle buttons for this.
 - StatusBadge maps 'confirmed' -> 'pending' variant (blue) which is semantically odd but matches existing StatusBadge API.
+- Implemented short-unit conversion in ExpensesPage.tsx: user enters 500, system stores 500,000. View shows 500.

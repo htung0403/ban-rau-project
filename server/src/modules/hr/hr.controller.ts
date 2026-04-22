@@ -66,6 +66,25 @@ const updateEmployeeSchema = z.object({
   temporary_address: z.string().nullable().optional(),
 });
 
+const createExpenseSchema = z.object({
+  employee_id: z.string().uuid(),
+  vehicle_id: z.string().uuid().nullable().optional(),
+  expense_name: z.string().min(1, 'Tên chi phí không được để trống').max(255),
+  amount: z.number().min(0).max(999999999),
+  expense_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ngày không đúng định dạng YYYY-MM-DD'),
+  image_urls: z.array(z.string().url()).optional().default([]),
+  payment_status: z.enum(['unpaid', 'paid']),
+});
+
+const updateExpenseSchema = z.object({
+  expense_name: z.string().min(1).max(255).optional(),
+  amount: z.number().min(0).max(999999999).optional(),
+  expense_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  vehicle_id: z.string().uuid().nullable().optional(),
+  image_urls: z.array(z.string().url()).optional(),
+  payment_status: z.enum(['unpaid', 'paid']).optional(),
+});
+
 export class HRController {
   static async getEmployees(req: Request, res: Response) {
     try {
@@ -276,6 +295,74 @@ export class HRController {
       return res.status(200).json(successResponse(data, 'Compensatory attendance reviewed'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async getExpenses(req: Request, res: Response) {
+    try {
+      const data = await HRService.getExpenses(req.user!.id, req.user!.role);
+      return res.json(successResponse(data));
+    } catch (err: any) {
+      return res.status(500).json(errorResponse(err.message));
+    }
+  }
+
+  static async createExpense(req: Request, res: Response) {
+    try {
+      const validated = createExpenseSchema.parse(req.body);
+      
+      const payload = {
+        employee_id: (req.user!.role !== 'admin' && req.user!.role !== 'manager') 
+          ? req.user!.id 
+          : validated.employee_id,
+        expense_name: validated.expense_name,
+        amount: validated.amount,
+        expense_date: validated.expense_date,
+        payment_status: validated.payment_status,
+        vehicle_id: validated.vehicle_id,
+        image_urls: validated.image_urls,
+      };
+
+      const data = await HRService.createExpense(req.user!.id, payload);
+      return res.status(201).json(successResponse(data, 'Tạo phiếu chi phí thành công'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async updateExpense(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const validated = updateExpenseSchema.parse(req.body);
+      const data = await HRService.updateExpense(id, req.user!.id, req.user!.role, validated);
+      return res.json(successResponse(data, 'Cập nhật phiếu chi phí thành công'));
+    } catch (err: any) {
+      const status = err.message.includes('quyền') || err.message.includes('xác nhận') ? 403 : 400;
+      return res.status(status).json(errorResponse(err.message));
+    }
+  }
+
+  static async deleteExpense(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      await HRService.deleteExpense(id, req.user!.id, req.user!.role);
+      return res.json(successResponse(null, 'Đã xóa phiếu chi phí'));
+    } catch (err: any) {
+      const status = err.message.includes('quyền') || err.message.includes('xác nhận') ? 403 : 500;
+      return res.status(status).json(errorResponse(err.message));
+    }
+  }
+
+  static async confirmExpense(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const data = await HRService.confirmExpense(id, req.user!.id);
+      return res.json(successResponse(data, 'Đã xác nhận đưa tiền thành công'));
+    } catch (err: any) {
+      const status = err.message.includes('không tìm') || err.message.includes('Không tìm') ? 404
+        : err.message.includes('trạng thái') ? 400
+        : 500;
+      return res.status(status).json(errorResponse(err.message));
     }
   }
 }

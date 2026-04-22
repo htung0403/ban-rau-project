@@ -131,6 +131,29 @@ export interface Product {
   updated_at: string;
 }
 
+// --- Expenses ---
+export type ExpensePaymentStatus = 'unpaid' | 'paid' | 'confirmed';
+
+export interface Expense {
+  id: string;
+  employee_id: string;
+  vehicle_id?: string | null;
+  expense_name: string;
+  amount: number;
+  expense_date: string;
+  image_urls: string[];
+  payment_status: ExpensePaymentStatus;
+  confirmed_by?: string | null;
+  confirmed_at?: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  // Nested relations from API
+  employee?: { id: string; full_name: string };
+  vehicle?: { id: string; license_plate: string } | null;
+  confirmer?: { id: string; full_name: string } | null;
+}
+
 // --- Customers ---
 export interface Customer {
   id: string;

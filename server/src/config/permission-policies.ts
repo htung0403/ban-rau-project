@@ -39,6 +39,7 @@ export const PAGE_POLICIES = {
   HR_SALARY_ADVANCE: ['/hanh-chinh-nhan-su/ung-luong'],
   HR_SALARY_SETTINGS: ['/hanh-chinh-nhan-su/cai-dat-luong'],
   HR_PAYROLL_VIEW: ['/hanh-chinh-nhan-su/luong'],
+  HR_EXPENSES: ['/hanh-chinh-nhan-su/chi-phi'],
   HR_ATTENDANCE_VIEW: ['/hanh-chinh-nhan-su/cham-cong'],
 
   GENERAL_SETTINGS_VIEW: ['/cai-dat', '/hanh-chinh-nhan-su/cham-cong', '/hanh-chinh-nhan-su/cau-hinh-cham-cong'],

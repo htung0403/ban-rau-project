@@ -1,5 +1,5 @@
 import axiosClient from './axiosClient';
-import type { User, LeaveRequest, SalaryAdvance, Attendance, CompensatoryAttendance } from '../types';
+import type { User, LeaveRequest, SalaryAdvance, Attendance, CompensatoryAttendance, Expense } from '../types';
 
 export const hrApi = {
   // Employees
@@ -123,6 +123,47 @@ export const hrApi = {
 
   reviewCompensatoryAttendance: async (id: string, status: 'approved' | 'rejected') => {
     const { data } = await axiosClient.put<CompensatoryAttendance>(`/hr/compensatory-attendances/${id}/review`, { status });
+    return data;
+  },
+
+  // Expenses
+  getExpenses: async () => {
+    const { data } = await axiosClient.get<Expense[]>('/hr/expenses');
+    return data;
+  },
+
+  createExpense: async (payload: {
+    employee_id: string;
+    vehicle_id?: string | null;
+    expense_name: string;
+    amount: number;
+    expense_date: string;
+    image_urls?: string[];
+    payment_status: 'unpaid' | 'paid';
+  }) => {
+    const { data } = await axiosClient.post<Expense>('/hr/expenses', payload);
+    return data;
+  },
+
+  updateExpense: async (id: string, payload: {
+    expense_name?: string;
+    amount?: number;
+    expense_date?: string;
+    vehicle_id?: string | null;
+    image_urls?: string[];
+    payment_status?: 'unpaid' | 'paid';
+  }) => {
+    const { data } = await axiosClient.put<Expense>(`/hr/expenses/${id}`, payload);
+    return data;
+  },
+
+  deleteExpense: async (id: string) => {
+    const { data } = await axiosClient.delete(`/hr/expenses/${id}`);
+    return data;
+  },
+
+  confirmExpense: async (id: string) => {
+    const { data } = await axiosClient.put<Expense>(`/hr/expenses/${id}/confirm`);
     return data;
   },
 };

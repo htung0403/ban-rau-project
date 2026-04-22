@@ -27,6 +27,7 @@ import AttendanceLocationsPage from './pages/hr/AttendanceLocationsPage';
 import PayrollPage from './pages/payroll/PayrollPage';
 import ApprovalsPage from './pages/hr/ApprovalsPage';
 import SalaryAdvancesPage from './pages/hr/SalaryAdvancesPage';
+import ExpensesPage from './pages/hr/ExpensesPage';
 import VehiclesPage from './pages/vehicles/VehiclesPage';
 import DriverCheckinPage from './pages/vehicles/DriverCheckinPage';
 import PaymentCollectionsPage from './pages/vehicles/payment-collections/PaymentCollectionsPage';
@@ -121,6 +122,7 @@ function AppRoutes() {
         <Route path="/hanh-chinh-nhan-su/ung-luong" element={<SalaryAdvancesPage />} />
         <Route path="/hanh-chinh-nhan-su/duyet-don" element={<ApprovalsPage />} />
         <Route path="/hanh-chinh-nhan-su/phan-quyen" element={<RolePermissionsPage />} />
+        <Route path="/hanh-chinh-nhan-su/chi-phi" element={<ExpensesPage />} />
 
         {/* Khách hàng module */}
         <Route path="/khach-hang">

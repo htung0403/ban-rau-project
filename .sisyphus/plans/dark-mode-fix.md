@@ -56,6 +56,7 @@ Tuyệt đối **KHÔNG ĐƯỢC SỬA** các class sau vì chúng là chủ ý 
 - **Note:** Bao gồm các trang HR, Kế toán, và Công nợ khách hàng.
 
 ## 4. Final Verification Wave
-- **Kiểm tra biên dịch:** Chạy `npx tsc --noEmit` sau khi hoàn thành.
-- **Kiểm tra giao diện:** Đảm bảo khi thêm class `dark` vào thẻ `html`, không còn bất kỳ mảng màu `#ffffff` chói lóa nào trên màn hình.
+- [x] **Kiểm tra biên dịch:** Chạy `npx tsc --noEmit` sau khi hoàn thành.
+- [x] **Kiểm tra giao diện:** Đảm bảo khi thêm class `dark` vào thẻ `html`, không còn bất kỳ mảng màu `#ffffff` chói lóa nào trên màn hình.
+- [x] **Tối ưu bổ sung:** Đã tối ưu giao diện dark mode cho trang Delivery và VegetableDelivery dựa trên ảnh chụp thực tế.
 - [DECISION NEEDED] Chấp thuận hoàn thành toàn bộ công việc từ người dùng.

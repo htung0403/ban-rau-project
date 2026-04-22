@@ -1,12 +1,13 @@
 {
-  "active_plan": "D:\\job-banrau\\.sisyphus\\plans\\dark-mode-fix.md",
-  "started_at": "2026-04-20T16:25:28.078Z",
-  "session_ids": [
-    "ses_25461e296ffeEUx5YQksU3ctUo"
-  ],
-  "session_origins": {
-    "ses_25461e296ffeEUx5YQksU3ctUo": "direct"
-  },
-  "plan_name": "dark-mode-fix",
-  "agent": "atlas"
+  "active_plan": "D:\\.sisyphus\\plans\\fix-delivery-flow-bugs.md",
+  "started_at": "2026-04-21T20:43:48.482Z",
+  "session_ids": ["ses_24e3dcd37ffeI0rOJKUqbHCBqP"],
+  "plan_name": "fix-delivery-flow-bugs",
+  "completed_plans": [
+    {
+      "plan_name": "auto_create_payment_collection",
+      "completed_at": "2026-04-20T23:30:00.000Z",
+      "summary": "Auto-create draft payment_collections when vehicles are assigned in delivery.service.ts assignVehicles()"
+    }
+  ]
 }

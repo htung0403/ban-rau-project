@@ -11,6 +11,7 @@ export const hrKeys = {
   salaryAdvances: () => [...hrKeys.all, 'salary-advances'] as const,
   compensatoryAttendances: () => [...hrKeys.all, 'compensatory-attendances'] as const,
   attendance: (date: string) => [...hrKeys.all, 'attendance', date] as const,
+  expenses: () => [...hrKeys.all, 'expenses'] as const,
 };
 
 export function useEmployees(enabled = true) {
@@ -211,5 +212,60 @@ export function useReviewCompensatoryAttendance() {
       toast.success('Duyệt chấm công bù thành công');
     },
     onError: () => toast.error('Lỗi khi duyệt chấm công bù'),
+  });
+}
+
+export function useExpenses() {
+  return useQuery({
+    queryKey: hrKeys.expenses(),
+    queryFn: () => hrApi.getExpenses(),
+  });
+}
+
+export function useCreateExpense() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: hrApi.createExpense,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: hrKeys.expenses() });
+      toast.success('Thêm chi phí thành công');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Lỗi khi thêm chi phí'),
+  });
+}
+
+export function useUpdateExpense() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof hrApi.updateExpense>[1] }) => hrApi.updateExpense(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: hrKeys.expenses() });
+      toast.success('Cập nhật chi phí thành công');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Lỗi khi cập nhật chi phí'),
+  });
+}
+
+export function useDeleteExpense() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => hrApi.deleteExpense(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: hrKeys.expenses() });
+      toast.success('Xóa chi phí thành công');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Lỗi khi xóa chi phí'),
+  });
+}
+
+export function useConfirmExpense() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => hrApi.confirmExpense(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: hrKeys.expenses() });
+      toast.success('Xác nhận chi phí thành công');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Lỗi khi xác nhận chi phí'),
   });
 }

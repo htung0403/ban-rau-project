@@ -29,4 +29,10 @@ router.get('/compensatory-attendances', requirePolicy('HR_ATTENDANCE_VIEW', 'HR_
 router.post('/compensatory-attendances', requirePolicy('HR_ATTENDANCE_VIEW', 'HR_APPROVALS'), HRController.createCompensatoryAttendance);
 router.put('/compensatory-attendances/:id/review', requirePolicy('HR_APPROVALS'), HRController.reviewCompensatoryAttendance);
 
+router.get('/expenses', requirePolicy('HR_EXPENSES'), HRController.getExpenses);
+router.post('/expenses', requirePolicy('HR_EXPENSES'), HRController.createExpense);
+router.put('/expenses/:id', requirePolicy('HR_EXPENSES'), HRController.updateExpense);
+router.delete('/expenses/:id', requirePolicy('HR_EXPENSES'), HRController.deleteExpense);
+router.put('/expenses/:id/confirm', requirePolicy('HR_APPROVALS'), HRController.confirmExpense);
+
 export default router;

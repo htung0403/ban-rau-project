@@ -352,4 +352,144 @@ export class HRService {
 
     return request;
   }
+
+  static async getExpenses(userId: string, role: string) {
+    let query = supabaseService
+      .from('expenses')
+      .select(`
+        *,
+        employee:profiles!expenses_employee_id_fkey(id, full_name),
+        vehicle:vehicles!expenses_vehicle_id_fkey(id, license_plate),
+        confirmer:profiles!expenses_confirmed_by_fkey(id, full_name)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (role !== 'manager' && role !== 'admin') {
+      query = query.eq('employee_id', userId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data;
+  }
+
+  static async createExpense(createdBy: string, payload: {
+    employee_id: string;
+    vehicle_id?: string | null;
+    expense_name: string;
+    amount: number;
+    expense_date: string;
+    image_urls?: string[];
+    payment_status: 'unpaid' | 'paid';
+  }) {
+    const { data, error } = await supabaseService
+      .from('expenses')
+      .insert({ ...payload, created_by: createdBy })
+      .select(`
+        *,
+        employee:profiles!expenses_employee_id_fkey(id, full_name),
+        vehicle:vehicles!expenses_vehicle_id_fkey(id, license_plate)
+      `)
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  static async updateExpense(id: string, userId: string, role: string, payload: {
+    expense_name?: string;
+    amount?: number;
+    expense_date?: string;
+    vehicle_id?: string | null;
+    image_urls?: string[];
+    payment_status?: 'unpaid' | 'paid';
+  }) {
+    const { data: existing, error: fetchError } = await supabaseService
+      .from('expenses')
+      .select('id, employee_id, payment_status')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+    if (!existing) throw new Error('Không tìm thấy phiếu chi phí');
+
+    if (existing.payment_status === 'confirmed' && role !== 'admin') {
+      throw new Error('Không thể sửa phiếu đã được xác nhận');
+    }
+
+    if (role !== 'admin' && role !== 'manager' && existing.employee_id !== userId) {
+      throw new Error('Bạn không có quyền sửa phiếu này');
+    }
+
+    const { data, error } = await supabaseService
+      .from('expenses')
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select(`
+        *,
+        employee:profiles!expenses_employee_id_fkey(id, full_name),
+        vehicle:vehicles!expenses_vehicle_id_fkey(id, license_plate)
+      `)
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  static async deleteExpense(id: string, userId: string, role: string) {
+    const { data: existing, error: fetchError } = await supabaseService
+      .from('expenses')
+      .select('id, employee_id, payment_status')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+    if (!existing) throw new Error('Không tìm thấy phiếu chi phí');
+
+    if (existing.payment_status === 'confirmed' && role !== 'admin') {
+      throw new Error('Không thể xóa phiếu đã được xác nhận');
+    }
+
+    if (role !== 'admin' && role !== 'manager' && existing.employee_id !== userId) {
+      throw new Error('Bạn không có quyền xóa phiếu này');
+    }
+
+    const { error } = await supabaseService
+      .from('expenses')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    return { success: true };
+  }
+
+  static async confirmExpense(id: string, adminId: string) {
+    const { data: existing, error: fetchError } = await supabaseService
+      .from('expenses')
+      .select('id, payment_status')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+    if (!existing) throw new Error('Không tìm thấy phiếu chi phí');
+    if (existing.payment_status !== 'paid') {
+      throw new Error('Chỉ xác nhận phiếu ở trạng thái đã thanh toán');
+    }
+
+    const { data, error } = await supabaseService
+      .from('expenses')
+      .update({
+        payment_status: 'confirmed',
+        confirmed_by: adminId,
+        confirmed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select(`
+        *,
+        employee:profiles!expenses_employee_id_fkey(id, full_name),
+        vehicle:vehicles!expenses_vehicle_id_fkey(id, license_plate),
+        confirmer:profiles!expenses_confirmed_by_fkey(id, full_name)
+      `)
+      .single();
+    if (error) throw error;
+    return data;
+  }
 }

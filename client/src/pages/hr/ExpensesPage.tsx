@@ -37,6 +37,7 @@ const ExpensesPage = () => {
   
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const confirmingExpense = expenses?.find(e => e.id === confirmId);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -592,7 +593,21 @@ const ExpensesPage = () => {
           }
         }}
         title="Xác nhận chi phí"
-        description="Xác nhận chi phí này đã được thanh toán và hợp lệ?"
+        description={
+          confirmingExpense ? (
+            <div className="space-y-1">
+              <p>Xác nhận chi phí này đã được thanh toán và hợp lệ?</p>
+              <div className="text-[13px] bg-muted/50 p-3 rounded-lg border border-border space-y-1 mt-2 text-foreground/80">
+                <div>• Chi phí: <span className="font-bold text-foreground">{confirmingExpense.expense_name}</span></div>
+                <div>• Nhân viên: <span className="font-bold text-foreground">{confirmingExpense.employee?.full_name}</span></div>
+                {confirmingExpense.vehicle && (
+                  <div>• Xe: <span className="font-bold text-foreground">{confirmingExpense.vehicle.license_plate}</span></div>
+                )}
+                <div>• Số tiền: <span className="font-bold text-emerald-600">{formatCurrency(confirmingExpense.amount)}</span></div>
+              </div>
+            </div>
+          ) : "Xác nhận chi phí này đã được thanh toán và hợp lệ?"
+        }
         confirmText="Xác nhận"
         cancelText="Hủy"
         isLoading={confirmMutation.isPending}

@@ -272,11 +272,11 @@ const ExpensesPage = () => {
                     </td>
                     <td className="px-6 py-4 text-right border-l border-border/10">
                       <div className="flex items-center justify-end gap-2">
-                        {e.payment_status === 'paid' && user?.role === 'admin' && (
+                        {(e.payment_status === 'paid' || e.payment_status === 'unpaid') && user?.role === 'admin' && (
                           <button
                             onClick={() => setConfirmId(e.id)}
                             className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                            title="Xác nhận"
+                            title="Xác nhận đã thanh toán"
                           >
                             <CheckCircle2 size={16} />
                           </button>
@@ -339,7 +339,7 @@ const ExpensesPage = () => {
                   </div>
 
                   <div className="flex items-center justify-end gap-2 mt-1">
-                    {e.payment_status === 'paid' && user?.role === 'admin' && (
+                    {(e.payment_status === 'paid' || e.payment_status === 'unpaid') && user?.role === 'admin' && (
                       <button
                         onClick={() => setConfirmId(e.id)}
                         className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[12px] font-bold"

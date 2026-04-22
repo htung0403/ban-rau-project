@@ -17,8 +17,8 @@ export class PaymentCollectionsService {
     if (filters.driverId) query = query.eq('driver_id', filters.driverId);
     if (filters.status) query = query.eq('status', filters.status);
     if (filters.vehicleId) query = query.eq('vehicle_id', filters.vehicleId);
-    if (filters.dateFrom) query = query.gte('collected_at', filters.dateFrom);
-    if (filters.dateTo) query = query.lte('collected_at', filters.dateTo);
+    if (filters.dateFrom) query = query.gte('collected_at', filters.dateFrom.includes('T') ? filters.dateFrom : `${filters.dateFrom}T00:00:00+07:00`);
+    if (filters.dateTo) query = query.lte('collected_at', filters.dateTo.includes('T') ? filters.dateTo : `${filters.dateTo}T23:59:59.999+07:00`);
 
     const { data, error } = await query;
     if (error) throw error;
@@ -237,8 +237,8 @@ export class PaymentCollectionsService {
         vehicles ( license_plate )
       `);
 
-    if (filters.dateFrom) query = query.gte('collected_at', filters.dateFrom);
-    if (filters.dateTo) query = query.lte('collected_at', filters.dateTo);
+    if (filters.dateFrom) query = query.gte('collected_at', filters.dateFrom.includes('T') ? filters.dateFrom : `${filters.dateFrom}T00:00:00+07:00`);
+    if (filters.dateTo) query = query.lte('collected_at', filters.dateTo.includes('T') ? filters.dateTo : `${filters.dateTo}T23:59:59.999+07:00`);
 
     const { data, error } = await query;
     if (error) throw error;

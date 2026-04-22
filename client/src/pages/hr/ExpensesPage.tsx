@@ -41,6 +41,9 @@ const ExpensesPage = () => {
 
   const isViewOnly = editingExpense?.payment_status === 'confirmed';
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
   const [formData, setFormData] = useState({
     employee_id: user?.id || '',
     vehicle_id: '' as string | null,

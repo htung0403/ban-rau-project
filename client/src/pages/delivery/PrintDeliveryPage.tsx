@@ -29,7 +29,7 @@ const PrintDeliveryPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initialDateFrom = searchParams.get('dateFrom') || format(new Date(), 'yyyy-MM-dd');
   const initialDateTo = searchParams.get('dateTo') || format(new Date(), 'yyyy-MM-dd');
-  
+
   const [startDate, setStartDate] = useState<string>(initialDateFrom);
   const [endDate, setEndDate] = useState<string>(initialDateTo);
 
@@ -57,20 +57,6 @@ const PrintDeliveryPage: React.FC = () => {
 
   const sortedDates = Object.keys(groupedOrders).sort((a, b) => b.localeCompare(a)); // Newest first
 
-  const ROWS_PER_A4 = 28;
-  const printPages: { date: string; orders: DeliveryOrder[]; pageNumber: number }[] = [];
-  
-  sortedDates.forEach((date) => {
-    const ordersForDate = groupedOrders[date];
-    for (let i = 0; i < ordersForDate.length; i += ROWS_PER_A4) {
-      printPages.push({
-        date,
-        orders: ordersForDate.slice(i, i + ROWS_PER_A4),
-        pageNumber: Math.floor(i / ROWS_PER_A4) + 1,
-      });
-    }
-  });
-
   const handlePrint = () => {
     window.print();
   };
@@ -79,33 +65,81 @@ const PrintDeliveryPage: React.FC = () => {
     <>
       <style>{`
         @media print {
+          body { 
+            counter-reset: page; 
+          }
+          
           body * { visibility: hidden !important; }
           .print-area, .print-area * { visibility: visible !important; }
-          .print-area { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+          .print-area { 
+            position: absolute; 
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            display: block !important; 
+          }
           .no-print { display: none !important; }
           
-          .print-sheet {
-            page-break-after: always;
-            page-break-inside: avoid;
+          .print-section {
+            page-break-before: always;
           }
-          .print-sheet:last-child {
-            page-break-after: auto;
+          .print-section:first-child {
+            page-break-before: auto;
           }
 
-          @page { size: A4 portrait; margin: 10mm; }
+          @page { 
+            size: A4 portrait; 
+            margin: 15mm 10mm 10mm 10mm;
+          }
 
-          .print-table { width: 100%; border-collapse: collapse; font-family: "Times New Roman", serif; font-size: 14px; }
-          .print-table th, .print-table td { border: 1px solid #000 !important; padding: 4px 6px !important; }
-          .print-table th { font-weight: bold; text-align: center; }
+          .page-number-auto::after {
+            counter-increment: page;
+            content: "Tờ: " counter(page);
+            position: fixed;
+            top: 2mm;
+            right: 15mm;
+            font-size: 16px;
+            font-weight: bold;
+            visibility: visible !important;
+          }
+
+          .print-table {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+            font-family: "Times New Roman", serif;
+            font-size: 11px;
+            page-break-inside: auto;
+          }
+          .print-table thead { display: table-header-group; }
+          .print-table tr { page-break-inside: avoid; page-break-after: auto; }
           
-          /* Force colors to print */
+          .print-table th, .print-table td {
+            border: 1px solid #000 !important;
+            padding: 4px 3px !important;
+            overflow: hidden;
+            word-break: break-word;
+          }
+          .print-table th { font-weight: bold; text-align: center; background-color: #f3f4f6 !important; }
+          .print-table .col-name { width: 17%; }
+          .print-table .col-qty { width: 2%; }
+          .print-table .col-product { width: 10%; }
+          
+          .print-header-repeat {
+            border: none !important;
+          }
+          .print-header-repeat th {
+            border: none !important;
+            background: transparent !important;
+            padding-bottom: 10px !important;
+          }
+
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
 
         @media screen {
           .print-sheet {
             max-width: 210mm;
-            min-height: 297mm;
             margin: 0 auto 24px auto;
             padding: 10mm 12mm;
             background: white;
@@ -113,14 +147,21 @@ const PrintDeliveryPage: React.FC = () => {
             border: 1px solid #e5e7eb;
             border-radius: 8px;
           }
+          .page-number-auto::after {
+            content: "Số tờ sẽ tự động hiển thị khi in";
+            display: block;
+            text-align: right;
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 8px;
+          }
         }
         
-        /* Apply table borders to screen too */
         .print-table { width: 100%; border-collapse: collapse; font-family: "Times New Roman", serif; font-size: 14px; }
         .print-table th, .print-table td { border: 1px solid #000 !important; padding: 4px 6px !important; }
         .print-table th { font-weight: bold; text-align: center; }
       `}</style>
-      
+
       <div className="no-print animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col min-h-0">
         <div className="flex items-center gap-3 mb-4">
           <button
@@ -177,31 +218,35 @@ const PrintDeliveryPage: React.FC = () => {
           />
         </div>
       ) : (
-        <div className="print-area">
-          {printPages.map((page) => (
-            <div key={`${page.date}-${page.pageNumber}`} className="print-sheet mb-8">
-              <div className="flex justify-between items-end mb-4 px-2">
-                <div className="text-[16px] font-bold">Ngày giao: {new Date(page.date).toLocaleDateString('vi-VN')}</div>
-                <div className="text-[16px] font-bold">Tờ: {page.pageNumber}</div>
-              </div>
+        <div className="print-area page-number-auto">
+          {sortedDates.map((date) => (
+            <div key={date} className="print-section print-sheet">
               <table className="print-table">
                 <thead>
+                  <tr className="print-header-repeat">
+                    <th colSpan={3} className="text-left">
+                      <div className="text-[16px] font-bold">Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}</div>
+                    </th>
+                    <th colSpan={eligibleVehicles.length || 10} className="text-right">
+                      {/* Page number handled by fixed position */}
+                    </th>
+                  </tr>
                   <tr>
-                    <th className="text-left w-[180px] border border-black align-middle">Tên Khách</th>
-                    <th className="w-[50px] border border-black align-middle text-center">SL</th>
-                    <th className="text-left w-[150px] border border-black align-middle">Hàng</th>
+                    <th className="col-name text-left border border-black align-middle">Tên Khách</th>
+                    <th className="col-qty border border-black align-middle text-center">SL</th>
+                    <th className="col-product text-left border border-black align-middle">Hàng</th>
                     {eligibleVehicles.map(v => (
-                      <th key={v.id} className="w-[45px] text-center border border-black text-[11px] break-words uppercase">
+                      <th key={v.id} className="text-center border border-black text-[10px] whitespace-nowrap tracking-tighter uppercase">
                         {v.license_plate}
                       </th>
                     ))}
                     {eligibleVehicles.length === 0 && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => (
-                      <th key={col} className="w-[45px] text-center border border-black uppercase">{col}</th>
+                      <th key={col} className="text-center border border-black text-[10px] whitespace-nowrap tracking-tighter uppercase">{col}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {page.orders.map(o => (
+                  {groupedOrders[date].map(o => (
                     <tr key={o.id}>
                       <td className="text-left font-medium border border-black">{getReceiverDisplayName(o)}</td>
                       <td className="text-center font-bold border border-black">{o.total_quantity || ''}</td>

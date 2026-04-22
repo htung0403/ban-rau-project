@@ -133,6 +133,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   /** Theo dõi chuỗi chữ số đã “ổn định” theo từng dòng: chỉ ×1000 khi user gõ thêm (độ dài tăng), không khi xóa. */
   const expectedAmountPrevDigitsRef = useRef<Record<number, string>>({});
 
@@ -713,6 +714,32 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                   <input
                     type="file"
                     accept="image/*"
+                    capture="environment"
+                    ref={cameraInputRef}
+                    className="hidden"
+                    onChange={handleImageUpload}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="w-full aspect-square border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-orange-500 hover:border-orange-400/50 hover:bg-orange-50 transition-all bg-muted/5 disabled:opacity-50"
+                  >
+                    {isUploading ? (
+                      <Loader2 size={18} className="animate-spin text-primary" />
+                    ) : (
+                      <>
+                        <Camera size={20} className="mb-1 text-orange-500" />
+                        <span className="text-[10px] font-bold text-center px-1">Chụp ảnh</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div>
+                  <input
+                    type="file"
+                    accept="image/*"
                     multiple
                     ref={fileInputRef}
                     className="hidden"
@@ -729,7 +756,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     ) : (
                       <>
                         <ImagePlus size={20} className="mb-1 text-primary" />
-                        <span className="text-[10px] font-bold text-center px-1">Thêm ảnh</span>
+                        <span className="text-[10px] font-bold text-center px-1">Chọn ảnh</span>
                       </>
                     )}
                   </button>

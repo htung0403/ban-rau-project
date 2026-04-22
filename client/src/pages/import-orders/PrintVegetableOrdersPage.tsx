@@ -24,7 +24,7 @@ const getTaiRank = (order: any, rankMap: Map<string, number>) =>
   rankMap.get(order.id) || 1;
 
 // ─── Constants ────────────────────────────────────────────
-const ROWS_PER_A4 = 38; // ~38 data rows fit on one A4 page
+const ROWS_PER_A4 = 35; // ~35 data rows fit on one A4 page
 const MAX_AMOUNT_PER_SHEET = 4_500_000; // 4.5 triệu
 
 type PrintMode = 'a4' | 'amount';

@@ -133,20 +133,33 @@ const VegetableDeliveryPage: React.FC = () => {
   const isLoading = ordersLoading;
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
   const normalizedRole = (user?.role || '').toLowerCase();
-  const isLoader = normalizedRole.includes('lo_xe');
+  const isLoader = normalizedRole.includes('lo_xe') || normalizedRole.includes('lơ xe');
   const isDriver =
-    normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('driver');
+    normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('tài xế') || normalizedRole.includes('driver');
+  const isDriverOrLoader = isDriver || isLoader;
   const eligibleVehicles = React.useMemo(
     () => (vehicles || []).filter((vehicle) => vehicleSupportsGoodsCategory(vehicle, 'vegetable')),
     [vehicles]
   );
   const myVehicleIds = React.useMemo(
-    () => eligibleVehicles.filter((v) => v.driver_id === user?.id || v.in_charge_id === user?.id).map((v) => v.id),
-    [eligibleVehicles, user?.id]
+    () => eligibleVehicles.filter((v) => 
+      v.driver_id === user?.id || 
+      v.in_charge_id === user?.id ||
+      (user?.full_name && v.profiles?.full_name === user?.full_name) ||
+      (user?.full_name && v.responsible_profile?.full_name === user?.full_name)
+    ).map((v) => v.id),
+    [eligibleVehicles, user]
   );
   const myVehicleIdSet = React.useMemo(() => new Set(myVehicleIds), [myVehicleIds]);
   const myPrimaryVehicleId = myVehicleIds[0];
   const canShowAssignButton = isAdmin || isLoader || (isDriver && myVehicleIds.length > 0);
+
+  const displayedVehicles = React.useMemo(() => {
+    if (statusFilter === 'da_giao' && isDriverOrLoader) {
+      return eligibleVehicles.filter(v => myVehicleIdSet.has(v.id));
+    }
+    return eligibleVehicles;
+  }, [eligibleVehicles, statusFilter, isDriverOrLoader, myVehicleIdSet]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
@@ -308,9 +321,23 @@ const VegetableDeliveryPage: React.FC = () => {
       const normalized = normalizeVegetableStatus(o.status);
       if (statusFilter === 'can_giao') return normalized === 'can_giao';
       if (statusFilter === 'da_giao') {
-        if (normalized === 'da_giao') return true;
-        const totalAssigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
-        return totalAssigned > 0 && totalAssigned < o.total_quantity;
+        let isDaGiao = false;
+        if (normalized === 'da_giao') isDaGiao = true;
+        else {
+          const totalAssigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
+          isDaGiao = totalAssigned > 0 && totalAssigned < o.total_quantity;
+        }
+
+        if (!isDaGiao) return false;
+
+        if (isDriverOrLoader) {
+          const hasMyAssignment = (o.delivery_vehicles || []).some(dv => 
+            dv.vehicle_id && myVehicleIdSet.has(dv.vehicle_id) && (dv.assigned_quantity || 0) > 0
+          );
+          return hasMyAssignment;
+        }
+
+        return true;
       }
       return true;
     });
@@ -550,7 +577,7 @@ const VegetableDeliveryPage: React.FC = () => {
                     <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-border">SL Tổng</th>
                     <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-border">Còn lại</th>
                     <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-border">Dư</th>
-                    {eligibleVehicles.map(v => (
+                    {displayedVehicles.map(v => (
                       <th key={v.id} className={clsx(
                         "px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-28 border-r border-border last:border-r-0",
                         myVehicleIdSet.has(v.id) && "bg-primary/5 text-primary"
@@ -558,7 +585,7 @@ const VegetableDeliveryPage: React.FC = () => {
                         {v.license_plate}
                       </th>
                     ))}
-                    {eligibleVehicles.length === 0 && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => (
+                    {displayedVehicles.length === 0 && !(statusFilter === 'da_giao' && isDriverOrLoader) && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => (
                       <th key={col} className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-12 border-r border-border last:border-r-0">
                         {col}
                       </th>
@@ -570,7 +597,7 @@ const VegetableDeliveryPage: React.FC = () => {
                     <React.Fragment key={date}>
                       {/* Date separator row */}
                       <tr className="bg-muted/80 dark:bg-muted/40 border-y border-border shadow-sm overflow-hidden">
-                        <td colSpan={(isAdmin ? 10 : 9) + (eligibleVehicles.length || 10)} className="px-4 py-2.5">
+                        <td colSpan={(isAdmin ? 10 : 9) + (displayedVehicles.length || ((statusFilter === 'da_giao' && isDriverOrLoader) ? 0 : 10))} className="px-4 py-2.5">
                           <div className="flex items-center gap-2">
                             {isAdmin && (() => {
                               const dateOrders = Object.values(groupedOrders[date]).flat();
@@ -611,7 +638,7 @@ const VegetableDeliveryPage: React.FC = () => {
                       {Object.entries(groupedOrders[date]).map(([supplierName, ordersBySupplier]) => (
                         <React.Fragment key={`${date}-${supplierName}`}>
                           <tr className="bg-primary/5 border-y border-primary/10">
-                            <td colSpan={(isAdmin ? 10 : 9) + (eligibleVehicles.length || 10)} className="px-4 py-2">
+                            <td colSpan={(isAdmin ? 10 : 9) + (displayedVehicles.length || ((statusFilter === 'da_giao' && isDriverOrLoader) ? 0 : 10))} className="px-4 py-2">
                               <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Vựa: {supplierName}</span>
                             </td>
                           </tr>
@@ -746,7 +773,7 @@ const VegetableDeliveryPage: React.FC = () => {
                             <td className="px-2 py-3 text-[13px] font-black text-red-600 dark:text-red-500 text-center tabular-nums border-r border-border">
                               {remainingQty < 0 ? formatNumber(remainingQty) : '-'}
                             </td>
-                            {eligibleVehicles.map(v => {
+                            {displayedVehicles.map(v => {
                               const dv = (o.delivery_vehicles || []).find((deliveryVehicle) => deliveryVehicle.vehicle_id === v.id);
                               const qty = dv?.assigned_quantity || 0;
                               const totalAssignedQty = (o.delivery_vehicles || []).reduce((sum, deliveryVehicle) => sum + (deliveryVehicle.assigned_quantity || 0), 0);
@@ -789,7 +816,7 @@ const VegetableDeliveryPage: React.FC = () => {
                                 </td>
                               );
                             })}
-                            {eligibleVehicles.length === 0 && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => {
+                            {displayedVehicles.length === 0 && !(statusFilter === 'da_giao' && isDriverOrLoader) && ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'].map(col => {
                               const getQtyForCol = (col: string) => {
                                 const matches = (o.delivery_vehicles || []).filter((dv) => {
                                   const plate = (dv.vehicles?.license_plate || '').toLowerCase();
@@ -943,10 +970,22 @@ const VegetableDeliveryPage: React.FC = () => {
                             {/* Show assigned vehicles */}
                             {(() => {
                               const deliveryVehicles = o.delivery_vehicles || [];
-                              return deliveryVehicles.length > 0 && deliveryVehicles.some((dv) => (dv.assigned_quantity || 0) > 0);
+                              return deliveryVehicles.length > 0 && deliveryVehicles.some((dv) => {
+                                if ((dv.assigned_quantity || 0) <= 0) return false;
+                                if (statusFilter === 'da_giao' && isDriverOrLoader) {
+                                  return dv.vehicle_id && myVehicleIdSet.has(dv.vehicle_id);
+                                }
+                                return true;
+                              });
                             })() && (
                               <div className="pt-2 border-t border-border flex flex-wrap gap-1.5">
-                                {(o.delivery_vehicles || []).filter((dv) => (dv.assigned_quantity || 0) > 0).map((dv) => {
+                                {(o.delivery_vehicles || []).filter((dv) => {
+                                  if ((dv.assigned_quantity || 0) <= 0) return false;
+                                  if (statusFilter === 'da_giao' && isDriverOrLoader) {
+                                    return dv.vehicle_id && myVehicleIdSet.has(dv.vehicle_id);
+                                  }
+                                  return true;
+                                }).map((dv) => {
                                   const isPaid = (o.payment_collections || []).some(
                                     (pc) => pc.vehicle_id === dv.vehicle_id && isPaidCollectionStatus(pc.status)
                                   );

@@ -15,7 +15,7 @@ import { CustomSelect } from '../../components/shared/CustomSelect';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { uploadApi } from '../../api/uploadApi';
 import { format } from 'date-fns';
-import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon } from 'lucide-react';
+import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, Eye } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import type { Expense } from '../../types';
@@ -296,11 +296,20 @@ const ExpensesPage = () => {
                               className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Xóa"
                             >
-                              <Trash2 size={16} />
-                            </button>
-                          </>
-                        )}
-                      </div>
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
+                      {e.payment_status === 'confirmed' && (
+                        <button
+                          onClick={() => openDialog(e)}
+                          className="p-1.5 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+                          title="Xem chi tiết"
+                        >
+                          <Eye size={16} />
+                        </button>
+                      )}
+                    </div>
                     </td>
                   </tr>
                 ))}
@@ -366,6 +375,15 @@ const ExpensesPage = () => {
                           Xóa
                         </button>
                       </>
+                    )}
+                    {e.payment_status === 'confirmed' && (
+                      <button
+                        onClick={() => openDialog(e)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-[12px] font-bold"
+                      >
+                        <Eye size={14} />
+                        Xem
+                      </button>
                     )}
                   </div>
                 </div>
@@ -542,22 +560,24 @@ const ExpensesPage = () => {
                 onClick={closeDialog}
                 className="px-6 py-2 rounded-xl border border-border hover:bg-muted text-foreground text-[13px] font-bold transition-all"
               >
-                Hủy
+                {editingExpense?.payment_status === 'confirmed' ? 'Đóng' : 'Hủy'}
               </button>
-              <button 
-                type="submit"
-                form="expense-form"
-                disabled={createMutation.isPending || updateMutation.isPending || isUploading}
-                className={clsx(
-                  "flex items-center gap-2 px-8 py-2 rounded-xl text-[13px] font-bold shadow-lg transition-all group",
-                  (createMutation.isPending || updateMutation.isPending || isUploading)
-                    ? "bg-emerald-500/50 text-white/60 cursor-wait" 
-                    : "bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/20"
-                )}
-              >
-                {createMutation.isPending || updateMutation.isPending ? 'Đang lưu...' : 'Lưu chi phí'}
-                {!(createMutation.isPending || updateMutation.isPending) && <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />}
-              </button>
+              {editingExpense?.payment_status !== 'confirmed' && (
+                <button 
+                  type="submit"
+                  form="expense-form"
+                  disabled={createMutation.isPending || updateMutation.isPending || isUploading}
+                  className={clsx(
+                    "flex items-center gap-2 px-8 py-2 rounded-xl text-[13px] font-bold shadow-lg transition-all group",
+                    (createMutation.isPending || updateMutation.isPending || isUploading)
+                      ? "bg-emerald-500/50 text-white/60 cursor-wait" 
+                      : "bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/20"
+                  )}
+                >
+                  {createMutation.isPending || updateMutation.isPending ? 'Đang lưu...' : 'Lưu chi phí'}
+                  {!(createMutation.isPending || updateMutation.isPending) && <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />}
+                </button>
+              )}
             </div>
           </div>
         </div>,

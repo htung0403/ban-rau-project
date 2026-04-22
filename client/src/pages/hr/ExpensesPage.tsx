@@ -12,6 +12,7 @@ import DraggableFAB from '../../components/shared/DraggableFAB';
 import { DatePicker } from '../../components/shared/DatePicker';
 import CurrencyInput from '../../components/shared/CurrencyInput';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { SearchInput } from '../../components/ui/SearchInput';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { uploadApi } from '../../api/uploadApi';
@@ -68,8 +69,13 @@ const ExpensesPage = () => {
   const filteredExpenses = React.useMemo(() => {
     if (!expenses) return [];
     return expenses.filter(e => {
-      if (searchQuery && !matchesSearch(e.expense_name, searchQuery)) {
-        return false;
+      if (searchQuery) {
+        const matchName = matchesSearch(e.expense_name, searchQuery);
+        const matchEmployee = e.employee?.full_name ? matchesSearch(e.employee.full_name, searchQuery) : false;
+        const matchVehicle = e.vehicle?.license_plate ? matchesSearch(e.vehicle.license_plate, searchQuery) : false;
+        if (!matchName && !matchEmployee && !matchVehicle) {
+          return false;
+        }
       }
       if (filterEmployee && e.employee_id !== filterEmployee) {
         return false;
@@ -271,7 +277,7 @@ const ExpensesPage = () => {
             <div className="p-3 border-b border-border/50 flex flex-col sm:flex-row gap-3 shrink-0 bg-muted/5">
               <div className="flex-1 min-w-[200px]">
                 <SearchInput
-                  placeholder="Tìm tên chi phí..."
+                  placeholder="Tìm tên chi phí, nhân viên, biển số xe..."
                   onSearch={(val) => setSearchQuery(val)}
                   className="bg-background"
                 />
@@ -279,9 +285,9 @@ const ExpensesPage = () => {
               <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 sm:pb-0">
                 {user?.role === 'admin' && (
                   <div className="w-[150px] shrink-0">
-                    <CustomSelect
+                    <SearchableSelect
                       value={filterEmployee}
-                      onChange={setFilterEmployee}
+                      onValueChange={setFilterEmployee}
                       options={[{ value: '', label: 'Tất cả nhân viên' }, ...employeeOptions]}
                       placeholder="Nhân viên"
                       className="h-10 w-full bg-background"
@@ -289,9 +295,9 @@ const ExpensesPage = () => {
                   </div>
                 )}
                 <div className="w-[140px] shrink-0">
-                  <CustomSelect
+                  <SearchableSelect
                     value={filterVehicle}
-                    onChange={setFilterVehicle}
+                    onValueChange={setFilterVehicle}
                     options={[{ value: '', label: 'Tất cả xe' }, ...vehicleOptions.filter(v => v.value !== '')]}
                     placeholder="Xe"
                     className="h-10 w-full bg-background"
@@ -557,13 +563,12 @@ const ExpensesPage = () => {
                   {user?.role === 'admin' && (
                     <div className="space-y-1.5">
                       <label className="text-[13px] font-bold text-foreground">Nhân viên <span className="text-red-500">*</span></label>
-                      <CustomSelect
+                      <SearchableSelect
                         value={formData.employee_id}
-                        onChange={(val) => setFormData({ ...formData, employee_id: val })}
+                        onValueChange={(val) => setFormData({ ...formData, employee_id: val })}
                         options={employeeOptions}
                         placeholder="Chọn nhân viên"
                         className="w-full h-11"
-                        align="start"
                         disabled={isViewOnly}
                       />
                     </div>
@@ -583,13 +588,12 @@ const ExpensesPage = () => {
 
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-bold text-foreground">Xe (Tùy chọn)</label>
-                    <CustomSelect
+                    <SearchableSelect
                       value={formData.vehicle_id || ''}
-                      onChange={(val) => setFormData({ ...formData, vehicle_id: val })}
+                      onValueChange={(val) => setFormData({ ...formData, vehicle_id: val })}
                       options={vehicleOptions}
                       placeholder="Chọn xe"
                       className="w-full h-11"
-                      align="start"
                       disabled={isViewOnly}
                     />
                   </div>

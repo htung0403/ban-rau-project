@@ -31,3 +31,10 @@ Registered ExpensesPage route in App.tsx after RolePermissionsPage.
 Created migration 64 to initialize 'expenses' storage bucket and set up RLS policies.
 Removed ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY; from 64_create_expenses_bucket.sql to avoid ownership errors in Supabase migrations.
 - Added filter bar to ExpensesPage using SearchInput and CustomSelect components.
+- Thay thế CustomSelect bằng SearchableSelect cần chú ý đổi prop \onChange\ thành \onValueChange\.
+
+## ExpensesPage Search & Filter Updates
+- Verified that \ilteredExpenses\ already correctly uses \matchesSearch\ for \xpense_name\, \mployee.full_name\, and \ehicle.license_plate\ with an OR condition.
+- Updated \SearchInput\ placeholder to reflect the multi-field search capability.
+- Replaced \CustomSelect\ with \SearchableSelect\ for Employee and Vehicle dropdowns in the Form Dialog to improve usability, matching the Filter Bar implementation.
+- Ensured \isViewOnly\ state correctly disables the new \SearchableSelect\ components when viewing confirmed expenses.

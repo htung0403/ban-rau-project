@@ -5,7 +5,7 @@ import { isDriverLikeRoleKey } from '../../../utils/routePermissions';
 import { usePaymentCollections, useRevertPaymentCollection } from '../../../hooks/queries/usePaymentCollections';
 import { useEmployees } from '../../../hooks/queries/useHR';
 import { useVehicles } from '../../../hooks/queries/useVehicles';
-import { Plus, Download, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Plus, Download, CheckCircle, AlertCircle, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
 
 import EmptyState from '../../../components/shared/EmptyState';
 import ErrorState from '../../../components/shared/ErrorState';
@@ -29,8 +29,13 @@ interface Props {
 
 const getLocalDateKey = (value: string) => {
   const date = new Date(value);
-  const pad = (num: number) => String(num).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  if (isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en-CA', { 
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
 };
 
 const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
@@ -45,6 +50,15 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
+
+  const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
+
+  const toggleDate = (dateKey: string) => {
+    setCollapsedDates(prev => ({
+      ...prev,
+      [dateKey]: !prev[dateKey]
+    }));
+  };
 
   const closeFilter = () => {
     setIsFilterClosing(true);
@@ -114,6 +128,20 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
   const missingAmount = collections?.filter(c => (c.difference || 0) < 0 && c.status !== 'draft').reduce((sum, c) => sum + Math.abs(c.difference || 0), 0) || 0;
 
   const hasActiveFilters = filterDate || filterStatus || filterDriverId || filterVehicleId;
+
+  const groupedCollections = filtered.reduce((acc, pc) => {
+    const dateKey = getLocalDateKey(pc.collectedAt);
+    if (!acc[dateKey]) {
+      acc[dateKey] = [];
+    }
+    acc[dateKey].push(pc);
+    return acc;
+  }, {} as Record<string, PaymentCollection[]>);
+
+  const sortedDates = Object.keys(groupedCollections).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  sortedDates.forEach(date => {
+    groupedCollections[date].sort((a, b) => new Date(b.collectedAt).getTime() - new Date(a.collectedAt).getTime());
+  });
 
   return (
     <div className="space-y-6">
@@ -292,58 +320,88 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
           ) : (
             <>
               {/* Mobile Card Layout */}
-              <div className="md:hidden flex flex-col gap-3 pb-20">
-                {filtered.map(pc => (
-                  <div key={pc.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm relative overflow-hidden group">
-                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${pc.status === 'confirmed' ? 'bg-green-500' : pc.status === 'submitted' ? 'bg-yellow-500' : pc.status === 'self_confirmed' ? 'bg-blue-500' : 'bg-slate-300'}`} />
-                    <div className="flex justify-between items-start mb-3 pl-2">
-                      <div>
-                        <h3 className="font-bold text-slate-800 text-[14px]">{pc.deliveryOrderCode}</h3>
-                        <p className="text-[12px] text-slate-500">{pc.customerName}</p>
+              <div className="md:hidden flex flex-col gap-6 pb-20">
+                {sortedDates.map(dateKey => {
+                  const isCollapsed = collapsedDates[dateKey];
+                  return (
+                  <div key={dateKey} className="space-y-3">
+                    <div 
+                      className="flex items-center justify-between px-1 cursor-pointer select-none"
+                      onClick={() => toggleDate(dateKey)}
+                    >
+                      <div className="flex items-center gap-2">
+                        {isCollapsed ? <ChevronRight size={18} className="text-slate-500" /> : <ChevronDown size={18} className="text-slate-500" />}
+                        <h3 className="font-bold text-slate-800">{formatDate(dateKey)}</h3>
                       </div>
-                      <div>{getStatusBadge(pc.status)}</div>
+                      <span className="text-[12px] text-slate-500 font-medium">
+                        {groupedCollections[dateKey].length} phiếu • {formatCurrency(groupedCollections[dateKey].reduce((sum, pc) => sum + pc.collectedAmount, 0))}
+                      </span>
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-y-2 mb-3 pl-2 text-[13px]">
-                       <div>
-                         <p className="text-slate-500 text-[11px]">Tài xế</p>
-                         <p className="font-medium text-slate-600">{pc.driverName || '--'}</p>
-                       </div>
-                       <div className="text-right">
-                         <p className="text-slate-500 text-[11px]">Biển số xe</p>
-                         <p className="font-medium text-slate-600">{pc.licensePlate || '--'}</p>
-                       </div>
-                       <div>
-                         <p className="text-slate-500 text-[11px]">Tiền Theo Đơn</p>
-                         <p className="font-bold text-slate-600">{formatCurrency(pc.expectedAmount)}</p>
-                       </div>
-                        <div className="text-right">
-                          <p className="text-slate-500 text-[11px]">Tiền Thực Thu</p>
-                          <p className="font-bold text-slate-800">{formatCurrency(pc.collectedAmount)}</p>
+                    {!isCollapsed && (
+                    <div className="flex flex-col gap-3">
+                      {groupedCollections[dateKey].map(pc => (
+                        <div key={pc.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm relative overflow-hidden group">
+                          <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${pc.status === 'confirmed' ? 'bg-green-500' : pc.status === 'submitted' ? 'bg-yellow-500' : pc.status === 'self_confirmed' ? 'bg-blue-500' : 'bg-slate-300'}`} />
+                          <div className="flex justify-between items-start mb-3 pl-2">
+                            <div>
+                              <h3 className="font-bold text-slate-800 text-[14px]">{pc.deliveryOrderCode}</h3>
+                              <p className="text-[12px] text-slate-500">{pc.customerName}</p>
+                            </div>
+                            <div>{getStatusBadge(pc.status)}</div>
+                          </div>
+                          
+                           <div className="grid grid-cols-2 gap-y-2 mb-3 pl-2 text-[13px]">
+                             <div>
+                               <p className="text-slate-500 text-[11px]">Tài xế</p>
+                               <p className="font-medium text-slate-600">{pc.driverName || '--'}</p>
+                             </div>
+                             <div className="text-right">
+                               <p className="text-slate-500 text-[11px]">Biển số xe</p>
+                               <p className="font-medium text-slate-600">{pc.licensePlate || '--'}</p>
+                             </div>
+                             <div>
+                               <p className="text-slate-500 text-[11px]">Số kiện</p>
+                               <p className="font-medium text-slate-600">{pc.totalPackages ? `${pc.totalPackages} kiện` : '--'}</p>
+                             </div>
+                             <div className="text-right">
+                               <p className="text-slate-500 text-[11px]">Đơn giá</p>
+                               <p className="font-medium text-slate-600">{pc.pricePerPackage ? formatCurrency(pc.pricePerPackage) : '--'}</p>
+                             </div>
+                             <div>
+                               <p className="text-slate-500 text-[11px]">Tổng Tiền Giao</p>
+                               <p className="font-bold text-slate-600">{formatCurrency(pc.expectedAmount)}</p>
+                             </div>
+                              <div className="text-right">
+                                <p className="text-slate-500 text-[11px]">Tiền Thực Thu</p>
+                                <p className="font-bold text-slate-800">{formatCurrency(pc.collectedAmount)}</p>
+                              </div>
+                           </div>
+       
+                           <div className="flex justify-between items-center pt-3 border-t border-slate-100 pl-2">
+      
+                             <div className="text-[11px] text-slate-500">
+                               {formatTime(pc.collectedAt)}
+                             </div>
+                             {!readonly && (
+                               <div className="flex space-x-2">
+                                {pc.status === 'draft' && (
+                                  <>
+                                    <button onClick={() => handleAction('edit', pc)} className="text-[11px] font-medium text-slate-600 border border-slate-200 px-2.5 py-1.5 rounded-md bg-slate-50">Sửa</button>
+                                    <button onClick={() => handleAction('submit', pc)} className="text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-1.5 rounded-md">Nộp</button>
+                                  </>
+                                )}
+                                {pc.status === 'submitted' && (
+                                  <button onClick={() => { if (confirm('Bạn có chắc muốn hủy nộp phiếu này?')) revert(pc.id); }} className="text-[11px] font-bold text-yellow-600 bg-yellow-50 px-2.5 py-1.5 rounded-md border border-yellow-200">Hủy</button>
+                                )}
+                               </div>
+                             )}
+                          </div>
                         </div>
-                     </div>
- 
-                     <div className="flex justify-between items-center pt-3 border-t border-slate-100 pl-2">
-
-                       <div className="text-[11px] text-slate-500">
-                         {formatDate(pc.collectedAt)} {formatTime(pc.collectedAt)}
-                       </div>
-                       {!readonly && (
-                         <div className="flex space-x-2">
-                          {pc.status === 'draft' && (
-                            <>
-                              <button onClick={() => handleAction('edit', pc)} className="text-[11px] font-medium text-slate-600 border border-slate-200 px-2.5 py-1.5 rounded-md bg-slate-50">Sửa</button>
-                              <button onClick={() => handleAction('submit', pc)} className="text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-1.5 rounded-md">Nộp</button>
-                            </>
-                          )}
-                          {pc.status === 'submitted' && (
-                            <button onClick={() => { if (confirm('Bạn có chắc muốn hủy nộp phiếu này?')) revert(pc.id); }} className="text-[11px] font-bold text-yellow-600 bg-yellow-50 px-2.5 py-1.5 rounded-md border border-yellow-200">Hủy</button>
-                          )}
-                         </div>
-                       )}
+                      ))}
                     </div>
+                    )}
                   </div>
-                ))}
+                )})}
               </div>
 
               {/* Desktop Table Layout */}
@@ -351,71 +409,96 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
                 <table className="w-full text-left border-collapse">
                 <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-200 text-[12px] font-bold text-slate-600 uppercase tracking-wider">
-                  <th className="px-4 py-3">Mã Đơn / Khách Hàng</th>
-                  <th className="px-4 py-3">Tài Xế</th>
+                  <th className="px-4 py-3">Mã Số</th>
+                  <th className="px-4 py-3">Khách Hàng</th>
+                  <th className="px-4 py-3">Số Lượng Kiện</th>
+                  <th className="px-4 py-3">Đơn Giá</th>
+                  <th className="px-4 py-3">Tổng Tiền Giao</th>
                   <th className="px-4 py-3">Biển Số Xe</th>
-                  <th className="px-4 py-3">Tiền Theo Đơn</th>
+                  <th className="px-4 py-3">Người Giao</th>
                   <th className="px-4 py-3">Tiền Thực Thu</th>
                   <th className="px-4 py-3">Thu Lúc</th>
-                  <th className="px-4 py-3">Người Nhận</th>
                   <th className="px-4 py-3">Trạng Thái</th>
                   {!readonly && <th className="px-4 py-3 text-right">Thao Tác</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filtered.map(pc => (
-                  <tr key={pc.id} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-3 text-[13px]">
-                      <div className="font-bold text-slate-800">{pc.deliveryOrderCode}</div>
-                      <div className="text-slate-500">{pc.customerName}</div>
-                    </td>
-                    <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
-                      {pc.driverName || '--'}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
-                      {pc.licensePlate || '--'}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
-                      {formatCurrency(pc.expectedAmount)}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] font-bold text-slate-800">
-                      {formatCurrency(pc.collectedAmount)}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-slate-600">
-                      {formatDate(pc.collectedAt)} {formatTime(pc.collectedAt)}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-slate-600">
-                      {pc.receiverName ? (
-                        <span className="font-medium">{pc.receiverName}</span>
-                      ) : (
-                        <span className="text-slate-400 italic">--</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {getStatusBadge(pc.status)}
-                    </td>
-                    {!readonly && (
-                      <td className="px-4 py-3 text-right space-x-2">
-                        {pc.status === 'draft' && (
-                          <>
-                            <button onClick={() => handleAction('submit', pc)} className="text-[12px] font-bold text-primary hover:text-primary/80 bg-primary/10 px-3 py-1.5 rounded-md">
-                              Nộp Tiền
-                            </button>
-                            <button onClick={() => handleAction('self_confirm', pc)} className="text-[12px] font-bold text-slate-600 hover:text-slate-800 bg-slate-100 px-3 py-1.5 rounded-md">
-                              Tự XN
-                            </button>
-                            <button onClick={() => handleAction('edit', pc)} className="text-[12px] font-medium text-slate-500 hover:text-slate-700">Sửa</button>
-                          </>
-                        )}
-                        {pc.status === 'submitted' && (
-                          <button onClick={() => { if (confirm('Bạn có chắc muốn hủy nộp phiếu này?')) revert(pc.id); }} className="text-[12px] font-bold text-yellow-600 hover:text-yellow-700 bg-yellow-50 px-3 py-1.5 rounded-md border border-yellow-200">
-                            Hủy Nộp
-                          </button>
-                        )}
+                {sortedDates.map(dateKey => {
+                  const isCollapsed = collapsedDates[dateKey];
+                  return (
+                  <React.Fragment key={dateKey}>
+                    <tr 
+                      className="bg-slate-100/50 cursor-pointer select-none hover:bg-slate-200/50 transition-colors"
+                      onClick={() => toggleDate(dateKey)}
+                    >
+                      <td colSpan={readonly ? 10 : 11} className="px-4 py-2 text-[13px] font-bold text-slate-700">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {isCollapsed ? <ChevronRight size={16} className="text-slate-500" /> : <ChevronDown size={16} className="text-slate-500" />}
+                            <span>{formatDate(dateKey)}</span>
+                          </div>
+                          <span className="text-slate-500 font-medium">
+                            {groupedCollections[dateKey].length} phiếu • Tổng: {formatCurrency(groupedCollections[dateKey].reduce((sum, pc) => sum + pc.collectedAmount, 0))}
+                          </span>
+                        </div>
                       </td>
-                    )}
-                  </tr>
-                ))}
+                    </tr>
+                    {!isCollapsed && groupedCollections[dateKey].map(pc => (
+                      <tr key={pc.id} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-3 text-[13px] font-bold text-slate-800">
+                          {pc.deliveryOrderCode}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-slate-600">
+                          {pc.customerName}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-slate-600">
+                          {pc.totalPackages ? `${pc.totalPackages} kiện` : '--'}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-slate-600">
+                          {pc.pricePerPackage ? formatCurrency(pc.pricePerPackage) : '--'}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
+                          {formatCurrency(pc.expectedAmount)}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
+                          {pc.licensePlate || '--'}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
+                          {pc.driverName || '--'}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] font-bold text-slate-800">
+                          {formatCurrency(pc.collectedAmount)}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-slate-600">
+                          {formatTime(pc.collectedAt)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {getStatusBadge(pc.status)}
+                        </td>
+                        {!readonly && (
+                          <td className="px-4 py-3 text-right space-x-2">
+                            {pc.status === 'draft' && (
+                              <>
+                                <button onClick={() => handleAction('submit', pc)} className="text-[12px] font-bold text-primary hover:text-primary/80 bg-primary/10 px-3 py-1.5 rounded-md">
+                                  Nộp Tiền
+                                </button>
+                                <button onClick={() => handleAction('self_confirm', pc)} className="text-[12px] font-bold text-slate-600 hover:text-slate-800 bg-slate-100 px-3 py-1.5 rounded-md">
+                                  Tự XN
+                                </button>
+                                <button onClick={() => handleAction('edit', pc)} className="text-[12px] font-medium text-slate-500 hover:text-slate-700">Sửa</button>
+                              </>
+                            )}
+                            {pc.status === 'submitted' && (
+                              <button onClick={() => { if (confirm('Bạn có chắc muốn hủy nộp phiếu này?')) revert(pc.id); }} className="text-[12px] font-bold text-yellow-600 hover:text-yellow-700 bg-yellow-50 px-3 py-1.5 rounded-md border border-yellow-200">
+                                Hủy Nộp
+                              </button>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                )})}
               </tbody>
                 </table>
               </div>

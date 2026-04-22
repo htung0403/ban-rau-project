@@ -421,6 +421,8 @@ export interface PaymentCollection {
   notes?: string;
   imageUrl?: string;
   imageUrls?: string[];
+  totalPackages?: number;
+  pricePerPackage?: number;
 }
 
 export interface CreatePaymentCollectionDto {

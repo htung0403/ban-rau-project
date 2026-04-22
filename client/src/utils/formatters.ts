@@ -5,11 +5,11 @@ export const formatCurrency = (amount: number) => {
 export const formatDate = (dateStr: string) => {
   if (!dateStr) return '';
   const date = new Date(dateStr);
-  return date.toLocaleDateString('vi-VN');
+  return date.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
 };
 
 export const formatTime = (dateStr: string) => {
   if (!dateStr) return '';
   const date = new Date(dateStr);
-  return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' });
 };

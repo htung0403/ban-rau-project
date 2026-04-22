@@ -5,7 +5,7 @@ import { isDriverLikeRoleKey } from '../../../utils/routePermissions';
 import { usePaymentCollections } from '../../../hooks/queries/usePaymentCollections';
 import { useEmployees } from '../../../hooks/queries/useHR';
 import { useVehicles } from '../../../hooks/queries/useVehicles';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { DatePicker } from '../../../components/shared/DatePicker';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import MobileFilterSheet from '../../../components/shared/MobileFilterSheet';
@@ -18,6 +18,18 @@ import { matchesSearch } from '../../../lib/str-utils';
 import type { PaymentCollection } from '../../../types';
 import { Filter } from 'lucide-react';
 
+const getLocalDateKey = (value: string | undefined | null) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en-CA', { 
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+};
+
 const StaffConfirmationTab: React.FC = () => {
   const { user } = useAuth();
   const isDriver = isDriverLikeRoleKey(user?.role || '');
@@ -29,6 +41,15 @@ const StaffConfirmationTab: React.FC = () => {
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
+
+  const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
+
+  const toggleDate = (dateKey: string) => {
+    setCollapsedDates(prev => ({
+      ...prev,
+      [dateKey]: !prev[dateKey]
+    }));
+  };
 
   const closeFilter = () => {
     setIsFilterClosing(true);
@@ -70,6 +91,25 @@ const StaffConfirmationTab: React.FC = () => {
   };
 
   const hasActiveFilters = filterDate || filterDriverId || filterVehicleId;
+
+  const groupedCollections = filtered.reduce((acc, pc) => {
+    const dateKey = getLocalDateKey(pc.submittedAt);
+    if (!dateKey) return acc;
+    if (!acc[dateKey]) {
+      acc[dateKey] = [];
+    }
+    acc[dateKey].push(pc);
+    return acc;
+  }, {} as Record<string, PaymentCollection[]>);
+
+  const sortedDates = Object.keys(groupedCollections).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  sortedDates.forEach(date => {
+    groupedCollections[date].sort((a, b) => {
+      const timeA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+      const timeB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+      return timeB - timeA;
+    });
+  });
 
   return (
     <div className="space-y-6">
@@ -171,49 +211,69 @@ const StaffConfirmationTab: React.FC = () => {
           ) : (
             <>
               {/* Mobile Card Layout */}
-              <div className="md:hidden flex flex-col gap-3 pb-6">
-                {filtered.map(pc => (
-                  <div key={pc.id} className="bg-white rounded-xl border border-yellow-200/50 p-4 shadow-sm relative overflow-hidden">
-                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-yellow-500" />
-                    
-                    <div className="flex justify-between items-start mb-3 pl-2">
-                      <div>
-                        <h3 className="font-bold text-slate-800 text-[14px]">{pc.deliveryOrderCode}</h3>
-                        <p className="text-[12px] text-slate-500">{pc.customerName}</p>
+              <div className="md:hidden flex flex-col gap-6 pb-6">
+                {sortedDates.map(dateKey => {
+                  const isCollapsed = collapsedDates[dateKey];
+                  return (
+                  <div key={dateKey} className="space-y-3">
+                    <div 
+                      className="flex items-center justify-between px-1 cursor-pointer select-none"
+                      onClick={() => toggleDate(dateKey)}
+                    >
+                      <div className="flex items-center gap-2">
+                        {isCollapsed ? <ChevronRight size={18} className="text-slate-500" /> : <ChevronDown size={18} className="text-slate-500" />}
+                        <h3 className="font-bold text-slate-800">{formatDate(dateKey)}</h3>
                       </div>
-                      <span className="bg-yellow-100 text-yellow-700 text-[11px] px-2 py-0.5 rounded font-bold">Chờ XN</span>
+                      <span className="text-[12px] text-slate-500 font-medium">
+                        {groupedCollections[dateKey].length} phiếu • {formatCurrency(groupedCollections[dateKey].reduce((sum, pc) => sum + pc.collectedAmount, 0))}
+                      </span>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-2 mb-3 pl-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                      <div>
-                        <p className="text-slate-500 text-[11px]">Tài xế</p>
-                        <p className="font-bold text-slate-800 text-[13px]">{pc.driverName || '--'}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-slate-500 text-[11px]">Biển số xe</p>
-                        <p className="font-bold text-slate-800 text-[13px]">{pc.licensePlate || '--'}</p>
-                      </div>
-                      <div className="col-span-2 flex justify-between items-center pt-1 border-t border-slate-200/60 mt-1">
-                        <p className="text-slate-500 text-[11px]">Tiền Thực Thu</p>
-                        <p className="font-bold text-slate-800 text-[13px]">{formatCurrency(pc.collectedAmount)}</p>
-                      </div>
+                    {!isCollapsed && (
+                    <div className="flex flex-col gap-3">
+                      {groupedCollections[dateKey].map(pc => (
+                        <div key={pc.id} className="bg-white rounded-xl border border-yellow-200/50 p-4 shadow-sm relative overflow-hidden">
+                          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-yellow-500" />
+                          
+                          <div className="flex justify-between items-start mb-3 pl-2">
+                            <div>
+                              <h3 className="font-bold text-slate-800 text-[14px]">{pc.deliveryOrderCode}</h3>
+                              <p className="text-[12px] text-slate-500">{pc.customerName}</p>
+                            </div>
+                            <span className="bg-yellow-100 text-yellow-700 text-[11px] px-2 py-0.5 rounded font-bold">Chờ XN</span>
+                          </div>
+      
+                          <div className="grid grid-cols-2 gap-2 mb-3 pl-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <div>
+                              <p className="text-slate-500 text-[11px]">Tài xế</p>
+                              <p className="font-bold text-slate-800 text-[13px]">{pc.driverName || '--'}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-slate-500 text-[11px]">Biển số xe</p>
+                              <p className="font-bold text-slate-800 text-[13px]">{pc.licensePlate || '--'}</p>
+                            </div>
+                            <div className="col-span-2 flex justify-between items-center pt-1 border-t border-slate-200/60 mt-1">
+                              <p className="text-slate-500 text-[11px]">Tiền Thực Thu</p>
+                              <p className="font-bold text-slate-800 text-[13px]">{formatCurrency(pc.collectedAmount)}</p>
+                            </div>
+                          </div>
+      
+                          <div className="flex justify-between items-center pt-3 border-t border-slate-100 pl-2">
+                             <div className="text-[11px] text-slate-500">
+                               {pc.submittedAt ? formatTime(pc.submittedAt) : '-'}
+                             </div>
+                             <button 
+                               onClick={() => handleConfirm(pc)} 
+                               className="text-[12px] font-bold text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm shadow-green-600/20"
+                             >
+                               <CheckCircle size={14} /> Xác Nhận
+                             </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-
-                    <div className="flex justify-between items-center pt-3 border-t border-slate-100 pl-2">
-                       <div className="text-[11px] text-slate-500">
-                         {pc.submittedAt ? (
-                           <>{formatDate(pc.submittedAt)} {formatTime(pc.submittedAt)}</>
-                         ) : '-'}
-                       </div>
-                       <button 
-                         onClick={() => handleConfirm(pc)} 
-                         className="text-[12px] font-bold text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm shadow-green-600/20"
-                       >
-                         <CheckCircle size={14} /> Xác Nhận
-                       </button>
-                    </div>
+                    )}
                   </div>
-                ))}
+                )})}
               </div>
 
               {/* Desktop Table Layout */}
@@ -231,46 +291,65 @@ const StaffConfirmationTab: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filtered.map(pc => (
-                  <tr key={pc.id} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-3 text-[13px]">
-                      <div className="font-bold text-slate-800">{pc.deliveryOrderCode}</div>
-                      <div className="text-slate-500">{pc.customerName}</div>
-                    </td>
-                    <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
-                      {pc.driverName || '--'}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
-                      {pc.licensePlate || '--'}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] font-bold text-slate-800">
-                      {formatCurrency(pc.collectedAmount)}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-slate-600">
-                      {pc.receiverName ? (
-                        <span className="font-medium">{pc.receiverName}</span>
-                      ) : (
-                        <span className="text-slate-400 italic">--</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-slate-600">
-                      {pc.submittedAt ? (
-                        <>
-                          <div>{formatDate(pc.submittedAt)}</div>
-                          <div className="text-slate-400">{formatTime(pc.submittedAt)}</div>
-                        </>
-                      ) : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-right space-x-2">
-                      <button 
-                        onClick={() => handleConfirm(pc)} 
-                        className="text-[12px] font-bold text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-md flex items-center gap-1 inline-flex"
-                      >
-                        <CheckCircle size={14} /> Xác Nhận
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {sortedDates.map(dateKey => {
+                  const isCollapsed = collapsedDates[dateKey];
+                  return (
+                  <React.Fragment key={dateKey}>
+                    <tr 
+                      className="bg-slate-100/50 cursor-pointer select-none hover:bg-slate-200/50 transition-colors"
+                      onClick={() => toggleDate(dateKey)}
+                    >
+                      <td colSpan={7} className="px-4 py-2 text-[13px] font-bold text-slate-700">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {isCollapsed ? <ChevronRight size={16} className="text-slate-500" /> : <ChevronDown size={16} className="text-slate-500" />}
+                            <span>{formatDate(dateKey)}</span>
+                          </div>
+                          <span className="text-slate-500 font-medium">
+                            {groupedCollections[dateKey].length} phiếu • Tổng: {formatCurrency(groupedCollections[dateKey].reduce((sum, pc) => sum + pc.collectedAmount, 0))}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                    {!isCollapsed && groupedCollections[dateKey].map(pc => (
+                      <tr key={pc.id} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-3 text-[13px]">
+                          <div className="font-bold text-slate-800">{pc.deliveryOrderCode}</div>
+                          <div className="text-slate-500">{pc.customerName}</div>
+                        </td>
+                        <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
+                          {pc.driverName || '--'}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
+                          {pc.licensePlate || '--'}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] font-bold text-slate-800">
+                          {formatCurrency(pc.collectedAmount)}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-slate-600">
+                          {pc.receiverName ? (
+                            <span className="font-medium">{pc.receiverName}</span>
+                          ) : (
+                            <span className="text-slate-400 italic">--</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-slate-600">
+                          {pc.submittedAt ? (
+                            <div className="text-slate-500">{formatTime(pc.submittedAt)}</div>
+                          ) : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-right space-x-2">
+                          <button 
+                            onClick={() => handleConfirm(pc)} 
+                            className="text-[12px] font-bold text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-md flex items-center gap-1 inline-flex"
+                          >
+                            <CheckCircle size={14} /> Xác Nhận
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                )})}
               </tbody>
                 </table>
               </div>

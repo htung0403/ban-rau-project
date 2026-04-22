@@ -11,13 +11,15 @@ interface DatePickerProps {
   onChange: (value: string) => void;
   className?: string;
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export const DatePicker: React.FC<DatePickerProps> = ({ 
   value, 
   onChange, 
   className, 
-  placeholder = "dd/mm/yyyy" 
+  placeholder = "dd/mm/yyyy",
+  disabled = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -48,9 +50,11 @@ export const DatePicker: React.FC<DatePickerProps> = ({
       <PopoverTrigger asChild>
         <button
           type="button"
+          disabled={disabled}
           className={clsx(
             "flex items-center justify-between w-full px-3 py-2 bg-muted border border-border rounded-xl text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all",
             !dateObj && "text-muted-foreground",
+            disabled && "opacity-50 cursor-not-allowed",
             className
           )}
         >

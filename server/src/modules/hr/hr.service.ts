@@ -469,9 +469,6 @@ export class HRService {
 
     if (fetchError) throw fetchError;
     if (!existing) throw new Error('Không tìm thấy phiếu chi phí');
-    if (existing.payment_status !== 'paid') {
-      throw new Error('Chỉ xác nhận phiếu ở trạng thái đã thanh toán');
-    }
 
     const { data, error } = await supabaseService
       .from('expenses')

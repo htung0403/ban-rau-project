@@ -416,7 +416,9 @@ const ExpensesPage = () => {
                 <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                   <Receipt size={20} />
                 </div>
-                <h2 className="text-lg font-bold text-foreground">{editingExpense ? 'Sửa chi phí' : 'Thêm chi phí'}</h2>
+                <h2 className="text-lg font-bold text-foreground">
+                  {editingExpense ? (editingExpense.payment_status === 'confirmed' ? 'Chi tiết chi phí' : 'Sửa chi phí') : 'Thêm chi phí'}
+                </h2>
               </div>
               <button
                 onClick={closeDialog}

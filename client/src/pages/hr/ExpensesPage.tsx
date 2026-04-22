@@ -15,10 +15,11 @@ import { CustomSelect } from '../../components/shared/CustomSelect';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { SearchInput } from '../../components/ui/SearchInput';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
+import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { uploadApi } from '../../api/uploadApi';
 import { format } from 'date-fns';
 import { matchesSearch } from '../../lib/str-utils';
-import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, Eye, ChevronLeft, ChevronRight as ChevronRightIcon, Camera } from 'lucide-react';
+import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, Eye, ChevronLeft, ChevronRight as ChevronRightIcon, Camera, Filter } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import type { Expense } from '../../types';
@@ -36,6 +37,8 @@ const ExpensesPage = () => {
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [isFilterSheetClosing, setIsFilterSheetClosing] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -273,8 +276,8 @@ const ExpensesPage = () => {
           <EmptyState title="Chưa có chi phí nào" />
         ) : (
           <div className="flex-1 flex flex-col min-h-0">
-            {/* Filter Bar */}
-            <div className="p-3 border-b border-border/50 flex flex-col sm:flex-row gap-3 shrink-0 bg-muted/5">
+            {/* Filter Bar (Desktop) */}
+            <div className="p-3 border-b border-border/50 hidden sm:flex flex-row gap-3 shrink-0 bg-muted/5">
               <div className="flex-1 min-w-[200px]">
                 <SearchInput
                   placeholder="Tìm tên chi phí, nhân viên, biển số xe..."
@@ -318,6 +321,26 @@ const ExpensesPage = () => {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Filter Bar (Mobile) */}
+            <div className="p-3 border-b border-border/50 flex sm:hidden flex-row gap-2 shrink-0 bg-muted/5">
+              <div className="flex-1">
+                <SearchInput
+                  placeholder="Tìm kiếm nhanh..."
+                  onSearch={(val) => setSearchQuery(val)}
+                  className="bg-background"
+                />
+              </div>
+              <button
+                onClick={() => setIsFilterSheetOpen(true)}
+                className="flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-background text-muted-foreground hover:bg-muted transition-all relative"
+              >
+                <Filter size={18} />
+                {(filterEmployee || filterVehicle || filterStatus) && (
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border border-background" />
+                )}
+              </button>
             </div>
 
             <div className="flex-1 overflow-auto custom-scrollbar">
@@ -761,6 +784,53 @@ const ExpensesPage = () => {
         </div>,
         document.body
       )}
+
+      <MobileFilterSheet
+        isOpen={isFilterSheetOpen}
+        isClosing={isFilterSheetClosing}
+        onClose={() => {
+          setIsFilterSheetClosing(true);
+          setTimeout(() => {
+            setIsFilterSheetOpen(false);
+            setIsFilterSheetClosing(false);
+          }, 300);
+        }}
+        onApply={(filters) => {
+          setFilterStatus(filters.status);
+        }}
+        initialDateFrom=""
+        initialDateTo=""
+        initialStatus={filterStatus}
+        hideDateFilter
+        statusOptions={[
+          { value: 'unpaid', label: 'Chưa thanh toán' },
+          { value: 'paid', label: 'Đã thanh toán' },
+          { value: 'confirmed', label: 'Đã xác nhận' }
+        ]}
+      >
+        {user?.role === 'admin' && (
+          <div className="space-y-1.5">
+            <label className="text-[13px] font-bold text-muted-foreground">Nhân viên</label>
+            <SearchableSelect
+              value={filterEmployee}
+              onValueChange={setFilterEmployee}
+              options={[{ value: '', label: 'Tất cả nhân viên' }, ...employeeOptions]}
+              placeholder="Chọn nhân viên"
+              className="w-full bg-muted/10 h-11"
+            />
+          </div>
+        )}
+        <div className="space-y-1.5">
+          <label className="text-[13px] font-bold text-muted-foreground">Xe</label>
+          <SearchableSelect
+            value={filterVehicle}
+            onValueChange={setFilterVehicle}
+            options={[{ value: '', label: 'Tất cả xe' }, ...vehicleOptions.filter(v => v.value !== '')]}
+            placeholder="Chọn xe"
+            className="w-full bg-muted/10 h-11"
+          />
+        </div>
+      </MobileFilterSheet>
 
       <ConfirmDialog
         isOpen={!!deleteId}

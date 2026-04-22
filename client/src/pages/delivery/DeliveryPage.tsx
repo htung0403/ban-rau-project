@@ -76,6 +76,7 @@ const getOrderPreviewImage = (order: any) => {
   if (!order) return null;
   const directImage = order.image_url;
   if (directImage) return directImage;
+  if (order.image_urls && Array.isArray(order.image_urls) && order.image_urls.length > 0) return order.image_urls[0];
 
   const paymentImage = order.payment_collections?.find((pc: any) => pc.image_url)?.image_url;
   if (paymentImage) return paymentImage;

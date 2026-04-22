@@ -65,15 +65,9 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const assignMutation = useAssignVehicle();
   const { user } = useAuth();
 
-  const targetCategory = (order?.order_category ?? 'standard') === 'vegetable' ? 'vegetable' : 'grocery';
-  const eligibleVehicles = React.useMemo(
-    () => (vehicles || []).filter((vehicle) => vehicleSupportsGoodsCategory(vehicle, targetCategory)),
-    [vehicles, targetCategory]
-  );
-
   const normalizedRole = (user?.role || '').toLowerCase();
-  const isLoader = normalizedRole.includes('lo_xe');
-  const isDriver = normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('driver') || isLoader;
+  const isLoader = normalizedRole.includes('lo_xe') || normalizedRole.includes('lơ xe');
+  const isDriver = normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('tài xế') || normalizedRole.includes('driver') || isLoader;
   
   const myEmployee = React.useMemo(() => {
     if (!user) return null;
@@ -84,13 +78,28 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
   const myVehicle = React.useMemo(() => {
     if (!myEmployeeId && !user?.full_name) return undefined;
-    return eligibleVehicles.find(v => 
+    const allVehs = vehicles || [];
+    return allVehs.find(v => 
       v.driver_id === myEmployeeId || 
       v.in_charge_id === myEmployeeId ||
       (user?.full_name && v.profiles?.full_name === user.full_name) ||
       (user?.full_name && v.responsible_profile?.full_name === user.full_name)
     );
-  }, [eligibleVehicles, myEmployeeId, user?.full_name]);
+  }, [vehicles, myEmployeeId, user?.full_name]);
+
+  const targetCategory = (order?.order_category ?? 'standard') === 'vegetable' ? 'vegetable' : 'grocery';
+  const eligibleVehicles = React.useMemo(
+    () => {
+      let filtered = (vehicles || []).filter((vehicle) => vehicleSupportsGoodsCategory(vehicle, targetCategory));
+      
+      if (isDriver && myVehicle) {
+        filtered = filtered.filter(v => v.id === myVehicle.id);
+      }
+      
+      return filtered;
+    },
+    [vehicles, targetCategory, isDriver, myVehicle]
+  );
 
   const {
     register,
@@ -427,8 +436,12 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                   ? (order?.payment_collections || []).some((pc: any) => pc.vehicle_id === currentVid && (pc.status === 'confirmed' || pc.status === 'self_confirmed'))
                   : false;
 
-                // Nếu là driver, disable các dòng không phải xe của mình
                 const isMyVehicleRow = currentVid === myVehicle?.id;
+                
+                if (isDriver && !isMyVehicleRow && currentVid) {
+                  return null;
+                }
+
                 const isRowDisabled = isPaid || (isDriver && !isMyVehicleRow);
 
                 return (

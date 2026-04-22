@@ -39,6 +39,8 @@ const ExpensesPage = () => {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const confirmingExpense = expenses?.find(e => e.id === confirmId);
 
+  const isViewOnly = editingExpense?.payment_status === 'confirmed';
+
   const [previewImages, setPreviewImages] = useState<string[] | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -677,7 +679,7 @@ const ExpensesPage = () => {
         isLoading={confirmMutation.isPending}
       />
 
-      {previewImages && (
+      {previewImages && createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 animate-in fade-in duration-300">
           <button
             onClick={() => setPreviewImages(null)}
@@ -721,7 +723,8 @@ const ExpensesPage = () => {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

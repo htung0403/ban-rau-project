@@ -39,10 +39,9 @@ const ExpensesPage = () => {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const confirmingExpense = expenses?.find(e => e.id === confirmId);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const isViewOnly = editingExpense?.payment_status === 'confirmed';
 
-  const [formData, setFormData] = useState({
+  const closeDialog = () => {
     employee_id: user?.id || '',
     vehicle_id: '' as string | null,
     expense_name: '',
@@ -447,6 +446,7 @@ const ExpensesPage = () => {
                         placeholder="Chọn nhân viên"
                         className="w-full h-11"
                         align="start"
+                        disabled={isViewOnly}
                       />
                     </div>
                   )}
@@ -459,6 +459,7 @@ const ExpensesPage = () => {
                       value={formData.expense_name}
                       onChange={(e) => setFormData({ ...formData, expense_name: e.target.value })}
                       placeholder="Ví dụ: Đổ xăng, Phí cầu đường..."
+                      disabled={isViewOnly}
                     />
                   </div>
 
@@ -471,6 +472,7 @@ const ExpensesPage = () => {
                       placeholder="Chọn xe"
                       className="w-full h-11"
                       align="start"
+                      disabled={isViewOnly}
                     />
                   </div>
 
@@ -484,6 +486,7 @@ const ExpensesPage = () => {
                          onChange={(val) => setFormData({ ...formData, amount: val })}
                          className="flex h-11 w-full rounded-xl border border-border/80 bg-background pl-8 pr-3 py-2 text-[14px] ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all font-medium text-emerald-600"
                          placeholder="Ví dụ: 500,000"
+                         disabled={isViewOnly}
                        />
                     </div>
                   </div>
@@ -494,6 +497,7 @@ const ExpensesPage = () => {
                       value={formData.expense_date}
                       onChange={(val) => setFormData({ ...formData, expense_date: val })}
                       className="w-full h-11"
+                      disabled={isViewOnly}
                     />
                   </div>
 
@@ -508,48 +512,53 @@ const ExpensesPage = () => {
                       ]}
                       className="w-full h-11"
                       align="start"
+                      disabled={isViewOnly}
                     />
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-bold text-foreground">Hình ảnh / Hóa đơn</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {formData.image_urls.map((url, idx) => (
-                        <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden group">
-                          <img src={url} alt="Receipt" className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => removeImage(idx)}
-                            className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X size={14} />
-                          </button>
+                        <div className="grid grid-cols-3 gap-2">
+                          {formData.image_urls.map((url, idx) => (
+                            <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden group">
+                              <img src={url} alt="Receipt" className="w-full h-full object-cover" />
+                              {!isViewOnly && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeImage(idx)}
+                                  className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X size={14} />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          {!isViewOnly && (
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={isUploading}
+                              className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-emerald-500/50 hover:bg-emerald-50/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isUploading ? (
+                                <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <>
+                                  <Upload size={20} />
+                                  <span className="text-[11px] font-medium">Tải ảnh lên</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            multiple
+                            accept="image/*"
+                            className="hidden"
+                          />
                         </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isUploading}
-                        className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-emerald-500/50 hover:bg-emerald-50/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isUploading ? (
-                          <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <>
-                            <Upload size={20} />
-                            <span className="text-[11px] font-medium">Tải ảnh lên</span>
-                          </>
-                        )}
-                      </button>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        multiple
-                        accept="image/*"
-                        className="hidden"
-                      />
-                    </div>
                   </div>
                 </div>
               </div>

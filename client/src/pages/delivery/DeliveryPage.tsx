@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { Calendar, PlusCircle, Truck, CheckCircle, Check, Store, Package, User, Image as ImageIcon, Eye, Trash2, Pencil, RotateCcw } from 'lucide-react';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import PageHeader from '../../components/shared/PageHeader';
-import { useDeliveryOrders, useAssignVehicle, useConfirmDelivery, useDeleteDeliveryOrders } from '../../hooks/queries/useDelivery';
+import { useDeliveryOrders, useConfirmDelivery, useDeleteDeliveryOrders } from '../../hooks/queries/useDelivery';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
@@ -50,14 +50,6 @@ const PAYMENT_STATUS_CONFIG = {
   unpaid: { label: 'Chưa thu', className: 'bg-red-500/10 text-red-700 dark:text-red-500 border-red-200/20' },
   partial: { label: 'Thu một phần', className: 'bg-amber-500/10 text-amber-700 dark:text-amber-500 border-amber-200/20' },
   paid: { label: 'Đã thu', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 border-emerald-200/20' },
-};
-
-type VehicleAssignment = {
-  vehicle_id: string;
-  driver_id: string;
-  loader_name: string;
-  quantity: number;
-  expected_amount: number;
 };
 
 const isPaidCollectionStatus = (status?: string) => status === 'confirmed' || status === 'self_confirmed';
@@ -179,7 +171,6 @@ const DeliveryPage: React.FC = () => {
     }
     return base;
   }, [ordersRaw, user, vehicles]);
-  const assignMutation = useAssignVehicle();
   const confirmMutation = useConfirmDelivery();
   const deleteMutation = useDeleteDeliveryOrders();
 
@@ -299,59 +290,9 @@ const DeliveryPage: React.FC = () => {
   const handleOrderClick = async (order: DeliveryOrder, vehicleId?: string) => {
     if (isDriver && !isLoader && myVehicleIds.length === 0) return;
 
-    const existingDvs = order.delivery_vehicles || [];
-    const totalAssigned = existingDvs.reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
-    const remainingQty = order.total_quantity - totalAssigned;
-
     const clickedVehicleId = vehicleId || (myVehicleIds.length === 1 ? myPrimaryVehicleId : undefined);
 
-    if (
-      isDriver &&
-      clickedVehicleId &&
-      myVehicleIdSet.has(clickedVehicleId) &&
-      existingDvs.length > 0 &&
-      remainingQty > 0
-    ) {
-      const assignments: VehicleAssignment[] = [];
-      existingDvs.forEach((dv) => {
-        if (!dv.vehicle_id) return;
-        assignments.push({
-          vehicle_id: dv.vehicle_id,
-          driver_id: dv.driver_id || '',
-          loader_name: dv.loader_name || '',
-          quantity: dv.assigned_quantity || 0,
-          expected_amount: Number(dv.expected_amount || 0)
-        });
-      });
-
-      const myExistingIndex = assignments.findIndex((p) => p.vehicle_id === clickedVehicleId);
-      const uPrice = order.unit_price || 0;
-      if (myExistingIndex >= 0) {
-        assignments[myExistingIndex].quantity += remainingQty;
-        assignments[myExistingIndex].expected_amount = assignments[myExistingIndex].quantity * uPrice;
-      } else {
-        assignments.push({
-          vehicle_id: clickedVehicleId,
-          driver_id: user?.id || '',
-          loader_name: '',
-          quantity: remainingQty,
-          expected_amount: remainingQty * uPrice
-        });
-      }
-
-      try {
-        await assignMutation.mutateAsync({
-           id: order.id,
-           payload: { assignments }
-        });
-        return;
-      } catch {
-        // Fallback to dialog on error, or just do nothing
-        return;
-      }
-    }
-
-    openAssign(order, vehicleId);
+    openAssign(order, clickedVehicleId);
   };
 
   const handleConfirm = async (orderIds: string[]) => {

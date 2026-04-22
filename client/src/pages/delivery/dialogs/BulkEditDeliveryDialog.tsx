@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Loader2, UploadCloud } from 'lucide-react';
+import { X, Loader2, Trash2, ImagePlus } from 'lucide-react';
 import { useUpdateDeliveryOrder } from '../../../hooks/queries/useDelivery';
 import { useProducts } from '../../../hooks/queries/useProducts';
 import { CreatableSearchableSelect } from '../../../components/ui/CreatableSearchableSelect';
@@ -104,7 +104,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
       }));
   }, [allCustomers, isVeg]);
 
-  const [editData, setEditData] = useState<Record<string, { product_name: string; total_quantity: number; unit_price: number; image_url?: string; sender_id?: string | null; sender_name?: string; customer_id?: string | null; receiver_name?: string }>>({});
+  const [editData, setEditData] = useState<Record<string, { product_name: string; total_quantity: number; unit_price: number; image_url?: string; image_urls?: string[]; sender_id?: string | null; sender_name?: string; customer_id?: string | null; receiver_name?: string }>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImageId, setUploadingImageId] = useState<string | null>(null);
   const isInitialized = useRef(false);
@@ -127,11 +127,19 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
           }
           if (uPrice && uPrice >= 10000) uPrice = uPrice / 1000;
 
+          const existingImages = (o as any).image_urls || [];
+          const legacyImage = (o as any).image_url;
+          const initialImages = Array.isArray(existingImages) ? [...existingImages] : [];
+          if (legacyImage && !initialImages.includes(legacyImage)) {
+            initialImages.push(legacyImage);
+          }
+
           initial[o.id] = {
             product_name: displayProductName,
             total_quantity: o.total_quantity || 0,
             unit_price: uPrice || 0,
-            image_url: (o as any).image_url || '',
+            image_url: legacyImage || '',
+            image_urls: initialImages,
             sender_id: o.import_orders?.sender_id || o.vegetable_orders?.sender_id || null,
             sender_name: o.import_orders?.sender_name || o.vegetable_orders?.sender_name || o.import_orders?.sender_customers?.name || o.vegetable_orders?.sender_customers?.name || '',
             customer_id: o.import_orders?.customer_id || o.vegetable_orders?.customer_id || null,
@@ -203,7 +211,16 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
           const rawPrice = Number(current.unit_price) || 0;
           const normalizedPrice = rawPrice > 0 && rawPrice < 10000 ? rawPrice * 1000 : rawPrice;
           if (normalizedPrice !== order.unit_price) payload.unit_price = normalizedPrice;
-          if (current.image_url && current.image_url !== (order as any).image_url) payload.image_url = current.image_url;
+          
+          const currentImageUrls = current.image_urls || [];
+          const oldImageUrls = (order as any).image_urls || [];
+          
+          if (JSON.stringify(currentImageUrls) !== JSON.stringify(oldImageUrls)) {
+            payload.image_urls = currentImageUrls;
+            payload.image_url = currentImageUrls.length > 0 ? currentImageUrls[0] : null;
+          } else if (current.image_url && current.image_url !== (order as any).image_url) {
+            payload.image_url = current.image_url;
+          }
 
           if (Object.keys(payload).length > 0) {
             return updateMutation.mutateAsync({
@@ -244,19 +261,37 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
   };
 
   const handleImageUpload = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Kích thước ảnh tối đa là 10MB');
+    const invalidFiles = files.filter(file => !file.type.startsWith('image/'));
+    if (invalidFiles.length > 0) {
+      toast.error('Chỉ hỗ trợ file ảnh');
       return;
     }
 
     setUploadingImageId(id);
     try {
-      const resp = await uploadApi.uploadFile(file, 'import-orders', 'delivery-orders');
-      updateRow(id, 'image_url', resp.url);
-      toast.success('Tải ảnh lên thành công!');
+      const uploadPromises = files.map(file => 
+        uploadApi.uploadFile(file, 'import-orders', 'delivery-orders')
+      );
+      
+      const responses = await Promise.all(uploadPromises);
+      const newUrls = responses.map(r => r.url);
+      
+      setEditData(prev => {
+        const currentUrls = prev[id]?.image_urls || [];
+        const updatedUrls = [...currentUrls, ...newUrls];
+        return {
+          ...prev,
+          [id]: {
+            ...prev[id],
+            image_urls: updatedUrls,
+            image_url: prev[id]?.image_url || newUrls[0]
+          }
+        };
+      });
+      toast.success(`Đã tải lên ${newUrls.length} ảnh thành công!`);
     } catch (err) {
       console.error(err);
       toast.error('Lỗi khi tải ảnh lên');
@@ -347,37 +382,46 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                   
                   const amount = (rowData.total_quantity || 0) * (rowData.unit_price || 0);
                   const previewImage = getOrderPreviewImage(order, rowData.image_url);
+                  const displayImages = rowData.image_urls && rowData.image_urls.length > 0 ? rowData.image_urls : (previewImage ? [previewImage] : []);
 
                   return (
                     <tr key={order.id} className="hover:bg-muted/50 transition-colors">
                       {!hideImage && (
                         <td className="px-4 py-3">
-                          <label className="relative block w-10 h-10 rounded-lg bg-muted/20 border border-border cursor-pointer overflow-hidden group">
-                            {previewImage ? (
-                              <>
-                                <img src={previewImage} alt="Receipt" className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <UploadCloud size={16} className="text-white" />
-                                </div>
-                              </>
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
-                                <UploadCloud size={16} className="opacity-50 group-hover:opacity-100" />
+                          <div className="flex items-center gap-1 overflow-x-auto max-w-[120px] custom-scrollbar pb-1">
+                            {displayImages.map((url, idx) => (
+                              <div key={idx} className="relative shrink-0 w-10 h-10 rounded-lg border border-border overflow-hidden group bg-muted/20">
+                                <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const currentList = rowData.image_urls && rowData.image_urls.length > 0 ? rowData.image_urls : (previewImage ? [previewImage] : []);
+                                    const newUrls = currentList.filter((_, i) => i !== idx);
+                                    updateRow(order.id, 'image_urls', newUrls);
+                                    updateRow(order.id, 'image_url', newUrls.length > 0 ? newUrls[0] : '');
+                                  }}
+                                  className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
                               </div>
-                            )}
-                            {uploadingImageId === order.id && (
-                               <div className="absolute inset-0 bg-card/80 flex items-center justify-center">
-                                  <Loader2 size={16} className="text-primary animate-spin" />
-                               </div>
-                            )}
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              className="hidden" 
-                              onChange={(e) => handleImageUpload(order.id, e)}
-                              disabled={isSubmitting || uploadingImageId === order.id}
-                            />
-                          </label>
+                            ))}
+                            <label className="relative shrink-0 flex flex-col items-center justify-center w-10 h-10 rounded-lg bg-muted/20 border border-dashed border-border cursor-pointer hover:bg-muted/50 transition-colors">
+                              {uploadingImageId === order.id ? (
+                                <Loader2 size={16} className="text-primary animate-spin" />
+                              ) : (
+                                <ImagePlus size={16} className="text-muted-foreground" />
+                              )}
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                multiple
+                                className="hidden" 
+                                onChange={(e) => handleImageUpload(order.id, e)}
+                                disabled={isSubmitting || uploadingImageId === order.id}
+                              />
+                            </label>
+                          </div>
                         </td>
                       )}
                       <td className="px-4 py-3">
@@ -458,40 +502,51 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                 
                 const amount = (rowData.total_quantity || 0) * (rowData.unit_price || 0);
                 const previewImage = getOrderPreviewImage(order, rowData.image_url);
+                const displayImages = rowData.image_urls && rowData.image_urls.length > 0 ? rowData.image_urls : (previewImage ? [previewImage] : []);
 
                 return (
                   <div key={order.id} className="bg-card border border-border rounded-xl p-3 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.1)] flex flex-col gap-3 relative overflow-hidden">
                     {/* Top Row: Image (if any) + Product, Qty, Price */}
                     <div className="flex gap-3">
                       {!hideImage && (
-                        <div className="shrink-0 w-16 h-16">
-                          <label className="relative block w-full h-full rounded-lg bg-muted/20 border border-border cursor-pointer overflow-hidden group">
-                            {previewImage ? (
-                              <>
-                                <img src={previewImage} alt="Receipt" className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <UploadCloud size={16} className="text-white" />
-                                </div>
-                              </>
-                            ) : (
-                              <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
-                                <UploadCloud size={16} className="opacity-50 group-hover:opacity-100 mb-0.5" />
-                                <span className="text-[9px] font-medium opacity-70">TẢI LÊN</span>
+                        <div className="shrink-0 w-16 flex flex-col gap-1">
+                          <div className="flex flex-col gap-1 overflow-y-auto max-h-[100px] custom-scrollbar pr-1">
+                            {displayImages.map((url, idx) => (
+                              <div key={idx} className="relative shrink-0 w-16 h-16 rounded-lg border border-border overflow-hidden group bg-muted/20">
+                                <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const currentList = rowData.image_urls && rowData.image_urls.length > 0 ? rowData.image_urls : (previewImage ? [previewImage] : []);
+                                    const newUrls = currentList.filter((_, i) => i !== idx);
+                                    updateRow(order.id, 'image_urls', newUrls);
+                                    updateRow(order.id, 'image_url', newUrls.length > 0 ? newUrls[0] : '');
+                                  }}
+                                  className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
                               </div>
-                            )}
-                            {uploadingImageId === order.id && (
-                                <div className="absolute inset-0 bg-card/80 flex items-center justify-center">
-                                  <Loader2 size={16} className="text-primary animate-spin" />
-                                </div>
-                            )}
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              className="hidden" 
-                              onChange={(e) => handleImageUpload(order.id, e)}
-                              disabled={isSubmitting || uploadingImageId === order.id}
-                            />
-                          </label>
+                            ))}
+                            <label className="relative shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-lg bg-muted/20 border border-dashed border-border cursor-pointer hover:bg-muted/50 transition-colors">
+                              {uploadingImageId === order.id ? (
+                                <Loader2 size={16} className="text-primary animate-spin" />
+                              ) : (
+                                <>
+                                  <ImagePlus size={16} className="text-muted-foreground mb-0.5" />
+                                  <span className="text-[9px] font-medium opacity-70">TẢI LÊN</span>
+                                </>
+                              )}
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                multiple
+                                className="hidden" 
+                                onChange={(e) => handleImageUpload(order.id, e)}
+                                disabled={isSubmitting || uploadingImageId === order.id}
+                              />
+                            </label>
+                          </div>
                         </div>
                       )}
                       

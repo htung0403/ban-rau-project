@@ -178,6 +178,7 @@ export interface ImportOrder {
   customer_id?: string;
   notes?: string;
   receipt_image_url?: string;
+  receipt_image_urls?: string[];
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;

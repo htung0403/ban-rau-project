@@ -43,6 +43,7 @@ const importOrderSchema = z.object({
   items: z.array(importOrderItemSchema).min(1, 'Vui lòng thêm ít nhất 1 mặt hàng'),
   total_amount: z.coerce.number().min(0, 'Tổng tiền không hợp lệ').catch(0),
   receipt_image_url: z.string().optional().nullable().catch(null),
+  receipt_image_urls: z.array(z.string()).optional().catch([]),
 });
 
 interface Props {
@@ -183,6 +184,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       notes: '',
       total_amount: 0,
       receipt_image_url: null,
+      receipt_image_urls: [],
     } as any,
   });
 
@@ -246,6 +248,11 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
   const watchPaymentStatus = watch('payment_status');
   useEffect(() => {
     if (editingOrder) {
+      let receiptUrls = [...(editingOrder.receipt_image_urls || [])];
+      if (receiptUrls.length === 0 && typeof editingOrder.receipt_image_url === 'string' && editingOrder.receipt_image_url.trim().length > 0) {
+        receiptUrls = editingOrder.receipt_image_url.includes(',') ? editingOrder.receipt_image_url.split(',').map((u: string) => u.trim()) : [editingOrder.receipt_image_url];
+      }
+
       reset({
         order_date: editingOrder.order_date,
         order_time: editingOrder.order_time,
@@ -273,6 +280,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
         payment_status: editingOrder.import_order_items?.[0]?.payment_status || 'unpaid',
         total_amount: editingOrder.total_amount || 0,
         receipt_image_url: editingOrder.receipt_image_url || null,
+        receipt_image_urls: receiptUrls,
       });
     } else {
       reset({
@@ -288,54 +296,77 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
         notes: '',
         total_amount: 0,
         receipt_image_url: null,
+        receipt_image_urls: [],
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingOrder, reset, isOpen, user?.id]);
 
   const watchTotalAmountInput = watch('total_amount');
-  const watchReceiptImageUrl = watch('receipt_image_url');
+  const watchReceiptImageUrls = watch('receipt_image_urls') || [];
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadingItemIndex, setUploadingItemIndex] = React.useState<number | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (!file.type.startsWith('image/')) {
+    const validFiles = files.filter(file => file.type.startsWith('image/'));
+    if (validFiles.length !== files.length) {
       toast.error('Chỉ hỗ trợ file ảnh');
-      return;
+      if (validFiles.length === 0) return;
     }
 
     try {
       setIsUploading(true);
-      const resp = await uploadApi.uploadFile(file, 'import-orders', 'orders');
-      setValue('receipt_image_url', resp.url, { shouldValidate: true });
+      const uploadPromises = validFiles.map(file => uploadApi.uploadFile(file, 'import-orders', 'orders'));
+      const results = await Promise.all(uploadPromises);
+      const newUrls = results.map(r => r.url);
+      
+      const currentUrls = getValues('receipt_image_urls') || [];
+      const updatedUrls = [...currentUrls, ...newUrls];
+      
+      setValue('receipt_image_urls', updatedUrls, { shouldValidate: true });
+      if (updatedUrls.length > 0) {
+        setValue('receipt_image_url', updatedUrls[0], { shouldValidate: true });
+      }
+      
       toast.success('Tải ảnh lên thành công!');
     } catch (error) {
       console.error('File upload error:', error);
       toast.error('Lỗi khi tải ảnh lên');
     } finally {
       setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
   const handleItemImageUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (!file.type.startsWith('image/')) {
+    const validFiles = files.filter(file => file.type.startsWith('image/'));
+    if (validFiles.length !== files.length) {
       toast.error('Chỉ hỗ trợ file ảnh');
-      return;
+      if (validFiles.length === 0) return;
     }
 
     try {
       setUploadingItemIndex(index);
-      const resp = await uploadApi.uploadFile(file, 'import-orders', 'items');
-      setValue(`items.${index}.image_urls`, [resp.url], { shouldValidate: true });
-      setValue(`items.${index}.image_url`, resp.url, { shouldValidate: true });
-
+      const uploadPromises = validFiles.map(file => uploadApi.uploadFile(file, 'import-orders', 'items'));
+      const results = await Promise.all(uploadPromises);
+      const newUrls = results.map(r => r.url);
+      
+      const currentUrls = getValues(`items.${index}.image_urls`) || [];
+      const updatedUrls = [...currentUrls, ...newUrls];
+      
+      setValue(`items.${index}.image_urls`, updatedUrls, { shouldValidate: true });
+      if (updatedUrls.length > 0) {
+        setValue(`items.${index}.image_url`, updatedUrls[0], { shouldValidate: true });
+      }
 
       toast.success('Tải ảnh thành công!');
     } catch (error) {
@@ -343,6 +374,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       toast.error('Lỗi tải ảnh');
     } finally {
       setUploadingItemIndex(null);
+      e.target.value = '';
     }
   };
 
@@ -391,6 +423,8 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       if (payload.total_amount && payload.total_amount > 0 && payload.total_amount < 1000) {
         payload.total_amount = payload.total_amount * 1000;
       }
+
+      payload.receipt_image_urls = getValues('receipt_image_urls') || [];
 
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') delete payload[key];
@@ -969,44 +1003,48 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                   {defaultCategory !== 'vegetable' && (
                   <div className="space-y-1.5 pt-2">
                     <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ảnh biên nhận/Sản phẩm</label>
-                    <div className="flex flex-col gap-2">
-                      {watchReceiptImageUrl ? (
-                        <div className="relative inline-block w-24 h-24 rounded-xl border border-border overflow-hidden group">
-                          <img src={watchReceiptImageUrl} alt="Receipt" className="w-full h-full object-cover" />
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                      {watchReceiptImageUrls.map((url: string, idx: number) => (
+                        <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden group bg-muted/20">
+                          <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
                           <button
                             type="button"
-                            onClick={() => setValue('receipt_image_url', null, { shouldValidate: true })}
+                            onClick={() => {
+                              const newUrls = watchReceiptImageUrls.filter((_: any, i: number) => i !== idx);
+                              setValue('receipt_image_urls', newUrls, { shouldValidate: true });
+                              setValue('receipt_image_url', newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
+                            }}
                             className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            <Trash2 size={20} />
+                            <Trash2 size={18} />
                           </button>
                         </div>
-                      ) : (
-                        <div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            ref={fileInputRef}
-                            className="hidden"
-                            onChange={handleImageUpload}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isUploading}
-                            className="w-full h-28 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-muted/50 disabled:opacity-50"
-                          >
-                            {isUploading ? (
-                              <Loader2 size={20} className="animate-spin text-primary" />
-                            ) : (
-                              <>
-                                <ImagePlus size={24} className="mb-1 text-primary" />
-                                <span className="text-[11px] font-medium text-muted-foreground">Kéo thả hoặc nhấn để tải ảnh</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      )}
+                      ))}
+                      <div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          ref={fileInputRef}
+                          className="hidden"
+                          onChange={handleImageUpload}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploading}
+                          className="w-full aspect-square border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-muted/5 disabled:opacity-50"
+                        >
+                          {isUploading ? (
+                            <Loader2 size={18} className="animate-spin text-primary" />
+                          ) : (
+                            <>
+                              <ImagePlus size={20} className="mb-1 text-primary" />
+                              <span className="text-[10px] font-bold text-center px-1">Thêm ảnh</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                   )}
@@ -1042,7 +1080,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                     {/* Desktop Header */}
                     {/* Desktop Header */}
                     {defaultCategory === 'standard' ? (
-                      <div className="hidden md:grid grid-cols-[1fr_60px_90px_100px_60px_36px] gap-3 px-4 py-3 bg-card border-b border-border sticky top-0 z-10 md:items-center">
+                      <div className="hidden md:grid grid-cols-[1fr_60px_90px_100px_120px_36px] gap-3 px-4 py-3 bg-card border-b border-border sticky top-0 z-10 md:items-center">
                         <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Tên Mặt Hàng</div>
                         <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">SL</div>
                         <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider text-center">Đơn giá (k)</div>
@@ -1066,7 +1104,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           <div key={field.id} className={clsx(
                             "grid gap-2 md:gap-3 p-3 md:px-4 md:py-2 md:items-center bg-card rounded-xl md:rounded-none border border-border md:border-none shadow-sm md:shadow-none hover:bg-muted/50/50 transition-all group relative",
                             defaultCategory === 'standard' 
-                              ? "grid-cols-1 md:grid-cols-[1fr_60px_90px_100px_60px_36px]" 
+                              ? "grid-cols-1 md:grid-cols-[1fr_60px_90px_100px_120px_36px]" 
                               : "grid-cols-1 md:grid-cols-[60px_minmax(150px,3fr)_100px_36px]"
                           )}>
 
@@ -1238,36 +1276,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                                     )}
                                   </div>
 
-                                  {/* Mobile Single Image */}
-                                  <div className="md:hidden shrink-0 mt-auto flex justify-center w-[40px]">
-                                    {watch(`items.${index}.image_url`) ? (
-                                      <div className="relative w-10 h-10 rounded-lg border border-border overflow-hidden group/img">
-                                        <img src={watch(`items.${index}.image_url`)} alt="item" className="w-full h-full object-cover" />
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setValue(`items.${index}.image_urls`, [], { shouldValidate: true });
-                                            setValue(`items.${index}.image_url`, null, { shouldValidate: true });
-                                          }}
-                                          className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
-                                        >
-                                          <X size={12} />
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <label className="border border-border bg-muted/50 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-10 h-10 shrink-0">
-                                        <input
-                                          type="file"
-                                          accept="image/*"
-                                          className="hidden"
-                                          onChange={(e) => handleItemImageUpload(index, e)}
-                                        />
-                                        {uploadingItemIndex === index ? <Loader2 size={14} className="animate-spin text-primary" /> : <ImagePlus size={14} />}
-                                      </label>
-                                    )}
-                                  </div>
-
-                                  {/* Mobile Delete Button */}
+                                                                    {/* Mobile Delete Button */}
                                   <button
                                     type="button"
                                     onClick={() => remove(index)}
@@ -1330,39 +1339,73 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                                     })()}
                                   </div>
                                 </div>
+
+                                {/* Mobile Image Grid */}
+                                <div className="md:hidden mt-2 col-span-full border-t border-dashed border-border pt-2 pb-1 w-full">
+                                  <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1.5 block">Ảnh hàng hóa</label>
+                                  <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar w-full">
+                                    {(watch(`items.${index}.image_urls`) || []).map((url: string, imgIdx: number) => (
+                                      <div key={imgIdx} className="relative w-12 h-12 rounded-lg border border-border overflow-hidden group/img shrink-0">
+                                        <img src={url} alt="item" className="w-full h-full object-cover" />
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            const newUrls = watch(`items.${index}.image_urls`).filter((_: any, i: number) => i !== imgIdx);
+                                            setValue(`items.${index}.image_urls`, newUrls, { shouldValidate: true });
+                                            setValue(`items.${index}.image_url`, newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
+                                          }}
+                                          className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                                        >
+                                          <X size={14} />
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <label className="border border-dashed border-border bg-muted/50 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-12 h-12 shrink-0">
+                                      <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleItemImageUpload(index, e)} />
+                                      {uploadingItemIndex === index ? <Loader2 size={16} className="animate-spin text-primary" /> : <Plus size={16} />}
+                                    </label>
+                                  </div>
+                                </div>
                               </>
                             )}
 
                             {/* Desktop Single Image - only for standard */}
                             {defaultCategory === 'standard' && (
-                            <div className="hidden md:flex items-center justify-center w-full">
-                              <div className="flex justify-center w-[32px]">
-                                {watch(`items.${index}.image_url`) ? (
-                                  <div className="relative w-8 h-8 rounded-md border border-border overflow-hidden group/imgDesk">
-                                    <img src={watch(`items.${index}.image_url`)} alt="item" className="w-full h-full object-cover" />
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setValue(`items.${index}.image_urls`, [], { shouldValidate: true });
-                                        setValue(`items.${index}.image_url`, null, { shouldValidate: true });
-                                      }}
-                                      className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/imgDesk:opacity-100 transition-opacity"
-                                      title="Xoá ảnh"
-                                    >
-                                      <X size={10} />
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <label className="w-8 h-8 border border-border bg-muted/50 rounded-md flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all" title="Tải ảnh">
+                            <div className="hidden md:flex items-start justify-start w-full">
+                              <div className="flex justify-start w-full">
+                                <div className="flex items-center gap-1 flex-wrap w-[110px]">
+                                  {(watch(`items.${index}.image_urls`) || []).map((url: string, imgIdx: number) => (
+                                    <div key={imgIdx} className="relative w-8 h-8 rounded-md border border-border overflow-hidden group/imgDesk shrink-0">
+                                      <img src={url} alt="item" className="w-full h-full object-cover" />
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          const newUrls = watch(`items.${index}.image_urls`).filter((_: any, i: number) => i !== imgIdx);
+                                          setValue(`items.${index}.image_urls`, newUrls, { shouldValidate: true });
+                                          setValue(`items.${index}.image_url`, newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
+                                        }}
+                                        className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/imgDesk:opacity-100 transition-opacity"
+                                        title="Xoá ảnh"
+                                      >
+                                        <X size={10} />
+                                      </button>
+                                    </div>
+                                  ))}
+                                  <label className="w-8 h-8 border border-dashed border-border bg-muted/50 rounded-md flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all shrink-0" title="Thêm ảnh">
                                     <input
                                       type="file"
                                       accept="image/*"
+                                      multiple
                                       className="hidden"
                                       onChange={(e) => handleItemImageUpload(index, e)}
                                     />
-                                    {uploadingItemIndex === index ? <Loader2 size={12} className="animate-spin text-primary" /> : <ImagePlus size={12} />}
+                                    {uploadingItemIndex === index ? <Loader2 size={12} className="animate-spin text-primary" /> : <Plus size={12} />}
                                   </label>
-                                )}
+                                </div>
                               </div>
                             </div>
                             )}

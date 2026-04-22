@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Loader2, UploadCloud, Truck, User } from 'lucide-react';
+import { X, Loader2, Truck, User, Trash2, Camera, ImagePlus } from 'lucide-react';
 import { useUpdateDeliveryOrder, useAssignVehicle } from '../../../hooks/queries/useDelivery';
 import { useProducts } from '../../../hooks/queries/useProducts';
 import { useCustomers } from '../../../hooks/queries/useCustomers';
@@ -19,50 +19,6 @@ interface Props {
   order: DeliveryOrder | null;
   onClose: () => void;
 }
-
-const pickRelation = <T,>(relation: any): T | undefined => {
-  if (Array.isArray(relation)) return relation[0];
-  return relation || undefined;
-};
-
-const getOrderPreviewImage = (order: any, localUrl?: string) => {
-  if (localUrl) return localUrl;
-  if (!order) return null;
-  
-  const directImage = order.image_url;
-  if (directImage) return directImage;
-
-  const paymentImage = order.payment_collections?.find((pc: any) => pc.image_url)?.image_url;
-  if (paymentImage) return paymentImage;
-
-  const linkedImport = pickRelation<any>(order.import_orders);
-  const linkedVeg = pickRelation<any>(order.vegetable_orders);
-
-  if (linkedImport?.receipt_image_url) return linkedImport.receipt_image_url;
-  if (linkedVeg?.receipt_image_url) return linkedVeg.receipt_image_url;
-
-  const collectFirstImage = (refs: any): string | null => {
-    const list = Array.isArray(refs) ? refs : (refs ? [refs] : []);
-    for (const ref of list) {
-      if (ref.image_url) {
-        if (typeof ref.image_url === 'string' && ref.image_url.includes(',')) return ref.image_url.split(',')[0].trim();
-        if (typeof ref.image_url === 'string') return ref.image_url;
-      }
-      if (ref.image_urls && Array.isArray(ref.image_urls) && ref.image_urls.length > 0) {
-        return ref.image_urls[0];
-      }
-    }
-    return null;
-  };
-
-  const importItemImage = collectFirstImage(linkedImport?.import_order_items);
-  if (importItemImage) return importItemImage;
-
-  const vegItemImage = collectFirstImage(linkedVeg?.vegetable_order_items);
-  if (vegItemImage) return vegItemImage;
-
-  return null;
-};
 
 const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose }) => {
   const updateMutation = useUpdateDeliveryOrder();
@@ -118,12 +74,14 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
     customer_id: null as string | null,
     receiver_name: '',
     image_url: '',
+    image_urls: [] as string[],
     vehicle_id: '',
     driver_id: ''
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (order && isOpen) {
@@ -147,6 +105,13 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
         defaultDriverId = order.delivery_vehicles[0].driver_id || '';
       }
 
+      const existingImages = (order as any).image_urls || [];
+      const legacyImage = (order as any).image_url;
+      const initialImages = Array.isArray(existingImages) ? [...existingImages] : [];
+      if (legacyImage && !initialImages.includes(legacyImage)) {
+        initialImages.push(legacyImage);
+      }
+
       setFormData({
         product_name: displayProductName,
         total_quantity: order.total_quantity || 0,
@@ -156,7 +121,8 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
         sender_name: order.import_orders?.sender_name || order.vegetable_orders?.sender_name || order.import_orders?.sender_customers?.name || order.vegetable_orders?.sender_customers?.name || '',
         customer_id: order.import_orders?.customer_id || order.vegetable_orders?.customer_id || null,
         receiver_name: order.import_orders?.receiver_name || order.vegetable_orders?.receiver_name || order.import_orders?.customers?.name || order.vegetable_orders?.customers?.name || '',
-        image_url: (order as any).image_url || '',
+        image_url: legacyImage || '',
+        image_urls: initialImages,
         vehicle_id: defaultVehicleId,
         driver_id: defaultDriverId
       });
@@ -166,25 +132,36 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
   if (!isOpen) return null;
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Kích thước ảnh tối đa là 10MB');
+    const invalidFiles = files.filter(file => !file.type.startsWith('image/'));
+    if (invalidFiles.length > 0) {
+      toast.error('Chỉ hỗ trợ file ảnh');
       return;
     }
 
     setIsUploading(true);
     try {
-      const resp = await uploadApi.uploadFile(file, 'import-orders', 'delivery-orders');
-      setFormData(prev => ({ ...prev, image_url: resp.url }));
-      toast.success('Tải ảnh lên thành công!');
+      const uploadPromises = files.map(file => 
+        uploadApi.uploadFile(file, 'import-orders', 'delivery-orders')
+      );
+      
+      const responses = await Promise.all(uploadPromises);
+      const newUrls = responses.map(r => r.url);
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        image_urls: [...prev.image_urls, ...newUrls],
+        image_url: prev.image_url || newUrls[0]
+      }));
+      toast.success(`Đã tải lên ${newUrls.length} ảnh thành công!`);
     } catch (err) {
       console.error(err);
       toast.error('Lỗi khi tải ảnh lên');
     } finally {
       setIsUploading(false);
-      e.target.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -210,7 +187,16 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
       const normalizedPrice = rawPrice > 0 && rawPrice < 10000 ? rawPrice * 1000 : rawPrice;
       if (normalizedPrice !== order.unit_price) payload.unit_price = normalizedPrice;
       if (formData.delivery_date && formData.delivery_date !== order.delivery_date) payload.delivery_date = formData.delivery_date;
-      if (formData.image_url && formData.image_url !== (order as any).image_url) payload.image_url = formData.image_url;
+      
+      const currentImageUrls = formData.image_urls || [];
+      const oldImageUrls = (order as any).image_urls || [];
+      
+      if (JSON.stringify(currentImageUrls) !== JSON.stringify(oldImageUrls)) {
+        payload.image_urls = currentImageUrls;
+        payload.image_url = currentImageUrls.length > 0 ? currentImageUrls[0] : null;
+      } else if (formData.image_url && formData.image_url !== (order as any).image_url) {
+        payload.image_url = formData.image_url;
+      }
 
       if (Object.keys(payload).length > 0) {
         await updateMutation.mutateAsync({
@@ -322,34 +308,55 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
         <div className="p-4 overflow-y-auto custom-scrollbar">
           <form id="edit-delivery-form" onSubmit={handleSubmit} className="space-y-4">
             {/* Ảnh đơn hàng */}
-            <div className="space-y-1.5 flex justify-center mb-2">
-              <label className="relative block w-24 h-24 rounded-xl bg-muted/20 border-2 border-dashed border-border cursor-pointer overflow-hidden group">
-                {getOrderPreviewImage(order as DeliveryOrder, formData.image_url) ? (
-                  <>
-                    <img src={getOrderPreviewImage(order as DeliveryOrder, formData.image_url) || undefined} alt="Receipt" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <UploadCloud size={20} className="text-white" />
-                    </div>
-                  </>
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
-                    <UploadCloud size={24} className="opacity-50 group-hover:opacity-100 mb-1" />
-                    <span className="text-[10px] font-bold opacity-70">TẢI ẢNH</span>
-                  </div>
-                )}
-                {isUploading && (
-                  <div className="absolute inset-0 bg-card/80 flex items-center justify-center">
-                    <Loader2 size={24} className="text-primary animate-spin" />
-                  </div>
-                )}
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={handleImageUpload}
-                  disabled={isSubmitting || isUploading}
-                />
+            <div className="space-y-1.5 pt-2">
+              <label className="text-[13px] font-bold text-foreground flex items-center gap-1">
+                <Camera size={14} className="text-primary" />
+                Ảnh đơn hàng ({formData.image_urls.length})
               </label>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                {formData.image_urls.map((url, idx) => (
+                  <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden group bg-muted/20">
+                    <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newUrls = formData.image_urls.filter((_, i) => i !== idx);
+                        setFormData(prev => ({ ...prev, image_urls: newUrls, image_url: newUrls.length > 0 ? newUrls[0] : '' }));
+                      }}
+                      className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                ))}
+                
+                <div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleImageUpload}
+                    disabled={isSubmitting || isUploading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isSubmitting || isUploading}
+                    className="w-full aspect-square border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-muted/5 disabled:opacity-50"
+                  >
+                    {isUploading ? (
+                      <Loader2 size={18} className="animate-spin text-primary" />
+                    ) : (
+                      <>
+                        <ImagePlus size={20} className="mb-1 text-primary" />
+                        <span className="text-[10px] font-bold text-center px-1">Thêm ảnh</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-1.5">

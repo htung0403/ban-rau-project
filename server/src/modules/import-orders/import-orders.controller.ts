@@ -15,28 +15,29 @@ const importOrderItemSchema = z.object({
   payment_status: z.enum(['paid', 'unpaid']).default('unpaid'),
 });
 
-const importOrderSchema = z.object({
-  order_date: z.string().optional(),
-  order_time: z.string().optional(),
-  sender_name: z.string().optional(),
-  sender_id: z.string().uuid().optional().nullable(),
-  receiver_name: z.string().optional(),
-  receiver_phone: z.string().optional(),
-  receiver_address: z.string().optional(),
-  warehouse_id: z.string().uuid().optional().nullable(),
-  customer_id: z.string().uuid().optional().nullable(),
-  order_category: z.enum(['standard', 'vegetable']).optional().default('standard'),
-  total_amount: z.number().optional().nullable(),
-  is_custom_amount: z.boolean().optional(),
-  license_plate: z.string().optional().nullable(),
-  driver_name: z.string().optional().nullable(),
-  supplier_name: z.string().optional().nullable(),
-  sheet_number: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
-  receipt_image_url: z.string().optional().nullable(),
-  payment_status: z.enum(['paid', 'unpaid']).default('unpaid'),
-  items: z.array(importOrderItemSchema),
-});
+  const importOrderSchema = z.object({
+    order_date: z.string().optional(),
+    order_time: z.string().optional(),
+    sender_name: z.string().optional(),
+    sender_id: z.string().uuid().optional().nullable(),
+    receiver_name: z.string().optional(),
+    receiver_phone: z.string().optional(),
+    receiver_address: z.string().optional(),
+    warehouse_id: z.string().uuid().optional().nullable(),
+    customer_id: z.string().uuid().optional().nullable(),
+    order_category: z.enum(['standard', 'vegetable']).optional().default('standard'),
+    total_amount: z.number().optional().nullable(),
+    is_custom_amount: z.boolean().optional(),
+    license_plate: z.string().optional().nullable(),
+    driver_name: z.string().optional().nullable(),
+    supplier_name: z.string().optional().nullable(),
+    sheet_number: z.string().optional().nullable(),
+    notes: z.string().optional().nullable(),
+    receipt_image_url: z.string().optional().nullable(),
+    receipt_image_urls: z.array(z.string()).optional().nullable(),
+    payment_status: z.enum(['paid', 'unpaid']).default('unpaid'),
+    items: z.array(importOrderItemSchema),
+  });
 
 export class ImportOrderController {
   static async getAll(req: Request, res: Response) {

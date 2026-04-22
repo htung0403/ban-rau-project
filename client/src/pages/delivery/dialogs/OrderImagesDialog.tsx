@@ -21,6 +21,7 @@ type MaybeArray<T> = T | T[] | null | undefined;
 type LinkedImportOrder = {
   order_code?: string;
   receipt_image_url?: string | null;
+  receipt_image_urls?: string[] | null;
   import_order_items?: OrderImageRef[];
   vegetable_order_items?: OrderImageRef[];
 };
@@ -97,7 +98,9 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
 
     receiptImages = [];
     if (linkedImportOrder?.receipt_image_url) receiptImages.push(linkedImportOrder.receipt_image_url);
+    if (linkedImportOrder?.receipt_image_urls) receiptImages.push(...linkedImportOrder.receipt_image_urls);
     if (linkedVegetableOrder?.receipt_image_url) receiptImages.push(linkedVegetableOrder.receipt_image_url);
+    if (linkedVegetableOrder?.receipt_image_urls) receiptImages.push(...linkedVegetableOrder.receipt_image_urls);
 
     importImages = [];
     importImages.push(...collectImages(linkedImportOrder?.import_order_items));
@@ -121,6 +124,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     const iOrder = order;
     receiptImages = [];
     if (iOrder.receipt_image_url) receiptImages.push(iOrder.receipt_image_url);
+    if (iOrder.receipt_image_urls) receiptImages.push(...iOrder.receipt_image_urls);
     receiptImages = [...new Set(receiptImages)];
 
     importImages = [];

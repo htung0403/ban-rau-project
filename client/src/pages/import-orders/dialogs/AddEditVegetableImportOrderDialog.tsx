@@ -61,6 +61,7 @@ const importOrderItemSchema = z.object({
   weight_kg: z.coerce.number().optional().nullable().catch(null),
   quantity: z.coerce.number().min(1, 'SL > 0').catch(1),
   image_url: z.string().optional().nullable().catch(null),
+  image_urls: z.array(z.string()).optional().catch([]),
   item_note: z.string().optional().nullable().catch(''),
 });
 
@@ -75,6 +76,7 @@ const importOrderSchema = z.object({
   items: z.array(importOrderItemSchema).min(1, 'Vui lòng thêm ít nhất 1 mặt hàng'),
   total_amount: z.coerce.number().min(0, 'Tổng tiền không hợp lệ').catch(0),
   receipt_image_url: z.string().optional().nullable().catch(null),
+  receipt_image_urls: z.array(z.string()).optional().catch([]),
 });
 
 interface Props {
@@ -266,7 +268,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
     defaultValues: {
       order_date: format(new Date(), 'yyyy-MM-dd'),
       order_time: new Date().toTimeString().slice(0, 5),
-      items: [{ quantity: 1, weight_kg: '', product_id: '', image_url: null, item_note: '' }],
+      items: [{ quantity: 1, weight_kg: '', product_id: '', image_url: null, image_urls: [], item_note: '' }],
       customer_id: '',
       sender_name: '',
       sender_id: '',
@@ -274,6 +276,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
       received_by: '',
       total_amount: 0,
       receipt_image_url: null,
+      receipt_image_urls: [],
     } as any,
   });
 
@@ -390,16 +393,18 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
           weight_kg: item.weight_kg,
           quantity: item.quantity,
           image_url: item.image_url || null,
+          image_urls: item.image_urls || (item.image_url ? [item.image_url] : []),
           item_note: item.item_note || item.package_type || '',
         })) || [],
         total_amount: editingOrder.total_amount || 0,
         receipt_image_url: editingOrder.receipt_image_url || null,
+        receipt_image_urls: editingOrder.receipt_image_urls || (editingOrder.receipt_image_url ? [editingOrder.receipt_image_url] : []),
       });
     } else {
       reset({
         order_date: format(new Date(), 'yyyy-MM-dd'),
         order_time: new Date().toTimeString().slice(0, 5),
-        items: [{ quantity: 1, weight_kg: '', product_id: '', image_url: null, item_note: '' }],
+        items: [{ quantity: 1, weight_kg: '', product_id: '', image_url: null, image_urls: [], item_note: '' }],
         customer_id: '',
         sender_name: '',
         sender_id: '',
@@ -407,64 +412,91 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
         received_by: user?.id || employees?.[0]?.id || '',
         total_amount: 0,
         receipt_image_url: null,
+        receipt_image_urls: [],
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingOrder, reset, isOpen, user?.id]);
 
   const watchTotalAmountInput = watch('total_amount');
-  const watchReceiptImageUrl = watch('receipt_image_url');
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadingItemIndex, setUploadingItemIndex] = React.useState<number | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (!file.type.startsWith('image/')) {
+    const invalidFiles = files.filter(f => !f.type.startsWith('image/'));
+    if (invalidFiles.length > 0) {
       toast.error('Chỉ hỗ trợ file ảnh');
       return;
     }
 
     try {
       setIsUploading(true);
-      const resp = await uploadApi.uploadFile(file, 'import-orders', 'orders');
-      setValue('receipt_image_url', resp.url, { shouldValidate: true });
-      toast.success('Tải ảnh lên thành công!');
+      const uploadPromises = files.map(file => uploadApi.uploadFile(file, 'import-orders', 'orders'));
+      const results = await Promise.all(uploadPromises);
+      const newUrls = results.map(r => r.url);
+      
+      const currentUrls = getValues('receipt_image_urls') || [];
+      const updatedUrls = [...currentUrls, ...newUrls];
+      
+      setValue('receipt_image_urls', updatedUrls, { shouldValidate: true });
+      if (!getValues('receipt_image_url') && updatedUrls.length > 0) {
+        setValue('receipt_image_url', updatedUrls[0], { shouldValidate: true });
+      }
+      
+      toast.success(`Tải lên ${newUrls.length} ảnh thành công!`);
     } catch (error) {
       console.error('File upload error:', error);
       toast.error('Lỗi khi tải ảnh lên');
     } finally {
       setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
   const handleItemImageUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (!file.type.startsWith('image/')) {
+    const invalidFiles = files.filter(f => !f.type.startsWith('image/'));
+    if (invalidFiles.length > 0) {
       toast.error('Chỉ hỗ trợ file ảnh');
       return;
     }
 
     try {
       setUploadingItemIndex(index);
-      const resp = await uploadApi.uploadFile(file, 'import-orders', 'items');
-      setValue(`items.${index}.image_url`, resp.url, { shouldValidate: true });
-
-      // Tự động gán ảnh lên phần phiếu báo cáo chung nếu đang trống
-      if (!getValues('receipt_image_url')) {
-        setValue('receipt_image_url', resp.url, { shouldValidate: true });
+      const uploadPromises = files.map(file => uploadApi.uploadFile(file, 'import-orders', 'items'));
+      const results = await Promise.all(uploadPromises);
+      const newUrls = results.map(r => r.url);
+      
+      const currentUrls = getValues(`items.${index}.image_urls`) || [];
+      const updatedUrls = [...currentUrls, ...newUrls];
+      
+      setValue(`items.${index}.image_urls`, updatedUrls, { shouldValidate: true });
+      if (!getValues(`items.${index}.image_url`) && updatedUrls.length > 0) {
+        setValue(`items.${index}.image_url`, updatedUrls[0], { shouldValidate: true });
       }
 
-      toast.success('Tải ảnh thành công!');
+      // Tự động gán ảnh lên phần phiếu báo cáo chung nếu đang trống
+      if (!getValues('receipt_image_url') && updatedUrls.length > 0) {
+        setValue('receipt_image_url', updatedUrls[0], { shouldValidate: true });
+        const currentReceiptUrls = getValues('receipt_image_urls') || [];
+        setValue('receipt_image_urls', [...currentReceiptUrls, updatedUrls[0]], { shouldValidate: true });
+      }
+
+      toast.success(`Tải lên ${newUrls.length} ảnh thành công!`);
     } catch (error) {
       console.error('File upload error:', error);
       toast.error('Lỗi tải ảnh');
     } finally {
       setUploadingItemIndex(null);
+      e.target.value = '';
     }
   };
 
@@ -491,13 +523,15 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
       console.log('--- FORM SUBMIT DATA BEGIN ---', data);
       const payload = { ...data };
       if (payload.items) {
-        payload.items = payload.items.map((item: any) => {
-          const trimmedNote = item.item_note?.trim() || null;
-          return {
-            ...item,
-            item_note: trimmedNote,
-          };
-        });
+          payload.items = payload.items.map((item: any, index: number) => {
+            const trimmedNote = item.item_note?.trim() || null;
+            return {
+              ...item,
+              item_note: trimmedNote,
+              image_urls: getValues(`items.${index}.image_urls`) || [],
+              image_url: getValues(`items.${index}.image_url`) || null,
+            };
+          });
       }
       payload.order_category = defaultCategory;
 
@@ -506,6 +540,8 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
       // Vô hiệu hóa tính năng tự động nhân total_amount với 1000 vì total_amount đã được tính đúng hoặc nhập đúng,
       // làm như vậy sẽ gây sai lệch nếu khách hàng nhập giá trị thực tế như 70000.
+
+      payload.receipt_image_urls = getValues('receipt_image_urls') || [];
 
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') delete payload[key];
@@ -1008,44 +1044,48 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                   {defaultCategory !== 'vegetable' && (
                   <div className="space-y-1.5 pt-2">
                     <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ảnh biên nhận/Sản phẩm</label>
-                    <div className="flex flex-col gap-2">
-                      {watchReceiptImageUrl ? (
-                        <div className="relative inline-block w-24 h-24 rounded-xl border border-border overflow-hidden group">
-                          <img src={watchReceiptImageUrl} alt="Receipt" className="w-full h-full object-cover" />
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {(watch('receipt_image_urls') || []).map((url: string, idx: number) => (
+                        <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden group">
+                          <img src={url} alt="Receipt" className="w-full h-full object-cover" />
                           <button
                             type="button"
-                            onClick={() => setValue('receipt_image_url', null, { shouldValidate: true })}
+                            onClick={() => {
+                              const newUrls = (watch('receipt_image_urls') || []).filter((_: any, i: number) => i !== idx);
+                              setValue('receipt_image_urls', newUrls, { shouldValidate: true });
+                              setValue('receipt_image_url', newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
+                            }}
                             className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             <Trash2 size={20} />
                           </button>
                         </div>
-                      ) : (
-                        <div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            ref={fileInputRef}
-                            className="hidden"
-                            onChange={handleImageUpload}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isUploading}
-                            className="w-full h-28 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-muted/50 disabled:opacity-50"
-                          >
-                            {isUploading ? (
-                              <Loader2 size={20} className="animate-spin text-primary" />
-                            ) : (
-                              <>
-                                <ImagePlus size={24} className="mb-1 text-primary" />
-                                <span className="text-[11px] font-medium text-muted-foreground">Kéo thả hoặc nhấn để tải ảnh</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      )}
+                      ))}
+                      <div className="aspect-square">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          ref={fileInputRef}
+                          className="hidden"
+                          onChange={handleImageUpload}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploading}
+                          className="w-full h-full border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-muted/50 disabled:opacity-50"
+                        >
+                          {isUploading ? (
+                            <Loader2 size={20} className="animate-spin text-primary" />
+                          ) : (
+                            <>
+                              <ImagePlus size={24} className="mb-1 text-primary" />
+                              <span className="text-[10px] font-medium text-muted-foreground text-center px-1">Thêm ảnh</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                   )}
@@ -1304,34 +1344,6 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                     )}
                                   </div>
 
-                                  {/* Mobile Image Button */}
-                                  <div className="md:hidden shrink-0 mt-auto">
-                                    <div className={clsx("relative", "w-12 h-12")}>
-                                      {watch(`items.${index}.image_url`) ? (
-                                        <div className="relative w-full h-full rounded-xl border border-border overflow-hidden group/img">
-                                          <img src={watch(`items.${index}.image_url`)} alt="item" className="w-full h-full object-cover" />
-                                          <button
-                                            type="button"
-                                            onClick={() => setValue(`items.${index}.image_url`, null, { shouldValidate: true })}
-                                            className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
-                                          >
-                                            <X size={14} />
-                                          </button>
-                                        </div>
-                                      ) : (
-                                        <label className="border border-border bg-muted/50 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-full h-full">
-                                          <input
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={(e) => handleItemImageUpload(index, e)}
-                                          />
-                                          {uploadingItemIndex === index ? <Loader2 size={16} className="animate-spin text-primary" /> : <ImagePlus size={16} />}
-                                        </label>
-                                      )}
-                                    </div>
-                                  </div>
-
                                   {/* Mobile Delete Button */}
                                   <button
                                     type="button"
@@ -1341,6 +1353,35 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                   >
                                     <Trash2 size={16} />
                                   </button>
+                                </div>
+
+                                {/* Mobile Image Grid */}
+                                <div className="md:hidden mt-2 col-span-full border-t border-dashed border-border pt-2 pb-1 w-full">
+                                  <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1.5 block">Ảnh hàng hóa</label>
+                                  <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar w-full">
+                                    {(watch(`items.${index}.image_urls`) || []).map((url: string, imgIdx: number) => (
+                                      <div key={imgIdx} className="relative w-12 h-12 rounded-lg border border-border overflow-hidden group/img shrink-0">
+                                        <img src={url} alt="item" className="w-full h-full object-cover" />
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            const newUrls = watch(`items.${index}.image_urls`).filter((_: any, i: number) => i !== imgIdx);
+                                            setValue(`items.${index}.image_urls`, newUrls, { shouldValidate: true });
+                                            setValue(`items.${index}.image_url`, newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
+                                          }}
+                                          className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                                        >
+                                          <X size={14} />
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <label className="border border-dashed border-border bg-muted/50 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-12 h-12 shrink-0">
+                                      <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleItemImageUpload(index, e)} />
+                                      {uploadingItemIndex === index ? <Loader2 size={16} className="animate-spin text-primary" /> : <Plus size={16} />}
+                                    </label>
+                                  </div>
                                 </div>
 
                                 <div className="grid md:contents gap-2 md:gap-3 border-t border-dashed border-border md:border-none pt-2 md:pt-0 mt-2 md:mt-0 grid-cols-1">
@@ -1361,23 +1402,44 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                             {defaultCategory === 'standard' && (
                             <div className="hidden md:flex items-center justify-center w-full">
                               <div className={clsx("relative", "w-12 h-12")}>
-                                {watch(`items.${index}.image_url`) ? (
+                                {watch(`items.${index}.image_urls`)?.length > 0 ? (
                                   <div className="relative w-full h-full rounded-lg border border-border overflow-hidden group/imgDesk">
-                                    <img src={watch(`items.${index}.image_url`)} alt="item" className="w-full h-full object-cover" />
-                                    <button
-                                      type="button"
-                                      onClick={() => setValue(`items.${index}.image_url`, null, { shouldValidate: true })}
-                                      className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/imgDesk:opacity-100 transition-opacity"
-                                      title="Xoá ảnh"
-                                    >
-                                      <X size={14} />
-                                    </button>
+                                    <img src={watch(`items.${index}.image_urls`)[0]} alt="item" className="w-full h-full object-cover" />
+                                    {watch(`items.${index}.image_urls`).length > 1 && (
+                                      <div className="absolute top-0 right-0 bg-primary text-white text-[9px] font-bold px-1 rounded-bl-lg">
+                                        +{watch(`items.${index}.image_urls`).length - 1}
+                                      </div>
+                                    )}
+                                    <div className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/imgDesk:opacity-100 transition-opacity gap-1">
+                                      <label className="cursor-pointer p-1 hover:text-primary transition-colors" title="Thêm ảnh">
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          multiple
+                                          className="hidden"
+                                          onChange={(e) => handleItemImageUpload(index, e)}
+                                        />
+                                        <Plus size={14} />
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setValue(`items.${index}.image_urls`, [], { shouldValidate: true });
+                                          setValue(`items.${index}.image_url`, null, { shouldValidate: true });
+                                        }}
+                                        className="p-1 hover:text-red-400 transition-colors"
+                                        title="Xoá tất cả ảnh"
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </div>
                                   </div>
                                 ) : (
                                   <label className="w-full h-full border border-border bg-muted/50 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all" title="Tải ảnh">
                                     <input
                                       type="file"
                                       accept="image/*"
+                                      multiple
                                       className="hidden"
                                       onChange={(e) => handleItemImageUpload(index, e)}
                                     />

@@ -192,6 +192,7 @@ export class ImportOrderService {
         is_custom_amount: mainData.is_custom_amount || false,
         total_amount: mainData.total_amount,
         receipt_image_url: mainData.receipt_image_url,
+        receipt_image_urls: mainData.receipt_image_urls || [],
         payment_status: mainData.payment_status || 'unpaid',
       })
       .select()
@@ -268,6 +269,7 @@ export class ImportOrderService {
       is_custom_amount: mainData.is_custom_amount !== undefined ? (mainData.is_custom_amount || false) : undefined,
       total_amount: mainData.total_amount,
       receipt_image_url: mainData.receipt_image_url,
+      receipt_image_urls: mainData.receipt_image_urls !== undefined ? (mainData.receipt_image_urls || []) : undefined,
       payment_status: mainData.payment_status !== undefined ? (mainData.payment_status || 'unpaid') : undefined,
     };
     if (mainData.received_by != null && String(mainData.received_by).trim() !== '') {

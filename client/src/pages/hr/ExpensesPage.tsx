@@ -15,7 +15,7 @@ import { CustomSelect } from '../../components/shared/CustomSelect';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { uploadApi } from '../../api/uploadApi';
 import { format } from 'date-fns';
-import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, Eye } from 'lucide-react';
+import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, Eye, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import type { Expense } from '../../types';
@@ -39,7 +39,8 @@ const ExpensesPage = () => {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const confirmingExpense = expenses?.find(e => e.id === confirmId);
 
-  const isViewOnly = editingExpense?.payment_status === 'confirmed';
+  const [previewImages, setPreviewImages] = useState<string[] | null>(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -240,6 +241,7 @@ const ExpensesPage = () => {
               <thead className="bg-muted/30 sticky top-0 z-10 backdrop-blur-xl">
                 <tr>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap min-w-[200px] border-b border-border/50">Tên chi phí</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider text-center whitespace-nowrap border-b border-l border-border/50 bg-muted/5">Ảnh</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap min-w-[150px] border-b border-l border-border/50">Người tạo</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-emerald-600 uppercase tracking-wider text-right whitespace-nowrap min-w-[150px] border-b border-l border-border/50 bg-emerald-50/30">Số tiền</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap border-b border-l border-border/50">Ngày chi</th>
@@ -253,12 +255,31 @@ const ExpensesPage = () => {
                     <td className="px-6 py-4 border-r border-border/10">
                       <div className="flex items-center gap-2">
                         <div className="text-[14px] font-medium text-foreground">{e.expense_name}</div>
-                        {e.image_urls && e.image_urls.length > 0 && (
-                          <ImageIcon size={14} className="text-muted-foreground" />
-                        )}
                       </div>
                       {e.vehicle && (
                         <div className="text-[11px] text-muted-foreground mt-0.5">Xe: {e.vehicle.license_plate}</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 border-r border-border/10 text-center bg-muted/5">
+                      {e.image_urls && e.image_urls.length > 0 ? (
+                        <button
+                          onClick={() => {
+                            setPreviewImages(e.image_urls);
+                            setCurrentImageIndex(0);
+                          }}
+                          className="relative w-10 h-10 rounded-lg border border-border overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all group"
+                        >
+                          <img src={e.image_urls[0]} alt="Receipt" className="w-full h-full object-cover" />
+                          {e.image_urls.length > 1 && (
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-[10px] text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                              +{e.image_urls.length - 1}
+                            </div>
+                          )}
+                        </button>
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg border border-border border-dashed flex items-center justify-center text-muted-foreground/30 mx-auto">
+                          <ImageIcon size={16} />
+                        </div>
                       )}
                     </td>
                     <td className="px-6 py-4 border-r border-border/10 text-[13px] text-muted-foreground">
@@ -326,12 +347,20 @@ const ExpensesPage = () => {
                   
                   <div className="flex justify-between items-start pl-1 mb-1">
                      <div className="flex flex-col">
-                       <div className="flex items-center gap-2">
-                         <span className="text-[14px] font-bold text-foreground">{e.expense_name}</span>
-                         {e.image_urls && e.image_urls.length > 0 && (
-                           <ImageIcon size={14} className="text-muted-foreground" />
-                         )}
-                       </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[14px] font-bold text-foreground">{e.expense_name}</span>
+                        {e.image_urls && e.image_urls.length > 0 && (
+                          <button
+                            onClick={() => {
+                              setPreviewImages(e.image_urls);
+                              setCurrentImageIndex(0);
+                            }}
+                            className="p-1 bg-muted rounded-md text-primary"
+                          >
+                            <ImageIcon size={14} />
+                          </button>
+                        )}
+                      </div>
                        <span className="text-[11px] text-muted-foreground mt-0.5">
                          {e.employee?.full_name} {e.vehicle && `• Xe: ${e.vehicle.license_plate}`}
                        </span>
@@ -647,6 +676,53 @@ const ExpensesPage = () => {
         variant="primary"
         isLoading={confirmMutation.isPending}
       />
+
+      {previewImages && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 animate-in fade-in duration-300">
+          <button
+            onClick={() => setPreviewImages(null)}
+            className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors z-[10001]"
+          >
+            <X size={24} />
+          </button>
+
+          {previewImages.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex((prev) => (prev > 0 ? prev - 1 : previewImages.length - 1));
+                }}
+                className="absolute left-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors z-[10001]"
+              >
+                <ChevronLeft size={32} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex((prev) => (prev < previewImages.length - 1 ? prev + 1 : 0));
+                }}
+                className="absolute right-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors z-[10001]"
+              >
+                <ChevronRightIcon size={32} />
+              </button>
+            </>
+          )}
+
+          <div className="relative max-w-[90vw] max-h-[90vh] flex flex-col items-center">
+            <img
+              src={previewImages[currentImageIndex]}
+              alt="Preview"
+              className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-lg animate-in zoom-in-95 duration-300"
+            />
+            {previewImages.length > 1 && (
+              <div className="mt-4 px-4 py-2 bg-white/10 rounded-full text-white text-[13px] font-medium">
+                {currentImageIndex + 1} / {previewImages.length}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

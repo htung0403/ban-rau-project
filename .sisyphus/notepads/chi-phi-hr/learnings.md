@@ -28,3 +28,4 @@ Registered ExpensesPage route in App.tsx after RolePermissionsPage.
 - payment_status writeable by users at creation ('unpaid'/'paid') is per plan spec - the form explicitly has toggle buttons for this.
 - StatusBadge maps 'confirmed' -> 'pending' variant (blue) which is semantically odd but matches existing StatusBadge API.
 - Implemented short-unit conversion in ExpensesPage.tsx: user enters 500, system stores 500,000. View shows 500.
+Created migration 64 to initialize 'expenses' storage bucket and set up RLS policies.

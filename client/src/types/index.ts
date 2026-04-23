@@ -367,6 +367,8 @@ export interface DeliveryVehicle {
   loader_name?: string;
   assigned_quantity?: number;
   expected_amount?: number;
+  /** Ảnh chứng từ / giao hàng gắn với dòng xe này */
+  image_urls?: string[];
   status: DeliveryVehicleStatus;
   assigned_at: string;
   // Nested

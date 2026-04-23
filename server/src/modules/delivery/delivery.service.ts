@@ -342,6 +342,7 @@ export class DeliveryService {
       loader_name: a.loader_name || null,
       assigned_quantity: a.quantity,
       expected_amount: a.expected_amount || 0,
+      image_urls: Array.isArray(a.image_urls) && a.image_urls.length > 0 ? a.image_urls : [],
     }));
 
     const { data, error } = await supabaseService

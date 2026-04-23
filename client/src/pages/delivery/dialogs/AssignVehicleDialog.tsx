@@ -24,6 +24,8 @@ const assignmentSchema = z.object({
   unit_price: z.coerce.number().min(0).optional().default(0),
   quantity: z.coerce.number().min(0.01, 'SL phải > 0'),
   expected_amount: z.coerce.number().min(0).optional().default(0),
+  /** Ảnh gắn với xe dòng này (phiếu thu / chứng từ theo xe); khi lưu gộp vào image_urls đơn. */
+  image_urls: z.array(z.string()).default([]),
 });
 
 const schema = z.object({
@@ -36,6 +38,30 @@ const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type FormValues = z.infer<typeof schema>;
+
+function mergeDeliveryImageUrls(global: string[], assignments: { image_urls?: string[] }[]): string[] {
+  const fromRows = assignments.flatMap((a) => a.image_urls || []);
+  return [...new Set([...(global || []), ...fromRows])];
+}
+
+function removeImageUrlFromForm(getValues: () => FormValues, setValue: (n: keyof FormValues | any, v: any, o?: any) => void, url: string) {
+  const data = getValues();
+  setValue(
+    'image_urls',
+    (data.image_urls || []).filter((u) => u !== url),
+    { shouldValidate: true },
+  );
+  (data.assignments || []).forEach((_, i) => {
+    const rowUrls = data.assignments[i]?.image_urls || [];
+    if (rowUrls.includes(url)) {
+      setValue(
+        `assignments.${i}.image_urls`,
+        rowUrls.filter((u) => u !== url),
+        { shouldValidate: true },
+      );
+    }
+  });
+}
 
 const vehicleSupportsGoodsCategory = (vehicle: Vehicle, category: 'grocery' | 'vegetable') => {
   if (!vehicle.goods_categories || vehicle.goods_categories.length === 0) return true;
@@ -100,6 +126,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
     handleSubmit,
     setValue,
     watch,
+    getValues,
     reset,
     control,
     formState: { errors },
@@ -119,6 +146,10 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
   const watchAssignments = watch('assignments') || [];
   const watchImageUrls = watch('image_urls') || [];
+  const allMergedImageUrls = React.useMemo(
+    () => mergeDeliveryImageUrls(watchImageUrls, watchAssignments),
+    [watchImageUrls, watchAssignments],
+  );
   const watchExportPaymentStatus = watch('export_payment_status');
   const totalAssignedQuantity = watchAssignments.reduce((acc, curr) => acc + (Number(curr.quantity) || 0), 0);
   const persistedAssignedQuantity = (order?.delivery_vehicles || []).reduce((acc: number, dv: any) => acc + (Number(dv.assigned_quantity) || 0), 0);
@@ -130,6 +161,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  /** 'global' = ảnh chung đơn; số = chỉ số dòng xe nhận ảnh vừa tải */
+  const imageUploadTargetRef = useRef<'global' | number>('global');
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -141,6 +174,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       return;
     }
 
+    const target = imageUploadTargetRef.current;
+
     try {
       setIsUploading(true);
       const uploadPromises = files.map(file => 
@@ -149,16 +184,23 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       
       const responses = await Promise.all(uploadPromises);
       const newUrls = responses.map(r => r.url);
-      
-      const currentUrls = watch('image_urls') || [];
-      setValue('image_urls', [...currentUrls, ...newUrls], { shouldValidate: true });
+
+      if (target === 'global') {
+        const currentUrls = getValues('image_urls') || [];
+        setValue('image_urls', [...currentUrls, ...newUrls], { shouldValidate: true });
+      } else {
+        const cur = (getValues(`assignments.${target}.image_urls` as any) || []) as string[];
+        setValue(`assignments.${target}.image_urls` as any, [...cur, ...newUrls], { shouldValidate: true });
+      }
       toast.success(`Đã tải lên ${newUrls.length} ảnh thành công!`);
     } catch (error) {
       console.error('File upload error:', error);
       toast.error('Lỗi khi tải ảnh lên');
     } finally {
       setIsUploading(false);
+      imageUploadTargetRef.current = 'global';
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
   };
 
@@ -191,6 +233,18 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
       if (existingDvs.length > 0) {
         existingDvs.forEach((dv: any) => {
+          const vid = dv.vehicle_id;
+          const rowImageUrls: string[] = [];
+          if (Array.isArray(dv.image_urls)) {
+            for (const u of dv.image_urls) {
+              if (u && typeof u === 'string' && !rowImageUrls.includes(u)) rowImageUrls.push(u);
+            }
+          }
+          for (const pc of order.payment_collections || []) {
+            if (pc.vehicle_id === vid && pc.image_url && !rowImageUrls.includes(pc.image_url)) {
+              rowImageUrls.push(pc.image_url);
+            }
+          }
           initialAssignments.push({
             vehicle_id: dv.vehicle_id,
             driver_id: dv.driver_id || '',
@@ -200,6 +254,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             expected_amount: importPaidReset
               ? 0
               : dv.expected_amount || (dv.assigned_quantity * defaultUnitPrice),
+            image_urls: rowImageUrls,
           });
         });
       }
@@ -221,6 +276,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           unit_price: defaultUnitPrice,
           quantity: remainingForThis,
           expected_amount: importPaidReset ? 0 : remainingForThis * defaultUnitPrice,
+          image_urls: [],
         });
       }
 
@@ -232,6 +288,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           unit_price: defaultUnitPrice,
           quantity: '',
           expected_amount: 0,
+          image_urls: [],
         });
       }
 
@@ -304,14 +361,47 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
       const existingImages = (order as any).image_urls || [];
       const legacyImage = (order as any).image_url;
-      const initialImages = Array.isArray(existingImages) ? [...existingImages] : [];
-      if (legacyImage && !initialImages.includes(legacyImage)) {
-        initialImages.push(legacyImage);
+      const orderLevelImageUrls = Array.isArray(existingImages) ? [...existingImages] : [];
+      if (legacyImage && !orderLevelImageUrls.includes(legacyImage)) {
+        orderLevelImageUrls.push(legacyImage);
+      }
+
+      /**
+       * Ảnh cũ chỉ lưu ở đơn: nếu DB chưa có image_urls trên delivery_vehicles, suy luận ban đầu.
+       * - Một xe: gom hết vào dòng đó.
+       * - Nhiều xe: chia vòng từng ảnh cho các dòng (fallback; lưu sau sẽ ghi đúng vào từng xe).
+       * Đã có image_urls lưu trên ít nhất một dòng xe → không tự chia, giữ ảnh đơn ở khối chung.
+       */
+      let formGlobalImageUrls = [...orderLevelImageUrls];
+      const rowsWithVehicle = initialAssignments.filter(
+        (a: any) => a.vehicle_id && String(a.vehicle_id).trim() !== '',
+      );
+      const hadStoredRowImages =
+        existingDvs.length > 0 &&
+        existingDvs.some((dv: any) => Array.isArray(dv.image_urls) && dv.image_urls.length > 0);
+
+      if (formGlobalImageUrls.length > 0 && rowsWithVehicle.length > 0 && !hadStoredRowImages) {
+        if (rowsWithVehicle.length === 1) {
+          const target = rowsWithVehicle[0] as { image_urls: string[] };
+          for (const url of formGlobalImageUrls) {
+            if (url && !target.image_urls.includes(url)) {
+              target.image_urls.push(url);
+            }
+          }
+          formGlobalImageUrls = [];
+        } else {
+          formGlobalImageUrls.forEach((url, i) => {
+            if (!url) return;
+            const row = rowsWithVehicle[i % rowsWithVehicle.length] as { image_urls: string[] };
+            if (!row.image_urls.includes(url)) row.image_urls.push(url);
+          });
+          formGlobalImageUrls = [];
+        }
       }
 
       reset({
         assignments: initialAssignments,
-        image_urls: initialImages,
+        image_urls: formGlobalImageUrls,
         export_payment_status: defaultExportPaymentStatus,
       });
     }
@@ -332,7 +422,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             (isDriver && assignment.vehicle_id === myVehicle?.id ? myEmployeeId || '' : '');
 
           const rawPrice = Number(assignment.unit_price) || 0;
-          const normalizedPrice = rawPrice > 0 && rawPrice < 10000 ? rawPrice * 1000 : rawPrice;
+          const normalizedPrice = rawPrice;
           const qty = Number(assignment.quantity) || 0;
           const normalizedAmount = qty * normalizedPrice;
           const srcImportPaid =
@@ -377,10 +467,10 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         export_payment_status: data.export_payment_status,
         unit_price: normalizedAssignments[0]?.unit_price || 0,
       };
-      if (data.image_urls && data.image_urls.length > 0) {
-        payload.image_urls = data.image_urls;
-        // Also send singular image_url for backward compatibility if needed
-        payload.image_url = data.image_urls[0];
+      const mergedImageUrls = mergeDeliveryImageUrls(data.image_urls || [], data.assignments);
+      if (mergedImageUrls.length > 0) {
+        payload.image_urls = mergedImageUrls;
+        payload.image_url = mergedImageUrls[0];
       } else {
         payload.image_urls = [];
         payload.image_url = null;
@@ -671,6 +761,71 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       </div>
                     )}
 
+                    {/* Ảnh gắn theo từng xe (phiếu thu / chứng từ) */}
+                    <div className="w-full flex-[1_1_100%] border-t border-dashed border-border/70 pt-3 mt-1">
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1.5">
+                        Ảnh theo xe
+                        {(() => {
+                          const plate = eligibleVehicles.find((v) => v.id === currentVid)?.license_plate?.trim();
+                          return plate ? ` · ${plate}` : '';
+                        })()}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(watchAssignments[index]?.image_urls || []).map((url, uidx) => (
+                          <div
+                            key={`row-${index}-${url}-${uidx}`}
+                            className="relative w-12 h-12 rounded-lg border border-border overflow-hidden shrink-0 group/rowimg bg-muted/20"
+                          >
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                            {!isRowDisabled && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const cur = watchAssignments[index]?.image_urls || [];
+                                  setValue(
+                                    `assignments.${index}.image_urls`,
+                                    cur.filter((u) => u !== url),
+                                    { shouldValidate: true },
+                                  );
+                                }}
+                                className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/rowimg:opacity-100 transition-opacity"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        {!isRowDisabled && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                imageUploadTargetRef.current = index;
+                                cameraInputRef.current?.click();
+                              }}
+                              disabled={isUploading}
+                              className="w-12 h-12 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:text-orange-500 hover:border-orange-400/50 hover:bg-orange-50/50 transition-all disabled:opacity-50"
+                              title="Chụp ảnh cho xe này"
+                            >
+                              <Camera size={16} className="text-orange-500" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                imageUploadTargetRef.current = index;
+                                fileInputRef.current?.click();
+                              }}
+                              disabled={isUploading}
+                              className="w-12 h-12 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all disabled:opacity-50"
+                              title="Chọn ảnh cho xe này"
+                            >
+                              <ImagePlus size={16} className="text-primary" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Nút xóa */}
                     {fields.length > 1 && !isRowDisabled && (
                       <button
@@ -726,22 +881,22 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               </div>
             )}
 
-            {/* Upload Image Section */}
+            {/* Upload Image Section — lưới lớn: mọi ảnh (chung + theo từng xe) */}
             <div className="space-y-1.5 pt-4 border-t border-border mt-2">
               <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                 <Camera size={12} />
-                Ảnh xuất hàng / Giao hàng ({watchImageUrls.length})
+                Ảnh xuất hàng / Giao hàng ({allMergedImageUrls.length})
               </label>
+              <p className="text-[10px] text-muted-foreground leading-snug">
+                Ảnh thêm trong từng dòng xe hiển thị kèm biển số ở trên; tất cả ảnh vẫn xem và xóa tại đây.
+              </p>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                {watchImageUrls.map((url, idx) => (
-                  <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden group bg-muted/20">
+                {allMergedImageUrls.map((url, idx) => (
+                  <div key={`${url}-${idx}`} className="relative aspect-square rounded-xl border border-border overflow-hidden group bg-muted/20">
                     <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
                     <button
                       type="button"
-                      onClick={() => {
-                        const newUrls = watchImageUrls.filter((_, i) => i !== idx);
-                        setValue('image_urls', newUrls, { shouldValidate: true });
-                      }}
+                      onClick={() => removeImageUrlFromForm(getValues, setValue, url)}
                       className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <Trash2 size={18} />
@@ -760,7 +915,10 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                   />
                   <button
                     type="button"
-                    onClick={() => cameraInputRef.current?.click()}
+                    onClick={() => {
+                      imageUploadTargetRef.current = 'global';
+                      cameraInputRef.current?.click();
+                    }}
                     disabled={isUploading}
                     className="w-full aspect-square border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-orange-500 hover:border-orange-400/50 hover:bg-orange-50 transition-all bg-muted/5 disabled:opacity-50"
                   >
@@ -786,7 +944,10 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                   />
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => {
+                      imageUploadTargetRef.current = 'global';
+                      fileInputRef.current?.click();
+                    }}
                     disabled={isUploading}
                     className="w-full aspect-square border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-muted/5 disabled:opacity-50"
                   >

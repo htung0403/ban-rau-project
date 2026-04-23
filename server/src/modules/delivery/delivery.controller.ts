@@ -74,6 +74,7 @@ export class DeliveryController {
         assigned_quantity: z.number().positive().optional(),
         quantity: z.number().positive().optional(),
         expected_amount: z.number().nonnegative().optional(),
+        image_urls: z.array(z.string()).optional(),
       });
 
       const body = req.body;
@@ -115,6 +116,7 @@ export class DeliveryController {
         loader_name: a.loader_name,
         quantity: a.quantity || a.assigned_quantity,
         expected_amount: a.expected_amount || 0,
+        image_urls: Array.isArray(a.image_urls) ? a.image_urls.filter(Boolean) : [],
       }));
 
       const data = await DeliveryService.assignVehicles(

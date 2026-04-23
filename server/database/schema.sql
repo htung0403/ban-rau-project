@@ -214,6 +214,7 @@ CREATE TABLE public.delivery_vehicles (
   loader_name TEXT,
   assigned_quantity INTEGER,
   expected_amount NUMERIC(15,2) DEFAULT 0,
+  image_urls TEXT[] DEFAULT ARRAY[]::TEXT[],
   status VARCHAR(20) DEFAULT 'assigned' CHECK (status IN ('assigned','in_transit','completed')),
   assigned_at TIMESTAMPTZ DEFAULT NOW()
 );

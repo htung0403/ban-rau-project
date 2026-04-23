@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import PageHeader from '../../components/shared/PageHeader';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
@@ -7,7 +7,7 @@ import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import { useAuth } from '../../context/AuthContext';
-import { useConfirmSgHandover, useSgImportCashList } from '../../hooks/queries/useSgImportCash';
+import { useConfirmSgHandover, useSgImportCashList, useSgImportCashOrderDetail } from '../../hooks/queries/useSgImportCash';
 import { useCustomers } from '../../hooks/queries/useCustomers';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { useEmployees } from '../../hooks/queries/useHR';
@@ -15,6 +15,8 @@ import { format, subMonths } from 'date-fns';
 import { CheckCircle2, Clock, Store, Truck, User, Filter } from 'lucide-react';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { matchesSearch } from '../../lib/str-utils';
+import toast from 'react-hot-toast';
+import SgImportOrderDetailPanel from './SgImportOrderDetailPanel';
 
 const formatCurrency = (value?: number | null) => {
   if (value == null) return '-';
@@ -60,6 +62,40 @@ const SgCashCollectionsPage: React.FC = () => {
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
+
+  const [selectedImportId, setSelectedImportId] = useState<string | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isDetailClosing, setIsDetailClosing] = useState(false);
+
+  const {
+    data: importDetail,
+    isError: importDetailError,
+    isPending: importDetailPending,
+    isFetching: importDetailFetching,
+  } = useSgImportCashOrderDetail(selectedImportId);
+
+  useEffect(() => {
+    if (importDetailError && selectedImportId) {
+      toast.error('Không tải được chi tiết đơn nhập');
+      setIsDetailOpen(false);
+      setIsDetailClosing(false);
+      setSelectedImportId(null);
+    }
+  }, [importDetailError, selectedImportId]);
+
+  const closeDetailPanel = () => {
+    setIsDetailClosing(true);
+    setTimeout(() => {
+      setIsDetailOpen(false);
+      setIsDetailClosing(false);
+      setSelectedImportId(null);
+    }, 300);
+  };
+
+  const detailOrder =
+    selectedImportId && importDetail?.id === selectedImportId ? importDetail : null;
+  const detailLoading =
+    !!selectedImportId && !detailOrder && (importDetailPending || importDetailFetching);
 
   const { data: customers } = useCustomers(undefined, true);
   const { data: vehicles } = useVehicles(true);
@@ -122,7 +158,6 @@ const SgCashCollectionsPage: React.FC = () => {
         const code = (row.order_code || '');
         const cname = (row.customers?.name || '');
         const cphone = (row.customers?.phone || '');
-        const recvName = (row.receiver_name || '');
         const drvName = (row.driver_name || '');
         const collName = (row.collector?.full_name || '');
         const lp = plate;
@@ -131,7 +166,6 @@ const SgCashCollectionsPage: React.FC = () => {
           matchesSearch(code, searchQuery) ||
           matchesSearch(cname, searchQuery) ||
           matchesSearch(cphone, searchQuery) ||
-          matchesSearch(recvName, searchQuery) ||
           matchesSearch(drvName, searchQuery) ||
           matchesSearch(collName, searchQuery) ||
           matchesSearch(lp, searchQuery);
@@ -257,7 +291,7 @@ const SgCashCollectionsPage: React.FC = () => {
                   <tr className="border-b border-border bg-muted/40">
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Mã phiếu</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ngày / giờ</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Người nhận</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">NV thu tiền</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">KH</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-right">Số tiền</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Trạng thái nộp tiền</th>
@@ -271,16 +305,30 @@ const SgCashCollectionsPage: React.FC = () => {
                 <tbody>
                   {filteredRows.map((row) => {
                     const confirmed = !!row.sg_cash_handover_confirmed_at;
-                    const receiver =
-                      [row.receiver_name, row.customers?.name].filter(Boolean).join(' · ') || '—';
                     return (
-                      <tr key={row.id} className="border-b border-border/80 hover:bg-muted/20 transition-colors">
+                      <tr
+                        key={row.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          setSelectedImportId(row.id);
+                          setIsDetailOpen(true);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedImportId(row.id);
+                            setIsDetailOpen(true);
+                          }
+                        }}
+                        className="border-b border-border/80 hover:bg-muted/20 transition-colors cursor-pointer"
+                      >
                         <td className="px-4 py-3 text-[13px] font-bold tabular-nums">{row.order_code}</td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground whitespace-nowrap">
                           {row.order_date} {row.order_time}
                         </td>
-                        <td className="px-4 py-3 text-[13px] max-w-[180px] truncate" title={receiver}>
-                          {receiver}
+                        <td className="px-4 py-3 text-[13px] max-w-[160px] truncate" title={row.collector?.full_name || ''}>
+                          {row.collector?.full_name || '—'}
                         </td>
                         <td className="px-4 py-3 text-[13px] max-w-[160px] truncate">
                           {row.customers?.name || '—'}
@@ -315,7 +363,10 @@ const SgCashCollectionsPage: React.FC = () => {
                               <button
                                 type="button"
                                 disabled={confirmMut.isPending}
-                                onClick={() => confirmMut.mutate(row.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  confirmMut.mutate(row.id);
+                                }}
                                 className="px-3 py-1.5 rounded-lg bg-primary text-white text-[12px] font-bold hover:bg-primary/90 disabled:opacity-50"
                               >
                                 Xác nhận đã nhận tiền
@@ -335,12 +386,23 @@ const SgCashCollectionsPage: React.FC = () => {
             <div className="md:hidden flex flex-col gap-3 p-3">
               {filteredRows.map((row) => {
                 const confirmed = !!row.sg_cash_handover_confirmed_at;
-                const receiver =
-                  [row.receiver_name, row.customers?.name].filter(Boolean).join(' · ') || '—';
                 return (
                   <div
                     key={row.id}
-                    className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-2"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setSelectedImportId(row.id);
+                      setIsDetailOpen(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedImportId(row.id);
+                        setIsDetailOpen(true);
+                      }
+                    }}
+                    className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-2 cursor-pointer active:opacity-90"
                   >
                     <div className="flex justify-between items-start gap-2">
                       <span className="text-[13px] font-bold">{row.order_code}</span>
@@ -352,8 +414,8 @@ const SgCashCollectionsPage: React.FC = () => {
                       {row.order_date} {row.order_time}
                     </p>
                     <p className="text-[12px]">
-                      <span className="text-muted-foreground">Người nhận: </span>
-                      {receiver}
+                      <span className="text-muted-foreground">NV thu tiền: </span>
+                      {row.collector?.full_name || '—'}
                     </p>
                     <p className="text-[12px]">
                       {confirmed ? (
@@ -366,7 +428,10 @@ const SgCashCollectionsPage: React.FC = () => {
                       <button
                         type="button"
                         disabled={confirmMut.isPending}
-                        onClick={() => confirmMut.mutate(row.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          confirmMut.mutate(row.id);
+                        }}
                         className="w-full mt-2 py-2 rounded-xl bg-primary text-white text-[13px] font-bold"
                       >
                         Xác nhận đã nhận tiền
@@ -438,6 +503,14 @@ const SgCashCollectionsPage: React.FC = () => {
           />
         </div>
       </MobileFilterSheet>
+
+      <SgImportOrderDetailPanel
+        isOpen={isDetailOpen}
+        isClosing={isDetailClosing}
+        onClose={closeDetailPanel}
+        order={detailOrder}
+        isLoading={detailLoading}
+      />
     </div>
   );
 };

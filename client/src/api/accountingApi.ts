@@ -24,6 +24,11 @@ export const accountingApi = {
     return data;
   },
 
+  getSgImportCashOrder: async (importOrderId: string) => {
+    const { data } = await axiosClient.get(`/accounting/sg-import-cash/${importOrderId}`);
+    return data;
+  },
+
   confirmSgHandover: async (importOrderId: string) => {
     const { data } = await axiosClient.patch(`/accounting/sg-import-cash/${importOrderId}/confirm-handover`);
     return data;

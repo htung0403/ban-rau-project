@@ -5,12 +5,21 @@ import toast from 'react-hot-toast';
 export const sgImportCashKeys = {
   all: ['sg-import-cash'] as const,
   list: (from?: string, to?: string) => [...sgImportCashKeys.all, 'list', from, to] as const,
+  detail: (id: string) => [...sgImportCashKeys.all, 'detail', id] as const,
 };
 
 export function useSgImportCashList(params?: { from?: string; to?: string }) {
   return useQuery({
     queryKey: sgImportCashKeys.list(params?.from, params?.to),
     queryFn: () => accountingApi.getSgImportCash(params),
+  });
+}
+
+export function useSgImportCashOrderDetail(id: string | null) {
+  return useQuery({
+    queryKey: sgImportCashKeys.detail(id || ''),
+    queryFn: () => accountingApi.getSgImportCashOrder(id!),
+    enabled: !!id,
   });
 }
 

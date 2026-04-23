@@ -308,6 +308,7 @@ export interface DeliveryOrder {
       customers?: { name: string };
       sender_customers?: { name: string };
       total_amount?: number;
+      payment_status?: 'paid' | 'unpaid' | 'partial';
       profiles?: { full_name: string };
       deleted_at?: string | null;
     };
@@ -323,6 +324,7 @@ export interface DeliveryOrder {
       customers?: { name: string };
       sender_customers?: { name: string };
       total_amount?: number;
+      payment_status?: 'paid' | 'unpaid' | 'partial';
       profiles?: { full_name: string };
       deleted_at?: string | null;
     };

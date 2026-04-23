@@ -16,6 +16,11 @@ router.get(
   requirePagePermission('/ke-toan/thu-tien-sg'),
   AccountingController.listSgImportCash
 );
+router.get(
+  '/sg-import-cash/:id',
+  requirePagePermission('/ke-toan/thu-tien-sg'),
+  AccountingController.getSgImportCashDetail
+);
 router.patch(
   '/sg-import-cash/:id/confirm-handover',
   requirePagePermission('/ke-toan/thu-tien-sg'),

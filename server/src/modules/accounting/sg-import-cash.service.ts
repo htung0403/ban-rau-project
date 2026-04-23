@@ -1,5 +1,7 @@
 import { supabaseService } from '../../config/supabase';
+import type { UserPayload } from '../../types';
 import { goodsScopeIsDriverRole } from '../../utils/goodsScope';
+import { ImportOrderService } from '../import-orders/import-orders.service';
 
 export class SgImportCashService {
   static async list(userId: string, role: string, filters: { from?: string; to?: string }) {
@@ -40,6 +42,33 @@ export class SgImportCashService {
     const { data, error } = await query;
     if (error) throw error;
     return data ?? [];
+  }
+
+  /**
+   * Full import order (standard nhập tạp hóa) for Thu tiền SG viewers.
+   * Same eligibility as list: paid, total > 0; drivers only see phiếu của mình.
+   */
+  static async getPaidImportDetail(importOrderId: string, actor: UserPayload) {
+    const { data: row, error } = await supabaseService
+      .from('import_orders')
+      .select('id, payment_status, total_amount, received_by')
+      .eq('id', importOrderId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!row) throw new Error('Không tìm thấy phiếu nhập');
+
+    const total = Number(row.total_amount) || 0;
+    if (row.payment_status !== 'paid' || total <= 0) {
+      throw new Error('Không tìm thấy phiếu nhập');
+    }
+
+    if (goodsScopeIsDriverRole(actor.role) && row.received_by !== actor.id) {
+      throw new Error('Không tìm thấy phiếu nhập');
+    }
+
+    return ImportOrderService.getById(importOrderId, actor);
   }
 
   static async confirmHandover(importOrderId: string, userId: string) {

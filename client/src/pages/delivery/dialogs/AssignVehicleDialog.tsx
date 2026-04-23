@@ -130,6 +130,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const persistedAssignedQuantity = (order?.delivery_vehicles || []).reduce((acc: number, dv: any) => acc + (Number(dv.assigned_quantity) || 0), 0);
   const currentAvailable = order ? Math.max(0, order.total_quantity - persistedAssignedQuantity) : 0;
   const isStandardOrder = (order?.order_category ?? 'standard') === 'standard';
+  /** Phiếu nhập tạp hóa đã trả tại SG — không thu lại trên đơn giao. */
+  const importPaid = isStandardOrder && order?.import_orders?.payment_status === 'paid';
 
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -170,6 +172,10 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
   useEffect(() => {
     if (order && isOpen) {
+      const importPaidReset =
+        (order.order_category ?? 'standard') === 'standard' &&
+        order.import_orders?.payment_status === 'paid';
+
       const toDisplayPrice = (p: number) => (p >= 10000 ? p / 1000 : p);
       let defaultUnitPrice = toDisplayPrice(order.unit_price || 0);
       if (!defaultUnitPrice && allOrders.length > 0) {
@@ -200,7 +206,9 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             loader_name: dv.loader_name || '',
             unit_price: defaultUnitPrice,
             quantity: dv.assigned_quantity,
-            expected_amount: dv.expected_amount || (dv.assigned_quantity * defaultUnitPrice)
+            expected_amount: importPaidReset
+              ? 0
+              : dv.expected_amount || (dv.assigned_quantity * defaultUnitPrice),
           });
         });
       }
@@ -221,7 +229,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           loader_name: '',
           unit_price: defaultUnitPrice,
           quantity: remainingForThis,
-          expected_amount: remainingForThis * defaultUnitPrice,
+          expected_amount: importPaidReset ? 0 : remainingForThis * defaultUnitPrice,
         });
       }
 
@@ -266,13 +274,23 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         ) {
           const newQty = rowQty + remainingOnOrder;
           row.quantity = newQty;
-          const prevExpected = Number(row.expected_amount) || 0;
-          if (prevExpected > 0 && rowQty > 0) {
-            row.expected_amount = Math.round((prevExpected * newQty) / rowQty);
+          if (importPaidReset) {
+            row.expected_amount = 0;
           } else {
-            row.expected_amount = newQty * defaultUnitPrice;
+            const prevExpected = Number(row.expected_amount) || 0;
+            if (prevExpected > 0 && rowQty > 0) {
+              row.expected_amount = Math.round((prevExpected * newQty) / rowQty);
+            } else {
+              row.expected_amount = newQty * defaultUnitPrice;
+            }
           }
         }
+      }
+
+      if (importPaidReset) {
+        initialAssignments.forEach((a) => {
+          a.expected_amount = 0;
+        });
       }
 
       const existingAssignedVehicleIds = initialAssignments
@@ -328,12 +346,19 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           const normalizedPrice = rawPrice > 0 && rawPrice < 10000 ? rawPrice * 1000 : rawPrice;
           const qty = Number(assignment.quantity) || 0;
           const normalizedAmount = qty * normalizedPrice;
+          const srcImportPaid =
+            (order.order_category ?? 'standard') === 'standard' &&
+            order.import_orders?.payment_status === 'paid';
 
           return {
             ...assignment,
             driver_id: resolvedDriverId,
             unit_price: normalizedPrice,
-            expected_amount: normalizedAmount > 0 ? normalizedAmount : Number(assignment.expected_amount) || 0,
+            expected_amount: srcImportPaid
+              ? 0
+              : normalizedAmount > 0
+                ? normalizedAmount
+                : Number(assignment.expected_amount) || 0,
           };
         })
         .filter((assignment) => {
@@ -454,6 +479,14 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                 </span>
               </div>
             )}
+            {importPaid && (
+              <div className="flex items-center justify-between pt-3 border-t border-border">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Tình trạng nhập</span>
+                <span className="text-[11px] font-black uppercase tracking-wide text-emerald-700 bg-emerald-500/15 border border-emerald-200/60 px-2.5 py-1 rounded-lg">
+                  Đã trả
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -549,9 +582,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                             }
                             const val = Number(valStr) || 0;
                             const currentUnitPrice = Number(watchAssignments[index]?.unit_price) || 0;
-                            const expected = val * currentUnitPrice;
-                            setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
-                            expectedAmountPrevDigitsRef.current[index] = amountToDigitString(expected);
+                            if (!importPaid) {
+                              const expected = val * currentUnitPrice;
+                              setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
+                              expectedAmountPrevDigitsRef.current[index] = amountToDigitString(expected);
+                            }
                           }
                         })}
                         disabled={isRowDisabled}
@@ -579,9 +614,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                             }
                             const price = Number(valStr) || 0;
                             const qty = Number(watchAssignments[index]?.quantity) || 0;
-                            const expected = qty * price;
-                            setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
-                            expectedAmountPrevDigitsRef.current[index] = amountToDigitString(expected);
+                            if (!importPaid) {
+                              const expected = qty * price;
+                              setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
+                              expectedAmountPrevDigitsRef.current[index] = amountToDigitString(expected);
+                            }
                           }
                         })}
                         disabled={isRowDisabled}
@@ -594,58 +631,67 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     {isStandardOrder && (
                       <div className="w-full md:w-44 space-y-1.5 mt-2 md:mt-0">
                         <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Tiền thu (VND)</label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={
-                            watchAssignments[index]?.expected_amount
-                              ? new Intl.NumberFormat('vi-VN').format(
-                                  Number(watchAssignments[index]?.expected_amount || 0)
-                                )
-                              : ''
-                          }
-                          onFocus={() => {
-                            if (isRowDisabled) return;
-                            const amt = Number(watchAssignments[index]?.expected_amount || 0);
-                            expectedAmountPrevDigitsRef.current[index] = amountToDigitString(amt);
-                          }}
-                          onChange={(e) => {
-                            if (isRowDisabled) return;
-                            const newDigits = digitsOnly(e.target.value);
-                            const prevDigits = expectedAmountPrevDigitsRef.current[index] ?? '';
+                        {importPaid ? (
+                          <div
+                            className="w-full h-10.5 px-3 flex items-center rounded-lg border border-emerald-200/80 bg-emerald-500/10 text-[12px] font-bold text-emerald-800 tabular-nums cursor-not-allowed"
+                            title="Phiếu nhập đã trả — không thu lại trên xe"
+                          >
+                            Đã trả
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={
+                              watchAssignments[index]?.expected_amount
+                                ? new Intl.NumberFormat('vi-VN').format(
+                                    Number(watchAssignments[index]?.expected_amount || 0)
+                                  )
+                                : ''
+                            }
+                            onFocus={() => {
+                              if (isRowDisabled) return;
+                              const amt = Number(watchAssignments[index]?.expected_amount || 0);
+                              expectedAmountPrevDigitsRef.current[index] = amountToDigitString(amt);
+                            }}
+                            onChange={(e) => {
+                              if (isRowDisabled) return;
+                              const newDigits = digitsOnly(e.target.value);
+                              const prevDigits = expectedAmountPrevDigitsRef.current[index] ?? '';
 
-                            let amount = 0;
-                            if (newDigits.length === 0) {
-                              amount = 0;
-                              expectedAmountPrevDigitsRef.current[index] = '';
-                            } else if (newDigits.length < prevDigits.length) {
-                              amount = Number(newDigits);
-                              if (!Number.isFinite(amount) || amount < 0) amount = 0;
-                              expectedAmountPrevDigitsRef.current[index] = newDigits;
-                            } else if (newDigits.length > prevDigits.length) {
-                              const n = Number(newDigits);
-                              if (!Number.isFinite(n) || n <= 0) {
+                              let amount = 0;
+                              if (newDigits.length === 0) {
                                 amount = 0;
                                 expectedAmountPrevDigitsRef.current[index] = '';
+                              } else if (newDigits.length < prevDigits.length) {
+                                amount = Number(newDigits);
+                                if (!Number.isFinite(amount) || amount < 0) amount = 0;
+                                expectedAmountPrevDigitsRef.current[index] = newDigits;
+                              } else if (newDigits.length > prevDigits.length) {
+                                const n = Number(newDigits);
+                                if (!Number.isFinite(n) || n <= 0) {
+                                  amount = 0;
+                                  expectedAmountPrevDigitsRef.current[index] = '';
+                                } else {
+                                  amount = n < 1000 ? n * 1000 : n;
+                                  expectedAmountPrevDigitsRef.current[index] = amountToDigitString(amount);
+                                }
                               } else {
-                                amount = n < 1000 ? n * 1000 : n;
-                                expectedAmountPrevDigitsRef.current[index] = amountToDigitString(amount);
+                                amount = Number(newDigits);
+                                if (!Number.isFinite(amount) || amount < 0) amount = 0;
+                                expectedAmountPrevDigitsRef.current[index] = newDigits;
                               }
-                            } else {
-                              amount = Number(newDigits);
-                              if (!Number.isFinite(amount) || amount < 0) amount = 0;
-                              expectedAmountPrevDigitsRef.current[index] = newDigits;
-                            }
 
-                            setValue(`assignments.${index}.expected_amount`, amount, { shouldValidate: true });
-                          }}
-                          disabled={isRowDisabled}
-                          placeholder=""
-                          className={clsx(
-                            "w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums",
-                            isRowDisabled && "opacity-70 bg-muted text-muted-foreground cursor-not-allowed"
-                          )}
-                        />
+                              setValue(`assignments.${index}.expected_amount`, amount, { shouldValidate: true });
+                            }}
+                            disabled={isRowDisabled}
+                            placeholder=""
+                            className={clsx(
+                              'w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums',
+                              isRowDisabled && 'opacity-70 bg-muted text-muted-foreground cursor-not-allowed'
+                            )}
+                          />
+                        )}
                       </div>
                     )}
 

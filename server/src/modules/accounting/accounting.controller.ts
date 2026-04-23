@@ -48,6 +48,19 @@ export class AccountingController {
     }
   }
 
+  static async getSgImportCashDetail(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json(errorResponse('Authentication required', 'UNAUTHORIZED'));
+      }
+      const { id } = req.params;
+      const data = await SgImportCashService.getPaidImportDetail(id, req.user);
+      return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
   static async confirmSgHandover(req: Request, res: Response) {
     try {
       if (!req.user) {

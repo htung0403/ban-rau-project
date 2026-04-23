@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { clsx } from 'clsx';
 import { isDriverLikeRoleKey } from '../../../utils/routePermissions';
@@ -11,6 +11,7 @@ import EmptyState from '../../../components/shared/EmptyState';
 import ErrorState from '../../../components/shared/ErrorState';
 import CreateEditPaymentDialog from './dialogs/CreateEditPaymentDialog';
 import SubmitPaymentDialog from './dialogs/SubmitPaymentDialog';
+import BulkSubmitPaymentDialog from './dialogs/BulkSubmitPaymentDialog';
 import SelfConfirmDialog from './dialogs/SelfConfirmDialog';
 import DraggableFAB from '../../../components/shared/DraggableFAB';
 import { DatePicker } from '../../../components/shared/DatePicker';
@@ -85,7 +86,11 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
   const [selectedPC, setSelectedPC] = useState<PaymentCollection | null>(null);
 
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
+  const [isBulkSubmitOpen, setIsBulkSubmitOpen] = useState(false);
   const [isSelfConfirmOpen, setIsSelfConfirmOpen] = useState(false);
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
   const { mutate: revert } = useRevertPaymentCollection();
 
@@ -100,6 +105,55 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
     }
     return true;
   }) || [];
+
+  const draftItems = useMemo(() => filtered.filter((c) => c.status === 'draft'), [filtered]);
+
+  const selectedDrafts = useMemo(
+    () => draftItems.filter((c) => selectedIds.has(c.id)),
+    [draftItems, selectedIds]
+  );
+
+  const selectedTotal = useMemo(
+    () => selectedDrafts.reduce((s, c) => s + (c.collectedAmount || 0), 0),
+    [selectedDrafts]
+  );
+
+  useEffect(() => {
+    const allowed = new Set(draftItems.map((d) => d.id));
+    setSelectedIds((prev) => {
+      const next = new Set([...prev].filter((id) => allowed.has(id)));
+      return next.size === prev.size && [...next].every((id) => prev.has(id)) ? prev : next;
+    });
+  }, [draftItems]);
+
+  useEffect(() => {
+    const el = headerCheckboxRef.current;
+    if (!el) return;
+    const all = draftItems.length > 0 && draftItems.every((d) => selectedIds.has(d.id));
+    const some = draftItems.some((d) => selectedIds.has(d.id));
+    el.indeterminate = some && !all;
+  }, [draftItems, selectedIds]);
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllDraftsInView = () => {
+    setSelectedIds(new Set(draftItems.map((d) => d.id)));
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const toggleHeaderCheckbox = () => {
+    const all = draftItems.length > 0 && draftItems.every((d) => selectedIds.has(d.id));
+    if (all) clearSelection();
+    else selectAllDraftsInView();
+  };
 
   const handleAction = (action: string, pc: PaymentCollection) => {
     setSelectedPC(pc);
@@ -243,16 +297,81 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
           />
         </div>
 
-        {!readonly && (
-          <button 
-            onClick={() => { setSelectedPC(null); setIsCreateOpen(true); }} 
-            className="hidden md:flex md:w-auto shrink-0 px-4 py-2 bg-primary text-white text-[13px] font-bold rounded-lg hover:bg-primary/90 items-center justify-center gap-2 h-[38px]"
-          >
-            <Plus size={16} />
-            Tạo Phiếu Thu
-          </button>
-        )}
+        <div className="hidden md:flex items-center gap-2 shrink-0 flex-wrap justify-end">
+          {!readonly && draftItems.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={selectAllDraftsInView}
+                className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 text-[12px] font-bold hover:bg-slate-50 h-[38px]"
+              >
+                Chọn tất cả chưa nộp
+              </button>
+              {selectedIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-[12px] font-semibold hover:bg-slate-50 h-[38px]"
+                >
+                  Bỏ chọn
+                </button>
+              )}
+            </>
+          )}
+          {!readonly && selectedDrafts.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setIsBulkSubmitOpen(true)}
+              className="px-4 py-2 bg-emerald-600 text-white text-[13px] font-bold rounded-lg hover:bg-emerald-700 flex items-center gap-2 h-[38px] shadow-sm"
+            >
+              Nộp hàng loạt ({selectedDrafts.length})
+              <span className="opacity-90 font-semibold tabular-nums">{formatCurrency(selectedTotal)}</span>
+            </button>
+          )}
+          {!readonly && (
+            <button
+              onClick={() => {
+                setSelectedPC(null);
+                setIsCreateOpen(true);
+              }}
+              className="md:flex md:w-auto shrink-0 px-4 py-2 bg-primary text-white text-[13px] font-bold rounded-lg hover:bg-primary/90 items-center justify-center gap-2 h-[38px]"
+            >
+              <Plus size={16} />
+              Tạo Phiếu Thu
+            </button>
+          )}
+        </div>
       </div>
+
+      {!readonly && draftItems.length > 0 && (
+        <div className="md:hidden flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={selectAllDraftsInView}
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 text-[12px] font-bold"
+          >
+            Chọn tất cả chưa nộp
+          </button>
+          {selectedIds.size > 0 && (
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-[12px] font-semibold"
+            >
+              Bỏ chọn
+            </button>
+          )}
+          {selectedDrafts.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setIsBulkSubmitOpen(true)}
+              className="px-3 py-2 bg-emerald-600 text-white text-[12px] font-bold rounded-lg"
+            >
+              Nộp hàng loạt ({selectedDrafts.length}) — {formatCurrency(selectedTotal)}
+            </button>
+          )}
+        </div>
+      )}
 
       <MobileFilterSheet
         isOpen={isFilterOpen}
@@ -342,12 +461,23 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
                       {groupedCollections[dateKey].map(pc => (
                         <div key={pc.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm relative overflow-hidden group">
                           <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${pc.status === 'confirmed' ? 'bg-green-500' : pc.status === 'submitted' ? 'bg-yellow-500' : pc.status === 'self_confirmed' ? 'bg-blue-500' : 'bg-slate-300'}`} />
-                          <div className="flex justify-between items-start mb-3 pl-2">
-                            <div>
-                              <h3 className="font-bold text-slate-800 text-[14px]">{pc.deliveryOrderCode}</h3>
-                              <p className="text-[12px] text-slate-500">{pc.customerName}</p>
+                          <div className="flex justify-between items-start mb-3 pl-2 gap-2">
+                            <div className="flex items-start gap-2 min-w-0 flex-1">
+                              {!readonly && pc.status === 'draft' && (
+                                <input
+                                  type="checkbox"
+                                  className="mt-1 w-4 h-4 rounded border-slate-300 shrink-0"
+                                  checked={selectedIds.has(pc.id)}
+                                  onChange={() => toggleSelectOne(pc.id)}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              )}
+                              <div className="min-w-0">
+                                <h3 className="font-bold text-slate-800 text-[14px]">{pc.deliveryOrderCode}</h3>
+                                <p className="text-[12px] text-slate-500">{pc.customerName}</p>
+                              </div>
                             </div>
-                            <div>{getStatusBadge(pc.status)}</div>
+                            <div className="shrink-0">{getStatusBadge(pc.status)}</div>
                           </div>
                           
                            <div className="grid grid-cols-2 gap-y-2 mb-3 pl-2 text-[13px]">
@@ -361,20 +491,16 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
                              </div>
                              <div>
                                <p className="text-slate-500 text-[11px]">Số kiện</p>
-                               <p className="font-medium text-slate-600">{pc.totalPackages ? `${pc.totalPackages} kiện` : '--'}</p>
+                               <p className="font-medium text-slate-600">{pc.totalPackages != null ? `${pc.totalPackages} kiện` : '--'}</p>
                              </div>
                              <div className="text-right">
                                <p className="text-slate-500 text-[11px]">Đơn giá</p>
-                               <p className="font-medium text-slate-600">{pc.pricePerPackage ? formatCurrency(pc.pricePerPackage) : '--'}</p>
+                               <p className="font-medium text-slate-600">{pc.pricePerPackage != null && pc.pricePerPackage > 0 ? formatCurrency(pc.pricePerPackage) : '--'}</p>
                              </div>
                              <div>
                                <p className="text-slate-500 text-[11px]">Tổng Tiền Giao</p>
                                <p className="font-bold text-slate-600">{formatCurrency(pc.expectedAmount)}</p>
                              </div>
-                              <div className="text-right">
-                                <p className="text-slate-500 text-[11px]">Tiền Thực Thu</p>
-                                <p className="font-bold text-slate-800">{formatCurrency(pc.collectedAmount)}</p>
-                              </div>
                            </div>
        
                            <div className="flex justify-between items-center pt-3 border-t border-slate-100 pl-2">
@@ -409,6 +535,18 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
                 <table className="w-full text-left border-collapse">
                 <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-200 text-[12px] font-bold text-slate-600 uppercase tracking-wider">
+                  <th className="w-11 px-2 py-3 text-center">
+                    {!readonly && draftItems.length > 0 ? (
+                      <input
+                        ref={headerCheckboxRef}
+                        type="checkbox"
+                        title="Chọn tất cả phiếu chưa nộp (theo bộ lọc hiện tại)"
+                        checked={draftItems.length > 0 && draftItems.every((d) => selectedIds.has(d.id))}
+                        onChange={toggleHeaderCheckbox}
+                        className="w-4 h-4 rounded border-slate-300"
+                      />
+                    ) : null}
+                  </th>
                   <th className="px-4 py-3">Mã Số</th>
                   <th className="px-4 py-3">Khách Hàng</th>
                   <th className="px-4 py-3">Số Lượng Kiện</th>
@@ -416,7 +554,6 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
                   <th className="px-4 py-3">Tổng Tiền Giao</th>
                   <th className="px-4 py-3">Biển Số Xe</th>
                   <th className="px-4 py-3">Người Giao</th>
-                  <th className="px-4 py-3">Tiền Thực Thu</th>
                   <th className="px-4 py-3">Thu Lúc</th>
                   <th className="px-4 py-3">Trạng Thái</th>
                   {!readonly && <th className="px-4 py-3 text-right">Thao Tác</th>}
@@ -445,6 +582,19 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
                     </tr>
                     {!isCollapsed && groupedCollections[dateKey].map(pc => (
                       <tr key={pc.id} className="hover:bg-slate-50/50">
+                        <td
+                          className="px-2 py-3 text-center align-middle"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {!readonly && pc.status === 'draft' ? (
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 rounded border-slate-300"
+                              checked={selectedIds.has(pc.id)}
+                              onChange={() => toggleSelectOne(pc.id)}
+                            />
+                          ) : null}
+                        </td>
                         <td className="px-4 py-3 text-[13px] font-bold text-slate-800">
                           {pc.deliveryOrderCode}
                         </td>
@@ -452,10 +602,10 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
                           {pc.customerName}
                         </td>
                         <td className="px-4 py-3 text-[13px] text-slate-600">
-                          {pc.totalPackages ? `${pc.totalPackages} kiện` : '--'}
+                          {pc.totalPackages != null ? `${pc.totalPackages} kiện` : '--'}
                         </td>
                         <td className="px-4 py-3 text-[13px] text-slate-600">
-                          {pc.pricePerPackage ? formatCurrency(pc.pricePerPackage) : '--'}
+                          {pc.pricePerPackage != null && pc.pricePerPackage > 0 ? formatCurrency(pc.pricePerPackage) : '--'}
                         </td>
                         <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
                           {formatCurrency(pc.expectedAmount)}
@@ -465,9 +615,6 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
                         </td>
                         <td className="px-4 py-3 text-[13px] font-medium text-slate-600">
                           {pc.driverName || '--'}
-                        </td>
-                        <td className="px-4 py-3 text-[13px] font-bold text-slate-800">
-                          {formatCurrency(pc.collectedAmount)}
                         </td>
                         <td className="px-4 py-3 text-[13px] text-slate-600">
                           {formatTime(pc.collectedAt)}
@@ -510,6 +657,13 @@ const DriverPaymentTab: React.FC<Props> = ({ readonly }) => {
       {/* Dialogs */}
       {isCreateOpen && <CreateEditPaymentDialog isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} payment={selectedPC || undefined} />}
       {isSubmitOpen && selectedPC && <SubmitPaymentDialog isOpen={isSubmitOpen} onClose={() => setIsSubmitOpen(false)} payment={selectedPC} />}
+      {isBulkSubmitOpen && selectedDrafts.length > 0 && (
+        <BulkSubmitPaymentDialog
+          isOpen={isBulkSubmitOpen}
+          onClose={() => setIsBulkSubmitOpen(false)}
+          payments={selectedDrafts}
+        />
+      )}
       {isSelfConfirmOpen && selectedPC && <SelfConfirmDialog isOpen={isSelfConfirmOpen} onClose={() => setIsSelfConfirmOpen(false)} payment={selectedPC} />}
     </div>
   );

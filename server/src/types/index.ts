@@ -53,6 +53,8 @@ export interface PaymentCollection {
   selfConfirmReason?: string;
   notes?: string;
   imageUrl?: string;
+  totalPackages?: number;
+  pricePerPackage?: number;
 }
 
 export interface CreatePaymentCollectionDto {

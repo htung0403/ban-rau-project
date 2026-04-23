@@ -5,6 +5,10 @@ export interface CurrencyInputProps extends Omit<React.InputHTMLAttributes<HTMLI
   onChange?: (value: number | undefined) => void;
 }
 
+function formatVnInteger(n: number): string {
+  return new Intl.NumberFormat('vi-VN').format(n);
+}
+
 const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
   ({ value, onChange, className, ...props }, ref) => {
     const [displayValue, setDisplayValue] = useState<string>('');
@@ -13,7 +17,7 @@ const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       if (value !== undefined && value !== null && value !== '') {
         const numValue = typeof value === 'string' ? parseFloat(value) : value;
         if (!isNaN(numValue)) {
-          setDisplayValue(new Intl.NumberFormat('vi-VN').format(numValue));
+          setDisplayValue(formatVnInteger(numValue));
         } else {
           setDisplayValue('');
         }
@@ -23,7 +27,7 @@ const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
     }, [value]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const rawValue = e.target.value.replace(/[^0-9]/g, '');
+      const rawValue = e.target.value.replace(/\D/g, '');
       if (!rawValue) {
         setDisplayValue('');
         if (onChange) onChange(undefined);
@@ -31,7 +35,7 @@ const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       }
 
       const numValue = parseInt(rawValue, 10);
-      setDisplayValue(new Intl.NumberFormat('vi-VN').format(numValue));
+      setDisplayValue(formatVnInteger(numValue));
       if (onChange) onChange(numValue);
     };
 

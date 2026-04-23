@@ -7,7 +7,14 @@ export class PaymentCollectionsService {
       .from('payment_collections')
       .select(`
         *,
-        delivery_orders ( id, import_orders ( order_code, customers!import_orders_customer_id_fkey ( name ) ), vegetable_orders ( order_code, customers!vegetable_orders_customer_id_fkey ( name ) ) ),
+        delivery_orders (
+          id,
+          unit_price,
+          total_quantity,
+          import_orders ( order_code, customers!import_orders_customer_id_fkey ( name ) ),
+          vegetable_orders ( order_code, customers!vegetable_orders_customer_id_fkey ( name ) ),
+          delivery_vehicles ( vehicle_id, assigned_quantity, expected_amount )
+        ),
         drivers:profiles!payment_collections_driver_id_fkey(full_name),
         receivers:profiles!payment_collections_receiver_id_fkey(full_name),
         vehicles ( license_plate )
@@ -32,7 +39,14 @@ export class PaymentCollectionsService {
       .from('payment_collections')
       .select(`
         *,
-        delivery_orders ( id, import_orders ( order_code, customers!import_orders_customer_id_fkey ( name ) ), vegetable_orders ( order_code, customers!vegetable_orders_customer_id_fkey ( name ) ) ),
+        delivery_orders (
+          id,
+          unit_price,
+          total_quantity,
+          import_orders ( order_code, customers!import_orders_customer_id_fkey ( name ) ),
+          vegetable_orders ( order_code, customers!vegetable_orders_customer_id_fkey ( name ) ),
+          delivery_vehicles ( vehicle_id, assigned_quantity, expected_amount )
+        ),
         drivers:profiles!payment_collections_driver_id_fkey(full_name),
         receivers:profiles!payment_collections_receiver_id_fkey(full_name),
         vehicles ( license_plate )
@@ -231,7 +245,14 @@ export class PaymentCollectionsService {
       .from('payment_collections')
       .select(`
         *,
-        delivery_orders ( id, import_orders ( order_code, customers!import_orders_customer_id_fkey ( name ) ), vegetable_orders ( order_code, customers!vegetable_orders_customer_id_fkey ( name ) ) ),
+        delivery_orders (
+          id,
+          unit_price,
+          total_quantity,
+          import_orders ( order_code, customers!import_orders_customer_id_fkey ( name ) ),
+          vegetable_orders ( order_code, customers!vegetable_orders_customer_id_fkey ( name ) ),
+          delivery_vehicles ( vehicle_id, assigned_quantity, expected_amount )
+        ),
         drivers:profiles!payment_collections_driver_id_fkey(full_name),
         receivers:profiles!payment_collections_receiver_id_fkey(full_name),
         vehicles ( license_plate )
@@ -336,6 +357,32 @@ export class PaymentCollectionsService {
 
   // Helper mapping 
   private static mapToDto(pc: any) {
+    const doRow = pc.delivery_orders;
+    const dvsRaw = doRow?.delivery_vehicles;
+    const dvList: any[] = Array.isArray(dvsRaw) ? dvsRaw : dvsRaw ? [dvsRaw] : [];
+    const match = dvList.find((dv: any) => dv.vehicle_id === pc.vehicle_id);
+
+    let totalPackages: number | undefined;
+    if (match?.assigned_quantity != null && match.assigned_quantity !== '') {
+      const q = Number(match.assigned_quantity);
+      if (Number.isFinite(q)) totalPackages = q;
+    }
+    if (totalPackages == null && doRow?.total_quantity != null) {
+      const q = Number(doRow.total_quantity);
+      if (Number.isFinite(q)) totalPackages = q;
+    }
+
+    let pricePerPackage: number | undefined;
+    const unitFromOrder = Number(doRow?.unit_price);
+    if (Number.isFinite(unitFromOrder) && unitFromOrder > 0) {
+      pricePerPackage = unitFromOrder;
+    } else if (match && totalPackages != null && totalPackages > 0) {
+      const exp = Number(match.expected_amount);
+      if (Number.isFinite(exp) && exp > 0) {
+        pricePerPackage = exp / totalPackages;
+      }
+    }
+
     return {
       id: pc.id,
       deliveryOrderId: pc.delivery_order_id,
@@ -359,6 +406,8 @@ export class PaymentCollectionsService {
       selfConfirmReason: pc.self_confirm_reason,
       notes: pc.notes,
       imageUrl: pc.image_url,
+      totalPackages,
+      pricePerPackage,
     };
   }
 }

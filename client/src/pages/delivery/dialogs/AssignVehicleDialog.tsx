@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Truck, Package, User, AlertCircle, Trash2, CheckCircle, ImagePlus, Loader2, Camera } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAssignVehicle } from '../../../hooks/queries/useDelivery';
@@ -14,6 +14,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { uploadApi } from '../../../api/uploadApi';
 import toast from 'react-hot-toast';
 import type { Vehicle } from '../../../types';
+import VnUnitPriceInput from '../../../components/shared/VnUnitPriceInput';
+import CurrencyInput from '../../../components/shared/CurrencyInput';
 
 const assignmentSchema = z.object({
   vehicle_id: z.string().min(1, 'Vui lòng chọn xe'),
@@ -32,14 +34,6 @@ const schema = z.object({
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-const digitsOnly = (s: string) => s.replace(/\D/g, '');
-
-/** digits của số tiền đang lưu (để so sánh thêm/xóa ký tự). */
-const amountToDigitString = (amount: number) => {
-  if (!Number.isFinite(amount) || amount <= 0) return '';
-  return String(Math.trunc(amount));
-};
 
 type FormValues = z.infer<typeof schema>;
 
@@ -136,8 +130,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  /** Theo dõi chuỗi chữ số đã “ổn định” theo từng dòng: chỉ ×1000 khi user gõ thêm (độ dài tăng), không khi xóa. */
-  const expectedAmountPrevDigitsRef = useRef<Record<number, string>>({});
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -176,8 +168,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         (order.order_category ?? 'standard') === 'standard' &&
         order.import_orders?.payment_status === 'paid';
 
-      const toDisplayPrice = (p: number) => (p >= 10000 ? p / 1000 : p);
-      let defaultUnitPrice = toDisplayPrice(order.unit_price || 0);
+      let defaultUnitPrice = Number(order.unit_price) || 0;
       if (!defaultUnitPrice && allOrders.length > 0) {
         const orderReceiverName = order.import_orders?.customers?.name || order.import_orders?.receiver_name?.trim() || order.import_orders?.profiles?.full_name || '';
         const sameDayOrders = allOrders.filter(o => {
@@ -191,7 +182,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           return true;
         });
         if (sameDayOrders.length > 0) {
-          defaultUnitPrice = toDisplayPrice(sameDayOrders[0].unit_price || 0);
+          defaultUnitPrice = Number(sameDayOrders[0].unit_price) || 0;
         }
       }
 
@@ -310,8 +301,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         : (existingAssignedVehicleIds.length > 0 && existingAssignedVehicleIds.every((id) => paidVehicleIds.has(id))
           ? 'paid'
           : 'unpaid');
-
-      expectedAmountPrevDigitsRef.current = {};
 
       const existingImages = (order as any).image_urls || [];
       const legacyImage = (order as any).image_url;
@@ -585,7 +574,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                             if (!importPaid) {
                               const expected = val * currentUnitPrice;
                               setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
-                              expectedAmountPrevDigitsRef.current[index] = amountToDigitString(expected);
                             }
                           }
                         })}
@@ -596,34 +584,36 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       {errors.assignments?.[index]?.quantity && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.quantity?.message}</p>}
                     </div>
 
-                    {/* Đơn giá */}
+                    {/* Đơn giá (VND): format vi-VN */}
                     <div className="w-full md:w-36 space-y-1.5 mt-2 md:mt-0">
                       <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                         Đơn giá
                       </label>
-                      <input
-                        type="number"
-                        step="any"
-                        {...register(`assignments.${index}.unit_price` as const, {
-                          onChange: (e) => {
-                            if (isRowDisabled) return;
-                            let valStr = e.target.value;
-                            if (valStr.length > 1 && valStr.startsWith('0') && valStr[1] !== '.') {
-                              valStr = valStr.replace(/^0+/, '');
-                              e.target.value = valStr;
-                            }
-                            const price = Number(valStr) || 0;
-                            const qty = Number(watchAssignments[index]?.quantity) || 0;
-                            if (!importPaid) {
-                              const expected = qty * price;
-                              setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
-                              expectedAmountPrevDigitsRef.current[index] = amountToDigitString(expected);
-                            }
-                          }
-                        })}
-                        disabled={isRowDisabled}
-                        placeholder="0"
-                        className={clsx("w-full h-10.5 px-3 bg-card border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums", isRowDisabled && "opacity-70 bg-muted text-muted-foreground cursor-not-allowed")}
+                      <Controller
+                        control={control}
+                        name={`assignments.${index}.unit_price`}
+                        render={({ field }) => (
+                          <VnUnitPriceInput
+                            value={Number(field.value) || 0}
+                            onChange={(vnd) => {
+                              if (isRowDisabled) return;
+                              field.onChange(vnd);
+                              const qty = Number(watchAssignments[index]?.quantity) || 0;
+                              if (!importPaid) {
+                                const expected = qty * vnd;
+                                setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
+                              }
+                            }}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            disabled={isRowDisabled}
+                            placeholder="0"
+                            className={clsx(
+                              'w-full h-10.5 px-3 bg-card border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums',
+                              isRowDisabled && 'opacity-70 bg-muted text-muted-foreground cursor-not-allowed'
+                            )}
+                          />
+                        )}
                       />
                     </div>
 
@@ -639,56 +629,25 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                             Đã trả
                           </div>
                         ) : (
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={
-                              watchAssignments[index]?.expected_amount
-                                ? new Intl.NumberFormat('vi-VN').format(
-                                    Number(watchAssignments[index]?.expected_amount || 0)
-                                  )
-                                : ''
-                            }
-                            onFocus={() => {
-                              if (isRowDisabled) return;
-                              const amt = Number(watchAssignments[index]?.expected_amount || 0);
-                              expectedAmountPrevDigitsRef.current[index] = amountToDigitString(amt);
-                            }}
-                            onChange={(e) => {
-                              if (isRowDisabled) return;
-                              const newDigits = digitsOnly(e.target.value);
-                              const prevDigits = expectedAmountPrevDigitsRef.current[index] ?? '';
-
-                              let amount = 0;
-                              if (newDigits.length === 0) {
-                                amount = 0;
-                                expectedAmountPrevDigitsRef.current[index] = '';
-                              } else if (newDigits.length < prevDigits.length) {
-                                amount = Number(newDigits);
-                                if (!Number.isFinite(amount) || amount < 0) amount = 0;
-                                expectedAmountPrevDigitsRef.current[index] = newDigits;
-                              } else if (newDigits.length > prevDigits.length) {
-                                const n = Number(newDigits);
-                                if (!Number.isFinite(n) || n <= 0) {
-                                  amount = 0;
-                                  expectedAmountPrevDigitsRef.current[index] = '';
-                                } else {
-                                  amount = n < 1000 ? n * 1000 : n;
-                                  expectedAmountPrevDigitsRef.current[index] = amountToDigitString(amount);
-                                }
-                              } else {
-                                amount = Number(newDigits);
-                                if (!Number.isFinite(amount) || amount < 0) amount = 0;
-                                expectedAmountPrevDigitsRef.current[index] = newDigits;
-                              }
-
-                              setValue(`assignments.${index}.expected_amount`, amount, { shouldValidate: true });
-                            }}
-                            disabled={isRowDisabled}
-                            placeholder=""
-                            className={clsx(
-                              'w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums',
-                              isRowDisabled && 'opacity-70 bg-muted text-muted-foreground cursor-not-allowed'
+                          <Controller
+                            control={control}
+                            name={`assignments.${index}.expected_amount`}
+                            render={({ field }) => (
+                              <CurrencyInput
+                                value={Number(field.value) > 0 ? Number(field.value) : undefined}
+                                onChange={(val) => {
+                                  if (isRowDisabled) return;
+                                  field.onChange(val ?? 0);
+                                }}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                disabled={isRowDisabled}
+                                placeholder="0"
+                                className={clsx(
+                                  'w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums',
+                                  isRowDisabled && 'opacity-70 bg-muted text-muted-foreground cursor-not-allowed',
+                                )}
+                              />
                             )}
                           />
                         )}

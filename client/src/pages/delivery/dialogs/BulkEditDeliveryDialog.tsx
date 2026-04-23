@@ -4,6 +4,7 @@ import { X, Loader2, Trash2, ImagePlus } from 'lucide-react';
 import { useUpdateDeliveryOrder } from '../../../hooks/queries/useDelivery';
 import { useProducts } from '../../../hooks/queries/useProducts';
 import { CreatableSearchableSelect } from '../../../components/ui/CreatableSearchableSelect';
+import VnUnitPriceInput from '../../../components/shared/VnUnitPriceInput';
 import { uploadApi } from '../../../api/uploadApi';
 import type { DeliveryOrder, Product } from '../../../types';
 import { useCustomers } from '../../../hooks/queries/useCustomers';
@@ -125,8 +126,6 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                 uPrice = p.base_price || 0;
              }
           }
-          if (uPrice && uPrice >= 10000) uPrice = uPrice / 1000;
-
           const existingImages = (o as any).image_urls || [];
           const legacyImage = (o as any).image_url;
           const initialImages = Array.isArray(existingImages) ? [...existingImages] : [];
@@ -472,14 +471,11 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
+                        <VnUnitPriceInput
                           value={rowData.unit_price}
-                          onChange={e => updateRow(order.id, 'unit_price', parseInt(e.target.value) || 0)}
+                          onChange={(vnd) => updateRow(order.id, 'unit_price', vnd)}
                           disabled={isSubmitting}
+                          className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                         />
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -578,14 +574,11 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                           </div>
                           <div className="flex-1 relative">
                             <span className="absolute -top-1.5 left-2 bg-card px-1 text-[9px] font-bold text-muted-foreground z-10 leading-none">ĐƠN GIÁ</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              className="w-full h-9 px-2 pt-1 border border-border rounded-lg text-[14px] font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
+                            <VnUnitPriceInput
                               value={rowData.unit_price}
-                              onChange={e => updateRow(order.id, 'unit_price', parseInt(e.target.value) || 0)}
+                              onChange={(vnd) => updateRow(order.id, 'unit_price', vnd)}
                               disabled={isSubmitting}
+                              className="w-full h-9 px-2 pt-1 border border-border rounded-lg text-[14px] font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                             />
                           </div>
                         </div>

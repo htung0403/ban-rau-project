@@ -270,17 +270,12 @@ const ExpensesPage = () => {
     if (expense) {
       setEditingExpense(expense);
       
-      let displayAmount = expense.amount;
-      if (expense.amount % 1000 === 0 && expense.amount / 1000 < 10000) {
-        displayAmount = expense.amount / 1000;
-      }
-
       const { date: ed, time: et } = parseExpenseToFormDateTime(expense.expense_date);
       setFormData({
         employee_id: expense.employee_id,
         vehicle_id: expense.vehicle_id || '',
         expense_name: expense.expense_name,
-        amount: displayAmount,
+        amount: expense.amount,
         expense_date: ed,
         expense_time: et,
         image_urls: expense.image_urls || [],
@@ -356,10 +351,7 @@ const ExpensesPage = () => {
       return;
     }
 
-    let finalAmount = formData.amount;
-    if (finalAmount < 10000) {
-      finalAmount = finalAmount * 1000;
-    }
+    const finalAmount = formData.amount;
 
     const expenseDateIso = toVietnamExpenseIso(formData.expense_date, formData.expense_time);
     if (!expenseDateIso || Number.isNaN(Date.parse(expenseDateIso))) {
@@ -925,7 +917,7 @@ const ExpensesPage = () => {
                          value={formData.amount}
                          onChange={(val) => setFormData({ ...formData, amount: val })}
                          className="flex h-11 w-full rounded-xl border border-border/80 bg-background pl-8 pr-3 py-2 text-[14px] ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all font-medium text-emerald-600"
-                         placeholder="Ví dụ: 500,000"
+                         placeholder="Ví dụ: 30.000"
                        />
                     </div>
                   </div>

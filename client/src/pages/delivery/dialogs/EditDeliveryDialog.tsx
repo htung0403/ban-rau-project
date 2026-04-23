@@ -10,6 +10,7 @@ import { importOrdersApi } from '../../../api/importOrdersApi';
 import { uploadApi } from '../../../api/uploadApi';
 import { CreatableSearchableSelect } from '../../../components/ui/CreatableSearchableSelect';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import VnUnitPriceInput from '../../../components/shared/VnUnitPriceInput';
 import type { DeliveryOrder, Product } from '../../../types';
 import toast from 'react-hot-toast';
 
@@ -96,8 +97,6 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
             uPrice = p.base_price || 0;
          }
       }
-      if (uPrice && uPrice >= 10000) uPrice = uPrice / 1000;
-
       let defaultVehicleId = '';
       let defaultDriverId = '';
       if (order.delivery_vehicles && order.delivery_vehicles.length > 0) {
@@ -389,14 +388,11 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
 
               <div className="space-y-1.5">
                 <label className="text-[13px] font-bold text-foreground">Đơn giá</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
+                <VnUnitPriceInput
                   value={formData.unit_price}
-                  onChange={e => setFormData({ ...formData, unit_price: parseInt(e.target.value) || 0 })}
+                  onChange={(vnd) => setFormData({ ...formData, unit_price: vnd })}
                   disabled={isSubmitting}
+                  className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                 />
               </div>
             </div>

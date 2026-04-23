@@ -403,8 +403,8 @@ const ExpensesPage = () => {
 
   const statusLabels: Record<string, string> = {
     unpaid: 'Chưa thanh toán',
-    paid: 'Chờ xác nhận',
-    confirmed: 'Đã thanh toán',
+    paid: 'Đã thanh toán',
+    confirmed: 'Đã xác nhận'
   };
 
   const statusColors: Record<string, 'pending' | 'success' | 'error' | 'default'> = {
@@ -496,8 +496,8 @@ const ExpensesPage = () => {
                     options={[
                       { value: '', label: 'Tất cả trạng thái' },
                       { value: 'unpaid', label: 'Chưa thanh toán' },
-                      { value: 'paid', label: 'Chờ xác nhận' },
-                      { value: 'confirmed', label: 'Đã thanh toán' }
+                      { value: 'paid', label: 'Đã thanh toán' },
+                      { value: 'confirmed', label: 'Đã xác nhận' }
                     ]}
                     placeholder="Trạng thái"
                     className="h-10 w-full bg-background"
@@ -896,9 +896,9 @@ const ExpensesPage = () => {
                     <label className="text-[13px] font-bold text-foreground">Trạng thái thanh toán</label>
                     {paymentFieldsLocked ? (
                       <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 space-y-1">
-                        <StatusBadge status="pending" label="Đã thanh toán" />
+                        <StatusBadge status="pending" label="Đã xác nhận" />
                         <p className="text-[12px] text-muted-foreground">
-                          Có thể sửa thông tin khác; trạng thái đã thanh toán giữ nguyên khi lưu.
+                          Có thể sửa thông tin khác; trạng thái xác nhận giữ nguyên khi lưu.
                         </p>
                       </div>
                     ) : (
@@ -925,7 +925,7 @@ const ExpensesPage = () => {
                               : "bg-background border-border text-muted-foreground hover:bg-muted"
                           )}
                         >
-                          Chờ xác nhận
+                          Đã thanh toán
                         </button>
                       </div>
                     )}
@@ -1054,8 +1054,8 @@ const ExpensesPage = () => {
         statusOptions={[
           { value: '', label: 'Tất cả trạng thái' },
           { value: 'unpaid', label: 'Chưa thanh toán' },
-          { value: 'paid', label: 'Chờ xác nhận' },
-          { value: 'confirmed', label: 'Đã thanh toán' },
+          { value: 'paid', label: 'Đã thanh toán' },
+          { value: 'confirmed', label: 'Đã xác nhận' },
         ]}
         onClear={() => {
           setFilterEmployee('');

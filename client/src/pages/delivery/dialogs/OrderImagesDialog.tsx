@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Image as ImageIcon, Package, Truck, ZoomIn, FileText } from 'lucide-react';
+import { X, Image as ImageIcon, Package, Truck, ZoomIn } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { DeliveryOrder, ImportOrder, ExportOrder } from '../../../types';
 
@@ -145,8 +145,9 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     orderLabel = eOrder?.product_name || eOrder?.products?.name || 'Xuất hàng';
   }
 
-  // Nếu là đơn xuất, ẩn phần Giai đoạn 1 đi cho đẹp
-  const hidePhase1 = isExport;
+  /** Ảnh từ phiếu nhập: biên nhận trước, sau đó ảnh từng dòng hàng (trùng URL chỉ giữ lần đầu). */
+  const nhapHangImages = [...new Set([...receiptImages, ...importImages])];
+  const nhanHangImages = deliveryImages;
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4">
@@ -164,7 +165,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
         className={clsx(
           'relative w-full bg-background flex flex-col transition-all duration-350',
           'h-dvh sm:h-auto sm:max-h-[90vh] min-h-0',
-          hidePhase1 ? 'sm:max-w-[450px]' : 'sm:max-w-[1000px] lg:max-w-[1200px]',
+          'sm:max-w-[1000px] lg:max-w-[1100px]',
           'rounded-none sm:rounded-3xl shadow-2xl',
           isClosing
             ? 'translate-y-full sm:translate-y-0 sm:scale-95 opacity-0'
@@ -179,7 +180,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
             </div>
             <div>
               <h2 className="text-lg font-bold text-foreground">
-                Ảnh hàng hóa
+                Ảnh đơn hàng
               </h2>
               <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider line-clamp-1 max-w-[250px] sm:max-w-[350px]">
                 {orderCode} - {orderLabel}
@@ -191,95 +192,22 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 flex flex-col sm:flex-row gap-6">
-          {!hidePhase1 && (
-            <>
-              <div className="flex-1 space-y-3">
-                <div className="flex items-center gap-2 text-blue-500 font-bold">
-                  <FileText size={18} />
-                  <span>Biên nhận ({receiptImages.length})</span>
-                </div>
-                
-                {receiptImages.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {receiptImages.map((img, idx) => (
-                      <div 
-                        key={idx}
-                        className="relative bg-muted/50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
-                        onClick={() => setFullscreenImage(img)}
-                      >
-                        <img src={img} alt={`Biên nhận ${idx}`} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ZoomIn size={24} className="text-white drop-shadow-lg" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="h-[200px] bg-muted/50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-muted-foreground/40 gap-2">
-                    <ImageIcon size={40} className="opacity-20" />
-                    <p className="text-sm font-medium">Không có ảnh biên nhận</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Vạch chia luân chuyển */}
-              <div className="hidden sm:flex items-center justify-center text-border">
-                <div className="w-px h-full bg-border" />
-              </div>
-
-              <div className="flex-1 space-y-3">
-                <div className="flex items-center gap-2 text-primary font-bold">
-                  <Package size={18} />
-                  <span>Nhập hàng ({importImages.length})</span>
-                </div>
-                
-                {importImages.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {importImages.map((img, idx) => (
-                      <div 
-                        key={idx}
-                        className="relative bg-muted/50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
-                        onClick={() => setFullscreenImage(img)}
-                      >
-                        <img src={img} alt={`Nhập hàng ${idx}`} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ZoomIn size={24} className="text-white drop-shadow-lg" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="h-[200px] bg-muted/50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-muted-foreground/40 gap-2">
-                    <ImageIcon size={40} className="opacity-20" />
-                    <p className="text-sm font-medium">Không có ảnh nhập hàng</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Vạch chia luân chuyển */}
-              <div className="hidden sm:flex items-center justify-center text-border">
-                 <div className="w-px h-full bg-border" />
-              </div>
-            </>
-          )}
-
-          <div className="flex-1 space-y-3">
-            <div className="flex items-center gap-2 text-orange-500 font-bold">
-              <Truck size={18} />
-              <span>Xuất / Giao xe ({deliveryImages.length})</span>
+        {/* Content: trái = nhập hàng (biên nhận + ảnh dòng), phải = nhận hàng (giao / thu) */}
+        <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 flex flex-col sm:flex-row gap-6 sm:gap-0">
+          <div className="flex-1 space-y-3 sm:pr-6 sm:border-r border-border min-w-0">
+            <div className="flex items-center gap-2 text-primary font-bold">
+              <Package size={18} />
+              <span>Nhập hàng ({nhapHangImages.length})</span>
             </div>
-
-            {deliveryImages.length > 0 ? (
+            {nhapHangImages.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {deliveryImages.map((img, idx) => (
-                  <div 
-                    key={idx}
+                {nhapHangImages.map((img, idx) => (
+                  <div
+                    key={`${img}-${idx}`}
                     className="relative bg-muted/50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
                     onClick={() => setFullscreenImage(img)}
                   >
-                    <img src={img} alt={`Giao hàng ${idx}`} className="w-full h-full object-cover" />
+                    <img src={img} alt={`Nhập hàng ${idx + 1}`} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <ZoomIn size={24} className="text-white drop-shadow-lg" />
                     </div>
@@ -287,9 +215,37 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
                 ))}
               </div>
             ) : (
-              <div className="h-[200px] bg-muted/50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-muted-foreground/40 gap-2">
+              <div className="min-h-[180px] sm:min-h-[200px] bg-muted/50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-muted-foreground/40 gap-2 px-4">
                 <ImageIcon size={40} className="opacity-20" />
-                <p className="text-sm font-medium">Không có ảnh hàng hóa</p>
+                <p className="text-sm font-medium text-center">Chưa có ảnh từ nhập hàng</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 space-y-3 sm:pl-6 min-w-0">
+            <div className="flex items-center gap-2 text-orange-500 font-bold">
+              <Truck size={18} />
+              <span>Nhận hàng ({nhanHangImages.length})</span>
+            </div>
+            {nhanHangImages.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {nhanHangImages.map((img, idx) => (
+                  <div
+                    key={`${img}-${idx}`}
+                    className="relative bg-muted/50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
+                    onClick={() => setFullscreenImage(img)}
+                  >
+                    <img src={img} alt={`Nhận hàng ${idx + 1}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ZoomIn size={24} className="text-white drop-shadow-lg" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="min-h-[180px] sm:min-h-[200px] bg-muted/50 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-muted-foreground/40 gap-2 px-4">
+                <ImageIcon size={40} className="opacity-20" />
+                <p className="text-sm font-medium text-center">Chưa có ảnh nhận hàng</p>
               </div>
             )}
           </div>

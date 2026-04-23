@@ -23,6 +23,7 @@ import { Filter, X, Printer } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { matchesSearch } from '../../lib/str-utils';
+import { getDeliveryAnchorDateString } from '../../lib/deliveryDayAnchor';
 import type { DeliveryOrder, DeliveryStatus, Vehicle } from '../../types';
 import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 import { deliveryOrderVisibleToUser, hasFullGoodsModuleAccess } from '../../utils/goodsModuleScope';
@@ -435,12 +436,12 @@ const DeliveryPage: React.FC = () => {
     });
   }
 
-  // Filter by age
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  // Filter by age (mốc 19:00: sau 19h đơn «hôm nay» chuyển sang hàng cũ so với phiên giao tối)
+  const anchorStr = getDeliveryAnchorDateString();
   if (ageFilter === 'new') {
-    filteredOrders = filteredOrders.filter(o => o.delivery_date === todayStr);
+    filteredOrders = filteredOrders.filter((o) => o.delivery_date === anchorStr);
   } else if (ageFilter === 'old') {
-    filteredOrders = filteredOrders.filter(o => o.delivery_date && o.delivery_date < todayStr);
+    filteredOrders = filteredOrders.filter((o) => o.delivery_date && o.delivery_date < anchorStr);
   }
 
   // Text & Select Filters logic
@@ -881,7 +882,7 @@ const DeliveryPage: React.FC = () => {
                             </td>
                             <td className="px-4 py-3 border-r border-border text-center">
                               <div className="flex items-center justify-center">
-                                {o.delivery_date === todayStr ? (
+                                {o.delivery_date === anchorStr ? (
                                   <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/10 text-emerald-700 uppercase">Mới</span>
                                 ) : (
                                   <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-muted text-muted-foreground uppercase">Cũ</span>
@@ -1130,7 +1131,7 @@ const DeliveryPage: React.FC = () => {
                                 {/* Row 2: Order code + Quantity */}
                                 <div className="flex justify-between items-center">
                                   <div className="flex items-center gap-1.5 text-[12px]">
-                                    {o.delivery_date === todayStr ? (
+                                    {o.delivery_date === anchorStr ? (
                                       <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-700 uppercase">Mới</span>
                                     ) : (
                                       <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-muted text-muted-foreground uppercase">Cũ</span>

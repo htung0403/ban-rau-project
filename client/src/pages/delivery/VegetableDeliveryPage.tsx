@@ -5,7 +5,8 @@ import { format } from 'date-fns';
 import { Calendar, PlusCircle, Truck, CheckCircle, Store, Package, User, Trash2, Pencil, RotateCcw } from 'lucide-react';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import PageHeader from '../../components/shared/PageHeader';
-import { useDeliveryOrders, useDeleteDeliveryOrders } from '../../hooks/queries/useDelivery';import { useVehicles } from '../../hooks/queries/useVehicles';
+import { useDeliveryOrders, useDeleteDeliveryOrders } from '../../hooks/queries/useDelivery';
+import { useVehicles } from '../../hooks/queries/useVehicles';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
@@ -20,6 +21,7 @@ import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { Filter, X } from 'lucide-react';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { matchesSearch } from '../../lib/str-utils';
+import { getDeliveryAnchorDateString } from '../../lib/deliveryDayAnchor';
 import type { DeliveryOrder, Vehicle } from '../../types';
 import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 import { deliveryOrderVisibleToUser, hasFullGoodsModuleAccess } from '../../utils/goodsModuleScope';
@@ -343,12 +345,12 @@ const VegetableDeliveryPage: React.FC = () => {
     });
   }
 
-  // Filter by age
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  // Filter by age (mốc 19:00 — giống trang giao tạp hóa)
+  const anchorStr = getDeliveryAnchorDateString();
   if (ageFilter === 'new') {
-    filteredOrders = filteredOrders.filter(o => o.delivery_date === todayStr);
+    filteredOrders = filteredOrders.filter((o) => o.delivery_date === anchorStr);
   } else if (ageFilter === 'old') {
-    filteredOrders = filteredOrders.filter(o => o.delivery_date && o.delivery_date < todayStr);
+    filteredOrders = filteredOrders.filter((o) => o.delivery_date && o.delivery_date < anchorStr);
   }
 
     // Text & Select Filters logic
@@ -729,7 +731,7 @@ const VegetableDeliveryPage: React.FC = () => {
                             </td>
                             <td className="px-4 py-3 border-r border-border text-center">
                               <div className="flex items-center justify-center">
-                                {o.delivery_date === todayStr ? (
+                                {o.delivery_date === anchorStr ? (
                                   <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/10 text-emerald-700 uppercase">Mới</span>
                                 ) : (
                                   <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-muted text-muted-foreground uppercase">Cũ</span>
@@ -925,7 +927,7 @@ const VegetableDeliveryPage: React.FC = () => {
                             )}
                             {/* Row 1: Order code + Product name */}
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              {o.delivery_date === todayStr ? (
+                              {o.delivery_date === anchorStr ? (
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500/10 text-emerald-700 uppercase">Mới</span>
                               ) : (
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-muted text-muted-foreground uppercase">Cũ</span>

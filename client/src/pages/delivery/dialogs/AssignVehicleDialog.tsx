@@ -244,6 +244,37 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         });
       }
 
+      /**
+       * Một đơn thường chỉ có một dòng xe; SL trong form là TỔNG đã giao cho xe (cộng dồn).
+       * Sau lần giao một phần, form mở lại vẫn hiện SL lần trước (vd 11) trong khi «còn lại» là 11 —
+       * người dùng hay nhập thêm 11 thay vì đổi thành 22 → tổng vẫn 11, đơn không bao giờ đủ.
+       * Nếu chỉ có một dòng và toàn bộ SL đã phân nằm ở dòng đó, tự điền tổng = đã gán + còn lại của đơn.
+       */
+      if (initialAssignments.length === 1 && order.total_quantity > 0) {
+        const totalPersistedOnOrder = (order.delivery_vehicles || []).reduce(
+          (s, dv: any) => s + (Number(dv.assigned_quantity) || 0),
+          0,
+        );
+        const remainingOnOrder = Math.max(0, order.total_quantity - totalPersistedOnOrder);
+        const row = initialAssignments[0];
+        const rowQty = Number(row.quantity) || 0;
+        if (
+          remainingOnOrder > 0 &&
+          totalPersistedOnOrder > 0 &&
+          rowQty > 0 &&
+          rowQty === totalPersistedOnOrder
+        ) {
+          const newQty = rowQty + remainingOnOrder;
+          row.quantity = newQty;
+          const prevExpected = Number(row.expected_amount) || 0;
+          if (prevExpected > 0 && rowQty > 0) {
+            row.expected_amount = Math.round((prevExpected * newQty) / rowQty);
+          } else {
+            row.expected_amount = newQty * defaultUnitPrice;
+          }
+        }
+      }
+
       const existingAssignedVehicleIds = initialAssignments
         .filter((assignment) => Number(assignment.quantity || 0) > 0)
         .map((assignment) => assignment.vehicle_id)
@@ -500,8 +531,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     {/* Số lượng */}
                     <div className="w-full md:w-32 space-y-1.5 mt-2 md:mt-0">
                       <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-                        <Package size={12} className={isPaid ? "text-green-500" : "text-primary"} /> SL
+                        <Package size={12} className={isPaid ? "text-green-500" : "text-primary"} /> Tổng SL xe
                       </label>
+                      <p className="text-[9px] text-muted-foreground leading-snug -mt-0.5">
+                        Cộng dồn mọi lần giao (vd đã 11, giao nốt nhập 22).
+                      </p>
                       <input
                         type="number"
                         step="any"

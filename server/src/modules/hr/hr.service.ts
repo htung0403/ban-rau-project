@@ -412,10 +412,6 @@ export class HRService {
     if (fetchError) throw fetchError;
     if (!existing) throw new Error('Không tìm thấy phiếu chi phí');
 
-    if (existing.payment_status === 'confirmed' && role !== 'admin') {
-      throw new Error('Không thể sửa phiếu đã được xác nhận');
-    }
-
     if (role !== 'admin' && role !== 'manager' && existing.employee_id !== userId) {
       throw new Error('Bạn không có quyền sửa phiếu này');
     }
@@ -443,10 +439,6 @@ export class HRService {
 
     if (fetchError) throw fetchError;
     if (!existing) throw new Error('Không tìm thấy phiếu chi phí');
-
-    if (existing.payment_status === 'confirmed' && role !== 'admin') {
-      throw new Error('Không thể xóa phiếu đã được xác nhận');
-    }
 
     if (role !== 'admin' && role !== 'manager' && existing.employee_id !== userId) {
       throw new Error('Bạn không có quyền xóa phiếu này');

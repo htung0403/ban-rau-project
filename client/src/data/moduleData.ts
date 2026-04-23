@@ -2,7 +2,7 @@ import {
   Users,
   Warehouse, Download, Upload, Truck as DeliveryIcon,
   Banknote, Car, CalendarDays, ClipboardList, ClipboardCheck, DollarSign, FileText, Settings2, MapPin,
-  Send, Store, Receipt
+  Send, Store
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
 
@@ -71,7 +71,6 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
       items: [
         { icon: DollarSign, title: 'Bảng lương', description: 'Tính lương và chốt lương.', colorScheme: 'green', path: '/hanh-chinh-nhan-su/luong' },
         { icon: Banknote, title: 'Ứng lương', description: 'Tạo đơn ứng lương.', colorScheme: 'red', path: '/hanh-chinh-nhan-su/ung-luong' },
-        { icon: Receipt, title: 'Chi phí', description: 'Quản lý các khoản chi phí.', colorScheme: 'amber', path: '/hanh-chinh-nhan-su/chi-phi' },
         { icon: Settings2, title: 'Cài đặt lương', description: 'Cấu hình mức lương cơ bản.', colorScheme: 'orange', path: '/hanh-chinh-nhan-su/cai-dat-luong' },
       ]
     },

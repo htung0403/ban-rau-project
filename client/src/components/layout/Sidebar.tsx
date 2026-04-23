@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { sidebarMenu, extraMenuItems } from '../../data/sidebarMenu';
 import type { SidebarItem } from '../../data/sidebarMenu';
 import { clsx } from 'clsx';
@@ -101,12 +101,27 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
   );
 };
 
+function isSidebarItemActive(pathname: string, itemPath: string): boolean {
+  if (itemPath === '/hanh-chinh-nhan-su/chi-phi') {
+    return pathname === '/hanh-chinh-nhan-su/chi-phi';
+  }
+  if (itemPath === '/hanh-chinh-nhan-su') {
+    if (pathname === '/hanh-chinh-nhan-su/chi-phi') return false;
+    return pathname === '/hanh-chinh-nhan-su' || pathname.startsWith('/hanh-chinh-nhan-su/');
+  }
+  if (itemPath === '/') return pathname === '/';
+  return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
+}
+
 const NavItem = ({ item, onClick, isOpen }: { item: SidebarItem; onClick?: () => void; isOpen: boolean }) => {
+  const location = useLocation();
+  const isActive = isSidebarItemActive(location.pathname, item.path);
+
   return (
     <NavLink
       to={item.path}
       onClick={onClick}
-      className={({ isActive }) =>
+      className={() =>
         clsx(
           'flex items-center rounded-xl text-sm font-medium transition-all duration-300 overflow-hidden whitespace-nowrap',
           isOpen ? 'px-3 py-2.5 w-full justify-start' : 'w-11 h-11 justify-center',

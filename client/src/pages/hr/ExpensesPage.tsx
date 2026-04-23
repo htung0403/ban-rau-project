@@ -1,7 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import PageHeader from '../../components/shared/PageHeader';
-import { useExpenses, useCreateExpense, useUpdateExpense, useDeleteExpense, useConfirmExpense, useEmployees } from '../../hooks/queries/useHR';
+import { useExpenses, useCreateExpense, useUpdateExpense, useConfirmExpense, useEmployees, hrKeys } from '../../hooks/queries/useHR';
+import { hrApi } from '../../api/hrApi';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
@@ -19,20 +21,20 @@ import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { uploadApi } from '../../api/uploadApi';
 import { format } from 'date-fns';
 import { matchesSearch } from '../../lib/str-utils';
-import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, Eye, ChevronLeft, ChevronRight as ChevronRightIcon, Camera, Filter } from 'lucide-react';
+import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, ChevronLeft, ChevronRight as ChevronRightIcon, Camera, Filter } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import type { Expense } from '../../types';
 
 const ExpensesPage = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: expenses, isLoading, isError, refetch } = useExpenses();
   const { data: employees } = useEmployees(user?.role === 'admin');
   const { data: vehicles } = useVehicles();
   
   const createMutation = useCreateExpense();
   const updateMutation = useUpdateExpense();
-  const deleteMutation = useDeleteExpense();
   const confirmMutation = useConfirmExpense();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -41,11 +43,19 @@ const ExpensesPage = () => {
   const [isFilterSheetClosing, setIsFilterSheetClosing] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteConfirmIds, setDeleteConfirmIds] = useState<string[] | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const confirmingExpense = expenses?.find(e => e.id === confirmId);
 
-  const isViewOnly = editingExpense?.payment_status === 'confirmed';
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
+
+  const canMutateExpense = (e: Expense) =>
+    user?.role === 'admin' || user?.role === 'manager' || user?.id === e.employee_id;
+
+  /** Khóa đổi trạng thái thanh toán khi phiếu đã xác nhận (tránh hạ cấp nhầm; chỉnh sửa khác vẫn được). */
+  const paymentFieldsLocked = editingExpense?.payment_status === 'confirmed';
 
   const [previewImages, setPreviewImages] = useState<string[] | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -93,6 +103,35 @@ const ExpensesPage = () => {
     });
   }, [expenses, searchQuery, filterEmployee, filterVehicle, filterStatus]);
 
+  const deletableInView = React.useMemo(
+    () => filteredExpenses.filter(canMutateExpense),
+    [filteredExpenses, user?.role, user?.id]
+  );
+
+  const allDeletableSelected =
+    deletableInView.length > 0 && deletableInView.every((e) => selectedIds.has(e.id));
+  const someDeletableSelected = deletableInView.some((e) => selectedIds.has(e.id));
+  const selectedDeletableCount = deletableInView.filter((e) => selectedIds.has(e.id)).length;
+
+  useEffect(() => {
+    const el = selectAllCheckboxRef.current;
+    if (el) el.indeterminate = someDeletableSelected && !allDeletableSelected;
+  }, [someDeletableSelected, allDeletableSelected]);
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllDeletable = () => {
+    if (allDeletableSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(deletableInView.map((e) => e.id)));
+  };
+
   const closeDialog = () => {
     setIsClosing(true);
     setTimeout(() => {
@@ -127,7 +166,12 @@ const ExpensesPage = () => {
         amount: displayAmount,
         expense_date: expense.expense_date,
         image_urls: expense.image_urls || [],
-        payment_status: expense.payment_status === 'confirmed' ? 'paid' : expense.payment_status,
+        payment_status:
+          expense.payment_status === 'confirmed'
+            ? 'paid'
+            : expense.payment_status === 'unpaid' || expense.payment_status === 'paid'
+              ? expense.payment_status
+              : 'unpaid',
       });
     } else {
       setEditingExpense(null);
@@ -197,21 +241,39 @@ const ExpensesPage = () => {
       finalAmount = finalAmount * 1000;
     }
 
-    const payload = {
-      employee_id: formData.employee_id,
-      vehicle_id: formData.vehicle_id || null,
-      expense_name: formData.expense_name,
-      amount: finalAmount,
-      expense_date: formData.expense_date,
-      image_urls: formData.image_urls,
-      payment_status: formData.payment_status,
-    };
-
     if (editingExpense) {
+      const payload: {
+        employee_id: string;
+        vehicle_id: string | null;
+        expense_name: string;
+        amount: number;
+        expense_date: string;
+        image_urls: string[];
+        payment_status?: 'unpaid' | 'paid';
+      } = {
+        employee_id: formData.employee_id,
+        vehicle_id: formData.vehicle_id || null,
+        expense_name: formData.expense_name,
+        amount: finalAmount,
+        expense_date: formData.expense_date,
+        image_urls: formData.image_urls,
+      };
+      if (editingExpense.payment_status !== 'confirmed') {
+        payload.payment_status = formData.payment_status;
+      }
       updateMutation.mutate({ id: editingExpense.id, payload }, {
         onSuccess: () => closeDialog()
       });
     } else {
+      const payload = {
+        employee_id: formData.employee_id,
+        vehicle_id: formData.vehicle_id || null,
+        expense_name: formData.expense_name,
+        amount: finalAmount,
+        expense_date: formData.expense_date,
+        image_urls: formData.image_urls,
+        payment_status: formData.payment_status,
+      };
       createMutation.mutate(payload, {
         onSuccess: () => closeDialog()
       });
@@ -343,6 +405,33 @@ const ExpensesPage = () => {
               </button>
             </div>
 
+            {selectedDeletableCount > 0 && (
+              <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-border bg-red-500/5 shrink-0">
+                <span className="text-[13px] font-semibold text-foreground">
+                  Đã chọn {selectedDeletableCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDeleteConfirmIds(
+                      deletableInView.filter((e) => selectedIds.has(e.id)).map((e) => e.id)
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-[12px] font-bold hover:bg-red-700 transition-colors"
+                >
+                  <Trash2 size={14} />
+                  Xóa đã chọn
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-[12px] font-medium text-muted-foreground hover:text-foreground px-2 py-1"
+                >
+                  Bỏ chọn
+                </button>
+              </div>
+            )}
+
             <div className="flex-1 overflow-auto custom-scrollbar">
               {filteredExpenses.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">Không tìm thấy kết quả phù hợp</div>
@@ -352,6 +441,17 @@ const ExpensesPage = () => {
                   <table className="w-full text-left border-collapse hidden md:table">
               <thead className="bg-muted/30 sticky top-0 z-10 backdrop-blur-xl">
                 <tr>
+                  <th className="w-12 pl-4 pr-2 py-4 border-b border-border/50">
+                    <input
+                      ref={selectAllCheckboxRef}
+                      type="checkbox"
+                      checked={allDeletableSelected}
+                      onChange={toggleSelectAllDeletable}
+                      disabled={deletableInView.length === 0}
+                      className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                      title="Chọn tất cả (theo bộ lọc hiện tại)"
+                    />
+                  </th>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap min-w-[200px] border-b border-border/50">Tên chi phí</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider text-center whitespace-nowrap border-b border-l border-border/50 bg-muted/5">Ảnh</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap min-w-[150px] border-b border-l border-border/50">Người tạo</th>
@@ -364,6 +464,16 @@ const ExpensesPage = () => {
               <tbody className="divide-y divide-border/30">
                 {filteredExpenses.map(e => (
                   <tr key={e.id} className="group hover:bg-muted/10 transition-colors">
+                    <td className="w-12 pl-4 pr-2 py-4 align-middle border-b border-border/30">
+                      {canMutateExpense(e) ? (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(e.id)}
+                          onChange={() => toggleSelectOne(e.id)}
+                          className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                        />
+                      ) : null}
+                    </td>
                     <td className="px-6 py-4 border-r border-border/10">
                       <div className="flex items-center gap-2">
                         <div className="text-[14px] font-medium text-foreground">{e.expense_name}</div>
@@ -417,7 +527,7 @@ const ExpensesPage = () => {
                             <CheckCircle2 size={16} />
                           </button>
                         )}
-                        {e.payment_status !== 'confirmed' && (user?.role === 'admin' || user?.id === e.employee_id) && (
+                        {canMutateExpense(e) && (
                           <>
                             <button
                               onClick={() => openDialog(e)}
@@ -427,23 +537,14 @@ const ExpensesPage = () => {
                               <Edit2 size={16} />
                             </button>
                             <button
-                              onClick={() => setDeleteId(e.id)}
+                              onClick={() => setDeleteConfirmIds([e.id])}
                               className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Xóa"
                             >
-                            <Trash2 size={16} />
-                          </button>
-                        </>
-                      )}
-                      {e.payment_status === 'confirmed' && (
-                        <button
-                          onClick={() => openDialog(e)}
-                          className="p-1.5 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
-                          title="Xem chi tiết"
-                        >
-                          <Eye size={16} />
-                        </button>
-                      )}
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
                     </div>
                     </td>
                   </tr>
@@ -457,8 +558,18 @@ const ExpensesPage = () => {
                 <div key={e.id} className="bg-card rounded-xl border border-border/60 shadow-sm p-4 flex flex-col gap-3 relative overflow-hidden">
                   <div className={`absolute left-0 top-0 bottom-0 w-1 ${e.payment_status === 'confirmed' ? 'bg-emerald-500' : e.payment_status === 'unpaid' ? 'bg-red-500' : 'bg-amber-500'}`} />
                   
-                  <div className="flex justify-between items-start pl-1 mb-1">
-                     <div className="flex flex-col">
+                  <div className="flex justify-between items-start pl-1 mb-1 gap-2">
+                     {canMutateExpense(e) ? (
+                       <input
+                         type="checkbox"
+                         checked={selectedIds.has(e.id)}
+                         onChange={() => toggleSelectOne(e.id)}
+                         className="w-4 h-4 mt-1 rounded border-border text-primary focus:ring-primary shrink-0"
+                       />
+                     ) : (
+                       <span className="w-4 shrink-0" />
+                     )}
+                     <div className="flex flex-col flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-[14px] font-bold text-foreground">{e.expense_name}</span>
                         {e.image_urls && e.image_urls.length > 0 && (
@@ -480,7 +591,7 @@ const ExpensesPage = () => {
                      <StatusBadge status={statusColors[e.payment_status] || 'default'} label={statusLabels[e.payment_status] || e.payment_status} />
                   </div>
 
-                  <div className="flex items-center justify-between bg-muted/20 rounded-lg p-2.5 ml-1 border border-border/50">
+                  <div className="flex items-center justify-between bg-muted/20 rounded-lg p-2.5 ml-1 border border-border/50 mt-0">
                      <div className="flex flex-col">
                         <span className="text-[11px] text-muted-foreground font-medium">Ngày chi</span>
                         <span className="text-[13px] font-bold text-foreground">{format(new Date(e.expense_date), 'dd/MM/yyyy')}</span>
@@ -501,7 +612,7 @@ const ExpensesPage = () => {
                         Xác nhận
                       </button>
                     )}
-                    {e.payment_status !== 'confirmed' && (user?.role === 'admin' || user?.id === e.employee_id) && (
+                    {canMutateExpense(e) && (
                       <>
                         <button
                           onClick={() => openDialog(e)}
@@ -511,22 +622,13 @@ const ExpensesPage = () => {
                           Sửa
                         </button>
                         <button
-                          onClick={() => setDeleteId(e.id)}
+                          onClick={() => setDeleteConfirmIds([e.id])}
                           className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[12px] font-bold"
                         >
                           <Trash2 size={14} />
                           Xóa
                         </button>
                       </>
-                    )}
-                    {e.payment_status === 'confirmed' && (
-                      <button
-                        onClick={() => openDialog(e)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-[12px] font-bold"
-                      >
-                        <Eye size={14} />
-                        Xem
-                      </button>
                     )}
                   </div>
                 </div>
@@ -563,7 +665,7 @@ const ExpensesPage = () => {
                   <Receipt size={20} />
                 </div>
                 <h2 className="text-lg font-bold text-foreground">
-                  {editingExpense ? (editingExpense.payment_status === 'confirmed' ? 'Chi tiết chi phí' : 'Sửa chi phí') : 'Thêm chi phí'}
+                  {editingExpense ? 'Sửa chi phí' : 'Thêm chi phí'}
                 </h2>
               </div>
               <button
@@ -592,7 +694,6 @@ const ExpensesPage = () => {
                         options={employeeOptions}
                         placeholder="Chọn nhân viên"
                         className="w-full h-11"
-                        disabled={isViewOnly}
                       />
                     </div>
                   )}
@@ -605,7 +706,6 @@ const ExpensesPage = () => {
                       value={formData.expense_name}
                       onChange={(e) => setFormData({ ...formData, expense_name: e.target.value })}
                       placeholder="Ví dụ: Đổ xăng, Phí cầu đường..."
-                      disabled={isViewOnly}
                     />
                   </div>
 
@@ -617,7 +717,6 @@ const ExpensesPage = () => {
                       options={vehicleOptions}
                       placeholder="Chọn xe"
                       className="w-full h-11"
-                      disabled={isViewOnly}
                     />
                   </div>
 
@@ -631,7 +730,6 @@ const ExpensesPage = () => {
                          onChange={(val) => setFormData({ ...formData, amount: val })}
                          className="flex h-11 w-full rounded-xl border border-border/80 bg-background pl-8 pr-3 py-2 text-[14px] ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all font-medium text-emerald-600"
                          placeholder="Ví dụ: 500,000"
-                         disabled={isViewOnly}
                        />
                     </div>
                   </div>
@@ -642,40 +740,46 @@ const ExpensesPage = () => {
                       value={formData.expense_date}
                       onChange={(val) => setFormData({ ...formData, expense_date: val })}
                       className="w-full h-11"
-                      disabled={isViewOnly}
                     />
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-bold text-foreground">Trạng thái thanh toán</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, payment_status: 'unpaid' })}
-                        disabled={isViewOnly}
-                        className={clsx(
-                          "flex items-center justify-center gap-2 h-11 rounded-xl border text-[13px] font-bold transition-all",
-                          formData.payment_status === 'unpaid'
-                            ? "bg-red-50 border-red-200 text-red-600 ring-2 ring-red-500/10"
-                            : "bg-background border-border text-muted-foreground hover:bg-muted"
-                        )}
-                      >
-                        Chưa thanh toán
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, payment_status: 'paid' })}
-                        disabled={isViewOnly}
-                        className={clsx(
-                          "flex items-center justify-center gap-2 h-11 rounded-xl border text-[13px] font-bold transition-all",
-                          formData.payment_status === 'paid'
-                            ? "bg-emerald-50 border-emerald-200 text-emerald-600 ring-2 ring-emerald-500/10"
-                            : "bg-background border-border text-muted-foreground hover:bg-muted"
-                        )}
-                      >
-                        Đã thanh toán
-                      </button>
-                    </div>
+                    {paymentFieldsLocked ? (
+                      <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 space-y-1">
+                        <StatusBadge status="pending" label="Đã xác nhận" />
+                        <p className="text-[12px] text-muted-foreground">
+                          Có thể sửa thông tin khác; trạng thái xác nhận giữ nguyên khi lưu.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, payment_status: 'unpaid' })}
+                          className={clsx(
+                            "flex items-center justify-center gap-2 h-11 rounded-xl border text-[13px] font-bold transition-all",
+                            formData.payment_status === 'unpaid'
+                              ? "bg-red-50 border-red-200 text-red-600 ring-2 ring-red-500/10"
+                              : "bg-background border-border text-muted-foreground hover:bg-muted"
+                          )}
+                        >
+                          Chưa thanh toán
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, payment_status: 'paid' })}
+                          className={clsx(
+                            "flex items-center justify-center gap-2 h-11 rounded-xl border text-[13px] font-bold transition-all",
+                            formData.payment_status === 'paid'
+                              ? "bg-emerald-50 border-emerald-200 text-emerald-600 ring-2 ring-emerald-500/10"
+                              : "bg-background border-border text-muted-foreground hover:bg-muted"
+                          )}
+                        >
+                          Đã thanh toán
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -684,62 +788,58 @@ const ExpensesPage = () => {
                           {formData.image_urls.map((url, idx) => (
                             <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden group">
                               <img src={url} alt="Receipt" className="w-full h-full object-cover" />
-                              {!isViewOnly && (
-                                <button
-                                  type="button"
-                                  onClick={() => removeImage(idx)}
-                                  className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <X size={14} />
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                onClick={() => removeImage(idx)}
+                                className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X size={14} />
+                              </button>
                             </div>
                           ))}
-                          {!isViewOnly && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (fileInputRef.current) {
-                                    fileInputRef.current.removeAttribute('capture');
-                                    fileInputRef.current.click();
-                                  }
-                                }}
-                                disabled={isUploading}
-                                className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-emerald-500/50 hover:bg-emerald-50/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {isUploading && uploadType === 'file' ? (
-                                  <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                  <>
-                                    <Upload size={20} />
-                                    <span className="text-[11px] font-medium text-center px-1 leading-tight">Tải ảnh lên</span>
-                                  </>
-                                )}
-                              </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (fileInputRef.current) {
+                                  fileInputRef.current.removeAttribute('capture');
+                                  fileInputRef.current.click();
+                                }
+                              }}
+                              disabled={isUploading}
+                              className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-emerald-500/50 hover:bg-emerald-50/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isUploading && uploadType === 'file' ? (
+                                <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <>
+                                  <Upload size={20} />
+                                  <span className="text-[11px] font-medium text-center px-1 leading-tight">Tải ảnh lên</span>
+                                </>
+                              )}
+                            </button>
 
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (fileInputRef.current) {
-                                    fileInputRef.current.setAttribute('capture', 'environment');
-                                    fileInputRef.current.click();
-                                  }
-                                }}
-                                disabled={isUploading}
-                                className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-blue-500/50 hover:bg-blue-50/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed md:hidden"
-                              >
-                                {isUploading && uploadType === 'camera' ? (
-                                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                  <>
-                                    <Camera size={20} />
-                                    <span className="text-[11px] font-medium text-center px-1 leading-tight">Chụp ảnh</span>
-                                  </>
-                                )}
-                              </button>
-                            </>
-                          )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (fileInputRef.current) {
+                                  fileInputRef.current.setAttribute('capture', 'environment');
+                                  fileInputRef.current.click();
+                                }
+                              }}
+                              disabled={isUploading}
+                              className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-blue-500/50 hover:bg-blue-50/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed md:hidden"
+                            >
+                              {isUploading && uploadType === 'camera' ? (
+                                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <>
+                                  <Camera size={20} />
+                                  <span className="text-[11px] font-medium text-center px-1 leading-tight">Chụp ảnh</span>
+                                </>
+                              )}
+                            </button>
+                          </>
                           <input
                             type="file"
                             ref={fileInputRef}
@@ -761,24 +861,22 @@ const ExpensesPage = () => {
                 onClick={closeDialog}
                 className="px-6 py-2 rounded-xl border border-border hover:bg-muted text-foreground text-[13px] font-bold transition-all"
               >
-                {editingExpense?.payment_status === 'confirmed' ? 'Đóng' : 'Hủy'}
+                Hủy
               </button>
-              {editingExpense?.payment_status !== 'confirmed' && (
-                <button 
-                  type="submit"
-                  form="expense-form"
-                  disabled={createMutation.isPending || updateMutation.isPending || isUploading}
-                  className={clsx(
-                    "flex items-center gap-2 px-8 py-2 rounded-xl text-[13px] font-bold shadow-lg transition-all group",
-                    (createMutation.isPending || updateMutation.isPending || isUploading)
-                      ? "bg-emerald-500/50 text-white/60 cursor-wait" 
-                      : "bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/20"
-                  )}
-                >
-                  {createMutation.isPending || updateMutation.isPending ? 'Đang lưu...' : 'Lưu chi phí'}
-                  {!(createMutation.isPending || updateMutation.isPending) && <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />}
-                </button>
-              )}
+              <button 
+                type="submit"
+                form="expense-form"
+                disabled={createMutation.isPending || updateMutation.isPending || isUploading}
+                className={clsx(
+                  "flex items-center gap-2 px-8 py-2 rounded-xl text-[13px] font-bold shadow-lg transition-all group",
+                  (createMutation.isPending || updateMutation.isPending || isUploading)
+                    ? "bg-emerald-500/50 text-white/60 cursor-wait" 
+                    : "bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/20"
+                )}
+              >
+                {createMutation.isPending || updateMutation.isPending ? 'Đang lưu...' : 'Lưu chi phí'}
+                {!(createMutation.isPending || updateMutation.isPending) && <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />}
+              </button>
             </div>
           </div>
         </div>,
@@ -833,21 +931,41 @@ const ExpensesPage = () => {
       </MobileFilterSheet>
 
       <ConfirmDialog
-        isOpen={!!deleteId}
-        onCancel={() => setDeleteId(null)}
-        onConfirm={() => {
-          if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null)
-            });
+        isOpen={!!deleteConfirmIds?.length}
+        onCancel={() => setDeleteConfirmIds(null)}
+        onConfirm={async () => {
+          if (!deleteConfirmIds?.length) return;
+          setIsDeleting(true);
+          try {
+            await Promise.all(deleteConfirmIds.map((id) => hrApi.deleteExpense(id)));
+            await queryClient.invalidateQueries({ queryKey: hrKeys.expenses() });
+            toast.success(
+              deleteConfirmIds.length === 1
+                ? 'Xóa chi phí thành công'
+                : `Đã xóa ${deleteConfirmIds.length} chi phí`
+            );
+            setDeleteConfirmIds(null);
+            setSelectedIds(new Set());
+          } catch (err: unknown) {
+            const msg =
+              err && typeof err === 'object' && 'response' in err
+                ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
+                : undefined;
+            toast.error(msg || 'Lỗi khi xóa chi phí');
+          } finally {
+            setIsDeleting(false);
           }
         }}
-        title="Xóa chi phí"
-        message="Bạn có chắc chắn muốn xóa chi phí này? Hành động này không thể hoàn tác."
+        title={deleteConfirmIds && deleteConfirmIds.length > 1 ? 'Xóa nhiều chi phí' : 'Xóa chi phí'}
+        message={
+          deleteConfirmIds && deleteConfirmIds.length > 1
+            ? `Bạn có chắc muốn xóa ${deleteConfirmIds.length} chi phí đã chọn? Hành động này không thể hoàn tác.`
+            : 'Bạn có chắc chắn muốn xóa chi phí này? Hành động này không thể hoàn tác.'
+        }
         confirmLabel="Xóa"
         cancelLabel="Hủy"
         variant="danger"
-        isLoading={deleteMutation.isPending}
+        isLoading={isDeleting}
       />
 
       <ConfirmDialog

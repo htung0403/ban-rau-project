@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Package, Plus, Trash2, CheckCircle2, FileText, UserCircle, ImagePlus, Loader2 } from 'lucide-react';
+import { X, Package, Plus, Trash2, CheckCircle2, FileText, UserCircle, ImagePlus, Loader2, Camera } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -422,6 +422,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadingItemIndex, setUploadingItemIndex] = React.useState<number | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const receiptCameraInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -455,6 +456,9 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
       setIsUploading(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
+      }
+      if (receiptCameraInputRef.current) {
+        receiptCameraInputRef.current.value = '';
       }
     }
   };
@@ -1046,7 +1050,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                     <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ảnh biên nhận/Sản phẩm</label>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                       {(watch('receipt_image_urls') || []).map((url: string, idx: number) => (
-                        <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden group">
+                        <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden">
                           <img src={url} alt="Receipt" className="w-full h-full object-cover" />
                           <button
                             type="button"
@@ -1055,13 +1059,15 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                               setValue('receipt_image_urls', newUrls, { shouldValidate: true });
                               setValue('receipt_image_url', newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
                             }}
-                            className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
+                            aria-label="Xóa ảnh"
+                            title="Xóa ảnh"
                           >
-                            <Trash2 size={20} />
+                            <X size={14} />
                           </button>
                         </div>
                       ))}
-                      <div className="aspect-square">
+                      <div className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/50 overflow-hidden flex flex-col">
                         <input
                           type="file"
                           accept="image/*"
@@ -1074,16 +1080,35 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={isUploading}
-                          className="w-full h-full border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-muted/50 disabled:opacity-50"
+                          className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 px-1 py-2 touch-manipulation active:scale-[0.99]"
                         >
                           {isUploading ? (
                             <Loader2 size={20} className="animate-spin text-primary" />
                           ) : (
                             <>
-                              <ImagePlus size={24} className="mb-1 text-primary" />
-                              <span className="text-[10px] font-medium text-muted-foreground text-center px-1">Thêm ảnh</span>
+                              <ImagePlus size={22} className="text-primary" />
+                              <span className="text-[10px] font-bold text-center px-0.5 leading-tight">Chọn ảnh</span>
                             </>
                           )}
+                        </button>
+                      </div>
+                      <div className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/50 overflow-hidden flex flex-col">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          ref={receiptCameraInputRef}
+                          className="hidden"
+                          onChange={handleImageUpload}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => receiptCameraInputRef.current?.click()}
+                          disabled={isUploading}
+                          className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 px-1 py-2 touch-manipulation active:scale-[0.99]"
+                        >
+                          <Camera size={22} className="text-primary" />
+                          <span className="text-[10px] font-bold text-center px-0.5 leading-tight">Chụp ảnh</span>
                         </button>
                       </div>
                     </div>
@@ -1358,9 +1383,9 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                 {/* Mobile Image Grid */}
                                 <div className="md:hidden mt-2 col-span-full border-t border-dashed border-border pt-2 pb-1 w-full">
                                   <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1.5 block">Ảnh hàng hóa</label>
-                                  <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar w-full">
+                                  <div className="flex gap-3 overflow-x-auto pb-1 custom-scrollbar w-full">
                                     {(watch(`items.${index}.image_urls`) || []).map((url: string, imgIdx: number) => (
-                                      <div key={imgIdx} className="relative w-12 h-12 rounded-lg border border-border overflow-hidden group/img shrink-0">
+                                      <div key={imgIdx} className="relative w-12 h-12 rounded-lg border border-border overflow-hidden shrink-0">
                                         <img src={url} alt="item" className="w-full h-full object-cover" />
                                         <button
                                           type="button"
@@ -1371,15 +1396,21 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                             setValue(`items.${index}.image_urls`, newUrls, { shouldValidate: true });
                                             setValue(`items.${index}.image_url`, newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
                                           }}
-                                          className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                                          className="absolute top-0.5 right-0.5 z-10 w-[18px] h-[18px] rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
+                                          aria-label="Xóa ảnh"
+                                          title="Xóa ảnh"
                                         >
-                                          <X size={14} />
+                                          <X size={10} />
                                         </button>
                                       </div>
                                     ))}
-                                    <label className="border border-dashed border-border bg-muted/50 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-12 h-12 shrink-0">
+                                    <label className="border border-dashed border-border bg-muted/50 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-[3.25rem] h-[3.25rem] min-w-[3.25rem] shrink-0 touch-manipulation active:scale-[0.98]" title="Chọn ảnh">
                                       <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleItemImageUpload(index, e)} />
-                                      {uploadingItemIndex === index ? <Loader2 size={16} className="animate-spin text-primary" /> : <Plus size={16} />}
+                                      {uploadingItemIndex === index ? <Loader2 size={18} className="animate-spin text-primary" /> : <Plus size={18} />}
+                                    </label>
+                                    <label className="border border-dashed border-border bg-muted/50 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-[3.25rem] h-[3.25rem] min-w-[3.25rem] shrink-0 touch-manipulation active:scale-[0.98]" title="Chụp ảnh">
+                                      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleItemImageUpload(index, e)} />
+                                      {uploadingItemIndex === index ? <Loader2 size={18} className="animate-spin text-primary" /> : <Camera size={18} />}
                                     </label>
                                   </div>
                                 </div>
@@ -1421,6 +1452,16 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                         />
                                         <Plus size={14} />
                                       </label>
+                                      <label className="cursor-pointer p-1 hover:text-primary transition-colors" title="Chụp ảnh">
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          capture="environment"
+                                          className="hidden"
+                                          onChange={(e) => handleItemImageUpload(index, e)}
+                                        />
+                                        <Camera size={14} />
+                                      </label>
                                       <button
                                         type="button"
                                         onClick={() => {
@@ -1435,16 +1476,28 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                     </div>
                                   </div>
                                 ) : (
-                                  <label className="w-full h-full border border-border bg-muted/50 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all" title="Tải ảnh">
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      multiple
-                                      className="hidden"
-                                      onChange={(e) => handleItemImageUpload(index, e)}
-                                    />
-                                    {uploadingItemIndex === index ? <Loader2 size={16} className="animate-spin text-primary" /> : <ImagePlus size={16} />}
-                                  </label>
+                                  <div className="w-full h-full flex flex-col gap-1 overflow-hidden rounded-lg border border-border bg-muted/50 p-1">
+                                    <label className="flex-1 min-h-[1.75rem] flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/5 cursor-pointer transition-all rounded-md touch-manipulation active:scale-[0.98]" title="Chọn ảnh">
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        className="hidden"
+                                        onChange={(e) => handleItemImageUpload(index, e)}
+                                      />
+                                      {uploadingItemIndex === index ? <Loader2 size={15} className="animate-spin text-primary" /> : <ImagePlus size={15} />}
+                                    </label>
+                                    <label className="flex-1 min-h-[1.75rem] flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/5 cursor-pointer transition-all rounded-md touch-manipulation active:scale-[0.98]" title="Chụp ảnh">
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        className="hidden"
+                                        onChange={(e) => handleItemImageUpload(index, e)}
+                                      />
+                                      {uploadingItemIndex === index ? <Loader2 size={15} className="animate-spin text-primary" /> : <Camera size={15} />}
+                                    </label>
+                                  </div>
                                 )}
                               </div>
                             </div>

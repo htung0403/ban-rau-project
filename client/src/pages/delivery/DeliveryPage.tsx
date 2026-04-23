@@ -231,6 +231,7 @@ const DeliveryPage: React.FC = () => {
   const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
   const [filterReceiver, setFilterReceiver] = useState<string[]>([]);
   const [filterProduct, setFilterProduct] = useState<string[]>([]);
+  const [filterVehicleIds, setFilterVehicleIds] = useState<string[]>([]);
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
@@ -392,6 +393,17 @@ const DeliveryPage: React.FC = () => {
     };
   }, [orders]);
 
+  const vehicleFilterOptions = React.useMemo(
+    () =>
+      [...eligibleVehicles]
+        .map((v) => ({
+          label: v.license_plate?.trim() || '—',
+          value: v.id,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'vi')),
+    [eligibleVehicles]
+  );
+
   let filteredOrders = orders || [];
 
   // Filter by status
@@ -450,6 +462,16 @@ const DeliveryPage: React.FC = () => {
     if (filterCustomer.length > 0 && cName && !filterCustomer.includes(cName)) return false;
     if (filterReceiver.length > 0 && rName && !filterReceiver.includes(rName)) return false;
     if (filterProduct.length > 0 && pName && !filterProduct.includes(pName)) return false;
+
+    if (filterVehicleIds.length > 0) {
+      const assignedToSelected = (o.delivery_vehicles || []).some(
+        (dv) =>
+          dv.vehicle_id &&
+          filterVehicleIds.includes(dv.vehicle_id) &&
+          (dv.assigned_quantity || 0) > 0
+      );
+      if (!assignedToSelected) return false;
+    }
 
     return true;
   });
@@ -526,6 +548,17 @@ const DeliveryPage: React.FC = () => {
               placeholder="Tên hàng"
               className="bg-transparent"
               icon={<Package size={15} />}
+            />
+          </div>
+
+          <div className="w-50">
+            <MultiSearchableSelect
+              options={vehicleFilterOptions}
+              value={filterVehicleIds}
+              onValueChange={setFilterVehicleIds}
+              placeholder="Biển số xe"
+              className="bg-transparent"
+              icon={<Truck size={15} />}
             />
           </div>
         </div>
@@ -1343,8 +1376,14 @@ const DeliveryPage: React.FC = () => {
           setFilterCustomer([]);
           setFilterReceiver([]);
           setFilterProduct([]);
+          setFilterVehicleIds([]);
         }}
-        showClearButton={filterCustomer.length > 0 || filterReceiver.length > 0 || filterProduct.length > 0}
+        showClearButton={
+          filterCustomer.length > 0 ||
+          filterReceiver.length > 0 ||
+          filterProduct.length > 0 ||
+          filterVehicleIds.length > 0
+        }
         initialDateFrom={startDate}
         initialDateTo={endDate}
         dateLabel="Khoảng thời gian"
@@ -1383,6 +1422,18 @@ const DeliveryPage: React.FC = () => {
             className="w-full bg-muted/10 h-10.5 border-border/80 rounded-xl"
             inline
             icon={<Package size={15} />}
+          />
+        </div>
+        <div className="space-y-1.5 z-[19]">
+          <label className="text-[13px] font-bold text-muted-foreground">Xe (biển số)</label>
+          <MultiSearchableSelect
+            options={vehicleFilterOptions}
+            value={filterVehicleIds}
+            onValueChange={setFilterVehicleIds}
+            placeholder="Tất cả xe..."
+            className="w-full bg-muted/10 h-10.5 border-border/80 rounded-xl"
+            inline
+            icon={<Truck size={15} />}
           />
         </div>
         <div className="space-y-1.5">

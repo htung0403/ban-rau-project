@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Package, Plus, Trash2, CheckCircle2, FileText, UserCircle, ImagePlus, Loader2 } from 'lucide-react';
+import { X, Package, Plus, Trash2, CheckCircle2, FileText, UserCircle, ImagePlus, Loader2, Camera } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -307,6 +307,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadingItemIndex, setUploadingItemIndex] = React.useState<number | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const receiptCameraInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -340,6 +341,9 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       setIsUploading(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
+      }
+      if (receiptCameraInputRef.current) {
+        receiptCameraInputRef.current.value = '';
       }
     }
   };
@@ -1005,7 +1009,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                     <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ảnh biên nhận/Sản phẩm</label>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                       {watchReceiptImageUrls.map((url: string, idx: number) => (
-                        <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden group bg-muted/20">
+                        <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden bg-muted/20">
                           <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
                           <button
                             type="button"
@@ -1014,13 +1018,15 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                               setValue('receipt_image_urls', newUrls, { shouldValidate: true });
                               setValue('receipt_image_url', newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
                             }}
-                            className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
+                            aria-label="Xóa ảnh"
+                            title="Xóa ảnh"
                           >
-                            <Trash2 size={18} />
+                            <X size={14} />
                           </button>
                         </div>
                       ))}
-                      <div>
+                      <div className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/5 overflow-hidden flex flex-col">
                         <input
                           type="file"
                           accept="image/*"
@@ -1033,16 +1039,35 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={isUploading}
-                          className="w-full aspect-square border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-muted/5 disabled:opacity-50"
+                          className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 px-1 py-2 touch-manipulation active:scale-[0.99]"
                         >
                           {isUploading ? (
-                            <Loader2 size={18} className="animate-spin text-primary" />
+                            <Loader2 size={20} className="animate-spin text-primary" />
                           ) : (
                             <>
-                              <ImagePlus size={20} className="mb-1 text-primary" />
-                              <span className="text-[10px] font-bold text-center px-1">Thêm ảnh</span>
+                              <ImagePlus size={22} className="text-primary" />
+                              <span className="text-[10px] font-bold text-center px-0.5 leading-tight">Chọn ảnh</span>
                             </>
                           )}
+                        </button>
+                      </div>
+                      <div className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/5 overflow-hidden flex flex-col">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          ref={receiptCameraInputRef}
+                          className="hidden"
+                          onChange={handleImageUpload}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => receiptCameraInputRef.current?.click()}
+                          disabled={isUploading}
+                          className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 px-1 py-2 touch-manipulation active:scale-[0.99]"
+                        >
+                          <Camera size={22} className="text-primary" />
+                          <span className="text-[10px] font-bold text-center px-0.5 leading-tight">Chụp ảnh</span>
                         </button>
                       </div>
                     </div>
@@ -1343,9 +1368,9 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                                 {/* Mobile Image Grid */}
                                 <div className="md:hidden mt-2 col-span-full border-t border-dashed border-border pt-2 pb-1 w-full">
                                   <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1.5 block">Ảnh hàng hóa</label>
-                                  <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar w-full">
+                                  <div className="flex gap-3 overflow-x-auto pb-1 custom-scrollbar w-full">
                                     {(watch(`items.${index}.image_urls`) || []).map((url: string, imgIdx: number) => (
-                                      <div key={imgIdx} className="relative w-12 h-12 rounded-lg border border-border overflow-hidden group/img shrink-0">
+                                      <div key={imgIdx} className="relative w-12 h-12 rounded-lg border border-border overflow-hidden shrink-0">
                                         <img src={url} alt="item" className="w-full h-full object-cover" />
                                         <button
                                           type="button"
@@ -1356,15 +1381,21 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                                             setValue(`items.${index}.image_urls`, newUrls, { shouldValidate: true });
                                             setValue(`items.${index}.image_url`, newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
                                           }}
-                                          className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                                          className="absolute top-0.5 right-0.5 z-10 w-[18px] h-[18px] rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
+                                          aria-label="Xóa ảnh"
+                                          title="Xóa ảnh"
                                         >
-                                          <X size={14} />
+                                          <X size={10} />
                                         </button>
                                       </div>
                                     ))}
-                                    <label className="border border-dashed border-border bg-muted/50 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-12 h-12 shrink-0">
+                                    <label className="border border-dashed border-border bg-muted/50 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-[3.25rem] h-[3.25rem] min-w-[3.25rem] shrink-0 touch-manipulation active:scale-[0.98]" title="Chọn ảnh">
                                       <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleItemImageUpload(index, e)} />
-                                      {uploadingItemIndex === index ? <Loader2 size={16} className="animate-spin text-primary" /> : <Plus size={16} />}
+                                      {uploadingItemIndex === index ? <Loader2 size={18} className="animate-spin text-primary" /> : <Plus size={18} />}
+                                    </label>
+                                    <label className="border border-dashed border-border bg-muted/50 rounded-xl flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all w-[3.25rem] h-[3.25rem] min-w-[3.25rem] shrink-0 touch-manipulation active:scale-[0.98]" title="Chụp ảnh">
+                                      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleItemImageUpload(index, e)} />
+                                      {uploadingItemIndex === index ? <Loader2 size={18} className="animate-spin text-primary" /> : <Camera size={18} />}
                                     </label>
                                   </div>
                                 </div>
@@ -1377,7 +1408,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                               <div className="flex justify-start w-full">
                                 <div className="flex items-center gap-1 flex-wrap w-[110px]">
                                   {(watch(`items.${index}.image_urls`) || []).map((url: string, imgIdx: number) => (
-                                    <div key={imgIdx} className="relative w-8 h-8 rounded-md border border-border overflow-hidden group/imgDesk shrink-0">
+                                    <div key={imgIdx} className="relative w-8 h-8 rounded-md border border-border overflow-hidden shrink-0">
                                       <img src={url} alt="item" className="w-full h-full object-cover" />
                                       <button
                                         type="button"
@@ -1388,8 +1419,9 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                                           setValue(`items.${index}.image_urls`, newUrls, { shouldValidate: true });
                                           setValue(`items.${index}.image_url`, newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
                                         }}
-                                        className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/imgDesk:opacity-100 transition-opacity"
-                                        title="Xoá ảnh"
+                                        className="absolute -top-1 -right-1 z-10 w-4 h-4 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
+                                        aria-label="Xóa ảnh"
+                                        title="Xóa ảnh"
                                       >
                                         <X size={10} />
                                       </button>
@@ -1404,6 +1436,16 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                                       onChange={(e) => handleItemImageUpload(index, e)}
                                     />
                                     {uploadingItemIndex === index ? <Loader2 size={12} className="animate-spin text-primary" /> : <Plus size={12} />}
+                                  </label>
+                                  <label className="w-8 h-8 border border-dashed border-border bg-muted/50 rounded-md flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all shrink-0" title="Chụp ảnh">
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      capture="environment"
+                                      className="hidden"
+                                      onChange={(e) => handleItemImageUpload(index, e)}
+                                    />
+                                    {uploadingItemIndex === index ? <Loader2 size={12} className="animate-spin text-primary" /> : <Camera size={12} />}
                                   </label>
                                 </div>
                               </div>

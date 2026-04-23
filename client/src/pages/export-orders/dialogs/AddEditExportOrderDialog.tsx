@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Package, Plus, ChevronRight, Truck, User, Clock, Calendar, DollarSign, ShoppingBag, ImagePlus, Loader2, Trash2, Camera, CreditCard } from 'lucide-react';
+import { X, Package, Plus, ChevronRight, Truck, User, Clock, Calendar, DollarSign, ShoppingBag, ImagePlus, Loader2, Camera, CreditCard } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -259,6 +259,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
   const watchImageUrl = watch('image_url');
   const [isUploading, setIsUploading] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -278,6 +279,7 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
   };
 
@@ -722,18 +724,20 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                 </label>
                 <div className="flex flex-col gap-2">
                   {watchImageUrl ? (
-                    <div className="relative inline-block w-24 h-24 rounded-xl border border-border overflow-hidden group">
+                    <div className="relative inline-block w-24 h-24 rounded-xl border border-border overflow-hidden">
                       <img src={watchImageUrl} alt="Receipt" className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => setValue('image_url', null, { shouldValidate: true })}
-                        className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
+                        aria-label="Xóa ảnh"
+                        title="Xóa ảnh"
                       >
-                        <Trash2 size={20} />
+                        <X size={14} />
                       </button>
                     </div>
                   ) : (
-                    <div>
+                    <div className="flex flex-row gap-3 w-full">
                       <input
                         type="file"
                         accept="image/*"
@@ -741,18 +745,41 @@ const AddEditExportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, onClose 
                         className="hidden"
                         onChange={handleImageUpload}
                       />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        ref={cameraInputRef}
+                        className="hidden"
+                        onChange={handleImageUpload}
+                      />
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isUploading}
-                        className="w-full h-28 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground/40 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-50/50 transition-all bg-muted/50 disabled:opacity-50"
+                        className="flex-1 min-w-0 min-h-[6.25rem] border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-1.5 text-muted-foreground/40 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-50/50 transition-all bg-muted/50 disabled:opacity-50 px-2 py-3 touch-manipulation active:scale-[0.99]"
                       >
                         {isUploading ? (
-                          <Loader2 size={20} className="animate-spin text-emerald-600" />
+                          <Loader2 size={22} className="animate-spin text-emerald-600" />
                         ) : (
                           <>
-                            <ImagePlus size={24} className="mb-1 text-emerald-600" />
-                            <span className="text-[11px] font-medium text-muted-foreground">Kéo thả hoặc nhấn để tải ảnh</span>
+                            <ImagePlus size={24} className="text-emerald-600" />
+                            <span className="text-[12px] font-medium text-muted-foreground text-center leading-snug">Chọn ảnh</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => cameraInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="flex-1 min-w-0 min-h-[6.25rem] border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-1.5 text-muted-foreground/40 hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-50/50 transition-all bg-muted/50 disabled:opacity-50 px-2 py-3 touch-manipulation active:scale-[0.99]"
+                      >
+                        {isUploading ? (
+                          <Loader2 size={22} className="animate-spin text-emerald-600" />
+                        ) : (
+                          <>
+                            <Camera size={24} className="text-emerald-600" />
+                            <span className="text-[12px] font-medium text-muted-foreground text-center leading-snug">Chụp ảnh</span>
                           </>
                         )}
                       </button>

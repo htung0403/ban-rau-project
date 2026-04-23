@@ -66,12 +66,17 @@ const updateEmployeeSchema = z.object({
   temporary_address: z.string().nullable().optional(),
 });
 
+const expenseDateTimeString = z
+  .string()
+  .min(8)
+  .refine((val) => !Number.isNaN(Date.parse(val)), 'Ngày giờ chi không hợp lệ');
+
 const createExpenseSchema = z.object({
   employee_id: z.string().uuid(),
   vehicle_id: z.string().uuid().nullable().optional(),
   expense_name: z.string().min(1, 'Tên chi phí không được để trống').max(255),
   amount: z.number().min(0).max(999999999),
-  expense_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ngày không đúng định dạng YYYY-MM-DD'),
+  expense_date: expenseDateTimeString,
   image_urls: z.array(z.string().url()).optional().default([]),
   payment_status: z.enum(['unpaid', 'paid']),
 });
@@ -79,7 +84,7 @@ const createExpenseSchema = z.object({
 const updateExpenseSchema = z.object({
   expense_name: z.string().min(1).max(255).optional(),
   amount: z.number().min(0).max(999999999).optional(),
-  expense_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  expense_date: expenseDateTimeString.optional(),
   vehicle_id: z.string().uuid().nullable().optional(),
   image_urls: z.array(z.string().url()).optional(),
   payment_status: z.enum(['unpaid', 'paid']).optional(),

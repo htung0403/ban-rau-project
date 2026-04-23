@@ -140,6 +140,7 @@ export interface Expense {
   vehicle_id?: string | null;
   expense_name: string;
   amount: number;
+  /** ISO 8601 (timestamptz từ API), ví dụ 2026-04-24T09:30:00.000+07:00 */
   expense_date: string;
   image_urls: string[];
   payment_status: ExpensePaymentStatus;

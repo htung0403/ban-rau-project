@@ -12,6 +12,7 @@ import ErrorState from '../../components/shared/ErrorState';
 import StatusBadge from '../../components/shared/StatusBadge';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 import { DatePicker } from '../../components/shared/DatePicker';
+import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import CurrencyInput from '../../components/shared/CurrencyInput';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
@@ -19,12 +20,94 @@ import { SearchInput } from '../../components/ui/SearchInput';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { uploadApi } from '../../api/uploadApi';
-import { format } from 'date-fns';
 import { matchesSearch } from '../../lib/str-utils';
-import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, ChevronLeft, ChevronRight as ChevronRightIcon, Camera, Filter } from 'lucide-react';
+import { format } from 'date-fns';
+import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, ChevronLeft, ChevronRight as ChevronRightIcon, Camera, Filter, CalendarDays } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import type { Expense } from '../../types';
+
+const VN_TZ = 'Asia/Ho_Chi_Minh';
+
+function getVnNowForm(): { date: string; time: string } {
+  const d = new Date();
+  const dateStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: VN_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+  const tp = new Intl.DateTimeFormat('en-GB', {
+    timeZone: VN_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const hh = (tp.find((x) => x.type === 'hour')?.value ?? '00').padStart(2, '0');
+  const mm = (tp.find((x) => x.type === 'minute')?.value ?? '00').padStart(2, '0');
+  return { date: dateStr, time: `${hh}:${mm}` };
+}
+
+function formatExpenseDateDisplay(raw: string): string {
+  if (!raw) return '—';
+  const ms = Date.parse(raw.length === 10 ? `${raw}T00:00:00+07:00` : raw);
+  if (Number.isNaN(ms)) return raw;
+  const d = new Date(ms);
+  const day = new Intl.DateTimeFormat('en-GB', { timeZone: VN_TZ, day: '2-digit' }).format(d);
+  const month = new Intl.DateTimeFormat('en-GB', { timeZone: VN_TZ, month: '2-digit' }).format(d);
+  const year = new Intl.DateTimeFormat('en-GB', { timeZone: VN_TZ, year: 'numeric' }).format(d);
+  const tp = new Intl.DateTimeFormat('en-GB', {
+    timeZone: VN_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const hh = (tp.find((x) => x.type === 'hour')?.value ?? '00').padStart(2, '0');
+  const min = (tp.find((x) => x.type === 'minute')?.value ?? '00').padStart(2, '0');
+  return `${day}/${month}/${year} ${hh}:${min}`;
+}
+
+function parseExpenseToFormDateTime(raw: string): { date: string; time: string } {
+  const ms = Date.parse(raw.length === 10 ? `${raw}T00:00:00+07:00` : raw);
+  if (Number.isNaN(ms)) return getVnNowForm();
+  const d = new Date(ms);
+  const dateStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: VN_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+  const tp = new Intl.DateTimeFormat('en-GB', {
+    timeZone: VN_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const hh = (tp.find((x) => x.type === 'hour')?.value ?? '00').padStart(2, '0');
+  const mm = (tp.find((x) => x.type === 'minute')?.value ?? '00').padStart(2, '0');
+  return { date: dateStr, time: `${hh}:${mm}` };
+}
+
+function toVietnamExpenseIso(dateStr: string, timeStr: string): string | null {
+  const [Y, M, D] = dateStr.split('-').map(Number);
+  const [h, m] = timeStr.split(':').map(Number);
+  if (!Y || !M || !D || Number.isNaN(h) || Number.isNaN(m)) return null;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${Y}-${pad(M)}-${pad(D)}T${pad(h)}:${pad(m)}:00+07:00`;
+}
+
+function expenseInstantMs(raw: string): number | null {
+  const ms = Date.parse(raw.length === 10 ? `${raw}T00:00:00+07:00` : raw);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function vnDayBoundsMs(yyyyMmDd: string): { start: number; end: number } | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(yyyyMmDd)) return null;
+  const start = Date.parse(`${yyyyMmDd}T00:00:00+07:00`);
+  const end = Date.parse(`${yyyyMmDd}T23:59:59.999+07:00`);
+  if (Number.isNaN(start) || Number.isNaN(end)) return null;
+  return { start, end };
+}
 
 const ExpensesPage = () => {
   const { user } = useAuth();
@@ -64,24 +147,38 @@ const ExpensesPage = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadType, setUploadType] = useState<'camera' | 'file' | null>(null);
 
-  const [formData, setFormData] = useState({
-    employee_id: user?.id || '',
-    vehicle_id: '' as string | null,
-    expense_name: '',
-    amount: undefined as number | undefined,
-    expense_date: format(new Date(), 'yyyy-MM-dd'),
-    image_urls: [] as string[],
-    payment_status: 'unpaid' as 'unpaid' | 'paid',
+  const [formData, setFormData] = useState(() => {
+    const n = getVnNowForm();
+    return {
+      employee_id: user?.id || '',
+      vehicle_id: '' as string | null,
+      expense_name: '',
+      amount: undefined as number | undefined,
+      expense_date: n.date,
+      expense_time: n.time,
+      image_urls: [] as string[],
+      payment_status: 'unpaid' as 'unpaid' | 'paid',
+    };
   });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterEmployee, setFilterEmployee] = useState('');
   const [filterVehicle, setFilterVehicle] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
 
   const filteredExpenses = React.useMemo(() => {
     if (!expenses) return [];
-    return expenses.filter(e => {
+    let fromD = filterDateFrom;
+    let toD = filterDateTo;
+    if (fromD && toD && fromD > toD) {
+      const t = fromD;
+      fromD = toD;
+      toD = t;
+    }
+
+    return expenses.filter((e) => {
       if (searchQuery) {
         const matchName = matchesSearch(e.expense_name, searchQuery);
         const matchEmployee = e.employee?.full_name ? matchesSearch(e.employee.full_name, searchQuery) : false;
@@ -99,9 +196,21 @@ const ExpensesPage = () => {
       if (filterStatus && e.payment_status !== filterStatus) {
         return false;
       }
+      if (fromD || toD) {
+        const expenseMs = expenseInstantMs(e.expense_date);
+        if (expenseMs == null) return false;
+        if (fromD) {
+          const b = vnDayBoundsMs(fromD);
+          if (b && expenseMs < b.start) return false;
+        }
+        if (toD) {
+          const b = vnDayBoundsMs(toD);
+          if (b && expenseMs > b.end) return false;
+        }
+      }
       return true;
     });
-  }, [expenses, searchQuery, filterEmployee, filterVehicle, filterStatus]);
+  }, [expenses, searchQuery, filterEmployee, filterVehicle, filterStatus, filterDateFrom, filterDateTo]);
 
   const deletableInView = React.useMemo(
     () => filteredExpenses.filter(canMutateExpense),
@@ -138,12 +247,14 @@ const ExpensesPage = () => {
       setIsDialogOpen(false);
       setIsClosing(false);
       setEditingExpense(null);
+      const n = getVnNowForm();
       setFormData({
         employee_id: user?.id || '',
         vehicle_id: '',
         expense_name: '',
         amount: undefined,
-        expense_date: format(new Date(), 'yyyy-MM-dd'),
+        expense_date: n.date,
+        expense_time: n.time,
         image_urls: [],
         payment_status: 'unpaid',
       });
@@ -159,12 +270,14 @@ const ExpensesPage = () => {
         displayAmount = expense.amount / 1000;
       }
 
+      const { date: ed, time: et } = parseExpenseToFormDateTime(expense.expense_date);
       setFormData({
         employee_id: expense.employee_id,
         vehicle_id: expense.vehicle_id || '',
         expense_name: expense.expense_name,
         amount: displayAmount,
-        expense_date: expense.expense_date,
+        expense_date: ed,
+        expense_time: et,
         image_urls: expense.image_urls || [],
         payment_status:
           expense.payment_status === 'confirmed'
@@ -175,12 +288,14 @@ const ExpensesPage = () => {
       });
     } else {
       setEditingExpense(null);
+      const n = getVnNowForm();
       setFormData({
         employee_id: user?.id || '',
         vehicle_id: '',
         expense_name: '',
         amount: undefined,
-        expense_date: format(new Date(), 'yyyy-MM-dd'),
+        expense_date: n.date,
+        expense_time: n.time,
         image_urls: [],
         payment_status: 'unpaid',
       });
@@ -241,6 +356,12 @@ const ExpensesPage = () => {
       finalAmount = finalAmount * 1000;
     }
 
+    const expenseDateIso = toVietnamExpenseIso(formData.expense_date, formData.expense_time);
+    if (!expenseDateIso || Number.isNaN(Date.parse(expenseDateIso))) {
+      toast.error('Ngày giờ chi không hợp lệ');
+      return;
+    }
+
     if (editingExpense) {
       const payload: {
         employee_id: string;
@@ -255,7 +376,7 @@ const ExpensesPage = () => {
         vehicle_id: formData.vehicle_id || null,
         expense_name: formData.expense_name,
         amount: finalAmount,
-        expense_date: formData.expense_date,
+        expense_date: expenseDateIso,
         image_urls: formData.image_urls,
       };
       if (editingExpense.payment_status !== 'confirmed') {
@@ -270,7 +391,7 @@ const ExpensesPage = () => {
         vehicle_id: formData.vehicle_id || null,
         expense_name: formData.expense_name,
         amount: finalAmount,
-        expense_date: formData.expense_date,
+        expense_date: expenseDateIso,
         image_urls: formData.image_urls,
         payment_status: formData.payment_status,
       };
@@ -282,8 +403,8 @@ const ExpensesPage = () => {
 
   const statusLabels: Record<string, string> = {
     unpaid: 'Chưa thanh toán',
-    paid: 'Đã thanh toán',
-    confirmed: 'Đã xác nhận'
+    paid: 'Chờ xác nhận',
+    confirmed: 'Đã thanh toán',
   };
 
   const statusColors: Record<string, 'pending' | 'success' | 'error' | 'default'> = {
@@ -375,11 +496,30 @@ const ExpensesPage = () => {
                     options={[
                       { value: '', label: 'Tất cả trạng thái' },
                       { value: 'unpaid', label: 'Chưa thanh toán' },
-                      { value: 'paid', label: 'Đã thanh toán' },
-                      { value: 'confirmed', label: 'Đã xác nhận' }
+                      { value: 'paid', label: 'Chờ xác nhận' },
+                      { value: 'confirmed', label: 'Đã thanh toán' }
                     ]}
                     placeholder="Trạng thái"
                     className="h-10 w-full bg-background"
+                  />
+                </div>
+                <div className="shrink-0 border-l border-border/60 pl-2 ml-1">
+                  <DateRangePicker
+                    initialDateFrom={filterDateFrom || undefined}
+                    initialDateTo={filterDateTo || undefined}
+                    onUpdate={(values) => {
+                      if (values.range.from) {
+                        setFilterDateFrom(format(values.range.from, 'yyyy-MM-dd'));
+                      } else {
+                        setFilterDateFrom('');
+                      }
+                      if (values.range.to) {
+                        setFilterDateTo(format(values.range.to, 'yyyy-MM-dd'));
+                      } else {
+                        setFilterDateTo('');
+                      }
+                    }}
+                    icon={<CalendarDays size={15} />}
                   />
                 </div>
               </div>
@@ -399,7 +539,7 @@ const ExpensesPage = () => {
                 className="flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-background text-muted-foreground hover:bg-muted transition-all relative"
               >
                 <Filter size={18} />
-                {(filterEmployee || filterVehicle || filterStatus) && (
+                {(filterEmployee || filterVehicle || filterStatus || filterDateFrom || filterDateTo) && (
                   <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border border-background" />
                 )}
               </button>
@@ -456,7 +596,7 @@ const ExpensesPage = () => {
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider text-center whitespace-nowrap border-b border-l border-border/50 bg-muted/5">Ảnh</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap min-w-[150px] border-b border-l border-border/50">Người tạo</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-emerald-600 uppercase tracking-wider text-right whitespace-nowrap min-w-[150px] border-b border-l border-border/50 bg-emerald-50/30">Số tiền</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap border-b border-l border-border/50">Ngày chi</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap border-b border-l border-border/50">Ngày giờ chi</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider text-center whitespace-nowrap border-b border-l border-border/50 bg-muted/10">Trạng thái</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap border-b border-l border-border/50 text-right">Thao tác</th>
                 </tr>
@@ -510,8 +650,8 @@ const ExpensesPage = () => {
                     <td className="px-6 py-4 text-right border-border/10 font-bold text-[14px] text-emerald-600 tabular-nums bg-emerald-50/20">
                       {formatCurrency(e.amount)}
                     </td>
-                    <td className="px-6 py-4 border-l border-border/10 text-[13px] text-muted-foreground">
-                       {format(new Date(e.expense_date), 'dd/MM/yyyy')}
+                    <td className="px-6 py-4 border-l border-border/10 text-[13px] text-muted-foreground whitespace-nowrap">
+                       {formatExpenseDateDisplay(e.expense_date)}
                     </td>
                     <td className="px-6 py-4 text-center border-l border-border/10 bg-muted/5">
                       <StatusBadge status={statusColors[e.payment_status] || 'default'} label={statusLabels[e.payment_status] || e.payment_status} />
@@ -593,8 +733,8 @@ const ExpensesPage = () => {
 
                   <div className="flex items-center justify-between bg-muted/20 rounded-lg p-2.5 ml-1 border border-border/50 mt-0">
                      <div className="flex flex-col">
-                        <span className="text-[11px] text-muted-foreground font-medium">Ngày chi</span>
-                        <span className="text-[13px] font-bold text-foreground">{format(new Date(e.expense_date), 'dd/MM/yyyy')}</span>
+                        <span className="text-[11px] text-muted-foreground font-medium">Ngày giờ chi</span>
+                        <span className="text-[13px] font-bold text-foreground">{formatExpenseDateDisplay(e.expense_date)}</span>
                      </div>
                      <div className="flex flex-col items-end">
                         <span className="text-[11px] text-emerald-600/80 font-medium">Số tiền</span>
@@ -735,21 +875,30 @@ const ExpensesPage = () => {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[13px] font-bold text-foreground">Ngày chi <span className="text-red-500">*</span></label>
-                    <DatePicker
-                      value={formData.expense_date}
-                      onChange={(val) => setFormData({ ...formData, expense_date: val })}
-                      className="w-full h-11"
-                    />
+                    <label className="text-[13px] font-bold text-foreground">Ngày giờ chi <span className="text-red-500">*</span></label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <DatePicker
+                        value={formData.expense_date}
+                        onChange={(val) => setFormData({ ...formData, expense_date: val })}
+                        className="w-full h-11 flex-1 min-w-0"
+                      />
+                      <input
+                        type="time"
+                        step={60}
+                        value={formData.expense_time}
+                        onChange={(ev) => setFormData({ ...formData, expense_time: ev.target.value })}
+                        className="flex h-11 w-full sm:w-[132px] shrink-0 rounded-xl border border-border/80 bg-background px-3 text-[14px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500"
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-bold text-foreground">Trạng thái thanh toán</label>
                     {paymentFieldsLocked ? (
                       <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 space-y-1">
-                        <StatusBadge status="pending" label="Đã xác nhận" />
+                        <StatusBadge status="pending" label="Đã thanh toán" />
                         <p className="text-[12px] text-muted-foreground">
-                          Có thể sửa thông tin khác; trạng thái xác nhận giữ nguyên khi lưu.
+                          Có thể sửa thông tin khác; trạng thái đã thanh toán giữ nguyên khi lưu.
                         </p>
                       </div>
                     ) : (
@@ -776,7 +925,7 @@ const ExpensesPage = () => {
                               : "bg-background border-border text-muted-foreground hover:bg-muted"
                           )}
                         >
-                          Đã thanh toán
+                          Chờ xác nhận
                         </button>
                       </div>
                     )}
@@ -894,17 +1043,30 @@ const ExpensesPage = () => {
           }, 300);
         }}
         onApply={(filters) => {
+          setFilterDateFrom(filters.dateFrom);
+          setFilterDateTo(filters.dateTo);
           setFilterStatus(filters.status);
         }}
-        initialDateFrom=""
-        initialDateTo=""
+        initialDateFrom={filterDateFrom}
+        initialDateTo={filterDateTo}
         initialStatus={filterStatus}
-        hideDateFilter
+        dateLabel="Khoảng ngày chi (VN)"
         statusOptions={[
+          { value: '', label: 'Tất cả trạng thái' },
           { value: 'unpaid', label: 'Chưa thanh toán' },
-          { value: 'paid', label: 'Đã thanh toán' },
-          { value: 'confirmed', label: 'Đã xác nhận' }
+          { value: 'paid', label: 'Chờ xác nhận' },
+          { value: 'confirmed', label: 'Đã thanh toán' },
         ]}
+        onClear={() => {
+          setFilterEmployee('');
+          setFilterVehicle('');
+          setFilterDateFrom('');
+          setFilterDateTo('');
+          setFilterStatus('');
+        }}
+        showClearButton={
+          !!(filterEmployee || filterVehicle || filterDateFrom || filterDateTo || filterStatus)
+        }
       >
         {user?.role === 'admin' && (
           <div className="space-y-1.5">
@@ -990,6 +1152,7 @@ const ExpensesPage = () => {
                   <div>• Xe: <span className="font-bold text-foreground">{confirmingExpense.vehicle.license_plate}</span></div>
                 )}
                 <div>• Số tiền: <span className="font-bold text-emerald-600">{formatCurrency(confirmingExpense.amount)}</span></div>
+                <div>• Ngày giờ chi: <span className="font-bold text-foreground">{formatExpenseDateDisplay(confirmingExpense.expense_date)}</span></div>
               </div>
             </div>
           ) : "Xác nhận chi phí này đã được thanh toán và hợp lệ?"

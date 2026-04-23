@@ -102,11 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
 };
 
 function isSidebarItemActive(pathname: string, itemPath: string): boolean {
-  if (itemPath === '/hanh-chinh-nhan-su/chi-phi') {
-    return pathname === '/hanh-chinh-nhan-su/chi-phi';
-  }
   if (itemPath === '/hanh-chinh-nhan-su') {
-    if (pathname === '/hanh-chinh-nhan-su/chi-phi') return false;
     return pathname === '/hanh-chinh-nhan-su' || pathname.startsWith('/hanh-chinh-nhan-su/');
   }
   if (itemPath === '/') return pathname === '/';

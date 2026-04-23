@@ -28,6 +28,7 @@ import PayrollPage from './pages/payroll/PayrollPage';
 import ApprovalsPage from './pages/hr/ApprovalsPage';
 import SalaryAdvancesPage from './pages/hr/SalaryAdvancesPage';
 import ExpensesPage from './pages/hr/ExpensesPage';
+import ExpenseHistoryPage from './pages/hr/ExpenseHistoryPage';
 import VehiclesPage from './pages/vehicles/VehiclesPage';
 import DriverCheckinPage from './pages/vehicles/DriverCheckinPage';
 import PaymentCollectionsPage from './pages/vehicles/payment-collections/PaymentCollectionsPage';
@@ -122,7 +123,11 @@ function AppRoutes() {
         <Route path="/hanh-chinh-nhan-su/ung-luong" element={<SalaryAdvancesPage />} />
         <Route path="/hanh-chinh-nhan-su/duyet-don" element={<ApprovalsPage />} />
         <Route path="/hanh-chinh-nhan-su/phan-quyen" element={<RolePermissionsPage />} />
-        <Route path="/hanh-chinh-nhan-su/chi-phi" element={<ExpensesPage />} />
+        <Route path="/hanh-chinh-nhan-su/chi-phi" element={<Navigate to="/chi-phi/phieu" replace />} />
+
+        <Route path="/chi-phi" element={<ModulePage />} />
+        <Route path="/chi-phi/phieu" element={<ExpensesPage />} />
+        <Route path="/chi-phi/lich-su" element={<ExpenseHistoryPage />} />
 
         {/* Khách hàng module */}
         <Route path="/khach-hang">

@@ -212,6 +212,11 @@ const ExpensesPage = () => {
     });
   }, [expenses, searchQuery, filterEmployee, filterVehicle, filterStatus, filterDateFrom, filterDateTo]);
 
+  const filteredTotalAmount = React.useMemo(
+    () => filteredExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0),
+    [filteredExpenses]
+  );
+
   const deletableInView = React.useMemo(
     () => filteredExpenses.filter(canMutateExpense),
     [filteredExpenses, user?.role, user?.id]
@@ -401,18 +406,6 @@ const ExpensesPage = () => {
     }
   };
 
-  const statusLabels: Record<string, string> = {
-    unpaid: 'Chưa thanh toán',
-    paid: 'Đã thanh toán',
-    confirmed: 'Đã xác nhận'
-  };
-
-  const statusColors: Record<string, 'pending' | 'success' | 'error' | 'default'> = {
-    unpaid: 'error',
-    paid: 'success',
-    confirmed: 'pending'
-  };
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
@@ -436,7 +429,7 @@ const ExpensesPage = () => {
         <PageHeader
           title="Chi phí"
           description="Quản lý các khoản chi phí phát sinh"
-          backPath="/hanh-chinh-nhan-su"
+          backPath="/chi-phi"
           actions={
             <button
               onClick={() => openDialog()}
@@ -452,7 +445,7 @@ const ExpensesPage = () => {
 
       <div className="bg-card justify-between rounded-2xl md:border md:border-border sm:shadow-sm flex flex-col flex-1 min-h-0 mt-0 md:mt-4">
         {isLoading ? (
-          <div className="p-4"><LoadingSkeleton columns={5} rows={6} /></div>
+          <div className="p-4"><LoadingSkeleton columns={7} rows={6} /></div>
         ) : isError ? (
           <ErrorState onRetry={refetch} />
         ) : !expenses || expenses.length === 0 ? (
@@ -494,12 +487,12 @@ const ExpensesPage = () => {
                     value={filterStatus}
                     onChange={setFilterStatus}
                     options={[
-                      { value: '', label: 'Tất cả trạng thái' },
+                      { value: '', label: 'Tất cả' },
                       { value: 'unpaid', label: 'Chưa thanh toán' },
-                      { value: 'paid', label: 'Đã thanh toán' },
-                      { value: 'confirmed', label: 'Đã xác nhận' }
+                      { value: 'paid', label: 'Đã thanh toán (chưa xác nhận)' },
+                      { value: 'confirmed', label: 'Đã xác nhận' },
                     ]}
-                    placeholder="Trạng thái"
+                    placeholder="Lọc theo trạng thái"
                     className="h-10 w-full bg-background"
                   />
                 </div>
@@ -545,6 +538,28 @@ const ExpensesPage = () => {
               </button>
             </div>
 
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 border-b border-border/50 bg-emerald-50/25 dark:bg-emerald-950/30 shrink-0">
+              <span className="text-[12px] text-muted-foreground font-medium">
+                {filteredExpenses.length} phiếu
+                {(searchQuery ||
+                  filterEmployee ||
+                  filterVehicle ||
+                  filterStatus ||
+                  filterDateFrom ||
+                  filterDateTo) && (
+                  <span className="text-muted-foreground/80"> · theo bộ lọc</span>
+                )}
+              </span>
+              <div className="flex items-baseline gap-2 flex-wrap justify-end">
+                <span className="text-[12px] font-bold text-emerald-700/80 dark:text-emerald-400/90 uppercase tracking-wide">
+                  Tổng tiền
+                </span>
+                <span className="text-[16px] sm:text-[17px] font-black text-emerald-600 dark:text-emerald-400 tabular-nums tracking-tight">
+                  {formatCurrency(filteredTotalAmount)}
+                </span>
+              </div>
+            </div>
+
             {selectedDeletableCount > 0 && (
               <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-border bg-red-500/5 shrink-0">
                 <span className="text-[13px] font-semibold text-foreground">
@@ -577,8 +592,9 @@ const ExpensesPage = () => {
                 <div className="p-8 text-center text-muted-foreground">Không tìm thấy kết quả phù hợp</div>
               ) : (
                 <>
-                  {/* Desktop Table View */}
-                  <table className="w-full text-left border-collapse hidden md:table">
+                  {/* Bảng danh sách (tablet/desktop); màn hẹp cuộn ngang */}
+                  <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[1020px]">
               <thead className="bg-muted/30 sticky top-0 z-10 backdrop-blur-xl">
                 <tr>
                   <th className="w-12 pl-4 pr-2 py-4 border-b border-border/50">
@@ -597,7 +613,8 @@ const ExpensesPage = () => {
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap min-w-[150px] border-b border-l border-border/50">Người tạo</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-emerald-600 uppercase tracking-wider text-right whitespace-nowrap min-w-[150px] border-b border-l border-border/50 bg-emerald-50/30">Số tiền</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap border-b border-l border-border/50">Ngày giờ chi</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider text-center whitespace-nowrap border-b border-l border-border/50 bg-muted/10">Trạng thái</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider text-center whitespace-nowrap border-b border-l border-border/50 bg-muted/10">Trạng thái thanh toán</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider text-center whitespace-nowrap border-b border-l border-border/50 bg-muted/5">Xác nhận</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap border-b border-l border-border/50 text-right">Thao tác</th>
                 </tr>
               </thead>
@@ -654,7 +671,23 @@ const ExpensesPage = () => {
                        {formatExpenseDateDisplay(e.expense_date)}
                     </td>
                     <td className="px-6 py-4 text-center border-l border-border/10 bg-muted/5">
-                      <StatusBadge status={statusColors[e.payment_status] || 'default'} label={statusLabels[e.payment_status] || e.payment_status} />
+                      <StatusBadge
+                        status={e.payment_status === 'unpaid' ? 'unpaid' : 'paid'}
+                        label={e.payment_status === 'unpaid' ? 'Chưa thanh toán' : 'Đã thanh toán'}
+                      />
+                    </td>
+                    <td className="px-6 py-4 text-center border-l border-border/10 bg-muted/5">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <StatusBadge
+                          status={e.payment_status === 'confirmed' ? 'approved' : 'pending'}
+                          label={e.payment_status === 'confirmed' ? 'Đã xác nhận' : 'Chưa xác nhận'}
+                        />
+                        {e.payment_status === 'confirmed' && e.confirmer?.full_name && (
+                          <span className="text-[10px] text-muted-foreground max-w-[140px] truncate" title={e.confirmer.full_name}>
+                            {e.confirmer.full_name}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right border-l border-border/10">
                       <div className="flex items-center justify-end gap-2">
@@ -691,9 +724,10 @@ const ExpensesPage = () => {
                 ))}
               </tbody>
             </table>
+                  </div>
 
-            {/* Mobile Card View */}
-            <div className="flex flex-col gap-3 p-3 md:hidden bg-muted/50 min-h-full pb-20">
+            {/* Mobile: thẻ (dưới sm); có dòng trạng thái thanh toán dạng bảng nhỏ */}
+            <div className="flex flex-col gap-3 p-3 sm:hidden bg-muted/50 min-h-full pb-20">
               {filteredExpenses.map(e => (
                 <div key={e.id} className="bg-card rounded-xl border border-border/60 shadow-sm p-4 flex flex-col gap-3 relative overflow-hidden">
                   <div className={`absolute left-0 top-0 bottom-0 w-1 ${e.payment_status === 'confirmed' ? 'bg-emerald-500' : e.payment_status === 'unpaid' ? 'bg-red-500' : 'bg-amber-500'}`} />
@@ -728,18 +762,40 @@ const ExpensesPage = () => {
                          {e.employee?.full_name} {e.vehicle && `• Xe: ${e.vehicle.license_plate}`}
                        </span>
                      </div>
-                     <StatusBadge status={statusColors[e.payment_status] || 'default'} label={statusLabels[e.payment_status] || e.payment_status} />
                   </div>
 
-                  <div className="flex items-center justify-between bg-muted/20 rounded-lg p-2.5 ml-1 border border-border/50 mt-0">
-                     <div className="flex flex-col">
+                  <div className="ml-1 rounded-lg border border-border/60 overflow-hidden text-[12px] bg-background">
+                    <div className="grid grid-cols-[1fr_auto] gap-x-3 items-center border-b border-border/50 bg-muted/15 px-3 py-2">
+                      <span className="text-muted-foreground font-semibold">Trạng thái thanh toán</span>
+                      <StatusBadge
+                        status={e.payment_status === 'unpaid' ? 'unpaid' : 'paid'}
+                        label={e.payment_status === 'unpaid' ? 'Chưa thanh toán' : 'Đã thanh toán'}
+                      />
+                    </div>
+                    <div className="grid grid-cols-[1fr_auto] gap-x-3 items-center border-b border-border/50 bg-muted/10 px-3 py-2">
+                      <span className="text-muted-foreground font-semibold">Xác nhận</span>
+                      <div className="flex flex-col items-end gap-0.5 min-w-0">
+                        <StatusBadge
+                          status={e.payment_status === 'confirmed' ? 'approved' : 'pending'}
+                          label={e.payment_status === 'confirmed' ? 'Đã xác nhận' : 'Chưa xác nhận'}
+                        />
+                        {e.payment_status === 'confirmed' && e.confirmer?.full_name && (
+                          <span className="text-[10px] text-muted-foreground text-right truncate max-w-[160px]">
+                            {e.confirmer.full_name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 px-3 py-2.5 bg-muted/10">
+                      <div className="flex flex-col min-w-0">
                         <span className="text-[11px] text-muted-foreground font-medium">Ngày giờ chi</span>
-                        <span className="text-[13px] font-bold text-foreground">{formatExpenseDateDisplay(e.expense_date)}</span>
-                     </div>
-                     <div className="flex flex-col items-end">
+                        <span className="text-[13px] font-bold text-foreground tabular-nums">{formatExpenseDateDisplay(e.expense_date)}</span>
+                      </div>
+                      <div className="flex flex-col items-end min-w-0">
                         <span className="text-[11px] text-emerald-600/80 font-medium">Số tiền</span>
                         <span className="text-[14px] font-bold text-emerald-600 tabular-nums">{formatCurrency(e.amount)}</span>
-                     </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-end gap-2 mt-1">
@@ -896,9 +952,9 @@ const ExpensesPage = () => {
                     <label className="text-[13px] font-bold text-foreground">Trạng thái thanh toán</label>
                     {paymentFieldsLocked ? (
                       <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 space-y-1">
-                        <StatusBadge status="pending" label="Đã xác nhận" />
+                        <StatusBadge status="approved" label="Đã xác nhận" />
                         <p className="text-[12px] text-muted-foreground">
-                          Có thể sửa thông tin khác; trạng thái xác nhận giữ nguyên khi lưu.
+                          Đây là bước duyệt của quản trị, khác với «đã thanh toán» ở trên. Có thể sửa thông tin khác; trạng thái xác nhận giữ nguyên khi lưu.
                         </p>
                       </div>
                     ) : (
@@ -1052,9 +1108,9 @@ const ExpensesPage = () => {
         initialStatus={filterStatus}
         dateLabel="Khoảng ngày chi (VN)"
         statusOptions={[
-          { value: '', label: 'Tất cả trạng thái' },
+          { value: '', label: 'Tất cả' },
           { value: 'unpaid', label: 'Chưa thanh toán' },
-          { value: 'paid', label: 'Đã thanh toán' },
+          { value: 'paid', label: 'Đã thanh toán (chưa xác nhận)' },
           { value: 'confirmed', label: 'Đã xác nhận' },
         ]}
         onClear={() => {

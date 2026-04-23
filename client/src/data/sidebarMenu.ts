@@ -20,7 +20,7 @@ export const sidebarMenu: SidebarItem[] = [
   { icon: Home, label: 'Trang chủ', path: '/' },
   { icon: Box, label: 'Hàng hóa', path: '/hang-hoa' },
   { icon: Contact, label: 'Khách hàng', path: '/khach-hang' },
-  { icon: Receipt, label: 'Chi phí', path: '/hanh-chinh-nhan-su/chi-phi' },
+  { icon: Receipt, label: 'Chi phí', path: '/chi-phi' },
   { icon: Users, label: 'Hành chính nhân sự', path: '/hanh-chinh-nhan-su' },
   { icon: Wallet, label: 'Kế toán', path: '/ke-toan' },
   { icon: Car, label: 'Quản lý xe', path: '/quan-ly-xe' },

@@ -259,7 +259,6 @@ const SgCashCollectionsPage: React.FC = () => {
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ngày / giờ</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Người nhận</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">KH</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">NV thu tiền</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-right">Số tiền</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Trạng thái nộp tiền</th>
                     {canConfirm && (
@@ -289,7 +288,6 @@ const SgCashCollectionsPage: React.FC = () => {
                             <span className="block text-[11px] text-muted-foreground">{row.customers.phone}</span>
                           ) : null}
                         </td>
-                        <td className="px-4 py-3 text-[13px]">{row.collector?.full_name || '—'}</td>
                         <td className="px-4 py-3 text-[13px] font-bold text-primary text-right tabular-nums">
                           {formatCurrency(row.total_amount)}
                         </td>
@@ -356,10 +354,6 @@ const SgCashCollectionsPage: React.FC = () => {
                     <p className="text-[12px]">
                       <span className="text-muted-foreground">Người nhận: </span>
                       {receiver}
-                    </p>
-                    <p className="text-[12px]">
-                      <span className="text-muted-foreground">NV thu tiền: </span>
-                      {row.collector?.full_name || '—'}
                     </p>
                     <p className="text-[12px]">
                       {confirmed ? (

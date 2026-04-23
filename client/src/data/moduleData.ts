@@ -2,7 +2,7 @@ import {
   Users,
   Warehouse, Download, Upload, Truck as DeliveryIcon,
   Banknote, Car, CalendarDays, ClipboardList, ClipboardCheck, DollarSign, FileText, Settings2, MapPin,
-  Send, Store
+  Send, Store, Receipt, History,
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
 
@@ -33,6 +33,27 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
         { icon: Settings2, title: 'Cài đặt hàng rau', description: 'Quản lý từ điển hàng vựa rau.', colorScheme: 'slate', path: '/hang-hoa/cai-dat-rau' },
       ]
     }
+  ],
+  '/chi-phi': [
+    {
+      section: 'Chi phí',
+      items: [
+        {
+          icon: Receipt,
+          title: 'Phiếu chi phí',
+          description: 'Tạo, sửa, xóa và duyệt phiếu chi phí.',
+          colorScheme: 'amber',
+          path: '/chi-phi/phieu',
+        },
+        {
+          icon: History,
+          title: 'Lịch sử',
+          description: 'Xem phiếu theo thời điểm cập nhật gần nhất.',
+          colorScheme: 'slate',
+          path: '/chi-phi/lich-su',
+        },
+      ],
+    },
   ],
   '/khach-hang': [
     {

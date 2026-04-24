@@ -12,6 +12,8 @@ import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 /** Cột xe trên phiếu in (cố định, không in biển số) */
 const PRINT_VEHICLE_SLOTS = ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'] as const;
 
+const PRINT_TABLE_COL_COUNT = 3 + PRINT_VEHICLE_SLOTS.length;
+
 const qtyForPrintSlot = (order: DeliveryOrder, col: string) => {
   const matches = (order.delivery_vehicles || []).filter((dv) => {
     const plate = (dv.vehicles?.license_plate || '').toLowerCase().replace(/\s/g, '');
@@ -64,22 +66,33 @@ const PrintDeliveryPage: React.FC = () => {
   return (
     <>
       <style>{`
-        /* Ô xe (1–8, ba, kho) hẹp — chỉ đủ ghi số; cột khách + hàng rộng hơn khi in A4 */
+        /* Cân đối A4: Tên khách vừa đủ, Hàng rộng hơn để đọc; ô xe rất hẹp (chỉ ghi số) */
         .print-area .print-table {
           table-layout: fixed;
           width: 100%;
           border-collapse: collapse;
           font-family: "Times New Roman", Times, serif;
         }
-        .print-area .print-table col.print-col-name { width: 45%; }
-        .print-area .print-table col.print-col-qty { width: 4%; }
-        .print-area .print-table col.print-col-product { width: 25%; }
-        .print-area .print-table col.print-col-slot { width: 2.6%; }
-        .print-area .print-table .col-name { width: 45%; }
-        .print-area .print-table .col-qty { width: 4%; }
-        .print-area .print-table .col-product { width: 25%; }
+        .print-area .print-table col.print-col-name { width: 38%; }
+        .print-area .print-table col.print-col-qty { width: 5%; }
+        .print-area .print-table col.print-col-product { width: 35%; }
+        .print-area .print-table col.print-col-slot { width: 2.2%; }
+        .print-area .print-table .col-name { width: 38%; }
+        .print-area .print-table .col-qty { width: 5%; }
+        .print-area .print-table .col-product { width: 35%; }
         .print-area .print-table .col-slot,
-        .print-area .print-table .col-slot-head { width: 2.6%; }
+        .print-area .print-table .col-slot-head { width: 2.2%; }
+        .print-header-bar {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          width: 100%;
+          gap: 12px;
+        }
+        .print-header-bar .print-header-date {
+          flex: 1;
+          min-width: 0;
+        }
 
         @media print {
           body { 
@@ -138,8 +151,11 @@ const PrintDeliveryPage: React.FC = () => {
           .print-area .print-table .col-product {
             padding: 3px 5px !important;
           }
-          .print-area .print-table .col-qty {
+          .print-area .print-table .col-qty,
+          .print-area .print-table td.col-qty-cell {
             padding: 3px 2px !important;
+            text-align: center !important;
+            vertical-align: middle;
           }
           .print-area .print-table .col-slot,
           .print-area .print-table .col-slot-head {
@@ -157,7 +173,8 @@ const PrintDeliveryPage: React.FC = () => {
           .print-header-repeat th {
             border: none !important;
             background: transparent !important;
-            padding: 0 0 6px 0 !important;
+            padding: 0 0 8px 0 !important;
+            vertical-align: bottom;
           }
           .print-sheet-date {
             font-size: 13px !important;
@@ -271,11 +288,12 @@ const PrintDeliveryPage: React.FC = () => {
                 </colgroup>
                 <thead>
                   <tr className="print-header-repeat">
-                    <th colSpan={3} className="text-left">
-                      <div className="print-sheet-date text-[16px] font-bold">Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}</div>
-                    </th>
-                    <th colSpan={PRINT_VEHICLE_SLOTS.length} className="text-right">
-                      {/* Page number handled by fixed position */}
+                    <th colSpan={PRINT_TABLE_COL_COUNT} className="text-left !p-0">
+                      <div className="print-header-bar">
+                        <div className="print-header-date print-sheet-date text-[16px] font-bold">
+                          Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}
+                        </div>
+                      </div>
                     </th>
                   </tr>
                   <tr>
@@ -293,7 +311,7 @@ const PrintDeliveryPage: React.FC = () => {
                   {groupedOrders[date].map(o => (
                     <tr key={o.id}>
                       <td className="text-left font-medium border border-black">{getReceiverDisplayName(o)}</td>
-                      <td className="text-center font-bold border border-black">{o.total_quantity || ''}</td>
+                      <td className="col-qty-cell text-center font-bold border border-black tabular-nums">{o.total_quantity || ''}</td>
                       <td className="text-left border border-black">{getDisplayProductName(o)}</td>
                       {PRINT_VEHICLE_SLOTS.map((col) => {
                         const qty = qtyForPrintSlot(o, col);

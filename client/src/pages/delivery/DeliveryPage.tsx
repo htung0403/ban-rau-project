@@ -74,6 +74,13 @@ const pickRelation = <T,>(relation: any): T | undefined => {
   return relation || undefined;
 };
 
+/** Nhân viên nhận hàng (phiếu nhập — received_by) */
+const getImportReceivedByStaffName = (order: DeliveryOrder) => {
+  const src = pickRelation<any>(order.import_orders) || pickRelation<any>(order.vegetable_orders);
+  const name = src?.profiles?.full_name?.trim();
+  return name || '—';
+};
+
 const getOrderPreviewImage = (order: any) => {
   if (!order) return null;
   const directImage = order.image_url;
@@ -459,13 +466,15 @@ const DeliveryPage: React.FC = () => {
     const cName = o.import_orders?.sender_name || o.import_orders?.customers?.name;
     const rName = o.import_orders?.customers?.name || o.import_orders?.receiver_name?.trim() || o.import_orders?.profiles?.full_name;
     const pName = getDisplayProductName(o);
+    const staffRecv = getImportReceivedByStaffName(o);
 
     if (searchQuery) {
       if (
         !matchesSearch(cName || '', searchQuery) && 
         !matchesSearch(rName || '', searchQuery) && 
         !matchesSearch(pName || '', searchQuery) && 
-        !matchesSearch(o.import_orders?.order_code || '', searchQuery)
+        !matchesSearch(o.import_orders?.order_code || '', searchQuery) &&
+        !matchesSearch(staffRecv === '—' ? '' : staffRecv, searchQuery)
       ) {
         return false;
       }
@@ -731,6 +740,9 @@ const DeliveryPage: React.FC = () => {
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-border">Loại</th>
                     <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-32 border-r border-border whitespace-nowrap">Ngày giờ giao</th>
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left min-w-20 border-r border-border">Người nhận</th>
+                    <th className="px-3 py-3 text-[11px] font-bold uppercase tracking-tight text-left min-w-24 max-w-32 border-r border-border leading-tight">
+                      NV nhận hàng
+                    </th>
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-14 border-r border-border">Ảnh</th>
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left border-r border-border">Hàng</th>
                     <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-17.5 border-r border-border">Trạng thái</th>
@@ -758,7 +770,7 @@ const DeliveryPage: React.FC = () => {
                     <React.Fragment key={date}>
                       {/* Date separator row */}
                       <tr className="bg-muted/80 dark:bg-muted/40 border-y border-border shadow-sm overflow-hidden">
-                        <td colSpan={(isAdmin ? 12 : 11) + (displayedVehicles.length || ((statusFilter === 'da_giao' && isDriverOrLoader) ? 0 : 10))} className="px-4 py-2.5">    
+                        <td colSpan={(isAdmin ? 13 : 12) + (displayedVehicles.length || ((statusFilter === 'da_giao' && isDriverOrLoader) ? 0 : 10))} className="px-4 py-2.5">    
                           <div className="flex items-center gap-2">
                             {isAdmin && (
                               <input
@@ -905,6 +917,11 @@ const DeliveryPage: React.FC = () => {
                             </td>
                             <td className="px-4 py-3 text-[12px] font-bold text-foreground border-r border-border">
                               {getReceiverDisplayName(o)}
+                            </td>
+                            <td className="px-3 py-3 text-[12px] text-muted-foreground border-r border-border max-w-32">
+                              <span className="line-clamp-2" title={getImportReceivedByStaffName(o)}>
+                                {getImportReceivedByStaffName(o)}
+                              </span>
                             </td>
                             <td className="px-2 py-3 text-center border-r border-border cursor-pointer" onClick={(e) => {
                               const previewImage = getOrderPreviewImage(o);
@@ -1142,6 +1159,11 @@ const DeliveryPage: React.FC = () => {
                                   </span>
                                 </div>
     
+                                <div className="text-[11px] text-muted-foreground">
+                                  <span className="font-semibold text-foreground/80">NV nhận:</span>{' '}
+                                  {getImportReceivedByStaffName(o)}
+                                </div>
+
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   {!isOldOrderForAgeRule(o, anchorStr) ? (
                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-700 uppercase shrink-0">Mới</span>

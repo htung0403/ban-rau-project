@@ -50,6 +50,7 @@ const BulkAssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, orders, o
 
     setIsSubmitting(true);
     try {
+      const deliveredAt = new Date().toISOString();
       await Promise.all(
         validOrders.map(async (order) => {
           const totalAssigned = (order.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
@@ -86,7 +87,7 @@ const BulkAssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, orders, o
 
           await assignMutation.mutateAsync({
             id: order.id,
-            payload: { assignments: existingAssignments }
+            payload: { assignments: existingAssignments, delivered_at: deliveredAt }
           });
         })
       );

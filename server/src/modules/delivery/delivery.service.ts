@@ -21,6 +21,14 @@ export class DeliveryService {
     return `${m[1].padStart(2, '0')}:${m[2]}`;
   }
 
+  /** ISO từ client (lúc bấm Lưu sau khi chụp/tải ảnh) — chỉ dùng khi chuyển sang da_giao */
+  private static parseClientDeliveredAtIso(raw?: string | null): string | null {
+    if (raw == null || typeof raw !== 'string' || raw.trim() === '') return null;
+    const d = new Date(raw.trim());
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
+  }
+
   /** TIMESTAMPTZ (UTC) → "HH:mm" theo Asia/Ho_Chi_Minh cho phiếu xuất */
   private static formatVnHHmmFromIsoUtc(iso: string | null | undefined): string | null {
     if (!iso) return null;
@@ -323,7 +331,8 @@ export class DeliveryService {
     userId?: string,
     exportPaymentStatus?: 'unpaid' | 'paid',
     unit_price?: number,
-    image_urls?: string[]
+    image_urls?: string[],
+    clientDeliveredAtIso?: string | null
   ) {
     const updateData: any = {};
     if (image_url !== undefined) {
@@ -454,7 +463,8 @@ export class DeliveryService {
       );
       const rowUpdate: Record<string, unknown> = { status: nextStatus };
       if (nextStatus === 'da_giao' && doData.status !== 'da_giao') {
-        rowUpdate.driver_delivered_at = new Date().toISOString();
+        rowUpdate.driver_delivered_at =
+          DeliveryService.parseClientDeliveredAtIso(clientDeliveredAtIso) || new Date().toISOString();
       } else if (nextStatus !== 'da_giao') {
         rowUpdate.driver_delivered_at = null;
       }

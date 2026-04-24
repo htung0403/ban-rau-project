@@ -41,7 +41,18 @@ export const deliveryApi = {
     return data;
   },
 
-  assignVehicle: async (id: string, payload: { assignments: { vehicle_id: string; driver_id: string; loader_name?: string | null; quantity: number }[], image_url?: string, unit_price?: number }) => {
+  assignVehicle: async (
+    id: string,
+    payload: {
+      assignments: { vehicle_id: string; driver_id: string; loader_name?: string | null; quantity: number }[];
+      image_url?: string | null;
+      image_urls?: string[];
+      export_payment_status?: 'unpaid' | 'paid';
+      unit_price?: number;
+      /** ISO: một mốc chung khi bấm Lưu (sau khi chụp ảnh), dùng cho phân xe hàng loạt / giờ giao thực tế */
+      delivered_at?: string;
+    }
+  ) => {
     const { data } = await axiosClient.put(`/delivery/${id}/assign-vehicle`, payload);
     return data;
   },

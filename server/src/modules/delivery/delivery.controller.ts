@@ -86,6 +86,7 @@ export class DeliveryController {
       let image_urls: string[] | undefined = undefined;
       let export_payment_status: 'unpaid' | 'paid' | undefined = undefined;
       let unit_price: number | undefined = undefined;
+      let delivered_at: string | undefined = undefined;
 
       const extractExtras = (src: any) => {
         if (Object.prototype.hasOwnProperty.call(src, 'image_url')) {
@@ -99,6 +100,10 @@ export class DeliveryController {
         }
         if (Object.prototype.hasOwnProperty.call(src, 'unit_price')) {
           unit_price = z.number().nonnegative().parse(src.unit_price);
+        }
+        if (Object.prototype.hasOwnProperty.call(src, 'delivered_at')) {
+          const v = (src as any).delivered_at;
+          delivered_at = v == null || v === '' ? undefined : String(v);
         }
       };
 
@@ -129,7 +134,8 @@ export class DeliveryController {
         req.user?.id,
         export_payment_status,
         unit_price,
-        image_urls
+        image_urls,
+        delivered_at
       );
       return res.status(200).json(successResponse(data, 'Vehicles assigned'));
     } catch (err: any) {

@@ -482,6 +482,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         assignments: normalizedAssignments,
         export_payment_status: data.export_payment_status,
         unit_price: normalizedAssignments[0]?.unit_price || 0,
+        /** Một mốc cho cả lần lưu (sau khi chụp/tải ảnh) — trùng nhau khi phân nhiều đơn cùng lúc */
+        delivered_at: new Date().toISOString(),
       };
       const mergedImageUrls = mergeDeliveryImageUrls(data.image_urls || [], data.assignments);
       if (mergedImageUrls.length > 0) {

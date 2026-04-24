@@ -410,7 +410,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         0,
       );
       if (sumFinal > order.total_quantity) {
-        toast((t) => (
+        toast(() => (
           <span className="text-[13px] font-semibold">
             Đang lưu ngoại lệ: Tổng SL phân xe ({sumFinal.toLocaleString()}) vượt SL đơn ({order.total_quantity.toLocaleString()}).
           </span>

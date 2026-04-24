@@ -69,10 +69,7 @@ const getReceiverDisplayName = (order: DeliveryOrder) => {
   return orderObj?.customers?.name || orderObj?.receiver_name?.trim() || orderObj?.profiles?.full_name || '-';
 };
 
-const pickRelation = <T,>(relation: any): T | undefined => {
-  if (Array.isArray(relation)) return relation[0];
-  return relation || undefined;
-};
+
 
 const getOrderPreviewImage = (order: any) => {
   if (!order) return null;

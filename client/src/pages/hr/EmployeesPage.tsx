@@ -183,7 +183,7 @@ const EmployeesPage: React.FC = () => {
       if (!lastGroup || lastGroup.roleLabel !== roleLabel) {
         groups.push({ roleLabel, items: [employee] as typeof sortedEmployees });
       } else {
-        lastGroup.items.push(employee);
+        lastGroup.items!.push(employee);
       }
     });
 
@@ -341,12 +341,12 @@ const EmployeesPage: React.FC = () => {
                         {group.roleLabel}
                       </span>
                       <span className="shrink-0 text-[10px] font-bold text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-md">
-                        {group.items.length}
+                        {group.items!.length}
                       </span>
                       <div className="h-px flex-1 bg-border/70" />
                     </div>
                   </div>
-                  {group.items.map((e) => {
+                  {group.items!.map((e) => {
                     const assignedVehicles = assignedVehiclesByEmployeeId.get(e.id);
                     return (
                     <div

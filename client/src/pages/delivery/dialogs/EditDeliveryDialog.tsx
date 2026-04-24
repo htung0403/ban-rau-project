@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Loader2, Truck, User, Trash2, Camera, ImagePlus } from 'lucide-react';
+import { X, Loader2, Truck, User, Camera, ImagePlus } from 'lucide-react';
 import { useUpdateDeliveryOrder, useAssignVehicle } from '../../../hooks/queries/useDelivery';
 import { useProducts } from '../../../hooks/queries/useProducts';
 import { useCustomers } from '../../../hooks/queries/useCustomers';

@@ -37,6 +37,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
     return products.map((p: Product) => ({
       label: p.name,
       value: p.name,
+      matchKey: p.name,
     }));
   }, [products]);
 
@@ -50,6 +51,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
       .map((c: any) => ({
         label: `${c.name} ${c.phone ? `(${c.phone})` : ''}`,
         value: c.id,
+        matchKey: c.name,
       }));
     return list;
   }, [allCustomers, isVeg]);
@@ -62,6 +64,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
       .map((c: any) => ({
         label: `${c.name} ${c.phone ? `(${c.phone})` : ''}`,
         value: c.id,
+        matchKey: c.name,
       }));
     return list;
   }, [allCustomers, isVeg]);

@@ -16,13 +16,27 @@ import {
   PopoverTrigger,
 } from "./popover"
 
-interface Option {
+export interface CreatableOption {
   value: string
   label: string
+  /** So khớp «tạo mới» không phân biệt hoa thường (vd tên khách / tên hàng); bỏ qua hậu tố SĐT trong label. */
+  matchKey?: string
+}
+
+function compareKeyFromOption(option: CreatableOption): string {
+  if (option.matchKey != null && String(option.matchKey).trim() !== '') {
+    return option.matchKey.trim().toLowerCase()
+  }
+  const label = option.label.trim()
+  const paren = label.lastIndexOf(' (')
+  if (paren !== -1 && label.endsWith(')')) {
+    return label.slice(0, paren).trim().toLowerCase()
+  }
+  return label.toLowerCase()
 }
 
 interface CreatableSearchableSelectProps {
-  options: Option[]
+  options: CreatableOption[]
   value?: string
   fallbackLabel?: string
   onValueChange: (value: string) => void
@@ -57,10 +71,11 @@ export const CreatableSearchableSelect = React.memo((props: CreatableSearchableS
     [options, value]
   )
   
-  const hasExactMatch = React.useMemo(() => 
-    options.some((option) => option.label.toLowerCase() === searchQuery.toLowerCase()),
-    [options, searchQuery]
-  )
+  const hasExactMatch = React.useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return false
+    return options.some((option) => compareKeyFromOption(option) === q)
+  }, [options, searchQuery])
 
   const handleCreate = React.useCallback(() => {
     if (searchQuery && !hasExactMatch && onCreate) {

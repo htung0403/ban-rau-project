@@ -1,4 +1,5 @@
 import { supabaseService } from '../../config/supabase';
+import { normalizeEntityNameKey } from '../../utils/normalizeEntityName';
 
 export class ProductService {
   static async getAll() {
@@ -24,21 +25,32 @@ export class ProductService {
   }
 
   static async create(productData: any) {
-    // Check if a soft-deleted product with the same name and category exists
-    const { data: existing } = await supabaseService
+    const category = productData.category || 'standard';
+    const nameKey = normalizeEntityNameKey(productData.name);
+    if (!nameKey) {
+      throw new Error('Tên hàng không hợp lệ');
+    }
+
+    const { data: inCategory, error: fetchErr } = await supabaseService
       .from('products')
       .select('*')
-      .eq('name', productData.name)
-      .eq('category', productData.category || 'standard')
-      .eq('is_active', false)
-      .maybeSingle();
+      .eq('category', category);
+    if (fetchErr) throw fetchErr;
 
-    if (existing) {
-      // Reactivate the soft-deleted product with updated data
+    const rows = inCategory || [];
+    const activeDup = rows.find(
+      (p: any) => p.is_active === true && normalizeEntityNameKey(p.name) === nameKey,
+    );
+    if (activeDup) return activeDup;
+
+    const inactive = rows.find(
+      (p: any) => p.is_active === false && normalizeEntityNameKey(p.name) === nameKey,
+    );
+    if (inactive) {
       const { data, error } = await supabaseService
         .from('products')
         .update({ ...productData, is_active: true })
-        .eq('id', existing.id)
+        .eq('id', inactive.id)
         .select()
         .single();
 

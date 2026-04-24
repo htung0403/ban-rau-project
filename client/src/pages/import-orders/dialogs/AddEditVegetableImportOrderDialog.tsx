@@ -180,9 +180,11 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
         phone: newCustomerPhone.trim() || undefined,
         customer_type: customerType,
       });
-      const newId = (resp as any)?.id || (resp as any)?.data?.id;
+      const row = resp as any;
+      const newId = row?.id || row?.data?.id;
       if (newId) {
         setValue('customer_id', newId, { shouldValidate: true });
+        if (row?.name) setValue('receiver_name', row.name, { shouldValidate: true });
       }
       setNewCustomerName('');
       setNewCustomerPhone('');
@@ -204,10 +206,11 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
         phone: newSenderPhone.trim() || undefined,
         customer_type: customerType,
       });
-      const newId = (resp as any)?.id || (resp as any)?.data?.id;
+      const row = resp as any;
+      const newId = row?.id || row?.data?.id;
       if (newId) {
         setValue('sender_id', newId, { shouldValidate: true });
-        setValue('sender_name', newSenderName.trim(), { shouldValidate: true });
+        setValue('sender_name', row?.name || newSenderName.trim(), { shouldValidate: true });
       }
       setNewSenderName('');
       setNewSenderPhone('');
@@ -668,7 +671,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                           </button>
                         </div>
                         <CreatableSearchableSelect
-                          options={filteredSenders.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}` }))}
+                          options={filteredSenders.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}`, matchKey: c.name }))}
                           value={watchSenderId || ''}
                           onValueChange={(val) => {
                             setValue('sender_id', val, { shouldValidate: true });
@@ -679,10 +682,11 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                             try {
                               const customerType = (defaultCategory as string) === 'vegetable' ? 'vegetable_sender' : 'grocery_sender';
                               const resp = await createCustomerMutation.mutateAsync({ name, customer_type: customerType });
-                              const newId = (resp as any)?.id || (resp as any)?.data?.id;
+                              const row = resp as any;
+                              const newId = row?.id || row?.data?.id;
                               if (newId) {
                                 setValue('sender_id', newId, { shouldValidate: true });
-                                setValue('sender_name', name, { shouldValidate: true });
+                                setValue('sender_name', row?.name || name, { shouldValidate: true });
                               }
                             } catch { /* handled */ }
                           }}
@@ -854,7 +858,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                           </button>
                         </div>
                         <CreatableSearchableSelect
-                          options={filteredSenders.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}` }))}
+                          options={filteredSenders.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}`, matchKey: c.name }))}
                           value={watchSenderId || ''}
                           onValueChange={(val) => {
                             setValue('sender_id', val, { shouldValidate: true });
@@ -865,10 +869,11 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                             try {
                               const customerType = (defaultCategory as string) === 'vegetable' ? 'vegetable_sender' : 'grocery_sender';
                               const resp = await createCustomerMutation.mutateAsync({ name, customer_type: customerType });
-                              const newId = (resp as any)?.id || (resp as any)?.data?.id;
+                              const row = resp as any;
+                              const newId = row?.id || row?.data?.id;
                               if (newId) {
                                 setValue('sender_id', newId, { shouldValidate: true });
-                                setValue('sender_name', name, { shouldValidate: true });
+                                setValue('sender_name', row?.name || name, { shouldValidate: true });
                               }
                             } catch { /* handled */ }
                           }}
@@ -1194,7 +1199,8 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                     <CreatableSearchableSelect
                                       options={filteredProducts.map((p: any) => ({
                                         value: p.id,
-                                        label: p.name
+                                        label: p.name,
+                                        matchKey: p.name,
                                       }))}
                                       value={watch(`items.${index}.product_id` as const)}
                                       onValueChange={(val) => setValue(`items.${index}.product_id`, val, { shouldValidate: true })}
@@ -1264,7 +1270,8 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                     <CreatableSearchableSelect
                                       options={filteredProducts.map((p: any) => ({
                                         value: p.id,
-                                        label: p.name
+                                        label: p.name,
+                                        matchKey: p.name,
                                       }))}
                                       value={watch(`items.${index}.product_id` as const)}
                                       onValueChange={(val) => setValue(`items.${index}.product_id`, val, { shouldValidate: true })}
@@ -1356,7 +1363,8 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                     <CreatableSearchableSelect
                                       options={filteredProducts.map((p: any) => ({
                                         value: p.id,
-                                        label: p.name
+                                        label: p.name,
+                                        matchKey: p.name,
                                       }))}
                                       value={watch(`items.${index}.product_id` as const)}
                                       onValueChange={(val) => setValue(`items.${index}.product_id`, val, { shouldValidate: true })}

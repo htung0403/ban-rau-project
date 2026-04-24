@@ -78,6 +78,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
     return products.map((p: Product) => ({
       label: p.name,
       value: p.name,
+      matchKey: p.name,
     }));
   }, [products]);
 
@@ -91,6 +92,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
       .map((c: any) => ({
         label: `${c.name} ${c.phone ? `(${c.phone})` : ''}`,
         value: c.id,
+        matchKey: c.name,
       }));
   }, [allCustomers, isVeg]);
 
@@ -102,6 +104,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
       .map((c: any) => ({
         label: `${c.name} ${c.phone ? `(${c.phone})` : ''}`,
         value: c.id,
+        matchKey: c.name,
       }));
   }, [allCustomers, isVeg]);
 

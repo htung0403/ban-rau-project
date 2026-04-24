@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { supabaseService } from '../../config/supabase';
 import { hashPassword } from '../../utils/password';
+import { normalizeEntityNameKey } from '../../utils/normalizeEntityName';
 
 export class CustomerService {
   static async getAll(type?: string) {
@@ -79,6 +80,21 @@ export class CustomerService {
   }
 
   static async create(customerData: any) {
+    const customerType = customerData.customer_type || 'retail';
+    const nameKey = normalizeEntityNameKey(customerData.name);
+    if (nameKey) {
+      const { data: candidates, error: findErr } = await supabaseService
+        .from('customers')
+        .select('*')
+        .eq('customer_type', customerType)
+        .is('deleted_at', null);
+      if (findErr) throw findErr;
+      const existing = (candidates || []).find(
+        (c: any) => normalizeEntityNameKey(c.name) === nameKey,
+      );
+      if (existing) return existing;
+    }
+
     const { data, error } = await supabaseService.from('customers').insert(customerData).select().single();
     if (error) throw error;
     return data;

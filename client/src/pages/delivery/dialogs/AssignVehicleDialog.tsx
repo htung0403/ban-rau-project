@@ -88,19 +88,19 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const normalizedRole = (user?.role || '').toLowerCase();
   const isLoader = normalizedRole.includes('lo_xe') || normalizedRole.includes('lơ xe');
   const isDriver = normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('tài xế') || normalizedRole.includes('driver') || isLoader;
-  
+
   const myEmployee = React.useMemo(() => {
     if (!user) return null;
     return (employees || []).find(e => e.id === user.id || (user.full_name && e.full_name === user.full_name));
   }, [employees, user]);
-  
+
   const myEmployeeId = myEmployee?.id || user?.id;
 
   const myVehicle = React.useMemo(() => {
     if (!myEmployeeId && !user?.full_name) return undefined;
     const allVehs = vehicles || [];
-    return allVehs.find(v => 
-      v.driver_id === myEmployeeId || 
+    return allVehs.find(v =>
+      v.driver_id === myEmployeeId ||
       v.in_charge_id === myEmployeeId ||
       (user?.full_name && v.profiles?.full_name === user.full_name) ||
       (user?.full_name && v.responsible_profile?.full_name === user.full_name)
@@ -111,11 +111,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const eligibleVehicles = React.useMemo(
     () => {
       let filtered = (vehicles || []).filter((vehicle) => vehicleSupportsGoodsCategory(vehicle, targetCategory));
-      
+
       if (isDriver && myVehicle) {
         filtered = filtered.filter(v => v.id === myVehicle.id);
       }
-      
+
       return filtered;
     },
     [vehicles, targetCategory, isDriver, myVehicle]
@@ -178,10 +178,10 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
     try {
       setIsUploading(true);
-      const uploadPromises = files.map(file => 
+      const uploadPromises = files.map(file =>
         uploadApi.uploadFile(file, 'import-orders', 'delivery-orders')
       );
-      
+
       const responses = await Promise.all(uploadPromises);
       const newUrls = responses.map(r => r.url);
 
@@ -581,7 +581,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                   : false;
 
                 const isMyVehicleRow = currentVid === myVehicle?.id;
-                
+
                 if (isDriver && !isMyVehicleRow && currentVid) {
                   return null;
                 }
@@ -645,9 +645,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                         <Package size={12} className={isPaid ? "text-green-500" : "text-primary"} /> Tổng SL xe
                       </label>
-                      <p className="text-[9px] text-muted-foreground leading-snug -mt-0.5">
-                        Cộng dồn mọi lần giao (vd đã 11, giao nốt nhập 22).
-                      </p>
                       <input
                         type="number"
                         step="any"
@@ -903,7 +900,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     </button>
                   </div>
                 ))}
-                
+
                 <div>
                   <input
                     type="file"

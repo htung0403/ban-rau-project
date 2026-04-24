@@ -11,6 +11,28 @@ import {
 } from '../../utils/goodsScope';
 
 export class ImportOrderService {
+  private static resolvePaymentAmounts(mainData: any) {
+    const hasPaymentStatus = typeof mainData.payment_status === 'string';
+    const hasPaidAmount = mainData.paid_amount !== undefined && mainData.paid_amount !== null;
+    const hasDebtAmount = mainData.debt_amount !== undefined && mainData.debt_amount !== null;
+    const totalAmount = Number(mainData.total_amount) || 0;
+
+    let paidAmount = hasPaidAmount ? Number(mainData.paid_amount) || 0 : undefined;
+    let debtAmount = hasDebtAmount ? Number(mainData.debt_amount) || 0 : undefined;
+
+    if (hasPaymentStatus) {
+      if (mainData.payment_status === 'paid') {
+        if (debtAmount === undefined) debtAmount = totalAmount;
+        if (paidAmount === undefined) paidAmount = debtAmount;
+      } else if (mainData.payment_status === 'unpaid') {
+        if (debtAmount === undefined) debtAmount = totalAmount;
+        if (paidAmount === undefined) paidAmount = 0;
+      }
+    }
+
+    return { paidAmount, debtAmount };
+  }
+
   static async getAll(filters: any, actor?: UserPayload) {
     const isVegOnly = filters.order_category === 'vegetable';
     const isStandardOnly = filters.order_category === 'standard';
@@ -166,6 +188,7 @@ export class ImportOrderService {
     const tName = isVeg ? 'vegetable_orders' : 'import_orders';
     const iName = isVeg ? 'vegetable_order_items' : 'import_order_items';
     const fkName = isVeg ? 'vegetable_order_id' : 'import_order_id';
+    const { paidAmount, debtAmount } = this.resolvePaymentAmounts(mainData);
 
     const orderDate = mainData.order_date || format(new Date(), 'yyyy-MM-dd');
     const orderCode = await this.generateOrderCode(orderDate, isVeg);
@@ -191,6 +214,8 @@ export class ImportOrderService {
         customer_id: mainData.customer_id,
         is_custom_amount: mainData.is_custom_amount || false,
         total_amount: mainData.total_amount,
+        paid_amount: paidAmount,
+        debt_amount: debtAmount,
         receipt_image_url: mainData.receipt_image_url,
         receipt_image_urls: mainData.receipt_image_urls || [],
         payment_status: mainData.payment_status || 'unpaid',
@@ -250,6 +275,7 @@ export class ImportOrderService {
     const tName = isVeg ? 'vegetable_orders' : 'import_orders';
     const iName = isVeg ? 'vegetable_order_items' : 'import_order_items';
     const fkName = isVeg ? 'vegetable_order_id' : 'import_order_id';
+    const { paidAmount, debtAmount } = this.resolvePaymentAmounts(mainData);
 
     // 1. Update main order
     const orderUpdateRaw: Record<string, unknown> = {
@@ -268,6 +294,8 @@ export class ImportOrderService {
       customer_id: mainData.customer_id,
       is_custom_amount: mainData.is_custom_amount !== undefined ? (mainData.is_custom_amount || false) : undefined,
       total_amount: mainData.total_amount,
+      paid_amount: paidAmount,
+      debt_amount: debtAmount,
       receipt_image_url: mainData.receipt_image_url,
       receipt_image_urls: mainData.receipt_image_urls !== undefined ? (mainData.receipt_image_urls || []) : undefined,
       payment_status: mainData.payment_status !== undefined ? (mainData.payment_status || 'unpaid') : undefined,

@@ -26,12 +26,13 @@ interface Props {
 const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose }) => {
   const updateMutation = useUpdateDeliveryOrder();
   const assignMutation = useAssignVehicle();
-  const { data: products } = useProducts(isOpen);
+  const isDaGiao = order?.status === 'da_giao';
+  const isVeg = order?.order_category === 'vegetable' || !!order?.vegetable_order_id;
+
+  const { data: products } = useProducts(isOpen, isVeg ? 'vegetable' : 'standard');
   const { data: allCustomers } = useCustomers(undefined, isOpen);
   const { data: vehicles } = useVehicles(isOpen);
   const { data: employees } = useEmployees(isOpen);
-
-  const isDaGiao = order?.status === 'da_giao';
 
   const productOptions = useMemo(() => {
     if (!products) return [];
@@ -41,8 +42,6 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
       matchKey: p.name,
     }));
   }, [products]);
-
-  const isVeg = order?.order_category === 'vegetable' || !!order?.vegetable_order_id;
 
   const senderOptions = useMemo(() => {
     if (!allCustomers) return [];

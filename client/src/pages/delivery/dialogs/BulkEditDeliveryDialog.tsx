@@ -71,7 +71,9 @@ const formatAmount = (val?: number) => {
 
 const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hideImage = false, onClose }) => {
   const updateMutation = useUpdateDeliveryOrder();
-  const { data: products } = useProducts(isOpen);
+  const isVeg = orders.length > 0 && (orders[0].order_category === 'vegetable' || !!orders[0].vegetable_order_id);
+
+  const { data: products } = useProducts(isOpen, isVeg ? 'vegetable' : 'standard');
   const { data: allCustomers } = useCustomers(undefined, isOpen);
 
   const productOptions = useMemo(() => {
@@ -82,8 +84,6 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
       matchKey: p.name,
     }));
   }, [products]);
-
-  const isVeg = orders.length > 0 && (orders[0].order_category === 'vegetable' || !!orders[0].vegetable_order_id);
 
   const senderOptions = useMemo(() => {
     if (!allCustomers) return [];

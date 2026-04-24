@@ -1,16 +1,43 @@
+import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productsApi } from '../../api/productsApi';
+import type { Product } from '../../types';
 import toast from 'react-hot-toast';
 
-export const useProducts = (enabled = true) => {
-  return useQuery({
+/** Tách mặt hàng tạp hóa (standard) và rau (vegetable) — không dùng chung danh sách. */
+export type ProductListScope = 'all' | 'standard' | 'vegetable';
+
+/** Dùng chung cho form nhập hàng / merge dòng khi sửa — tránh lẫn rau ↔ tạp hóa. */
+export function productMatchesScope(
+  p: { category?: string | null },
+  scope: 'standard' | 'vegetable',
+): boolean {
+  if (scope === 'vegetable') return p.category === 'vegetable';
+  return p.category !== 'vegetable';
+}
+
+function filterProductsByScope(data: Product[], scope: ProductListScope): Product[] {
+  if (scope === 'vegetable') return data.filter((p) => p.category === 'vegetable');
+  if (scope === 'standard') return data.filter((p) => p.category !== 'vegetable');
+  return data;
+}
+
+export const useProducts = (enabled = true, scope: ProductListScope = 'all') => {
+  const query = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
       const response = await productsApi.getAll();
-      return response.data;
+      return (response.data || []) as Product[];
     },
     enabled,
   });
+
+  const data = useMemo(() => {
+    if (!query.data) return undefined;
+    return filterProductsByScope(query.data, scope);
+  }, [query.data, scope]);
+
+  return { ...query, data };
 };
 
 export const useCreateProduct = () => {

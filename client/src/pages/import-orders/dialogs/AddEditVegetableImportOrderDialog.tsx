@@ -10,7 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { importOrderKeys, useCreateImportOrder, useUpdateImportOrder } from '../../../hooks/queries/useImportOrders';
 import { useVehicles } from '../../../hooks/queries/useVehicles';
 import { useCustomers, useCreateCustomer } from '../../../hooks/queries/useCustomers';
-import { useCreateProduct, useProducts } from '../../../hooks/queries/useProducts';
+import { useCreateProduct, useProducts, productMatchesScope } from '../../../hooks/queries/useProducts';
 import { useEmployees } from '../../../hooks/queries/useHR';
 import type { DeliveryOrder, ImportOrder, ImportOrderItem, Vehicle } from '../../../types';
 import { uploadApi } from '../../../api/uploadApi';
@@ -96,7 +96,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
   const createProductMutation = useCreateProduct();
   const createCustomerMutation = useCreateCustomer();
   const { data: vehicles, isError: isVehiclesError } = useVehicles(isOpen);
-  const { data: products } = useProducts(isOpen);
+  const { data: products } = useProducts(isOpen, 'vegetable');
   const { data: customers } = useCustomers(undefined, isOpen);
   const { data: employees } = useEmployees(isOpen);
 
@@ -221,14 +221,16 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
   };
 
   const filteredProducts = React.useMemo(() => {
-    const list = products?.filter((p: any) => p.category === defaultCategory || (!p.category && defaultCategory === 'standard')) || [];
+    const cat = defaultCategory as 'standard' | 'vegetable';
+    const list = products?.filter((p: any) => productMatchesScope(p, cat)) || [];
     if (editingOrder?.import_order_items) {
       const addedIds = new Set(list.map((p: any) => p.id));
       editingOrder.import_order_items.forEach((item: any) => {
-        if (item.products && !addedIds.has(item.product_id)) {
-          list.push(item.products);
-          addedIds.add(item.product_id);
-        }
+        const prod = item.products;
+        if (!prod || addedIds.has(item.product_id)) return;
+        if (!productMatchesScope(prod, cat)) return;
+        list.push(prod);
+        addedIds.add(item.product_id);
       });
     }
     return list;

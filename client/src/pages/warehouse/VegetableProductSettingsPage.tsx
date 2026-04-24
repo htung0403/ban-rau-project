@@ -194,7 +194,7 @@ const BulkEditDialog: React.FC<{
 };
 
 const VegetableProductSettingsPage: React.FC = () => {
-  const { data: products, isLoading: isProductsLoading, isError: isProductsError, refetch: refetchProducts } = useProducts();
+  const { data: products, isLoading: isProductsLoading, isError: isProductsError, refetch: refetchProducts } = useProducts(true, 'vegetable');
 
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
@@ -235,7 +235,7 @@ const VegetableProductSettingsPage: React.FC = () => {
 
   const vegetableProducts = React.useMemo(() => {
     if (!products) return [];
-    let p = products.filter((item: any) => item.category === 'vegetable');
+    let p = products;
     if (searchTerm.trim()) {
       p = p.filter((item: any) => matchesSearch(item.name, searchTerm));
     }

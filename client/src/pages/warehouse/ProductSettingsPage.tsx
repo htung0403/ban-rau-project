@@ -122,7 +122,7 @@ const ConfirmDialog: React.FC<{
 };
 
 const ProductSettingsPage: React.FC = () => {
-  const { data: products, isLoading: isProductsLoading, isError: isProductsError, refetch: refetchProducts } = useProducts();
+  const { data: products, isLoading: isProductsLoading, isError: isProductsError, refetch: refetchProducts } = useProducts(true, 'standard');
 
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
@@ -160,7 +160,7 @@ const ProductSettingsPage: React.FC = () => {
 
   const standardProducts = React.useMemo(() => {
     if (!products) return [];
-    let p = products.filter((item: any) => item.category !== 'vegetable');
+    let p = products;
     if (searchTerm.trim()) {
       p = p.filter((item: any) => matchesSearch(item.name, searchTerm));
     }

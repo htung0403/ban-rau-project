@@ -410,8 +410,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         0,
       );
       if (sumFinal > order.total_quantity) {
-        toast.error(`Tổng SL phân cho xe (${sumFinal}) không được vượt quá SL đơn (${order.total_quantity}).`);
-        return;
+        toast((t) => (
+          <span className="text-[13px] font-semibold">
+            Đang lưu ngoại lệ: Tổng SL phân xe ({sumFinal.toLocaleString()}) vượt SL đơn ({order.total_quantity.toLocaleString()}).
+          </span>
+        ), { icon: '⚠️', duration: 3500 });
       }
 
       for (let i = 0; i < data.assignments.length; i++) {
@@ -500,6 +503,9 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   };
 
   const isSubmitting = assignMutation.isPending;
+  const deliveryDateTimeDisplay = order?.delivery_date
+    ? `${order.delivery_date}${order.delivery_time ? ` ${order.delivery_time}` : ''}`
+    : '—';
 
   return createPortal(
     <div className="fixed inset-0 z-9999 flex items-end sm:items-center justify-center sm:p-4">
@@ -561,6 +567,13 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                   {currentAvailable.toLocaleString()}
                 </span>
               </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-border">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Ngày giờ giao</span>
+              <span className="text-[13px] font-black text-primary tabular-nums">
+                {deliveryDateTimeDisplay}
+              </span>
             </div>
 
             {order?.import_orders?.total_amount != null && (

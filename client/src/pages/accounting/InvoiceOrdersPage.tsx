@@ -43,6 +43,7 @@ type InvoiceRow = {
   customers?: { id?: string; name?: string | null; phone?: string | null; address?: string | null } | null;
   sender_customers?: { id?: string; name?: string | null; phone?: string | null } | null;
   profiles?: { full_name?: string | null } | null;
+  delivery_orders?: Array<{ delivery_date?: string | null; delivery_time?: string | null; created_at?: string | null }> | null;
 };
 
 type InvoiceStatusFilter = 'all' | 'exported' | 'not_exported';
@@ -59,6 +60,19 @@ const INVOICE_STATUS_OPTIONS: { value: InvoiceStatusFilter; label: string }[] = 
   { value: 'not_exported', label: 'Chưa xuất HĐ' },
   { value: 'exported', label: 'Đã xuất HĐ' },
 ];
+
+const getDeliveryDateTimeDisplay = (row: InvoiceRow) => {
+  const list = row.delivery_orders || [];
+  if (!list.length) return '—';
+  const sorted = [...list].sort((a, b) => {
+    const ta = new Date(a.created_at || 0).getTime();
+    const tb = new Date(b.created_at || 0).getTime();
+    return tb - ta;
+  });
+  const latest = sorted[0];
+  if (!latest?.delivery_date) return '—';
+  return `${latest.delivery_date}${latest.delivery_time ? ` ${latest.delivery_time}` : ''}`;
+};
 
 const InvoiceOrdersPage: React.FC<InvoiceOrdersPageProps> = ({
   category,
@@ -327,7 +341,7 @@ const InvoiceOrdersPage: React.FC<InvoiceOrdersPageProps> = ({
                       </th>
                     )}
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Mã đơn</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ngày</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ngày giờ giao</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Người gửi</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Người nhận</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Khách hàng</th>
@@ -367,8 +381,7 @@ const InvoiceOrdersPage: React.FC<InvoiceOrdersPageProps> = ({
                         )}
                         <td className="px-4 py-3 text-[13px] font-bold tabular-nums">{row.order_code}</td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground whitespace-nowrap">
-                          {row.order_date}
-                          {row.order_time ? <span className="ml-1 text-[11px]">{row.order_time}</span> : null}
+                          {getDeliveryDateTimeDisplay(row)}
                         </td>
                         <td className="px-4 py-3 text-[13px] max-w-[160px] truncate" title={row.sender_customers?.name || row.sender_name || ''}>
                           {row.sender_customers?.name || row.sender_name || '—'}
@@ -434,7 +447,7 @@ const InvoiceOrdersPage: React.FC<InvoiceOrdersPageProps> = ({
                       </span>
                     </div>
                     <p className="text-[12px] text-muted-foreground">
-                      {row.order_date} {row.order_time}
+                      Giao: {getDeliveryDateTimeDisplay(row)}
                     </p>
                     <p className="text-[12px]">
                       <span className="text-muted-foreground">Người gửi: </span>

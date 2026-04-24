@@ -75,7 +75,7 @@ export class AccountingService {
 
     let q = supabaseService
       .from(tName)
-      .select(`id, order_code, order_date, order_time, sender_name, receiver_name, total_amount, invoice_exported, invoice_exported_at, payment_status, ${customerJoin}, ${senderJoin}, ${receivedByJoin}`)
+      .select(`id, order_code, order_date, order_time, sender_name, receiver_name, total_amount, invoice_exported, invoice_exported_at, payment_status, delivery_orders(delivery_date, delivery_time, created_at), ${customerJoin}, ${senderJoin}, ${receivedByJoin}`)
       .is('deleted_at', null)
       .order('order_date', { ascending: false })
       .order('created_at', { ascending: false });

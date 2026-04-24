@@ -173,6 +173,23 @@ const EmployeesPage: React.FC = () => {
     return [...employees].sort((a, b) => getRolePriority(a.role) - getRolePriority(b.role));
   }, [employees, roleNameByKey]);
 
+  const groupedEmployees = useMemo(() => {
+    const groups: Array<{ roleLabel: string; items: typeof sortedEmployees }> = [];
+    if (!sortedEmployees?.length) return groups;
+
+    sortedEmployees.forEach((employee) => {
+      const roleLabel = roleNameByKey[employee.role] || employee.role;
+      const lastGroup = groups[groups.length - 1];
+      if (!lastGroup || lastGroup.roleLabel !== roleLabel) {
+        groups.push({ roleLabel, items: [employee] as typeof sortedEmployees });
+      } else {
+        lastGroup.items.push(employee);
+      }
+    });
+
+    return groups;
+  }, [sortedEmployees, roleNameByKey]);
+
   const [isAdding, setIsAdding] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [formData, setFormData] = useState({
@@ -315,14 +332,28 @@ const EmployeesPage: React.FC = () => {
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar pb-6 px-1">
             <div className="flex flex-col gap-3">
-              {(sortedEmployees || []).map((e) => {
-                const assignedVehicles = assignedVehiclesByEmployeeId.get(e.id);
-                return (
-                <div
-                  key={e.id}
-                  onClick={isAdmin ? () => navigate(`/hanh-chinh-nhan-su/nhan-su/${e.id}`) : undefined}
-                  className={`${isAdmin ? 'cursor-pointer hover:shadow-md hover:border-primary/30' : 'cursor-default'} bg-card rounded-2xl border border-border shadow-sm transition-all duration-300 overflow-hidden flex flex-col md:flex-row items-center group relative p-4 pl-6`}
-                >
+              {(groupedEmployees || []).map((group) => (
+                <div key={group.roleLabel} className="space-y-3">
+                  <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm rounded-xl border border-border/70 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-px flex-1 bg-border/70" />
+                      <span className="shrink-0 text-[11px] font-black uppercase tracking-wider text-primary">
+                        {group.roleLabel}
+                      </span>
+                      <span className="shrink-0 text-[10px] font-bold text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-md">
+                        {group.items.length}
+                      </span>
+                      <div className="h-px flex-1 bg-border/70" />
+                    </div>
+                  </div>
+                  {group.items.map((e) => {
+                    const assignedVehicles = assignedVehiclesByEmployeeId.get(e.id);
+                    return (
+                    <div
+                      key={e.id}
+                      onClick={isAdmin ? () => navigate(`/hanh-chinh-nhan-su/nhan-su/${e.id}`) : undefined}
+                      className={`${isAdmin ? 'cursor-pointer hover:shadow-md hover:border-primary/30' : 'cursor-default'} bg-card rounded-2xl border border-border shadow-sm transition-all duration-300 overflow-hidden flex flex-col md:flex-row items-center group relative p-4 pl-6`}
+                    >
                   {/* Left accent line */}
                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${e.is_active ? 'bg-emerald-500' : 'bg-red-500'}`} />
                   
@@ -430,8 +461,10 @@ const EmployeesPage: React.FC = () => {
                     )}
                   </div>
                 </div>
-              );
-              })}
+                  );
+                  })}
+                </div>
+              ))}
             </div>
           </div>
         )}

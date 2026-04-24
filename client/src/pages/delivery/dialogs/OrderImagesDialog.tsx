@@ -32,6 +32,11 @@ type DeliveryOrderLike = DeliveryOrder & {
   import_orders?: MaybeArray<LinkedImportOrder>;
   vegetable_orders?: MaybeArray<LinkedImportOrder>;
   payment_collections?: Array<{ image_url?: string | null; image_urls?: string[] | null }>;
+  delivery_vehicles?: Array<{
+    vehicle_id?: string | null;
+    image_urls?: string[] | null;
+    vehicles?: { license_plate?: string | null } | null;
+  }>;
 };
 
 type ImportOrderLike = ImportOrder & {
@@ -75,6 +80,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
   let receiptImages: string[] = [];
   let importImages: string[] = [];
   let deliveryImages: string[] = [];
+  let deliveryImageMeta: Array<{ url: string; vehicleLabel?: string; source: 'vehicle' | 'payment' | 'delivery' }> = [];
   let orderCode = 'N/A';
   let orderLabel = '';
 
@@ -107,16 +113,45 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     importImages.push(...collectImages(linkedVegetableOrder?.vegetable_order_items));
 
     deliveryImages = [];
-    if (dOrder?.image_url) deliveryImages.push(dOrder.image_url);
-    if (dOrder?.image_urls && Array.isArray(dOrder.image_urls)) deliveryImages.push(...dOrder.image_urls);
-    dOrder?.payment_collections?.forEach(pc => {
-        if (pc.image_url) deliveryImages.push(pc.image_url);
-        if (pc.image_urls && Array.isArray(pc.image_urls)) deliveryImages.push(...pc.image_urls);
+    deliveryImageMeta = [];
+
+    const pushDeliveryMeta = (
+      url: string | null | undefined,
+      source: 'vehicle' | 'payment' | 'delivery',
+      vehicleLabel?: string
+    ) => {
+      if (!url || typeof url !== 'string' || !url.trim()) return;
+      deliveryImages.push(url);
+      deliveryImageMeta.push({ url, source, vehicleLabel });
+    };
+
+    // 1) Ảnh gắn theo xe (ưu tiên gắn nhãn biển số)
+    (dOrder?.delivery_vehicles || []).forEach((dv) => {
+      const plate = dv?.vehicles?.license_plate?.trim();
+      const vehicleLabel = plate ? `Xe: ${plate}` : undefined;
+      (dv?.image_urls || []).forEach((u) => pushDeliveryMeta(u, 'vehicle', vehicleLabel));
     });
+
+    // 2) Ảnh thu tiền/nhận tiền (chưa chắc có plate trong payload)
+    dOrder?.payment_collections?.forEach(pc => {
+      if (pc.image_url) pushDeliveryMeta(pc.image_url, 'payment');
+      if (pc.image_urls && Array.isArray(pc.image_urls)) {
+        pc.image_urls.forEach((u) => pushDeliveryMeta(u, 'payment'));
+      }
+    });
+
+    // 3) Ảnh chung của delivery order (legacy/global)
+    if (dOrder?.image_url) pushDeliveryMeta(dOrder.image_url, 'delivery');
+    if (dOrder?.image_urls && Array.isArray(dOrder.image_urls)) {
+      dOrder.image_urls.forEach((u) => pushDeliveryMeta(u, 'delivery'));
+    }
 
     receiptImages = [...new Set(receiptImages)];
     importImages = [...new Set(importImages)];
     deliveryImages = [...new Set(deliveryImages)];
+    deliveryImageMeta = deliveryImageMeta.filter(
+      (item, idx, arr) => arr.findIndex((x) => x.url === item.url) === idx
+    );
 
     orderCode = linkedImportOrder?.order_code || linkedVegetableOrder?.order_code || 'N/A';
     orderLabel = dOrder?.product_name || orderCode;
@@ -148,6 +183,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
   /** Ảnh từ phiếu nhập: biên nhận trước, sau đó ảnh từng dòng hàng (trùng URL chỉ giữ lần đầu). */
   const nhapHangImages = [...new Set([...receiptImages, ...importImages])];
   const nhanHangImages = deliveryImages;
+  const nhanHangImageMetaMap = new Map(deliveryImageMeta.map((item) => [item.url, item]));
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4">
@@ -236,6 +272,15 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
                     onClick={() => setFullscreenImage(img)}
                   >
                     <img src={img} alt={`Nhận hàng ${idx + 1}`} className="w-full h-full object-cover" />
+                    {(() => {
+                      const meta = nhanHangImageMetaMap.get(img);
+                      if (!meta?.vehicleLabel) return null;
+                      return (
+                        <div className="absolute left-1.5 bottom-1.5 px-1.5 py-0.5 rounded bg-black/65 text-white text-[10px] font-semibold">
+                          {meta.vehicleLabel}
+                        </div>
+                      );
+                    })()}
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <ZoomIn size={24} className="text-white drop-shadow-lg" />
                     </div>

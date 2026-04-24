@@ -64,18 +64,22 @@ const PrintDeliveryPage: React.FC = () => {
   return (
     <>
       <style>{`
-        /* Tỷ lệ giống phiếu tay: Tên khách rộng ~38%, SL+Hàng ~20%, 10 ô xe ~42% (hẹp vừa số) */
+        /* Ô xe (1–8, ba, kho) hẹp — chỉ đủ ghi số; cột khách + hàng rộng hơn khi in A4 */
         .print-area .print-table {
           table-layout: fixed;
           width: 100%;
           border-collapse: collapse;
           font-family: "Times New Roman", Times, serif;
         }
-        .print-area .print-table .col-name { width: 38%; }
-        .print-area .print-table .col-qty { width: 5%; }
-        .print-area .print-table .col-product { width: 15%; }
+        .print-area .print-table col.print-col-name { width: 45%; }
+        .print-area .print-table col.print-col-qty { width: 4%; }
+        .print-area .print-table col.print-col-product { width: 25%; }
+        .print-area .print-table col.print-col-slot { width: 2.6%; }
+        .print-area .print-table .col-name { width: 45%; }
+        .print-area .print-table .col-qty { width: 4%; }
+        .print-area .print-table .col-product { width: 25%; }
         .print-area .print-table .col-slot,
-        .print-area .print-table .col-slot-head { width: 4.2%; }
+        .print-area .print-table .col-slot-head { width: 2.6%; }
 
         @media print {
           body { 
@@ -139,10 +143,11 @@ const PrintDeliveryPage: React.FC = () => {
           }
           .print-area .print-table .col-slot,
           .print-area .print-table .col-slot-head {
-            font-size: 9px !important;
-            padding: 2px 1px !important;
-            line-height: 1.15;
+            font-size: 8px !important;
+            padding: 1px 0 !important;
+            line-height: 1.1;
             white-space: nowrap;
+            letter-spacing: -0.02em;
           }
           .print-area .print-table .col-slot-head { font-weight: bold; }
           
@@ -256,6 +261,14 @@ const PrintDeliveryPage: React.FC = () => {
           {sortedDates.map((date) => (
             <div key={date} className="print-section print-sheet">
               <table className="print-table">
+                <colgroup>
+                  <col className="print-col-name" />
+                  <col className="print-col-qty" />
+                  <col className="print-col-product" />
+                  {PRINT_VEHICLE_SLOTS.map((c) => (
+                    <col key={c} className="print-col-slot" />
+                  ))}
+                </colgroup>
                 <thead>
                   <tr className="print-header-repeat">
                     <th colSpan={3} className="text-left">

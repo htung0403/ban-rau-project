@@ -503,7 +503,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       <div
         className={clsx(
           'relative w-full bg-background flex flex-col transition-all duration-350',
-          'h-dvh sm:h-auto sm:max-h-[90vh] sm:max-w-200',
+          'h-dvh sm:h-auto sm:max-h-[90vh] sm:max-w-300',
           'rounded-none sm:rounded-3xl shadow-2xl',
           isClosing
             ? 'translate-y-full sm:translate-y-0 sm:scale-95 opacity-0'

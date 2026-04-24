@@ -69,7 +69,10 @@ const getReceiverDisplayName = (order: DeliveryOrder) => {
   return orderObj?.customers?.name || orderObj?.receiver_name?.trim() || orderObj?.profiles?.full_name || '-';
 };
 
-
+const pickRelation = <T,>(relation: any): T | undefined => {
+  if (Array.isArray(relation)) return relation[0];
+  return relation || undefined;
+};
 
 const getOrderPreviewImage = (order: any) => {
   if (!order) return null;
@@ -79,8 +82,35 @@ const getOrderPreviewImage = (order: any) => {
 
   const paymentImage = order.payment_collections?.find((pc: any) => pc.image_url)?.image_url;
   if (paymentImage) return paymentImage;
-  // Do not fallback to import-order images here.
-  // "Nhận/Giao hàng" image preview must come from delivery/payment flow only.
+
+  const linkedImport = pickRelation<any>(order.import_orders);
+  const linkedVeg = pickRelation<any>(order.vegetable_orders);
+
+  if (linkedImport?.receipt_image_url) return linkedImport.receipt_image_url;
+  if (linkedImport?.receipt_image_urls?.length) return linkedImport.receipt_image_urls[0];
+  if (linkedVeg?.receipt_image_url) return linkedVeg.receipt_image_url;
+  if (linkedVeg?.receipt_image_urls?.length) return linkedVeg.receipt_image_urls[0];
+
+  const collectFirstImage = (refs: any): string | null => {
+    const list = Array.isArray(refs) ? refs : refs ? [refs] : [];
+    for (const ref of list) {
+      if (ref.image_url) {
+        if (typeof ref.image_url === 'string' && ref.image_url.includes(',')) return ref.image_url.split(',')[0].trim();
+        if (typeof ref.image_url === 'string') return ref.image_url;
+      }
+      if (ref.image_urls && Array.isArray(ref.image_urls) && ref.image_urls.length > 0) {
+        return ref.image_urls[0];
+      }
+    }
+    return null;
+  };
+
+  const importItemImage = collectFirstImage(linkedImport?.import_order_items);
+  if (importItemImage) return importItemImage;
+
+  const vegItemImage = collectFirstImage(linkedVeg?.vegetable_order_items);
+  if (vegItemImage) return vegItemImage;
+
   return null;
 };
 

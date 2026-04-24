@@ -127,6 +127,13 @@ const getEffectiveDeliveryStatus = (order: DeliveryOrder, remainingQty?: number)
   return 'can_giao';
 };
 
+const isOldOrderForAgeRule = (order: DeliveryOrder, anchorDate: string): boolean => {
+  const effectiveStatus = getEffectiveDeliveryStatus(order);
+  // Rule: while order is still "hàng ở SG", always keep it "new".
+  if (effectiveStatus === 'hang_o_sg') return false;
+  return Boolean(order.delivery_date && order.delivery_date < anchorDate);
+};
+
 const DeliveryPage: React.FC = () => {
   const navigate = useNavigate();
   const [startDate, setStartDate] = useState<string>('');
@@ -412,9 +419,9 @@ const DeliveryPage: React.FC = () => {
   // Filter by age (mốc 19:00: sau 19h đơn «hôm nay» chuyển sang hàng cũ so với phiên giao tối)
   const anchorStr = getDeliveryAnchorDateString();
   if (ageFilter === 'new') {
-    filteredOrders = filteredOrders.filter((o) => o.delivery_date === anchorStr);
+    filteredOrders = filteredOrders.filter((o) => !isOldOrderForAgeRule(o, anchorStr));
   } else if (ageFilter === 'old') {
-    filteredOrders = filteredOrders.filter((o) => o.delivery_date && o.delivery_date < anchorStr);
+    filteredOrders = filteredOrders.filter((o) => isOldOrderForAgeRule(o, anchorStr));
   }
 
   // Text & Select Filters logic
@@ -856,7 +863,7 @@ const DeliveryPage: React.FC = () => {
                             </td>
                             <td className="px-4 py-3 border-r border-border text-center">
                               <div className="flex items-center justify-center">
-                                {o.delivery_date === anchorStr ? (
+                                {!isOldOrderForAgeRule(o, anchorStr) ? (
                                   <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/10 text-emerald-700 uppercase">Mới</span>
                                 ) : (
                                   <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-muted text-muted-foreground uppercase">Cũ</span>
@@ -1106,7 +1113,7 @@ const DeliveryPage: React.FC = () => {
                                 </div>
     
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  {o.delivery_date === anchorStr ? (
+                                  {!isOldOrderForAgeRule(o, anchorStr) ? (
                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-700 uppercase shrink-0">Mới</span>
                                   ) : (
                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-muted text-muted-foreground uppercase shrink-0">Cũ</span>

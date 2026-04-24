@@ -741,7 +741,7 @@ const VegetableDeliveryPage: React.FC = () => {
                               </div>
                             </td>
                             <td className="px-2 py-3 border-r border-border text-center text-[12px] text-muted-foreground tabular-nums whitespace-nowrap">
-                              {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time)}
+                              {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time, o.created_at)}
                             </td>
                             <td className="px-4 py-3 text-[12px] font-bold text-foreground border-r border-border">
                               {getSenderName(o)}
@@ -944,38 +944,33 @@ const VegetableDeliveryPage: React.FC = () => {
                             </div>
 
                             {/* Row 2: Ngày giờ giao + Supplier + Quantity */}
-                            <div className="flex justify-between items-center gap-2">
-                              <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                                <span className="text-[11px] text-muted-foreground tabular-nums truncate" title={formatNgayGioGiaoVI(o.delivery_date, o.delivery_time)}>
-                                  {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time)}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
+                                {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time, o.created_at)}
+                              </span>
+                              <div className="flex items-center gap-1 text-[12px] text-muted-foreground">
+                                <Store size={13} className="text-muted-foreground/60 shrink-0" />
+                                <span className="font-semibold text-foreground">
+                                  {getSenderName(o)}
                                 </span>
-                                <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground truncate">
-                                  <Store size={13} className="text-muted-foreground/60 shrink-0" />
-                                  <span className="font-semibold text-foreground truncate">
-                                    {getSenderName(o)}
-                                  </span>
-                                </div>
                               </div>
-
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className={clsx("inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[10px] font-bold border", paymentConfig.className)}>
-                                  {paymentConfig.label}
-                                </span>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-[10px] uppercase font-black tracking-wider text-muted-foreground/60">SL:</span>
-                                  <span className="text-[14px] font-bold text-foreground tabular-nums">{formatNumber(o.total_quantity)}</span>
-                                  {(() => {
-                                    const isPartial = totalAssigned > 0 && totalAssigned < o.total_quantity;
-                                    if (isPartial && statusFilter === 'da_giao') {
-                                      return (
-                                        <span className="text-[11px] font-bold text-green-600 dark:text-green-500 ml-1">
-                                          (Giao: {formatNumber(totalAssigned)})
-                                        </span>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
-                                </div>
+                              <span className={clsx("inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0", paymentConfig.className)}>
+                                {paymentConfig.label}
+                              </span>
+                              <div className="flex items-center gap-1 ml-auto shrink-0">
+                                <span className="text-[10px] uppercase font-black tracking-wider text-muted-foreground/60">SL:</span>
+                                <span className="text-[14px] font-bold text-foreground tabular-nums">{formatNumber(o.total_quantity)}</span>
+                                {(() => {
+                                  const isPartial = totalAssigned > 0 && totalAssigned < o.total_quantity;
+                                  if (isPartial && statusFilter === 'da_giao') {
+                                    return (
+                                      <span className="text-[11px] font-bold text-green-600 dark:text-green-500 ml-1">
+                                        (Giao: {formatNumber(totalAssigned)})
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                               </div>
                             </div>
 

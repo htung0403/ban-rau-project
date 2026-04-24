@@ -892,7 +892,7 @@ const DeliveryPage: React.FC = () => {
                               </div>
                             </td>
                             <td className="px-2 py-3 border-r border-border text-center text-[12px] text-muted-foreground tabular-nums whitespace-nowrap">
-                              {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time)}
+                              {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time, o.created_at)}
                             </td>
                             <td className="px-4 py-3 text-[12px] font-bold text-foreground border-r border-border">
                               {getReceiverDisplayName(o)}
@@ -1133,41 +1133,33 @@ const DeliveryPage: React.FC = () => {
                                   </span>
                                 </div>
     
-                                {/* Row 2: Order code + Quantity */}
-                                <div className="flex justify-between items-center">
-                                  <div className="flex flex-col gap-0.5 text-[12px] min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                      {o.delivery_date === anchorStr ? (
-                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-700 uppercase shrink-0">Mới</span>
-                                      ) : (
-                                        <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-muted text-muted-foreground uppercase shrink-0">Cũ</span>
-                                      )}
-                                    </div>
-                                    <span className="text-[11px] text-muted-foreground tabular-nums truncate" title={formatNgayGioGiaoVI(o.delivery_date, o.delivery_time)}>
-                                      {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time)}
-                                    </span>
-                                  </div>
-    
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    <span className={clsx("inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[10px] font-bold border", paymentConfig.className)}>
-                                      {paymentConfig.label}
-                                    </span>
-                                    <div className="flex items-center gap-1">
-                                      <span className="text-[10px] uppercase font-black tracking-wider text-muted-foreground/60">SL:</span>
-                                      <span className="text-[14px] font-bold text-foreground tabular-nums">{formatNumber(o.total_quantity)}</span>
-                                      {(() => {
-                                        const assigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
-                                        const isPartial = assigned > 0 && assigned < o.total_quantity;
-                                        if (isPartial && statusFilter === 'da_giao') {
-                                          return (
-                                            <span className="text-[11px] font-bold text-green-600 dark:text-green-500 ml-1">
-                                              (Giao: {formatNumber(assigned)})
-                                            </span>
-                                          );
-                                        }
-                                        return null;
-                                      })()}
-                                    </div>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {o.delivery_date === anchorStr ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-100 text-emerald-700 uppercase shrink-0">Mới</span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-muted text-muted-foreground uppercase shrink-0">Cũ</span>
+                                  )}
+                                  <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
+                                    {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time, o.created_at)}
+                                  </span>
+                                  <span className={clsx("inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0", paymentConfig.className)}>
+                                    {paymentConfig.label}
+                                  </span>
+                                  <div className="flex items-center gap-1 ml-auto shrink-0">
+                                    <span className="text-[10px] uppercase font-black tracking-wider text-muted-foreground/60">SL:</span>
+                                    <span className="text-[14px] font-bold text-foreground tabular-nums">{formatNumber(o.total_quantity)}</span>
+                                    {(() => {
+                                      const assigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
+                                      const isPartial = assigned > 0 && assigned < o.total_quantity;
+                                      if (isPartial && statusFilter === 'da_giao') {
+                                        return (
+                                          <span className="text-[11px] font-bold text-green-600 dark:text-green-500 ml-1">
+                                            (Giao: {formatNumber(assigned)})
+                                          </span>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
                                   </div>
                                 </div>
                               </div>

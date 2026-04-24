@@ -512,38 +512,6 @@ export class DeliveryService {
         if (o.image_urls && Array.isArray(o.image_urls)) {
           o.image_urls.forEach((u: string) => images.add(u));
         }
-        
-        const io = o.import_orders;
-        if (io) {
-          if (io.receipt_image_url) images.add(io.receipt_image_url);
-          if (io.receipt_image_urls && Array.isArray(io.receipt_image_urls)) {
-            io.receipt_image_urls.forEach((u: string) => images.add(u));
-          }
-          if (io.import_order_items && Array.isArray(io.import_order_items)) {
-            io.import_order_items.forEach((item: any) => {
-              if (item.image_url) images.add(item.image_url);
-              if (item.image_urls && Array.isArray(item.image_urls)) {
-                item.image_urls.forEach((u: string) => images.add(u));
-              }
-            });
-          }
-        }
-        
-        const vo = o.vegetable_orders;
-        if (vo) {
-          if (vo.receipt_image_url) images.add(vo.receipt_image_url);
-          if (vo.receipt_image_urls && Array.isArray(vo.receipt_image_urls)) {
-            vo.receipt_image_urls.forEach((u: string) => images.add(u));
-          }
-          if (vo.vegetable_order_items && Array.isArray(vo.vegetable_order_items)) {
-            vo.vegetable_order_items.forEach((item: any) => {
-              if (item.image_url) images.add(item.image_url);
-              if (item.image_urls && Array.isArray(item.image_urls)) {
-                item.image_urls.forEach((u: string) => images.add(u));
-              }
-            });
-          }
-        }
       }
       return Array.from(images).filter(Boolean);
     };

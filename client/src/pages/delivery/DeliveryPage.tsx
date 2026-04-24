@@ -51,7 +51,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> =
 const PAYMENT_STATUS_CONFIG = {
   unpaid: { label: 'Chưa thu', className: 'bg-red-500/10 text-red-700 dark:text-red-500 border-red-200/20' },
   partial: { label: 'Thu một phần', className: 'bg-amber-500/10 text-amber-700 dark:text-amber-500 border-amber-200/20' },
-  paid: { label: 'Đã thu', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 border-emerald-200/20' },
+  paid: { label: 'Đã trả cước SG', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 border-emerald-200/20' },
 };
 
 const isPaidCollectionStatus = (status?: string) => status === 'confirmed' || status === 'self_confirmed';

@@ -600,6 +600,12 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                 }
 
                 const isRowDisabled = isPaid || (isDriver && !isMyVehicleRow);
+                const isMoneyFieldsLocked = isRowDisabled || importPaid;
+                const currentDelta = Number(watchAssignments[index]?.quantity) || 0;
+                const baselineQty = assignmentBaselines[index] ?? 0;
+                const finalQtyForRow = baselineQty + currentDelta;
+                const rowUnitPrice = Number(watchAssignments[index]?.unit_price) || 0;
+                const rowOrderValue = finalQtyForRow * rowUnitPrice;
 
                 return (
                   <div key={field.id} className={clsx("relative flex flex-col md:flex-row gap-4 p-4 bg-card border border-border shadow-sm rounded-xl items-start md:items-end group transition-colors", isPaid ? "opacity-90 bg-muted/50" : "hover:border-primary/30")}>
@@ -708,7 +714,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                           <VnUnitPriceInput
                             value={Number(field.value) || 0}
                             onChange={(vnd) => {
-                              if (isRowDisabled) return;
+                              if (isMoneyFieldsLocked) return;
                               field.onChange(vnd);
                               const delta = Number(watchAssignments[index]?.quantity) || 0;
                               const baseline = assignmentBaselines[index] ?? 0;
@@ -720,11 +726,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                             }}
                             onBlur={field.onBlur}
                             name={field.name}
-                            disabled={isRowDisabled}
+                            disabled={isMoneyFieldsLocked}
                             placeholder="0"
                             className={clsx(
                               'w-full h-10.5 px-3 bg-card border border-border rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums',
-                              isRowDisabled && 'opacity-70 bg-muted text-muted-foreground cursor-not-allowed'
+                              isMoneyFieldsLocked && 'opacity-70 bg-muted text-muted-foreground cursor-not-allowed'
                             )}
                           />
                         )}
@@ -750,16 +756,16 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                               <CurrencyInput
                                 value={Number(field.value) > 0 ? Number(field.value) : undefined}
                                 onChange={(val) => {
-                                  if (isRowDisabled) return;
+                                  if (isMoneyFieldsLocked) return;
                                   field.onChange(val ?? 0);
                                 }}
                                 onBlur={field.onBlur}
                                 name={field.name}
-                                disabled={isRowDisabled}
+                                disabled={isMoneyFieldsLocked}
                                 placeholder="0"
                                 className={clsx(
                                   'w-full h-10.5 px-3 bg-muted/20 border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold tabular-nums',
-                                  isRowDisabled && 'opacity-70 bg-muted text-muted-foreground cursor-not-allowed',
+                                  isMoneyFieldsLocked && 'opacity-70 bg-muted text-muted-foreground cursor-not-allowed',
                                 )}
                               />
                             )}
@@ -767,6 +773,14 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                         )}
                       </div>
                     )}
+
+                    {/* Giá trị đơn hàng (read-only) */}
+                    <div className="w-full md:w-44 space-y-1.5 mt-2 md:mt-0">
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Giá trị đơn hàng</label>
+                      <div className="w-full h-10.5 px-3 flex items-center rounded-lg border border-blue-200/80 bg-blue-500/10 text-[12px] font-bold text-blue-700 tabular-nums">
+                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(rowOrderValue)}
+                      </div>
+                    </div>
 
                     {/* Người bốc xếp (chỉ đơn rau) */}
                     {!isStandardOrder && (
@@ -812,9 +826,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                                     { shouldValidate: true },
                                   );
                                 }}
-                                className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/rowimg:opacity-100 transition-opacity"
+                                className="absolute top-0.5 right-0.5 z-10 w-[18px] h-[18px] rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
+                                aria-label="Xóa ảnh"
+                                title="Xóa ảnh"
                               >
-                                <Trash2 size={14} />
+                                <X size={10} />
                               </button>
                             )}
                           </div>
@@ -921,9 +937,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     <button
                       type="button"
                       onClick={() => removeImageUrlFromForm(getValues, setValue, url)}
-                      className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
+                      aria-label="Xóa ảnh"
+                      title="Xóa ảnh"
                     >
-                      <Trash2 size={18} />
+                      <X size={14} />
                     </button>
                   </div>
                 ))}

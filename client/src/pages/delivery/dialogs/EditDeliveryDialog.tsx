@@ -333,9 +333,11 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
                         const newUrls = formData.image_urls.filter((_, i) => i !== idx);
                         setFormData(prev => ({ ...prev, image_urls: newUrls, image_url: newUrls.length > 0 ? newUrls[0] : '' }));
                       }}
-                      className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
+                      aria-label="Xóa ảnh"
+                      title="Xóa ảnh"
                     >
-                      <Trash2 size={18} />
+                      <X size={14} />
                     </button>
                   </div>
                 ))}

@@ -741,7 +741,7 @@ const VegetableDeliveryPage: React.FC = () => {
                               </div>
                             </td>
                             <td className="px-2 py-3 border-r border-border text-center text-[12px] text-muted-foreground tabular-nums whitespace-nowrap">
-                              {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time, o.created_at)}
+                              {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time, o.created_at, o.driver_delivered_at)}
                             </td>
                             <td className="px-4 py-3 text-[12px] font-bold text-foreground border-r border-border">
                               {getSenderName(o)}
@@ -946,7 +946,7 @@ const VegetableDeliveryPage: React.FC = () => {
                             {/* Row 2: Ngày giờ giao + Supplier + Quantity */}
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
-                                {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time, o.created_at)}
+                                {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time, o.created_at, o.driver_delivered_at)}
                               </span>
                               <div className="flex items-center gap-1 text-[12px] text-muted-foreground">
                                 <Store size={13} className="text-muted-foreground/60 shrink-0" />

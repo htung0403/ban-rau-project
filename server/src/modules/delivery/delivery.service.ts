@@ -21,6 +21,23 @@ export class DeliveryService {
     return `${m[1].padStart(2, '0')}:${m[2]}`;
   }
 
+  /** TIMESTAMPTZ (UTC) → "HH:mm" theo Asia/Ho_Chi_Minh cho phiếu xuất */
+  private static formatVnHHmmFromIsoUtc(iso: string | null | undefined): string | null {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(d);
+    const hour = parts.find((p) => p.type === 'hour')?.value;
+    const minute = parts.find((p) => p.type === 'minute')?.value;
+    if (hour == null || minute == null) return null;
+    return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+  }
+
   /** Chỉ đánh dấu đã giao khi đã phân đủ số lượng; còn hàng thì can_giao. */
   private static resolveDeliveryStatusFromAssignedQuantity(
     totalQuantity: unknown,
@@ -50,14 +67,16 @@ export class DeliveryService {
     const { data: deliveryOrder, error: deliveryError } = await supabaseService
       .from('delivery_orders')
       .select(
-        'id, product_name, unit_price, delivery_date, delivery_time, order_category, import_order_id, vegetable_order_id, image_url, image_urls, total_quantity'
+        'id, product_name, unit_price, delivery_date, delivery_time, order_category, import_order_id, vegetable_order_id, image_url, image_urls, total_quantity, driver_delivered_at'
       )
       .eq('id', deliveryId)
       .single();
 
     if (deliveryError || !deliveryOrder) throw deliveryError || new Error('Không tìm thấy đơn giao hàng');
 
-    const exportTimeFromDelivery = DeliveryService.formatDeliveryTimeHHmm((deliveryOrder as any).delivery_time);
+    const exportTimeFromDelivery =
+      DeliveryService.formatVnHHmmFromIsoUtc((deliveryOrder as any).driver_delivered_at) ||
+      DeliveryService.formatDeliveryTimeHHmm((deliveryOrder as any).delivery_time);
 
     // Chỉ đồng bộ phiếu xuất cho hàng tạp hóa (standard) từ trang DeliveryPage.
     if (deliveryOrder.order_category && deliveryOrder.order_category !== 'standard') {
@@ -433,7 +452,13 @@ export class DeliveryService {
         totalAssigned,
         { previousStatus: doData.status, preserveHangOsgWhenUnassigned: true }
       );
-      await supabaseService.from('delivery_orders').update({ status: nextStatus }).eq('id', deliveryId);
+      const rowUpdate: Record<string, unknown> = { status: nextStatus };
+      if (nextStatus === 'da_giao' && doData.status !== 'da_giao') {
+        rowUpdate.driver_delivered_at = new Date().toISOString();
+      } else if (nextStatus !== 'da_giao') {
+        rowUpdate.driver_delivered_at = null;
+      }
+      await supabaseService.from('delivery_orders').update(rowUpdate).eq('id', deliveryId);
     }
 
     await this.syncExportOrderForDelivery(
@@ -451,7 +476,7 @@ export class DeliveryService {
     // 1. Get current data
     const { data: order, error: fetchError } = await supabaseService
       .from('delivery_orders')
-      .select('total_quantity, delivered_quantity')
+      .select('total_quantity, delivered_quantity, status')
       .eq('id', id)
       .single();
     
@@ -461,13 +486,20 @@ export class DeliveryService {
     const remaining = order.total_quantity - newDelivered;
     const status = remaining <= 0 ? 'da_giao' : 'can_giao';
 
+    const updatePayload: Record<string, unknown> = {
+      delivered_quantity: newDelivered,
+      status,
+    };
+    if (status === 'da_giao' && order.status !== 'da_giao') {
+      updatePayload.driver_delivered_at = new Date().toISOString();
+    } else if (status !== 'da_giao') {
+      updatePayload.driver_delivered_at = null;
+    }
+
     // 2. Update with status logic
     const { data, error } = await supabaseService
       .from('delivery_orders')
-      .update({
-        delivered_quantity: newDelivered,
-        status: status,
-      })
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single();
@@ -707,7 +739,13 @@ export class DeliveryService {
         totalAssigned,
         { previousStatus: doData.status, preserveHangOsgWhenUnassigned: false }
       );
-      await supabaseService.from('delivery_orders').update({ status: nextStatus }).eq('id', deliveryId);
+      const rowUpdate: Record<string, unknown> = { status: nextStatus };
+      if (nextStatus === 'da_giao' && doData.status !== 'da_giao') {
+        rowUpdate.driver_delivered_at = new Date().toISOString();
+      } else if (nextStatus !== 'da_giao') {
+        rowUpdate.driver_delivered_at = null;
+      }
+      await supabaseService.from('delivery_orders').update(rowUpdate).eq('id', deliveryId);
 
       if (doData.order_category === 'standard' || !doData.order_category) {
         const { data: existingExport } = await supabaseService

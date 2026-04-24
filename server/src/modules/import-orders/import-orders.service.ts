@@ -316,66 +316,64 @@ export class ImportOrderService {
 
     if (orderError) throw orderError;
 
-    // 2. Delete old items
-    const { error: deleteError } = await supabaseService
-      .from(iName)
-      .delete()
-      .eq(fkName, id);
-    
-    if (deleteError) throw deleteError;
-
-    // 3. Insert new items 
-    if (items && items.length > 0) {
-      const itemsToInsert = items.map((item: any) => {
-        return {
-          product_id: item.product_id,
-          quantity: item.quantity,
-          weight_kg: item.weight_kg,
-          package_type: item.package_type,
-          item_note: item.item_note,
-          package_quantity: item.package_quantity,
-          unit_price: item.unit_price,
-          image_url: (item.image_urls && item.image_urls.length > 0) ? item.image_urls.join(',') : (item.image_url || null),
-          image_urls: item.image_urls || [],
-          payment_status: item.payment_status || 'unpaid',
-          [fkName]: id,
-        };
-      });
-
-      const { error: insertError, data: insertedItems } = await supabaseService
+    // Chỉ đồng bộ dòng hàng + delivery khi client gửi `items` (tránh xóa hết dòng khi chỉ PATCH tên khách/đại lý).
+    if (items !== undefined) {
+      const { error: deleteError } = await supabaseService
         .from(iName)
-        .insert(itemsToInsert)
-        .select('*, products(name)');
-
-      if (insertError) throw insertError;
-
-      // Handle delivery_orders sync on update (only for pending without vehicles)
-      const { data: existingDO } = await supabaseService
-        .from('delivery_orders')
-        .select('id, delivery_vehicles(id)')
+        .delete()
         .eq(fkName, id);
 
-      const deletableIds = existingDO?.filter(d => !d.delivery_vehicles || d.delivery_vehicles.length === 0).map(d => d.id) || [];
-      
-      if (deletableIds.length > 0) {
-        await supabaseService.from('delivery_orders').delete().in('id', deletableIds);
-      }
+      if (deleteError) throw deleteError;
 
-      // Re-create delivery orders for deletable or new ones
-      if (insertedItems && insertedItems.length > 0) {
-        const newDoInsert = insertedItems.map(item => ({
-          [fkName]: id,
-          product_id: item.product_id,
-          product_name: item.products?.name || item.package_type || 'Hàng hóa',
-          total_quantity: item.quantity || 1,
-          order_category: order_category || 'standard',
-          delivery_date: mainData.order_date || format(new Date(), 'yyyy-MM-dd'),
-          status: 'hang_o_sg'
-        }));
-        const { error: doError } = await supabaseService.from('delivery_orders').insert(newDoInsert);
-        if (doError) console.error("Failed to sync delivery orders on update:", doError);
-      }
+      if (items.length > 0) {
+        const itemsToInsert = items.map((item: any) => {
+          return {
+            product_id: item.product_id,
+            quantity: item.quantity,
+            weight_kg: item.weight_kg,
+            package_type: item.package_type,
+            item_note: item.item_note,
+            package_quantity: item.package_quantity,
+            unit_price: item.unit_price,
+            image_url: (item.image_urls && item.image_urls.length > 0) ? item.image_urls.join(',') : (item.image_url || null),
+            image_urls: item.image_urls || [],
+            payment_status: item.payment_status || 'unpaid',
+            [fkName]: id,
+          };
+        });
 
+        const { error: insertError, data: insertedItems } = await supabaseService
+          .from(iName)
+          .insert(itemsToInsert)
+          .select('*, products(name)');
+
+        if (insertError) throw insertError;
+
+        const { data: existingDO } = await supabaseService
+          .from('delivery_orders')
+          .select('id, delivery_vehicles(id)')
+          .eq(fkName, id);
+
+        const deletableIds = existingDO?.filter(d => !d.delivery_vehicles || d.delivery_vehicles.length === 0).map(d => d.id) || [];
+
+        if (deletableIds.length > 0) {
+          await supabaseService.from('delivery_orders').delete().in('id', deletableIds);
+        }
+
+        if (insertedItems && insertedItems.length > 0) {
+          const newDoInsert = insertedItems.map(item => ({
+            [fkName]: id,
+            product_id: item.product_id,
+            product_name: item.products?.name || item.package_type || 'Hàng hóa',
+            total_quantity: item.quantity || 1,
+            order_category: order_category || 'standard',
+            delivery_date: mainData.order_date || format(new Date(), 'yyyy-MM-dd'),
+            status: 'hang_o_sg'
+          }));
+          const { error: doError } = await supabaseService.from('delivery_orders').insert(newDoInsert);
+          if (doError) console.error("Failed to sync delivery orders on update:", doError);
+        }
+      }
     }
 
     return order;

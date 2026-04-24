@@ -10,6 +10,7 @@ import type { DeliveryOrder, Product } from '../../../types';
 import { useCustomers } from '../../../hooks/queries/useCustomers';
 import { importOrdersApi } from '../../../api/importOrdersApi';
 import toast from 'react-hot-toast';
+import { collectDeliveryOrderImageUrlsForEdit } from '../../../lib/deliveryOrderImages';
 
 interface Props {
   isOpen: boolean;
@@ -129,18 +130,14 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                 uPrice = p.base_price || 0;
              }
           }
-          const existingImages = (o as any).image_urls || [];
-          const legacyImage = (o as any).image_url;
-          const initialImages = Array.isArray(existingImages) ? [...existingImages] : [];
-          if (legacyImage && !initialImages.includes(legacyImage)) {
-            initialImages.push(legacyImage);
-          }
+          const initialImages = collectDeliveryOrderImageUrlsForEdit(o);
+          const legacyImage = initialImages[0] || (o as any).image_url || '';
 
           initial[o.id] = {
             product_name: displayProductName,
             total_quantity: o.total_quantity || 0,
             unit_price: uPrice || 0,
-            image_url: legacyImage || '',
+            image_url: legacyImage,
             image_urls: initialImages,
             sender_id: o.import_orders?.sender_id || o.vegetable_orders?.sender_id || null,
             sender_name: o.import_orders?.sender_name || o.vegetable_orders?.sender_name || o.import_orders?.sender_customers?.name || o.vegetable_orders?.sender_customers?.name || '',

@@ -64,6 +64,19 @@ const PrintDeliveryPage: React.FC = () => {
   return (
     <>
       <style>{`
+        /* Tỷ lệ giống phiếu tay: Tên khách rộng ~38%, SL+Hàng ~20%, 10 ô xe ~42% (hẹp vừa số) */
+        .print-area .print-table {
+          table-layout: fixed;
+          width: 100%;
+          border-collapse: collapse;
+          font-family: "Times New Roman", Times, serif;
+        }
+        .print-area .print-table .col-name { width: 38%; }
+        .print-area .print-table .col-qty { width: 5%; }
+        .print-area .print-table .col-product { width: 15%; }
+        .print-area .print-table .col-slot,
+        .print-area .print-table .col-slot-head { width: 4.2%; }
+
         @media print {
           body { 
             counter-reset: page; 
@@ -89,7 +102,7 @@ const PrintDeliveryPage: React.FC = () => {
 
           @page { 
             size: A4 portrait; 
-            margin: 15mm 10mm 10mm 10mm;
+            margin: 12mm 8mm 10mm 8mm;
           }
 
           .page-number-auto::after {
@@ -97,43 +110,41 @@ const PrintDeliveryPage: React.FC = () => {
             content: "Tờ: " counter(page);
             position: fixed;
             top: 2mm;
-            right: 15mm;
-            font-size: 16px;
+            right: 10mm;
+            font-size: 14px;
             font-weight: bold;
             visibility: visible !important;
           }
 
-          .print-table {
-            width: 100%;
-            table-layout: fixed;
-            border-collapse: collapse;
-            font-family: "Times New Roman", serif;
-            font-size: 11px;
+          .print-area .print-table {
+            font-size: 10px;
             page-break-inside: auto;
           }
-          .print-table thead { display: table-header-group; }
-          .print-table tr { page-break-inside: avoid; page-break-after: auto; }
+          .print-area .print-table thead { display: table-header-group; }
+          .print-area .print-table tr { page-break-inside: avoid; page-break-after: auto; }
           
-          .print-table th, .print-table td {
+          .print-area .print-table th, .print-area .print-table td {
             border: 1px solid #000 !important;
-            padding: 4px 3px !important;
+            padding: 3px 4px !important;
             overflow: hidden;
             word-break: break-word;
           }
-          .print-table th { font-weight: bold; text-align: center; background-color: #f3f4f6 !important; }
-          .print-table .col-name { width: 18%; }
-          .print-table .col-qty { width: 4%; }
-          .print-table .col-product { width: 22%; }
-          .print-table .col-slot,
-          .print-table .col-slot-head {
-            width: 2.6%;
-            max-width: 1.85em;
+          .print-area .print-table th { font-weight: bold; text-align: center; background-color: #f3f4f6 !important; }
+          .print-area .print-table .col-name,
+          .print-area .print-table .col-product {
+            padding: 3px 5px !important;
+          }
+          .print-area .print-table .col-qty {
+            padding: 3px 2px !important;
+          }
+          .print-area .print-table .col-slot,
+          .print-area .print-table .col-slot-head {
             font-size: 9px !important;
             padding: 2px 1px !important;
-            line-height: 1.1;
+            line-height: 1.15;
             white-space: nowrap;
           }
-          .print-table .col-slot-head { font-weight: bold; }
+          .print-area .print-table .col-slot-head { font-weight: bold; }
           
           .print-header-repeat {
             border: none !important;
@@ -141,7 +152,11 @@ const PrintDeliveryPage: React.FC = () => {
           .print-header-repeat th {
             border: none !important;
             background: transparent !important;
-            padding-bottom: 10px !important;
+            padding: 0 0 6px 0 !important;
+          }
+          .print-sheet-date {
+            font-size: 13px !important;
+            font-weight: bold;
           }
 
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -151,17 +166,18 @@ const PrintDeliveryPage: React.FC = () => {
           .print-sheet {
             max-width: 210mm;
             margin: 0 auto 24px auto;
-            padding: 10mm 12mm;
+            padding: 8mm 10mm;
             background: white;
             box-shadow: 0 2px 16px rgba(0,0,0,0.08);
             border: 1px solid #e5e7eb;
             border-radius: 8px;
           }
-          .print-table .col-slot,
-          .print-table .col-slot-head {
-            width: 2.6%;
-            max-width: 1.85em;
+          .print-area .print-table {
             font-size: 11px;
+          }
+          .print-area .print-table .col-slot,
+          .print-area .print-table .col-slot-head {
+            font-size: 10px;
             padding: 3px 2px !important;
             white-space: nowrap;
           }
@@ -175,7 +191,7 @@ const PrintDeliveryPage: React.FC = () => {
           }
         }
         
-        .print-table { width: 100%; border-collapse: collapse; font-family: "Times New Roman", serif; font-size: 14px; }
+        .print-table { width: 100%; border-collapse: collapse; font-family: "Times New Roman", Times, serif; font-size: 14px; }
         .print-table th, .print-table td { border: 1px solid #000 !important; padding: 4px 6px !important; }
         .print-table th { font-weight: bold; text-align: center; }
       `}</style>
@@ -243,7 +259,7 @@ const PrintDeliveryPage: React.FC = () => {
                 <thead>
                   <tr className="print-header-repeat">
                     <th colSpan={3} className="text-left">
-                      <div className="text-[16px] font-bold">Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}</div>
+                      <div className="print-sheet-date text-[16px] font-bold">Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}</div>
                     </th>
                     <th colSpan={PRINT_VEHICLE_SLOTS.length} className="text-right">
                       {/* Page number handled by fixed position */}

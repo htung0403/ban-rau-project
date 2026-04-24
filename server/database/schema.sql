@@ -184,6 +184,7 @@ CREATE TABLE public.delivery_orders (
   status VARCHAR(30) DEFAULT 'hang_o_sg' CHECK (status IN ('hang_o_sg','can_giao','da_giao')),
   delivery_date DATE,
   delivery_time TIME WITHOUT TIME ZONE,
+  driver_delivered_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

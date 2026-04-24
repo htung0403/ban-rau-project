@@ -293,6 +293,8 @@ export interface DeliveryOrder {
   delivery_date?: string;
   /** Giờ giao (TIME → API thường trả "HH:mm:ss") */
   delivery_time?: string | null;
+  /** Thời điểm (ISO UTC) lần đầu đơn đủ SL / tài xế giao xong (da_giao) */
+  driver_delivered_at?: string | null;
   export_order_payment_status?: PaymentStatus;
   created_at: string;
   updated_at: string;

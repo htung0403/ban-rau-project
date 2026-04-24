@@ -13,6 +13,7 @@ import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import VnUnitPriceInput from '../../../components/shared/VnUnitPriceInput';
 import type { DeliveryOrder, Product } from '../../../types';
 import { deliveryTimeToInputValue } from '../../../lib/deliveryDisplay';
+import { collectDeliveryOrderImageUrlsForEdit } from '../../../lib/deliveryOrderImages';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -109,12 +110,8 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
         defaultDriverId = order.delivery_vehicles[0].driver_id || '';
       }
 
-      const existingImages = (order as any).image_urls || [];
-      const legacyImage = (order as any).image_url;
-      const initialImages = Array.isArray(existingImages) ? [...existingImages] : [];
-      if (legacyImage && !initialImages.includes(legacyImage)) {
-        initialImages.push(legacyImage);
-      }
+      const initialImages = collectDeliveryOrderImageUrlsForEdit(order);
+      const legacyImage = initialImages[0] || (order as any).image_url || '';
 
       setFormData({
         product_name: displayProductName,
@@ -126,7 +123,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
         sender_name: order.import_orders?.sender_name || order.vegetable_orders?.sender_name || order.import_orders?.sender_customers?.name || order.vegetable_orders?.sender_customers?.name || '',
         customer_id: order.import_orders?.customer_id || order.vegetable_orders?.customer_id || null,
         receiver_name: order.import_orders?.receiver_name || order.vegetable_orders?.receiver_name || order.import_orders?.customers?.name || order.vegetable_orders?.customers?.name || '',
-        image_url: legacyImage || '',
+        image_url: legacyImage,
         image_urls: initialImages,
         vehicle_id: defaultVehicleId,
         driver_id: defaultDriverId

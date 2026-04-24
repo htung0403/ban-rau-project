@@ -143,9 +143,9 @@ const VehicleDetailsDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
                         <MapPin size={14} className="mt-0.5 text-muted-foreground" />
                         <div className="min-w-0">
                           <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest leading-none mb-1">Ngày giờ giao</p>
-                          <p className="text-[13px] text-foreground font-semibold truncate" title={assignment.delivery_orders?.delivery_date ? formatNgayGioGiaoVI(assignment.delivery_orders.delivery_date, assignment.delivery_orders.delivery_time) : undefined}>
+                          <p className="text-[13px] text-foreground font-semibold truncate" title={assignment.delivery_orders?.delivery_date ? formatNgayGioGiaoVI(assignment.delivery_orders.delivery_date, assignment.delivery_orders.delivery_time, null, assignment.delivery_orders.driver_delivered_at) : undefined}>
                             {assignment.delivery_orders?.delivery_date
-                              ? formatNgayGioGiaoVI(assignment.delivery_orders.delivery_date, assignment.delivery_orders.delivery_time)
+                              ? formatNgayGioGiaoVI(assignment.delivery_orders.delivery_date, assignment.delivery_orders.delivery_time, null, assignment.delivery_orders.driver_delivered_at)
                               : 'Hôm nay'}
                           </p>
                         </div>

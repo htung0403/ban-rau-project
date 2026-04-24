@@ -901,7 +901,7 @@ const DeliveryPage: React.FC = () => {
                               </div>
                             </td>
                             <td className="px-2 py-3 border-r border-border text-center text-[12px] text-muted-foreground tabular-nums whitespace-nowrap">
-                              {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time, o.created_at)}
+                              {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time, o.created_at, o.driver_delivered_at)}
                             </td>
                             <td className="px-4 py-3 text-[12px] font-bold text-foreground border-r border-border">
                               {getReceiverDisplayName(o)}
@@ -1149,7 +1149,7 @@ const DeliveryPage: React.FC = () => {
                                     <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-muted text-muted-foreground uppercase shrink-0">Cũ</span>
                                   )}
                                   <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
-                                    {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time, o.created_at)}
+                                    {formatNgayGioGiaoVI(o.delivery_date, o.delivery_time, o.created_at, o.driver_delivered_at)}
                                   </span>
                                   <span className={clsx("inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0", paymentConfig.className)}>
                                     {paymentConfig.label}

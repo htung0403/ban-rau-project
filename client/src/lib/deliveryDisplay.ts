@@ -8,8 +8,27 @@ export function deliveryTimeToInputValue(raw: unknown): string {
 }
 
 /** Hiển thị ngày (vi-VN) và giờ giao nếu có.
+ *  Ưu tiên driver_delivered_at (giờ xuất thực tế khi tài xế giao đủ).
  *  Nếu delivery_time trống, fallback lấy giờ từ created_at. */
-export function formatNgayGioGiaoVI(deliveryDate?: string | null, deliveryTimeRaw?: unknown, fallbackCreatedAt?: string | null): string {
+export function formatNgayGioGiaoVI(
+  deliveryDate?: string | null,
+  deliveryTimeRaw?: unknown,
+  fallbackCreatedAt?: string | null,
+  driverDeliveredAt?: string | null
+): string {
+  if (driverDeliveredAt) {
+    const d = new Date(driverDeliveredAt);
+    if (!Number.isNaN(d.getTime())) {
+      const dateStr = d.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+      const timeStr = d.toLocaleTimeString('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+      return `${dateStr} · ${timeStr}`;
+    }
+  }
   let dateStr = '—';
   if (deliveryDate) {
     const iso = deliveryDate.length === 10 ? `${deliveryDate}T12:00:00` : deliveryDate;

@@ -97,21 +97,14 @@ const PrintDeliveryPage: React.FC = () => {
         .print-header-bar {
           display: flex;
           justify-content: space-between;
-          align-items: baseline;
+          align-items: flex-end;
           width: 100%;
-          gap: 12px;
-        }
-        .print-header-bar .print-header-date {
-          flex: 1;
-          min-width: 0;
+          padding-bottom: 5px;
         }
 
-        @media print {
-          body { 
-            counter-reset: page; 
-          }
-          
-          body * { visibility: hidden !important; }
+          @media print {
+            html, body { background-color: white !important; }
+            body * { visibility: hidden !important; }
           .print-area, .print-area * { visibility: visible !important; }
           .print-area { 
             position: absolute; 
@@ -134,19 +127,21 @@ const PrintDeliveryPage: React.FC = () => {
             margin: 12mm 8mm 10mm 8mm;
           }
 
+
+
           .page-number-auto::after {
             counter-increment: page;
             content: "Tờ: " counter(page);
             position: fixed;
-            top: 2mm;
-            right: 10mm;
-            font-size: 14px;
+            top: 0;
+            right: 0;
+            font-size: 16px;
             font-weight: bold;
             visibility: visible !important;
           }
 
           .print-area .print-table {
-            font-size: 10px;
+            font-size: 16px;
             page-break-inside: auto;
           }
           .print-area .print-table thead { display: table-header-group; }
@@ -158,7 +153,7 @@ const PrintDeliveryPage: React.FC = () => {
             overflow: hidden;
             word-break: break-word;
           }
-          .print-area .print-table th { font-weight: bold; text-align: center; background-color: #f3f4f6 !important; }
+          .print-area .print-table th { font-weight: bold; text-align: center; background-color: transparent !important; }
           .print-area .print-table .col-name,
           .print-area .print-table .col-product {
             padding: 3px 5px !important;
@@ -175,7 +170,7 @@ const PrintDeliveryPage: React.FC = () => {
           .print-area .print-table .col-slot-num-head,
           .print-area .print-table .col-slot-ba-head,
           .print-area .print-table .col-slot-kho-head {
-            font-size: 8px !important;
+            font-size: 16px !important;
             padding: 1px 0 !important;
             line-height: 1.1;
             white-space: nowrap;
@@ -185,17 +180,15 @@ const PrintDeliveryPage: React.FC = () => {
           .print-area .print-table .col-slot-ba-head,
           .print-area .print-table .col-slot-kho-head { font-weight: bold; }
           
-          .print-header-repeat {
-            border: none !important;
-          }
-          .print-header-repeat th {
+          .print-area .print-table tr.print-header-repeat th {
             border: none !important;
             background: transparent !important;
-            padding: 0 0 8px 0 !important;
+            padding: 0 0 10px 0 !important;
             vertical-align: bottom;
+            text-align: center;
           }
           .print-sheet-date {
-            font-size: 13px !important;
+            font-size: 16px !important;
             font-weight: bold;
           }
 
@@ -213,7 +206,7 @@ const PrintDeliveryPage: React.FC = () => {
             border-radius: 8px;
           }
           .print-area .print-table {
-            font-size: 11px;
+            font-size: 16px;
           }
           .print-area .print-table .col-slot-num,
           .print-area .print-table .col-slot-ba,
@@ -221,7 +214,7 @@ const PrintDeliveryPage: React.FC = () => {
           .print-area .print-table .col-slot-num-head,
           .print-area .print-table .col-slot-ba-head,
           .print-area .print-table .col-slot-kho-head {
-            font-size: 10px;
+            font-size: 16px;
             padding: 3px 2px !important;
             white-space: nowrap;
           }
@@ -235,7 +228,7 @@ const PrintDeliveryPage: React.FC = () => {
           }
         }
         
-        .print-table { width: 100%; border-collapse: collapse; font-family: "Times New Roman", Times, serif; font-size: 14px; }
+        .print-table { width: 100%; border-collapse: collapse; font-family: "Times New Roman", Times, serif; font-size: 16px; }
         .print-table th, .print-table td { border: 1px solid #000 !important; padding: 4px 6px !important; }
         .print-table th { font-weight: bold; text-align: center; }
       `}</style>
@@ -296,7 +289,7 @@ const PrintDeliveryPage: React.FC = () => {
           />
         </div>
       ) : (
-        <div className="print-area page-number-auto">
+        <div className="print-area">
           {sortedDates.map((date) => (
             <div key={date} className="print-section print-sheet">
               <table className="print-table">
@@ -311,9 +304,12 @@ const PrintDeliveryPage: React.FC = () => {
                 <thead>
                   <tr className="print-header-repeat">
                     <th colSpan={PRINT_TABLE_COL_COUNT} className="text-left !p-0">
-                      <div className="print-header-bar">
-                        <div className="print-header-date print-sheet-date text-[16px] font-bold">
+                      <div className="print-header-bar flex justify-between items-end w-full">
+                        <div className="print-header-date print-sheet-date text-[16px] font-bold text-left">
                           Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}
+                        </div>
+                        <div className="print-sheet-date text-[16px] font-bold text-right" style={{ paddingRight: '20px' }}>
+                          Tờ:
                         </div>
                       </div>
                     </th>

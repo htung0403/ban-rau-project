@@ -12,6 +12,18 @@ import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 /** Cột xe trên phiếu in (cố định, không in biển số) */
 const PRINT_VEHICLE_SLOTS = ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'] as const;
 
+const VEHICLE_PLATE_TO_SLOT: Record<string, string> = {
+  '49c06850': '1',
+  '49c07744': '2',
+  '49c09705': '3',
+  '49c03884': '4',
+  '49c08713': '5',
+  '49c12918': '6',
+  '49c10680': '7',
+  '49c23763': '8',
+  'ba1234': 'ba',
+};
+
 const PRINT_TABLE_COL_COUNT = 3 + PRINT_VEHICLE_SLOTS.length;
 
 const printColClassForSlot = (slot: (typeof PRINT_VEHICLE_SLOTS)[number]) => {
@@ -21,6 +33,14 @@ const printColClassForSlot = (slot: (typeof PRINT_VEHICLE_SLOTS)[number]) => {
 };
 
 const getVehicleSlot = (licensePlate: string): string | null => {
+  const normalizedPlate = (licensePlate || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  
+  for (const [key, slot] of Object.entries(VEHICLE_PLATE_TO_SLOT)) {
+    if (normalizedPlate.includes(key)) {
+      return slot;
+    }
+  }
+
   const plate = (licensePlate || '').toLowerCase();
   
   if (plate.includes('ba')) return 'ba';

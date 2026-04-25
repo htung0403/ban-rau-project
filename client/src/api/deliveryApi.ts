@@ -4,7 +4,11 @@ import type { DeliveryOrder } from '../types';
 export const deliveryApi = {
   getAllToday: async (startDate?: string, endDate?: string, orderCategory?: string) => {
     const { data } = await axiosClient.get<DeliveryOrder[]>('/delivery', {
-      params: { startDate, endDate, order_category: orderCategory },
+      params: { 
+        startDate: startDate || undefined, 
+        endDate: endDate || undefined, 
+        order_category: orderCategory || undefined 
+      },
     });
     return data;
   },
@@ -44,13 +48,15 @@ export const deliveryApi = {
   assignVehicle: async (
     id: string,
     payload: {
-      assignments: { vehicle_id: string; driver_id: string; loader_name?: string | null; quantity: number }[];
+      assignments: { vehicle_id: string; driver_id: string; loader_name?: string | null; quantity: number; delivery_date?: string; delivery_time?: string; }[];
       image_url?: string | null;
       image_urls?: string[];
       export_payment_status?: 'unpaid' | 'paid';
       unit_price?: number;
       /** ISO: một mốc chung khi bấm Lưu (sau khi chụp ảnh), dùng cho phân xe hàng loạt / giờ giao thực tế */
       delivered_at?: string;
+      delivery_date?: string;
+      delivery_time?: string;
     }
   ) => {
     const { data } = await axiosClient.put(`/delivery/${id}/assign-vehicle`, payload);

@@ -185,6 +185,7 @@ CREATE TABLE public.delivery_orders (
   delivery_date DATE,
   delivery_time TIME WITHOUT TIME ZONE,
   driver_delivered_at TIMESTAMPTZ,
+  confirmed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

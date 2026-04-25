@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 
 /** Giờ bắt đầu coi là «phiên giao tối»: từ đây anchor ngày «hàng mới» nhảy sang ngày hôm sau (VN). */
-export const DELIVERY_NEW_DAY_CUT_HOUR = 19;
+export const DELIVERY_NEW_DAY_CUT_HOUR = 20;
 
 /**
  * Ngày giao (`delivery_date` YYYY-MM-DD) được coi là «hàng mới» trong bộ lọc.

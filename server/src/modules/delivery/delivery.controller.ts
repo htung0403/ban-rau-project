@@ -78,6 +78,8 @@ export class DeliveryController {
         quantity: z.number().positive().optional(),
         expected_amount: z.number().nonnegative().optional(),
         image_urls: z.array(z.string()).optional(),
+        delivery_date: z.string().optional(),
+        delivery_time: z.string().optional(),
       });
 
       const body = req.body;
@@ -87,6 +89,8 @@ export class DeliveryController {
       let export_payment_status: 'unpaid' | 'paid' | undefined = undefined;
       let unit_price: number | undefined = undefined;
       let delivered_at: string | undefined = undefined;
+      let delivery_date: string | undefined = undefined;
+      let delivery_time: string | undefined = undefined;
 
       const extractExtras = (src: any) => {
         if (Object.prototype.hasOwnProperty.call(src, 'image_url')) {
@@ -104,6 +108,14 @@ export class DeliveryController {
         if (Object.prototype.hasOwnProperty.call(src, 'delivered_at')) {
           const v = (src as any).delivered_at;
           delivered_at = v == null || v === '' ? undefined : String(v);
+        }
+        if (Object.prototype.hasOwnProperty.call(src, 'delivery_date')) {
+          const v = (src as any).delivery_date;
+          delivery_date = v == null || v === '' ? undefined : String(v);
+        }
+        if (Object.prototype.hasOwnProperty.call(src, 'delivery_time')) {
+          const v = (src as any).delivery_time;
+          delivery_time = v == null || v === '' ? undefined : String(v);
         }
       };
 
@@ -125,6 +137,8 @@ export class DeliveryController {
         quantity: a.quantity || a.assigned_quantity,
         expected_amount: a.expected_amount || 0,
         image_urls: Array.isArray(a.image_urls) ? a.image_urls.filter(Boolean) : [],
+        delivery_date: a.delivery_date,
+        delivery_time: a.delivery_time,
       }));
 
       const data = await DeliveryService.assignVehicles(
@@ -135,7 +149,9 @@ export class DeliveryController {
         export_payment_status,
         unit_price,
         image_urls,
-        delivered_at
+        delivered_at,
+        delivery_date,
+        delivery_time
       );
       return res.status(200).json(successResponse(data, 'Vehicles assigned'));
     } catch (err: any) {

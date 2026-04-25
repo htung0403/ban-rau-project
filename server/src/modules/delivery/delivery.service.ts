@@ -271,13 +271,19 @@ export class DeliveryService {
     const deliveryIds = data.map((row: any) => row.id).filter(Boolean);
     if (deliveryIds.length === 0) return data;
 
-    const { data: exportOrders, error: exportOrdersError } = await supabaseService
-      .from('export_orders')
-      .select('product_id, payment_status, created_at')
-      .in('product_id', deliveryIds)
-      .order('created_at', { ascending: false });
-
-    if (exportOrdersError) throw exportOrdersError;
+    const chunkSize = 100;
+    let exportOrders: any[] = [];
+    for (let i = 0; i < deliveryIds.length; i += chunkSize) {
+      const chunk = deliveryIds.slice(i, i + chunkSize);
+      const { data: chunkData, error: exportOrdersError } = await supabaseService
+        .from('export_orders')
+        .select('product_id, payment_status, created_at')
+        .in('product_id', chunk)
+        .order('created_at', { ascending: false });
+      
+      if (exportOrdersError) throw exportOrdersError;
+      if (chunkData) exportOrders = exportOrders.concat(chunkData);
+    }
 
     const paymentStatusByDeliveryId = new Map<string, 'unpaid' | 'partial' | 'paid'>();
     (exportOrders || []).forEach((row: any) => {
@@ -332,7 +338,9 @@ export class DeliveryService {
     exportPaymentStatus?: 'unpaid' | 'paid',
     unit_price?: number,
     image_urls?: string[],
-    clientDeliveredAtIso?: string | null
+    clientDeliveredAtIso?: string | null,
+    delivery_date?: string,
+    delivery_time?: string
   ) {
     const updateData: any = {};
     if (image_url !== undefined) {
@@ -343,6 +351,12 @@ export class DeliveryService {
     }
     if (unit_price !== undefined) {
       updateData.unit_price = unit_price;
+    }
+    if (delivery_date !== undefined) {
+      updateData.delivery_date = delivery_date;
+    }
+    if (delivery_time !== undefined) {
+      updateData.delivery_time = delivery_time;
     }
 
     if (Object.keys(updateData).length > 0) {
@@ -389,6 +403,8 @@ export class DeliveryService {
       assigned_quantity: a.quantity,
       expected_amount: a.expected_amount || 0,
       image_urls: Array.isArray(a.image_urls) && a.image_urls.length > 0 ? a.image_urls : [],
+      delivery_date: a.delivery_date || delivery_date || undefined,
+      delivery_time: a.delivery_time || delivery_time || undefined,
     }));
 
     const { data, error } = await supabaseService
@@ -541,19 +557,46 @@ export class DeliveryService {
 
     const collectAllImages = (orders: any[]): string[] => {
       const images = new Set<string>();
+      
+      const pushRefs = (refs: any) => {
+        const list = Array.isArray(refs) ? refs : refs ? [refs] : [];
+        for (const ref of list) {
+          if (!ref) continue;
+          if (ref.image_url) {
+            if (typeof ref.image_url === 'string' && ref.image_url.includes(',')) {
+              ref.image_url.split(',').forEach((u: string) => images.add(u.trim()));
+            } else if (typeof ref.image_url === 'string') {
+              images.add(ref.image_url);
+            }
+          }
+          if (ref.image_urls && Array.isArray(ref.image_urls)) {
+            ref.image_urls.forEach((u: string) => {
+              if (typeof u === 'string') images.add(u);
+            });
+          }
+          if (ref.receipt_image_url && typeof ref.receipt_image_url === 'string') {
+             images.add(ref.receipt_image_url);
+          }
+          if (ref.receipt_image_urls && Array.isArray(ref.receipt_image_urls)) {
+             ref.receipt_image_urls.forEach((u: string) => {
+               if (typeof u === 'string') images.add(u);
+             });
+          }
+        }
+      };
+
       for (const o of orders) {
         if (!o) continue;
         
-        if (o.image_url) {
-          if (typeof o.image_url === 'string' && o.image_url.includes(',')) {
-            o.image_url.split(',').forEach((u: string) => images.add(u.trim()));
-          } else {
-            images.add(o.image_url);
-          }
-        }
-        if (o.image_urls && Array.isArray(o.image_urls)) {
-          o.image_urls.forEach((u: string) => images.add(u));
-        }
+        pushRefs(o);
+        pushRefs(o.import_orders);
+        pushRefs(o.vegetable_orders);
+        
+        const linkedImports = Array.isArray(o.import_orders) ? o.import_orders : o.import_orders ? [o.import_orders] : [];
+        linkedImports.forEach((io: any) => pushRefs(io?.import_order_items));
+
+        const linkedVegs = Array.isArray(o.vegetable_orders) ? o.vegetable_orders : o.vegetable_orders ? [o.vegetable_orders] : [];
+        linkedVegs.forEach((vo: any) => pushRefs(vo?.vegetable_order_items));
       }
       return Array.from(images).filter(Boolean);
     };
@@ -627,24 +670,25 @@ export class DeliveryService {
            
            const allImages = collectAllImages(groupOrders);
            
-           await supabaseService
-             .from('delivery_orders')
-             .update({ 
-               total_quantity: newTotal, 
-               status: 'can_giao',
-               image_urls: allImages.length > 0 ? allImages : firstOrder.image_urls,
-               image_url: allImages.length > 0 ? allImages[0] : firstOrder.image_url
-             })
-             .eq('id', targetId);
+            await supabaseService
+              .from('delivery_orders')
+              .update({ 
+                total_quantity: newTotal, 
+                status: 'can_giao',
+                confirmed_at: new Date().toISOString(),
+                image_urls: allImages.length > 0 ? allImages : firstOrder.image_urls,
+                image_url: allImages.length > 0 ? allImages[0] : firstOrder.image_url
+              })
+              .eq('id', targetId);
              
            const idsToDelete = remainingOrders.map(o => o.id);
            await supabaseService.from('delivery_orders').delete().in('id', idsToDelete);
          } else {
            // Just update its status to 'can_giao'
-           await supabaseService
-             .from('delivery_orders')
-             .update({ status: 'can_giao' })
-             .eq('id', targetId);
+            await supabaseService
+              .from('delivery_orders')
+              .update({ status: 'can_giao', confirmed_at: new Date().toISOString() })
+              .eq('id', targetId);
          }
        }
     }

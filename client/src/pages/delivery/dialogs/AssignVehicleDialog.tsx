@@ -16,6 +16,9 @@ import toast from 'react-hot-toast';
 import type { Vehicle } from '../../../types';
 import VnUnitPriceInput from '../../../components/shared/VnUnitPriceInput';
 import CurrencyInput from '../../../components/shared/CurrencyInput';
+import { DatePicker } from '../../../components/shared/DatePicker';
+import { TimePicker24h } from '../../../components/shared/TimePicker24h';
+import { format } from 'date-fns';
 
 const assignmentSchema = z.object({
   vehicle_id: z.string().min(1, 'Vui lòng chọn xe'),
@@ -27,6 +30,8 @@ const assignmentSchema = z.object({
   expected_amount: z.coerce.number().min(0).optional().default(0),
   /** Ảnh gắn với xe dòng này (phiếu thu / chứng từ theo xe); khi lưu gộp vào image_urls đơn. */
   image_urls: z.array(z.string()).default([]),
+  delivery_date: z.string().optional(),
+  delivery_time: z.string().optional(),
 });
 
 const schema = z.object({
@@ -89,19 +94,19 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const normalizedRole = (user?.role || '').toLowerCase();
   const isLoader = normalizedRole.includes('lo_xe') || normalizedRole.includes('lơ xe');
   const isDriver = normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('tài xế') || normalizedRole.includes('driver') || isLoader;
-  
+
   const myEmployee = React.useMemo(() => {
     if (!user) return null;
     return (employees || []).find(e => e.id === user.id || (user.full_name && e.full_name === user.full_name));
   }, [employees, user]);
-  
+
   const myEmployeeId = myEmployee?.id || user?.id;
 
   const myVehicle = React.useMemo(() => {
     if (!myEmployeeId && !user?.full_name) return undefined;
     const allVehs = vehicles || [];
-    return allVehs.find(v => 
-      v.driver_id === myEmployeeId || 
+    return allVehs.find(v =>
+      v.driver_id === myEmployeeId ||
       v.in_charge_id === myEmployeeId ||
       (user?.full_name && v.profiles?.full_name === user.full_name) ||
       (user?.full_name && v.responsible_profile?.full_name === user.full_name)
@@ -112,11 +117,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const eligibleVehicles = React.useMemo(
     () => {
       let filtered = (vehicles || []).filter((vehicle) => vehicleSupportsGoodsCategory(vehicle, targetCategory));
-      
+
       if (isDriver && myVehicle) {
         filtered = filtered.filter(v => v.id === myVehicle.id);
       }
-      
+
       return filtered;
     },
     [vehicles, targetCategory, isDriver, myVehicle]
@@ -194,10 +199,10 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
     try {
       setIsUploading(true);
-      const uploadPromises = files.map(file => 
+      const uploadPromises = files.map(file =>
         uploadApi.uploadFile(file, 'import-orders', 'delivery-orders')
       );
-      
+
       const responses = await Promise.all(uploadPromises);
       const newUrls = responses.map(r => r.url);
 
@@ -247,6 +252,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       const existingDvs = order.delivery_vehicles || [];
       const initialAssignments: any[] = [];
       const baselines: number[] = [];
+      const now = new Date();
 
       if (existingDvs.length > 0) {
         existingDvs.forEach((dv: any) => {
@@ -264,6 +270,9 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               rowImageUrls.push(pc.image_url);
             }
           }
+          const rowDeliveryDate = format(now, 'yyyy-MM-dd');
+          const rowDeliveryTime = format(now, 'HH:mm');
+
           initialAssignments.push({
             vehicle_id: dv.vehicle_id,
             driver_id: dv.driver_id || '',
@@ -274,6 +283,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               ? 0
               : dv.expected_amount || (persistedQty * defaultUnitPrice),
             image_urls: rowImageUrls,
+            delivery_date: rowDeliveryDate,
+            delivery_time: rowDeliveryTime,
           });
         });
       }
@@ -297,19 +308,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           quantity: remainingForThis,
           expected_amount: importPaidReset ? 0 : remainingForThis * defaultUnitPrice,
           image_urls: [],
-        });
-      }
-
-      if (initialAssignments.length === 0) {
-        baselines.push(0);
-        initialAssignments.push({
-          vehicle_id: isDriver ? (initialVid || '') : '',
-          driver_id: isDriver ? (myEmployeeId || '') : '',
-          loader_name: '',
-          unit_price: defaultUnitPrice,
-          quantity: '',
-          expected_amount: 0,
-          image_urls: [],
+          delivery_date: format(now, 'yyyy-MM-dd'),
+          delivery_time: format(now, 'HH:mm'),
         });
       }
 
@@ -388,6 +388,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       }
 
       setAssignmentBaselines(baselines);
+      
       reset({
         assignments: initialAssignments,
         image_urls: formGlobalImageUrls,
@@ -454,6 +455,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               : normalizedAmount > 0
                 ? normalizedAmount
                 : Number(assignment.expected_amount) || 0,
+            delivery_date: assignment.delivery_date,
+            delivery_time: assignment.delivery_time,
           };
         })
         .filter((assignment) => {
@@ -505,9 +508,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   };
 
   const isSubmitting = assignMutation.isPending;
-  const deliveryDateTimeDisplay = order?.delivery_date
-    ? `${order.delivery_date}${order.delivery_time ? ` ${order.delivery_time}` : ''}`
-    : '—';
 
   return createPortal(
     <div className="fixed inset-0 z-9999 flex items-end sm:items-center justify-center sm:p-4">
@@ -571,13 +571,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-3 border-t border-border">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Ngày giờ giao</span>
-              <span className="text-[13px] font-black text-primary tabular-nums">
-                {deliveryDateTimeDisplay}
-              </span>
-            </div>
-
             {order?.import_orders?.total_amount != null && (
               <div className="flex items-center justify-between pt-3 border-t border-border">
                 <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Tổng tiền đơn hàng</span>
@@ -609,7 +602,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                   : false;
 
                 const isMyVehicleRow = currentVid === myVehicle?.id;
-                
+
                 if (isDriver && !isMyVehicleRow && currentVid) {
                   return null;
                 }
@@ -623,7 +616,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                 const rowOrderValue = finalQtyForRow * rowUnitPrice;
 
                 return (
-                  <div key={field.id} className={clsx("relative flex flex-col md:flex-row gap-4 p-4 bg-card border border-border shadow-sm rounded-xl items-start md:items-end group transition-colors", isPaid ? "opacity-90 bg-muted/50" : "hover:border-primary/30")}>
+                  <div key={field.id} className={clsx("relative flex flex-col md:flex-row flex-wrap gap-4 p-4 bg-card border border-border shadow-sm rounded-xl items-start md:items-end group transition-colors", isPaid ? "opacity-90 bg-muted/50" : "hover:border-primary/30")}>
                     {/* Badge đã thu tiền */}
                     {isPaid && (
                       <div className="absolute -top-3 left-4 bg-green-100 border border-green-200 text-green-700 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1 shadow-sm">
@@ -657,7 +650,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       />
                       {errors.assignments?.[index]?.vehicle_id && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.vehicle_id?.message}</p>}
                     </div>
-                    {/* Tài xế */}
                     <div className="flex-1 w-full space-y-1.5 mt-2 md:mt-0">
                       <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                         <User size={12} className={isPaid ? "text-green-500" : "text-primary"} /> Tài xế
@@ -674,21 +666,48 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       />
                       {errors.assignments?.[index]?.driver_id && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.driver_id?.message}</p>}
                     </div>
+                    
+                    <div className="w-full md:w-auto flex gap-2 items-end mt-2 md:mt-0">
+                      <div className="flex-1 min-w-0 md:w-36 space-y-1.5">
+                        <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                          Ngày giao
+                        </label>
+                        <Controller
+                          control={control}
+                          name={`assignments.${index}.delivery_date`}
+                          render={({ field }) => (
+                            <DatePicker
+                              value={field.value || ''}
+                              onChange={field.onChange}
+                              className={clsx("h-10.5", isRowDisabled && "opacity-70 bg-muted cursor-not-allowed")}
+                              placeholder="Ngày giao"
+                              disabled={isRowDisabled}
+                            />
+                          )}
+                        />
+                      </div>
+                      <div className="w-24 shrink-0 space-y-1.5">
+                        <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                          Giờ
+                        </label>
+                        <Controller
+                          control={control}
+                          name={`assignments.${index}.delivery_time`}
+                          render={({ field }) => (
+                            <TimePicker24h
+                              value={field.value || ''}
+                              onChange={field.onChange}
+                              className={clsx("h-10.5", isRowDisabled && "opacity-70 bg-muted cursor-not-allowed")}
+                            />
+                          )}
+                        />
+                      </div>
+                    </div>
                     {/* Số lượng */}
-                    <div className="w-full md:w-32 space-y-1.5 mt-2 md:mt-0">
+                    <div className="w-full md:w-40 space-y-1.5 mt-2 md:mt-0">
                       <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                         <Package size={12} className={isPaid ? "text-green-500" : "text-primary"} /> SL giao thêm
                       </label>
-                      {(assignmentBaselines[index] ?? 0) > 0 && (
-                        <p className="text-[9px] text-muted-foreground font-semibold tabular-nums -mt-0.5">
-                          Đã gán: {(assignmentBaselines[index] ?? 0).toLocaleString()} — nhập phần nốt (vd đơn 20, đã 10 → ghi 10).
-                        </p>
-                      )}
-                      {(assignmentBaselines[index] ?? 0) === 0 && (
-                        <p className="text-[9px] text-muted-foreground leading-snug -mt-0.5">
-                          Lần đầu phân xe: nhập tổng SL cho xe (vd 20).
-                        </p>
-                      )}
                       <input
                         type="number"
                         step="any"
@@ -718,7 +737,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     </div>
 
                     {/* Đơn giá (VND): format vi-VN */}
-                    <div className="w-full md:w-36 space-y-1.5 mt-2 md:mt-0">
+                    <div className="w-full md:w-44 space-y-1.5 mt-2 md:mt-0">
                       <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
                         Đơn giá
                       </label>
@@ -754,7 +773,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
                     {/* Tiền thu (chỉ đơn tạp hóa/standard) */}
                     {isStandardOrder && (
-                      <div className="w-full md:w-44 space-y-1.5 mt-2 md:mt-0">
+                      <div className="w-full md:w-52 space-y-1.5 mt-2 md:mt-0">
                         <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Tiền thu (VND)</label>
                         {importPaid ? (
                           <div
@@ -790,7 +809,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     )}
 
                     {/* Giá trị đơn hàng (read-only) */}
-                    <div className="w-full md:w-44 space-y-1.5 mt-2 md:mt-0">
+                    <div className="w-full md:w-52 space-y-1.5 mt-2 md:mt-0">
                       <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Giá trị đơn hàng</label>
                       <div className="w-full h-10.5 px-3 flex items-center rounded-lg border border-blue-200/80 bg-blue-500/10 text-[12px] font-bold text-blue-700 tabular-nums">
                         {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(rowOrderValue)}
@@ -960,7 +979,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     </button>
                   </div>
                 ))}
-                
+
                 <div>
                   <input
                     type="file"

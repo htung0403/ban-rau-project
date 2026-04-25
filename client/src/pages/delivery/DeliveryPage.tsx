@@ -166,9 +166,9 @@ const getEffectiveDeliveryStatus = (order: DeliveryOrder, remainingQty?: number)
 
 const isOldOrderForAgeRule = (order: DeliveryOrder, anchorDate: string): boolean => {
   const effectiveStatus = getEffectiveDeliveryStatus(order);
-  // Rule: while order is still "hàng ở SG", always keep it "new".
   if (effectiveStatus === 'hang_o_sg') return false;
-  return Boolean(order.delivery_date && order.delivery_date < anchorDate);
+  const refDate = order.confirmed_at ? order.confirmed_at.slice(0, 10) : order.delivery_date;
+  return Boolean(refDate && refDate < anchorDate);
 };
 
 const DeliveryPage: React.FC = () => {
@@ -179,7 +179,7 @@ const DeliveryPage: React.FC = () => {
   const [ageFilter, setAgeFilter] = useState<'all' | 'new' | 'old'>('all');
 
   const { user } = useAuth();
-  const { data: ordersRaw, isLoading: ordersLoading, isError, refetch } = useDeliveryOrders(startDate, endDate, 'standard');
+  const { data: ordersRaw, isLoading: ordersLoading, isError, refetch } = useDeliveryOrders(startDate || undefined, endDate || undefined, 'standard');
   const { data: vehicles } = useVehicles();
   const orders = React.useMemo(() => {
     let base = (ordersRaw || []).filter((o) => !isSoftDeletedSourceOrder(o));

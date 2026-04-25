@@ -348,10 +348,17 @@ const VegetableDeliveryPage: React.FC = () => {
 
   // Filter by age (mốc 19:00 — giống trang giao tạp hóa)
   const anchorStr = getDeliveryAnchorDateString();
+  const getAgeRefDate = (o: DeliveryOrder) => o.confirmed_at ? o.confirmed_at.slice(0, 10) : o.delivery_date;
   if (ageFilter === 'new') {
-    filteredOrders = filteredOrders.filter((o) => o.delivery_date === anchorStr);
+    filteredOrders = filteredOrders.filter((o) => {
+      const ref = getAgeRefDate(o);
+      return !ref || ref >= anchorStr;
+    });
   } else if (ageFilter === 'old') {
-    filteredOrders = filteredOrders.filter((o) => o.delivery_date && o.delivery_date < anchorStr);
+    filteredOrders = filteredOrders.filter((o) => {
+      const ref = getAgeRefDate(o);
+      return ref != null && ref < anchorStr;
+    });
   }
 
     // Text & Select Filters logic
@@ -733,7 +740,7 @@ const VegetableDeliveryPage: React.FC = () => {
                             </td>
                             <td className="px-4 py-3 border-r border-border text-center">
                               <div className="flex items-center justify-center">
-                                {o.delivery_date === anchorStr ? (
+                                {(() => { const ref = getAgeRefDate(o); return !ref || ref >= anchorStr; })() ? (
                                   <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/10 text-emerald-700 uppercase">Mới</span>
                                 ) : (
                                   <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-muted text-muted-foreground uppercase">Cũ</span>
@@ -932,7 +939,7 @@ const VegetableDeliveryPage: React.FC = () => {
                             )}
                             {/* Row 1: Order code + Product name */}
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              {o.delivery_date === anchorStr ? (
+                              {(() => { const ref = getAgeRefDate(o); return !ref || ref >= anchorStr; })() ? (
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500/10 text-emerald-700 uppercase">Mới</span>
                               ) : (
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-muted text-muted-foreground uppercase">Cũ</span>

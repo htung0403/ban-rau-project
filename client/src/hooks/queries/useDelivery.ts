@@ -13,7 +13,7 @@ export const deliveryKeys = {
 export function useDeliveryOrders(startDate?: string, endDate?: string, orderCategory?: 'standard' | 'vegetable') {
   return useQuery({
     queryKey: [...deliveryKeys.all, 'filter', startDate, endDate, orderCategory],
-    queryFn: () => deliveryApi.getAllToday(startDate, endDate, orderCategory),
+    queryFn: () => deliveryApi.getAllToday(startDate || undefined, endDate || undefined, orderCategory),
   });
 }
 

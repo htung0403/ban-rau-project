@@ -295,6 +295,8 @@ export interface DeliveryOrder {
   delivery_time?: string | null;
   /** Thời điểm (ISO UTC) lần đầu đơn đủ SL / tài xế giao xong (da_giao) */
   driver_delivered_at?: string | null;
+  /** Thời điểm xác nhận chuyển từ hang_o_sg → can_giao */
+  confirmed_at?: string | null;
   export_order_payment_status?: PaymentStatus;
   created_at: string;
   updated_at: string;
@@ -373,6 +375,8 @@ export interface DeliveryVehicle {
   expected_amount?: number;
   /** Ảnh chứng từ / giao hàng gắn với dòng xe này */
   image_urls?: string[];
+  delivery_date?: string;
+  delivery_time?: string;
   status: DeliveryVehicleStatus;
   assigned_at: string;
   // Nested

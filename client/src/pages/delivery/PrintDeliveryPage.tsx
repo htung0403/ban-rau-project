@@ -20,12 +20,26 @@ const printColClassForSlot = (slot: (typeof PRINT_VEHICLE_SLOTS)[number]) => {
   return 'print-col-slot-num';
 };
 
+const getVehicleSlot = (licensePlate: string): string | null => {
+  const plate = (licensePlate || '').toLowerCase();
+  
+  if (plate.includes('ba')) return 'ba';
+  if (plate.includes('kho')) return 'kho';
+  
+  const match = plate.match(/\d+/);
+  if (match) {
+    const num = parseInt(match[0], 10).toString();
+    if (PRINT_VEHICLE_SLOTS.includes(num as any)) {
+      return num;
+    }
+  }
+  return null;
+};
+
 const qtyForPrintSlot = (order: DeliveryOrder, col: string) => {
   const matches = (order.delivery_vehicles || []).filter((dv) => {
-    const plate = (dv.vehicles?.license_plate || '').toLowerCase().replace(/\s/g, '');
-    if (col === 'ba') return plate.includes('ba');
-    if (col === 'kho') return plate.includes('kho');
-    return plate.includes(col);
+    const slot = getVehicleSlot(dv.vehicles?.license_plate || '');
+    return slot === col;
   });
   return matches.reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
 };

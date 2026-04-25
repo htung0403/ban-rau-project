@@ -527,7 +527,7 @@ const ImportOrdersPage: React.FC = () => {
             </div>
 
             {/* Mobile Card List */}
-            <div className="md:hidden flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+            <div className="md:hidden flex-1 overflow-y-auto p-3 pb-20 flex flex-col gap-2.5">
               {paginatedOrders.map((order) => {
                 const orderImage = order.receipt_image_url ||
                   order.import_order_items?.[0]?.image_url ||
@@ -536,88 +536,90 @@ const ImportOrdersPage: React.FC = () => {
                   <div
                     key={order.id}
                     onClick={() => openEditDialog(order)}
-                    className="bg-card rounded-xl border border-border shadow-sm cursor-pointer hover:shadow-md active:bg-muted/10 transition-all flex items-center gap-3 p-2.5 overflow-hidden"
+                    className="bg-card rounded-xl border border-border shadow-sm cursor-pointer hover:shadow-md active:scale-[0.98] transition-all"
                   >
-                    {/* Left: Image */}
-                    <div
-                      className={clsx(
-                        "w-[64px] h-[64px] shrink-0 bg-muted/20 rounded-lg overflow-hidden transition-transform active:scale-95",
-                        orderImage && "cursor-zoom-in hover:ring-2 hover:ring-primary/20"
-                      )}
-                      onClick={(e) => {
-                        if (orderImage) {
-                          e.stopPropagation();
-                          setViewingImageOrder(order);
-                        }
-                      }}
-                    >
-                      {orderImage ? (
-                        <img src={orderImage} alt={order.order_code} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <ImageIcon size={22} className="text-muted-foreground/30" />
-                        </div>
-                      )}
-                    </div>
+                    <div className="p-3 flex gap-3">
+                      {/* Left: Image */}
+                      <div
+                        className={clsx(
+                          "w-16 h-16 shrink-0 bg-muted/20 rounded-lg overflow-hidden transition-transform active:scale-95 self-center",
+                          orderImage && "cursor-zoom-in hover:ring-2 hover:ring-primary/20"
+                        )}
+                        onClick={(e) => {
+                          if (orderImage) {
+                            e.stopPropagation();
+                            setViewingImageOrder(order);
+                          }
+                        }}
+                      >
+                        {orderImage ? (
+                          <img src={orderImage} alt={order.order_code} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <ImageIcon size={22} className="text-muted-foreground/30" />
+                          </div>
+                        )}
+                      </div>
 
-                    {/* Right: Data */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[13px] font-bold text-foreground truncate">{order.customers?.name || order.sender_name || '-'}</span>
-                        <StatusBadge status={order.status} label={statusLabels[order.status]} />
-                      </div>
-                      <div className="mb-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
-                        <span className="text-[11px] font-semibold text-primary">{order.order_code}</span>
-                        <span className="text-[10px] text-muted-foreground tabular-nums">{order.order_date}</span>
-                      </div>
-                      <div className="mb-1.5 text-[12px] text-muted-foreground line-clamp-1" title={order.import_order_items?.map((i: any) => i.products?.name).filter(Boolean).join(', ')}>
-                        <span className="font-bold text-foreground">
-                          {order.import_order_items?.map((i: any) => i.products?.name).filter(Boolean).join(', ') || 'Chưa có hàng'}
-                        </span>
-                        {' • '}
-                        <span className="font-medium text-foreground">
-                          SL {order.import_order_items?.reduce((sum: number, i: any) => sum + (i.quantity || 0), 0) || 0}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          {order.payment_status === 'paid' ? (
-                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded">Đã trả</span>
-                          ) : order.payment_status === 'partial' ? (
-                            <span className="text-[9px] font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded">1 phần</span>
-                          ) : (
-                            <span className="text-[9px] font-bold text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">Chưa trả</span>
-                          )}
-                          {(order.total_amount && order.total_amount > 0) ? (
-                            <span className="text-[13px] font-black text-primary tabular-nums">
-                              {formatCurrency(order.total_amount)}
-                            </span>
-                          ) : null}
+                      {/* Right: Data */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[13px] font-bold text-foreground truncate">{order.customers?.name || order.sender_name || '-'}</span>
+                          <StatusBadge status={order.status} label={statusLabels[order.status]} />
                         </div>
-                        <div className="flex items-center gap-0.5">
-                          {orderImage && (
+                        <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                          <span className="text-[11px] font-semibold text-primary">{order.order_code}</span>
+                          <span className="text-[10px] text-muted-foreground tabular-nums">{order.order_date}</span>
+                        </div>
+                        <div className="text-[12px] text-muted-foreground line-clamp-1" title={order.import_order_items?.map((i: any) => i.products?.name).filter(Boolean).join(', ')}>
+                          <span className="font-bold text-foreground">
+                            {order.import_order_items?.map((i: any) => i.products?.name).filter(Boolean).join(', ') || 'Chưa có hàng'}
+                          </span>
+                          {' • '}
+                          <span className="font-medium text-foreground">
+                            SL {order.import_order_items?.reduce((sum: number, i: any) => sum + (i.quantity || 0), 0) || 0}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            {order.payment_status === 'paid' ? (
+                              <span className="text-[9px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded">Đã trả</span>
+                            ) : order.payment_status === 'partial' ? (
+                              <span className="text-[9px] font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded">1 phần</span>
+                            ) : (
+                              <span className="text-[9px] font-bold text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">Chưa trả</span>
+                            )}
+                            {(order.total_amount && order.total_amount > 0) ? (
+                              <span className="text-[13px] font-black text-primary tabular-nums">
+                                {formatCurrency(order.total_amount)}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center gap-0.5">
+                            {orderImage && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewingImageOrder(order);
+                                }}
+                                className="p-1 rounded-lg text-violet-500 hover:bg-violet-500/10 transition-colors"
+                              >
+                                <Eye size={13} />
+                              </button>
+                            )}
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setViewingImageOrder(order);
-                              }}
-                              className="p-1 rounded-lg text-violet-500 hover:bg-violet-500/10 transition-colors"
+                              onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
+                              className="p-1 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors"
                             >
-                              <Eye size={13} />
+                              <Edit size={13} />
                             </button>
-                          )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
-                            className="p-1 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors"
-                          >
-                            <Edit size={13} />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
-                            className="p-1 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
+                              className="p-1 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

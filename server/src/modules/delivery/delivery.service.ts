@@ -857,4 +857,15 @@ export class DeliveryService {
     if (error) throw error;
     return data;
   }
+
+  static async confirmWarehouse(ids: string[]) {
+    const { data, error } = await supabaseService
+      .from('delivery_orders')
+      .update({ warehouse_confirmed_at: new Date().toISOString() })
+      .in('id', ids)
+      .select('id');
+
+    if (error) throw error;
+    return { success: true, confirmed: (data || []).length };
+  }
 }

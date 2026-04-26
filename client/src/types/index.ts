@@ -297,6 +297,8 @@ export interface DeliveryOrder {
   driver_delivered_at?: string | null;
   /** Thời điểm xác nhận chuyển từ hang_o_sg → can_giao */
   confirmed_at?: string | null;
+  /** Thời điểm admin xác nhận đã giao hàng tồn kho — khi set thì ẩn khỏi trang Tồn kho */
+  warehouse_confirmed_at?: string | null;
   export_order_payment_status?: PaymentStatus;
   created_at: string;
   updated_at: string;

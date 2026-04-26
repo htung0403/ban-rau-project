@@ -12,6 +12,7 @@ router.get('/', DeliveryController.getAllToday);
 router.get('/inventory', DeliveryController.getInventory);
 router.post('/', DeliveryController.create);
 router.put('/confirm', DeliveryController.confirmOrders);
+router.put('/warehouse-confirm', DeliveryController.confirmWarehouse);
 router.put('/:id/assign-vehicle', DeliveryController.assignVehicle);
 router.put('/:id/update-qty', DeliveryController.updateQty);
 router.put('/:id/revert-vehicle', DeliveryController.revertVehicle);

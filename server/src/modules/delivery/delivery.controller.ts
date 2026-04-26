@@ -209,4 +209,14 @@ export class DeliveryController {
       return res.status(400).json(errorResponse(err.message));
     }
   }
+
+  static async confirmWarehouse(req: Request, res: Response) {
+    try {
+      const { ids } = z.object({ ids: z.array(z.string().uuid()) }).parse(req.body);
+      const data = await DeliveryService.confirmWarehouse(ids);
+      return res.status(200).json(successResponse(data, 'Đã xác nhận giao hàng tồn kho'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
 }

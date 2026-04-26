@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
-import { Calendar, PlusCircle, Truck, CheckCircle, Check, Store, Package, User, Image as ImageIcon, Eye, Trash2, Pencil, RotateCcw } from 'lucide-react';
+import { Calendar, PlusCircle, Truck, CheckCircle, Check, Store, Package, User, Image as ImageIcon, Eye, Trash2, Pencil, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import PageHeader from '../../components/shared/PageHeader';
 import { useDeliveryOrders, useConfirmDelivery, useDeleteDeliveryOrders } from '../../hooks/queries/useDelivery';
@@ -24,10 +24,12 @@ import { useNavigate } from 'react-router-dom';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { matchesSearch } from '../../lib/str-utils';
 import { getDeliveryAnchorDateString } from '../../lib/deliveryDayAnchor';
+import { isOldOrderForAgeRule, getEffectiveDeliveryStatus, getDeliveryRemainingQty } from '../../lib/deliveryAgeRule';
 import { formatNgayGioGiaoVI } from '../../lib/deliveryDisplay';
 import type { DeliveryOrder, DeliveryStatus, Vehicle } from '../../types';
 import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 import { deliveryOrderVisibleToUser, hasFullGoodsModuleAccess } from '../../utils/goodsModuleScope';
+import { VehicleCellTooltip } from './components/VehicleCellTooltip';
 
 const formatNumber = (val?: number) => {
   if (val == null) return '0';
@@ -49,9 +51,10 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> =
 };
 
 const PAYMENT_STATUS_CONFIG = {
-  unpaid: { label: 'Chưa thu', className: 'bg-red-500/10 text-red-700 dark:text-red-500 border-red-200/20' },
+  unpaid: { label: 'Chưa thanh toán', className: 'bg-red-500/10 text-red-700 dark:text-red-500 border-red-200/20' },
   partial: { label: 'Thu một phần', className: 'bg-amber-500/10 text-amber-700 dark:text-amber-500 border-amber-200/20' },
-  paid: { label: 'Đã trả cước SG', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 border-emerald-200/20' },
+  paid_sg: { label: 'Đã trả cước SG', className: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-500 border-indigo-200/20' },
+  paid_driver: { label: 'Đã thanh toán', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-500 border-emerald-200/20' },
 };
 
 const isPaidCollectionStatus = (status?: string) => status === 'confirmed' || status === 'self_confirmed';
@@ -123,7 +126,14 @@ const getOrderPreviewImage = (order: any) => {
 
 const getOrderPaymentStatus = (order: DeliveryOrder): keyof typeof PAYMENT_STATUS_CONFIG => {
   if (order.export_order_payment_status) {
-    return order.export_order_payment_status;
+    return order.export_order_payment_status === 'paid' ? 'paid_driver' : order.export_order_payment_status as keyof typeof PAYMENT_STATUS_CONFIG;
+  }
+
+  const sourceOrder = Array.isArray(order.import_orders) ? order.import_orders[0] : order.import_orders 
+    || (Array.isArray(order.vegetable_orders) ? order.vegetable_orders[0] : order.vegetable_orders);
+  
+  if (sourceOrder && sourceOrder.payment_status === 'paid') {
+    return 'paid_sg';
   }
 
   const assignedVehicleIds = (order.delivery_vehicles || [])
@@ -143,32 +153,8 @@ const getOrderPaymentStatus = (order: DeliveryOrder): keyof typeof PAYMENT_STATU
   const paidCount = assignedVehicleIds.filter((vehicleId) => paidVehicleIds.has(vehicleId)).length;
 
   if (paidCount === 0) return 'unpaid';
-  if (paidCount === assignedVehicleIds.length) return 'paid';
+  if (paidCount === assignedVehicleIds.length) return 'paid_driver';
   return 'partial';
-};
-
-const getDeliveryRemainingQty = (order: DeliveryOrder) => {
-  const totalAssigned = (order.delivery_vehicles || []).reduce(
-    (sum, dv) => sum + (dv.assigned_quantity || 0),
-    0
-  );
-  return order.total_quantity - totalAssigned;
-};
-
-/** Trạng thái hiển thị/lọc: còn hàng chưa giao hết thì luôn là Cần giao, không hiện Đã giao. */
-const getEffectiveDeliveryStatus = (order: DeliveryOrder, remainingQty?: number): DeliveryStatus => {
-  if (order.status === 'hang_o_sg') return 'hang_o_sg';
-  const remaining = remainingQty ?? getDeliveryRemainingQty(order);
-  if (remaining > 0) return 'can_giao';
-  if (order.status === 'da_giao') return 'da_giao';
-  return 'can_giao';
-};
-
-const isOldOrderForAgeRule = (order: DeliveryOrder, anchorDate: string): boolean => {
-  const effectiveStatus = getEffectiveDeliveryStatus(order);
-  if (effectiveStatus === 'hang_o_sg') return false;
-  const refDate = order.confirmed_at ? order.confirmed_at.slice(0, 10) : order.delivery_date;
-  return Boolean(refDate && refDate < anchorDate);
 };
 
 const DeliveryPage: React.FC = () => {
@@ -177,6 +163,8 @@ const DeliveryPage: React.FC = () => {
   const [endDate, setEndDate] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'can_giao' | 'hang_o_sg' | 'da_giao'>('can_giao');
   const [ageFilter, setAgeFilter] = useState<'all' | 'new' | 'old'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 30;
 
   const { user } = useAuth();
   const { data: ordersRaw, isLoading: ordersLoading, isError, refetch } = useDeliveryOrders(startDate || undefined, endDate || undefined, 'standard');
@@ -250,6 +238,10 @@ const DeliveryPage: React.FC = () => {
   const [filterReceiver, setFilterReceiver] = useState<string[]>([]);
   const [filterProduct, setFilterProduct] = useState<string[]>([]);
   const [filterVehicleIds, setFilterVehicleIds] = useState<string[]>([]);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, ageFilter, startDate, endDate, searchQuery, filterCustomer, filterReceiver, filterProduct, filterVehicleIds]);
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
@@ -510,8 +502,15 @@ const DeliveryPage: React.FC = () => {
     }
   };
 
+  const isPaginatedTab = statusFilter === 'da_giao' || statusFilter === 'all';
+  const totalItems = filteredOrders.length;
+  const totalPages = isPaginatedTab ? Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE)) : 1;
+  const paginatedOrders = isPaginatedTab 
+    ? filteredOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+    : filteredOrders;
+
   // Grouping logic: Date -> [Orders]
-  const groupedOrders = (filteredOrders || []).reduce<Record<string, DeliveryOrder[]>>((acc, order) => {
+  const groupedOrders = (paginatedOrders || []).reduce<Record<string, DeliveryOrder[]>>((acc, order) => {
     const date = order.delivery_date || 'N/A';
     if (!acc[date]) acc[date] = [];
     acc[date].push(order);
@@ -1002,17 +1001,23 @@ const DeliveryPage: React.FC = () => {
                                     canEdit && statusFilter !== 'hang_o_sg' && (qty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95"
                                   )}
                                 >
-                                  <div className="flex flex-col items-center justify-center">
-                                    <span>
-                                      {qty > 0 ? formatNumber(qty) : (canEdit && statusFilter !== 'hang_o_sg' && remainingQty > 0 ? <PlusCircle size={14} className="mx-auto opacity-10 group-hover:opacity-40" /> : '-')}
-                                    </span>
-                                    {isPaid && (
-                                      <div className="mt-0.5 flex items-center justify-center gap-0.5 text-green-600 bg-green-500/10 rounded-sm px-1" title="Đã xác nhận thu tiền">
-                                        <CheckCircle size={8} strokeWidth={3} />
-                                        <span className="text-[9px] font-black leading-none pb-px">Thu</span>
-                                      </div>
-                                    )}
-                                  </div>
+                                  {qty > 0 && dv ? (
+                                    <VehicleCellTooltip dv={dv} vehicle={v} qty={qty} isPaid={isPaid}>
+                                      <span>{formatNumber(qty)}</span>
+                                      {isPaid && (
+                                        <div className="mt-0.5 flex items-center justify-center gap-0.5 text-green-600 bg-green-500/10 rounded-sm px-1" title="Đã xác nhận thu tiền">
+                                          <CheckCircle size={8} strokeWidth={3} />
+                                          <span className="text-[9px] font-black leading-none pb-px">Thu</span>
+                                        </div>
+                                      )}
+                                    </VehicleCellTooltip>
+                                  ) : (
+                                    <div className="flex flex-col items-center justify-center">
+                                      <span>
+                                        {canEdit && statusFilter !== 'hang_o_sg' && remainingQty > 0 ? <PlusCircle size={14} className="mx-auto opacity-10 group-hover:opacity-40" /> : '-'}
+                                      </span>
+                                    </div>
+                                  )}
                                 </td>
                               );
                             })}
@@ -1303,12 +1308,41 @@ const DeliveryPage: React.FC = () => {
                   </div>
                 </div>
               ))}
+              </div>
+            
+              {isPaginatedTab && totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card sticky bottom-0 z-20">
+                  <div className="text-[12px] text-muted-foreground font-medium hidden md:block">
+                    Hiển thị {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} trong {totalItems} đơn hàng
+                  </div>
+                  <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[13px] font-bold disabled:opacity-50 hover:bg-muted transition-colors"
+                    >
+                      <ChevronLeft size={16} />
+                      Trước
+                    </button>
+                    <span className="text-[13px] font-bold text-foreground">
+                      {currentPage} / {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[13px] font-bold disabled:opacity-50 hover:bg-muted transition-colors"
+                    >
+                      Sau
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
+          )}
           </div>
-        )}
-        </div>
-
-      {isAdmin && selectedIds.size > 0 && createPortal(
+  
+        {isAdmin && selectedIds.size > 0 && createPortal(
         <div className="fixed bottom-0 md:bottom-6 left-0 right-0 md:left-1/2 md:-translate-x-1/2 bg-card md:rounded-2xl shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.15)] md:shadow-xl border-t md:border border-border p-3 z-[900] flex flex-col md:flex-row items-center gap-3 animate-in slide-in-from-bottom-10 md:min-w-[400px]">
           <div className="flex items-center gap-2 px-2 shrink-0 self-start md:self-auto w-full md:w-auto justify-between md:justify-start">
             <span className="text-[13px] font-bold text-foreground whitespace-nowrap">Đã chọn <strong className="text-primary">{selectedIds.size}</strong></span>

@@ -82,6 +82,18 @@ export function useConfirmDelivery() {
   });
 }
 
+export function useConfirmWarehouse() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => deliveryApi.confirmWarehouse(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: deliveryKeys.all });
+      toast.success('Đã xác nhận giao hàng tồn kho');
+    },
+    onError: () => toast.error('Lỗi khi xác nhận tồn kho'),
+  });
+}
+
 export function useDeleteDeliveryOrders() {
   const queryClient = useQueryClient();
   return useMutation({

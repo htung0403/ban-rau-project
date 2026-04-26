@@ -10,49 +10,37 @@ import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 /** Cột xe trên phiếu in (cố định, không in biển số) */
-const PRINT_VEHICLE_SLOTS = ['1', '2', '3', '4', '5', '6', '7', '8', 'ba', 'kho'] as const;
+const PRINT_VEHICLE_SLOTS = ['1', '2', '3', '4', '5', '6', '7', '8', 'ba'] as const;
 
 const VEHICLE_PLATE_TO_SLOT: Record<string, string> = {
-  '49c06850': '1',
-  '49c07744': '2',
-  '49c09705': '3',
-  '49c03884': '4',
-  '49c08713': '5',
-  '49c12918': '6',
-  '49c10680': '7',
-  '49c23763': '8',
+  '06850': '1',
+  '07744': '2',
+  '09705': '3',
+  '03889': '4',
+  '08713': '5',
+  '12918': '6',
+  '10680': '7',
+  '23763': '8',
   'ba1234': 'ba',
 };
 
-const PRINT_TABLE_COL_COUNT = 3 + PRINT_VEHICLE_SLOTS.length;
+const PRINT_TABLE_COL_COUNT = 4 + PRINT_VEHICLE_SLOTS.length; // check + name + qty + product + slots
 
 const printColClassForSlot = (slot: (typeof PRINT_VEHICLE_SLOTS)[number]) => {
   if (slot === 'ba') return 'print-col-slot-ba';
-  if (slot === 'kho') return 'print-col-slot-kho';
   return 'print-col-slot-num';
 };
 
 const getVehicleSlot = (licensePlate: string): string | null => {
-  const normalizedPlate = (licensePlate || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  
+  const normalized = (licensePlate || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
   for (const [key, slot] of Object.entries(VEHICLE_PLATE_TO_SLOT)) {
-    if (normalizedPlate.includes(key)) {
+    if (normalized.endsWith(key) || normalized.includes(key)) {
       return slot;
     }
   }
 
-  const plate = (licensePlate || '').toLowerCase();
-  
-  if (plate.includes('ba')) return 'ba';
-  if (plate.includes('kho')) return 'kho';
-  
-  const match = plate.match(/\d+/);
-  if (match) {
-    const num = parseInt(match[0], 10).toString();
-    if (PRINT_VEHICLE_SLOTS.includes(num as any)) {
-      return num;
-    }
-  }
+  if (normalized.includes('ba')) return 'ba';
   return null;
 };
 
@@ -70,6 +58,63 @@ const getDisplayProductName = (order: DeliveryOrder) =>
 const getReceiverDisplayName = (order: DeliveryOrder) => {
   const orderObj = order.import_orders;
   return orderObj?.customers?.name || orderObj?.receiver_name?.trim() || orderObj?.profiles?.full_name || '-';
+};
+
+const ROWS_PER_PAGE = 28;
+const ROW_HEIGHT_PX = 32;
+
+const estimateCharWidth = (char: string): number => {
+  const code = char.charCodeAt(0);
+  if ((code >= 0x00c0 && code <= 0x024f) || (code >= 0x1e00 && code <= 0x1eff)) return 13;
+  if (code >= 65 && code <= 90) return 11;
+  if (code >= 48 && code <= 57) return 8;
+  if ('il1|:;.,!'.includes(char)) return 6;
+  return 10;
+};
+
+const estimateLines = (text: string, colWidthPx: number): number => {
+  if (!text) return 1;
+  let lineWidth = 0;
+  let lines = 1;
+  for (const char of text) {
+    const w = estimateCharWidth(char);
+    if (lineWidth + w > colWidthPx) { lines++; lineWidth = w; }
+    else lineWidth += w;
+  }
+  return lines;
+};
+
+const estimateRowSlots = (customerName: string, productName: string): number => {
+  const cn = (customerName || '').normalize('NFC');
+  const pn = (productName || '').normalize('NFC');
+  return Math.max(estimateLines(cn, 190), estimateLines(pn, 103));
+};
+
+const PAGE_SLOTS = 28;
+
+const paginateOrders = (orders: DeliveryOrder[]): DeliveryOrder[][] => {
+  const pages: DeliveryOrder[][] = [];
+  let currentPage: DeliveryOrder[] = [];
+  let usedSlots = 0;
+  for (const order of orders) {
+    const slots = estimateRowSlots(getReceiverDisplayName(order), getDisplayProductName(order));
+    if (usedSlots + slots > PAGE_SLOTS) {
+      pages.push(currentPage);
+      currentPage = [order];
+      usedSlots = slots;
+    } else {
+      currentPage.push(order);
+      usedSlots += slots;
+    }
+  }
+  if (currentPage.length > 0) pages.push(currentPage);
+  return pages;
+};
+
+const chunkArray = <T,>(arr: T[], size: number): T[][] => {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+  return chunks;
 };
 
 const PrintDeliveryPage: React.FC = () => {
@@ -104,30 +149,29 @@ const PrintDeliveryPage: React.FC = () => {
   };
 
   return (
-    <>
+    <div className="flex flex-col w-full">
       <style>{`
-        /* Tỉ lệ ước tính: Tên khách 25%, SL 5%, Hàng 12%, cột 1–8 mỗi cột 6% (48%), ba 5%, kho 5% */
+        /* check 4%, Tên khách 24%, SL 5%, Hàng 13%, cột 1–8 mỗi cột 6% (48%), ba 6% */
         .print-area .print-table {
           table-layout: fixed;
           width: 100%;
           border-collapse: collapse;
           font-family: "Times New Roman", Times, serif;
         }
-        .print-area .print-table col.print-col-name { width: 25%; }
+        .print-area .print-table col.print-col-check { width: 4%; }
+        .print-area .print-table col.print-col-name { width: 24%; }
         .print-area .print-table col.print-col-qty { width: 5%; }
-        .print-area .print-table col.print-col-product { width: 12%; }
+        .print-area .print-table col.print-col-product { width: 13%; }
         .print-area .print-table col.print-col-slot-num { width: 6%; }
-        .print-area .print-table col.print-col-slot-ba { width: 5%; }
-        .print-area .print-table col.print-col-slot-kho { width: 5%; }
-        .print-area .print-table .col-name { width: 25%; }
+        .print-area .print-table col.print-col-slot-ba { width: 6%; }
+        .print-area .print-table .col-check { width: 4%; }
+        .print-area .print-table .col-name { width: 24%; }
         .print-area .print-table .col-qty { width: 5%; }
-        .print-area .print-table .col-product { width: 12%; }
+        .print-area .print-table .col-product { width: 13%; }
         .print-area .print-table .col-slot-num,
         .print-area .print-table .col-slot-num-head { width: 6%; }
         .print-area .print-table .col-slot-ba,
-        .print-area .print-table .col-slot-ba-head { width: 5%; }
-        .print-area .print-table .col-slot-kho,
-        .print-area .print-table .col-slot-kho-head { width: 5%; }
+        .print-area .print-table .col-slot-ba-head { width: 6%; }
         .print-header-bar {
           display: flex;
           justify-content: space-between;
@@ -136,32 +180,39 @@ const PrintDeliveryPage: React.FC = () => {
           padding-bottom: 5px;
         }
 
-          @media print {
-            html, body { background-color: white !important; }
-            body * { visibility: hidden !important; }
+        @page {
+          size: A4 portrait;
+          margin: 12mm 8mm 10mm 8mm;
+        }
+
+        @media print {
+          html, body { background-color: white !important; }
+          body * { visibility: hidden !important; }
           .print-area, .print-area * { visibility: visible !important; }
-          .print-area { 
-            position: absolute; 
-            left: 0; 
-            top: 0; 
-            width: 100%; 
-            display: block !important; 
+          .print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            display: block !important;
           }
           .no-print { display: none !important; }
-          
-          .print-section {
-            page-break-before: always;
-          }
-          .print-section:first-child {
-            page-break-before: auto;
-          }
 
-          @page { 
-            size: A4 portrait; 
-            margin: 12mm 8mm 10mm 8mm;
+          .print-section { page-break-before: always; }
+          .print-section:first-child { page-break-before: auto; }
+
+          .print-section:last-child { min-height: calc(297mm - 22mm); }
+          .print-section:last-child .print-table { height: 100%; }
+          .print-section:last-child .print-table tbody { height: 100%; }
+
+          .print-table tr.empty-fill-row td {
+            border: 1px solid #000 !important;
+            padding: 0 !important;
+            height: 28px;
           }
-
-
+          .print-area .print-table tbody tr {
+            height: 28px;
+          }
 
           .page-number-auto::after {
             counter-increment: page;
@@ -169,18 +220,18 @@ const PrintDeliveryPage: React.FC = () => {
             position: fixed;
             top: 0;
             right: 0;
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
             visibility: visible !important;
           }
 
           .print-area .print-table {
-            font-size: 16px;
+            font-size: 18px;
             page-break-inside: auto;
           }
           .print-area .print-table thead { display: table-header-group; }
           .print-area .print-table tr { page-break-inside: avoid; page-break-after: auto; }
-          
+
           .print-area .print-table th, .print-area .print-table td {
             border: 1px solid #000 !important;
             padding: 3px 4px !important;
@@ -189,9 +240,7 @@ const PrintDeliveryPage: React.FC = () => {
           }
           .print-area .print-table th { font-weight: bold; text-align: center; background-color: transparent !important; }
           .print-area .print-table .col-name,
-          .print-area .print-table .col-product {
-            padding: 3px 5px !important;
-          }
+          .print-area .print-table .col-product { padding: 3px 5px !important; }
           .print-area .print-table .col-qty,
           .print-area .print-table td.col-qty-cell {
             padding: 3px 2px !important;
@@ -200,20 +249,21 @@ const PrintDeliveryPage: React.FC = () => {
           }
           .print-area .print-table .col-slot-num,
           .print-area .print-table .col-slot-ba,
-          .print-area .print-table .col-slot-kho,
           .print-area .print-table .col-slot-num-head,
-          .print-area .print-table .col-slot-ba-head,
-          .print-area .print-table .col-slot-kho-head {
-            font-size: 16px !important;
+          .print-area .print-table .col-slot-ba-head {
+            font-size: 18px !important;
             padding: 1px 0 !important;
             line-height: 1.1;
             white-space: nowrap;
             letter-spacing: -0.02em;
           }
           .print-area .print-table .col-slot-num-head,
-          .print-area .print-table .col-slot-ba-head,
-          .print-area .print-table .col-slot-kho-head { font-weight: bold; }
-          
+          .print-area .print-table .col-slot-ba-head { font-weight: bold; }
+          .print-area .print-table .col-check-cell {
+            text-align: center !important;
+            font-size: 16px !important;
+            padding: 2px 0 !important;
+          }
           .print-area .print-table tr.print-header-repeat th {
             border: none !important;
             background: transparent !important;
@@ -222,10 +272,9 @@ const PrintDeliveryPage: React.FC = () => {
             text-align: center;
           }
           .print-sheet-date {
-            font-size: 16px !important;
+            font-size: 18px !important;
             font-weight: bold;
           }
-
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
 
@@ -240,15 +289,13 @@ const PrintDeliveryPage: React.FC = () => {
             border-radius: 8px;
           }
           .print-area .print-table {
-            font-size: 16px;
+            font-size: 18px;
           }
           .print-area .print-table .col-slot-num,
           .print-area .print-table .col-slot-ba,
-          .print-area .print-table .col-slot-kho,
           .print-area .print-table .col-slot-num-head,
-          .print-area .print-table .col-slot-ba-head,
-          .print-area .print-table .col-slot-kho-head {
-            font-size: 16px;
+          .print-area .print-table .col-slot-ba-head {
+            font-size: 18px;
             padding: 3px 2px !important;
             white-space: nowrap;
           }
@@ -262,12 +309,14 @@ const PrintDeliveryPage: React.FC = () => {
           }
         }
         
-        .print-table { width: 100%; border-collapse: collapse; font-family: "Times New Roman", Times, serif; font-size: 16px; }
-        .print-table th, .print-table td { border: 1px solid #000 !important; padding: 4px 6px !important; }
+        .print-table { width: 100%; border-collapse: collapse; font-family: "Times New Roman", Times, serif; font-size: 18px; }
+        .print-table th, .print-table td { border: 1px solid #000 !important; padding: 2px 4px !important; }
         .print-table th { font-weight: bold; text-align: center; }
+        .print-table tbody tr { height: 28px; min-height: 28px; }
+        .print-table tr.empty-fill-row td { height: 28px; min-height: 28px; line-height: 28px; padding: 0 !important; border: 1px solid #000 !important; }
       `}</style>
 
-      <div className="no-print animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col min-h-0">
+      <div className="no-print animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex flex-col mb-6">
         <div className="flex items-center gap-3 mb-4">
           <button
             onClick={() => navigate(-1)}
@@ -324,74 +373,100 @@ const PrintDeliveryPage: React.FC = () => {
         </div>
       ) : (
         <div className="print-area">
-          {sortedDates.map((date) => (
-            <div key={date} className="print-section print-sheet">
-              <table className="print-table">
-                <colgroup>
-                  <col className="print-col-name" />
-                  <col className="print-col-qty" />
-                  <col className="print-col-product" />
-                  {PRINT_VEHICLE_SLOTS.map((c) => (
-                    <col key={c} className={printColClassForSlot(c)} />
-                  ))}
-                </colgroup>
-                <thead>
-                  <tr className="print-header-repeat">
-                    <th colSpan={PRINT_TABLE_COL_COUNT} className="text-left !p-0">
-                      <div className="print-header-bar flex justify-between items-end w-full">
-                        <div className="print-header-date print-sheet-date text-[16px] font-bold text-left">
-                          Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}
-                        </div>
-                        <div className="print-sheet-date text-[16px] font-bold text-right" style={{ paddingRight: '20px' }}>
-                          Tờ:
-                        </div>
-                      </div>
-                    </th>
-                  </tr>
-                  <tr>
-                    <th className="col-name text-left border border-black align-middle">Tên Khách</th>
-                    <th className="col-qty border border-black align-middle text-center">SL</th>
-                    <th className="col-product text-left border border-black align-middle">Hàng</th>
-                    {PRINT_VEHICLE_SLOTS.map((col) => {
-                      const headCls =
-                        col === 'ba' ? 'col-slot-ba-head' : col === 'kho' ? 'col-slot-kho-head' : 'col-slot-num-head';
-                      return (
-                        <th key={col} className={`${headCls} text-center border border-black`}>
-                          {col}
+          {sortedDates.flatMap((date) => {
+            const dateOrders = groupedOrders[date];
+            const pages = paginateOrders(dateOrders);
+            return pages.map((pageOrders, pageIdx) => {
+              const usedSlots = pageOrders.reduce(
+                (sum, o) => sum + estimateRowSlots(getReceiverDisplayName(o), getDisplayProductName(o)), 0
+              );
+              const emptyCount = PAGE_SLOTS - usedSlots;
+              return (
+                <div key={`${date}-p${pageIdx}`} className="print-section print-sheet">
+                  <table className="print-table">
+                    <colgroup>
+                      <col className="print-col-check" />
+                      <col className="print-col-name" />
+                      <col className="print-col-qty" />
+                      <col className="print-col-product" />
+                      {PRINT_VEHICLE_SLOTS.map((c) => (
+                        <col key={c} className={printColClassForSlot(c)} />
+                      ))}
+                    </colgroup>
+                    <thead>
+                      <tr className="print-header-repeat">
+                        <th colSpan={PRINT_TABLE_COL_COUNT} className="text-left !p-0">
+                          <div className="print-header-bar flex justify-between items-end w-full">
+                            <div className="print-header-date print-sheet-date text-[18px] font-bold text-left">
+                              Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}
+                            </div>
+                            <div className="print-sheet-date text-[18px] font-bold text-right" style={{ paddingRight: '20px' }}>
+                              Tờ:
+                            </div>
+                          </div>
                         </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {groupedOrders[date].map(o => (
-                    <tr key={o.id}>
-                      <td className="text-left font-medium border border-black">{getReceiverDisplayName(o)}</td>
-                      <td className="col-qty-cell text-center font-bold border border-black tabular-nums">{o.total_quantity || ''}</td>
-                      <td className="text-left border border-black">{getDisplayProductName(o)}</td>
-                      {PRINT_VEHICLE_SLOTS.map((col) => {
-                        const qty = qtyForPrintSlot(o, col);
-                        const cellCls =
-                          col === 'ba' ? 'col-slot-ba' : col === 'kho' ? 'col-slot-kho' : 'col-slot-num';
+                      </tr>
+                      <tr>
+                        <th className="col-check border border-black align-middle text-center"></th>
+                        <th className="col-name text-left border border-black align-middle">Tên Khách</th>
+                        <th className="col-qty border border-black align-middle text-center">SL</th>
+                        <th className="col-product text-left border border-black align-middle">Hàng</th>
+                        {PRINT_VEHICLE_SLOTS.map((col) => {
+                          const headCls = col === 'ba' ? 'col-slot-ba-head' : 'col-slot-num-head';
+                          return (
+                            <th key={col} className={`${headCls} text-center border border-black`}>
+                              {col}
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pageOrders.map(o => {
+                        const assignedTotal = (o.delivery_vehicles || []).reduce(
+                          (sum, dv) => sum + (dv.assigned_quantity || 0), 0
+                        );
+                        const isFullyDelivered = assignedTotal > 0 && assignedTotal >= o.total_quantity;
                         return (
-                          <td
-                            key={col}
-                            className={`${cellCls} text-center font-bold border border-black tabular-nums`}
-                            style={{ color: '#dc2626' }}
-                          >
-                            {qty > 0 ? qty : ''}
-                          </td>
+                          <tr key={o.id}>
+                            <td className="col-check-cell text-center border border-black">
+                              {isFullyDelivered ? '✓' : ''}
+                            </td>
+                            <td className="text-left font-medium border border-black">{getReceiverDisplayName(o)}</td>
+                            <td className="col-qty-cell text-center font-bold border border-black tabular-nums">{o.total_quantity || ''}</td>
+                            <td className="text-left border border-black">{getDisplayProductName(o)}</td>
+                            {PRINT_VEHICLE_SLOTS.map((col) => {
+                              const qty = qtyForPrintSlot(o, col);
+                              const cellCls = col === 'ba' ? 'col-slot-ba' : 'col-slot-num';
+                              return (
+                                <td
+                                  key={col}
+                                  className={`${cellCls} text-center font-bold border border-black tabular-nums`}
+                                  style={{ color: '#dc2626' }}
+                                >
+                                  {qty > 0 ? qty : ''}
+                                </td>
+                              );
+                            })}
+                          </tr>
                         );
                       })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ))}
+                      {Array.from({ length: emptyCount }).map((_, i) => (
+                        <tr key={`empty-${i}`} className="empty-fill-row">
+                          {Array.from({ length: PRINT_TABLE_COL_COUNT }).map((_, j) => (
+                            <td key={j} style={{ height: `${ROW_HEIGHT_PX}px`, lineHeight: `${ROW_HEIGHT_PX}px`, border: '1px solid #000', padding: 0 }}>&nbsp;</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            });
+          })}
         </div>
       )}
-    </>
+    </div>
   );
 };
 

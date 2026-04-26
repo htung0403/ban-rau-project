@@ -252,3 +252,82 @@
     background: linear-gradient(to bottom, rgba(15, 23, 42, 0.2), rgba(15, 23, 42, 0.5));
   }
 }
+/* Print styles for loyal customer invoice */
+@media print {
+  /* Hide everything except the orders table */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show the print area */
+  [data-print-area="loyal-orders"],
+  [data-print-area="loyal-orders"] * {
+    visibility: visible;
+  }
+
+  [data-print-area="loyal-orders"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+
+  /* Hide unchecked rows */
+  [data-print-row="false"] {
+    display: none !important;
+  }
+
+  /* Hide checkboxes and action bar in print */
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  /* Clean table styling for print */
+  [data-print-area="loyal-orders"] table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  [data-print-area="loyal-orders"] th,
+  [data-print-area="loyal-orders"] td {
+    border: 1px solid #ccc;
+    padding: 6px 8px;
+  }
+
+  [data-print-area="loyal-orders"] th {
+    background-color: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide input borders, show value as text */
+  [data-print-area="loyal-orders"] input[type="number"] {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    outline: none !important;
+  }
+
+  /* Print header */
+  .print-header {
+    visibility: visible;
+    display: block !important;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .print-header h2 {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 0;
+  }
+
+  .print-header p {
+    font-size: 13px;
+    color: #666;
+    margin: 4px 0;
+  }
+}
+

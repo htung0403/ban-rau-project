@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import PageHeader from '../../components/shared/PageHeader';
-import { useCustomer, useCustomerOrders, useCustomerExportOrders, useCustomerReceipts } from '../../hooks/queries/useCustomers';
+import { useCustomer, useCustomerOrders, useCustomerExportOrders, useCustomerReceipts, useCustomerDeliveryOrders, useUpdateDeliveryOrderPrices } from '../../hooks/queries/useCustomers';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
 import EmptyState from '../../components/shared/EmptyState';
-import { Phone, MapPin, Building2, PackageCheck, FileSpreadsheet, Receipt, Clock, Wallet } from 'lucide-react';
+import { Phone, MapPin, Building2, PackageCheck, FileSpreadsheet, Receipt, Clock, Wallet, Printer, ShoppingBag, Save } from 'lucide-react';
 import StatusBadge from '../../components/shared/StatusBadge';
 import CollectDebtDialog from './dialogs/CollectDebtDialog';
 import { clsx } from 'clsx';
@@ -37,14 +37,7 @@ const getCustomerTypeBadge = (type?: string) => {
   }
 };
 
-const TABS = [
-  { id: 'overview', label: 'Tổng quan', mobileLabel: 'Tổng quan', icon: Building2 },
-  { id: 'imports', label: 'Phiếu nhập', mobileLabel: 'Nhập', icon: PackageCheck },
-  { id: 'exports', label: 'Phiếu xuất', mobileLabel: 'Xuất', icon: FileSpreadsheet },
-  { id: 'receipts', label: 'Lịch sử thu nợ', mobileLabel: 'Thu nợ', icon: Receipt },
-] as const;
-
-type TabId = typeof TABS[number]['id'];
+type TabId = 'overview' | 'imports' | 'exports' | 'receipts' | 'orders';
 
 const CustomerDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -57,6 +50,23 @@ const CustomerDetailPage: React.FC = () => {
   const { data: importOrders, isLoading: isLoadingImports } = useCustomerOrders(id!);
   const { data: exportOrders, isLoading: isLoadingExports } = useCustomerExportOrders(id!);
   const { data: receipts, isLoading: isLoadingReceipts } = useCustomerReceipts(id!);
+  const { data: deliveryOrders, isLoading: isLoadingDeliveryOrders } = useCustomerDeliveryOrders(customer?.is_loyal ? id! : '');
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [editingPrices, setEditingPrices] = useState<Record<string, number>>({});
+  const updatePrices = useUpdateDeliveryOrderPrices();
+
+  const TABS = React.useMemo(() => {
+    const baseTabs: { id: TabId; label: string; mobileLabel: string; icon: any }[] = [
+      { id: 'overview', label: 'Tổng quan', mobileLabel: 'Tổng quan', icon: Building2 },
+      { id: 'imports', label: 'Phiếu nhập', mobileLabel: 'Nhập', icon: PackageCheck },
+      { id: 'exports', label: 'Phiếu xuất', mobileLabel: 'Xuất', icon: FileSpreadsheet },
+      { id: 'receipts', label: 'Lịch sử thu nợ', mobileLabel: 'Thu nợ', icon: Receipt },
+    ];
+    if (customer?.is_loyal) {
+      baseTabs.push({ id: 'orders', label: 'Đơn hàng', mobileLabel: 'Đơn hàng', icon: ShoppingBag });
+    }
+    return baseTabs;
+  }, [customer?.is_loyal]);
   const { setDynamicLabel } = useBreadcrumbs();
   const location = useLocation();
 
@@ -81,10 +91,41 @@ const CustomerDetailPage: React.FC = () => {
     }, 350);
   };
 
+  const handleSavePrices = async () => {
+    if (selectedOrderIds.size === 0 || !id) return;
+    const updates = Array.from(selectedOrderIds)
+      .map(orderId => {
+        const order = deliveryOrders?.find((o: any) => o.id === orderId);
+        if (!order) return null;
+        const price = editingPrices[orderId] ?? order.unit_price ?? 0;
+        return {
+          delivery_order_id: orderId,
+          unit_price: price,
+          price_confirmed: true,
+        };
+      })
+      .filter(Boolean) as Array<{ delivery_order_id: string; unit_price: number; price_confirmed: boolean }>;
+
+    if (updates.length === 0) return;
+
+    try {
+      await updatePrices.mutateAsync({ customerId: id, updates });
+      setSelectedOrderIds(new Set());
+      setEditingPrices({});
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   if (isLoadingCustomer) return <div className="p-6"><LoadingSkeleton rows={5} /></div>;
   if (isErrorCustomer || !customer) return <ErrorState onRetry={() => navigate('/ke-toan')} />;
 
   const getBackPath = (type?: string) => {
+    if (customer?.is_loyal) return '/khach-hang/khach-hang-than-thiet';
     switch (type) {
       case 'wholesale': return '/khach-hang/vua-rau';
       case 'grocery': return '/khach-hang/nguoi-gui-tap-hoa';
@@ -115,7 +156,10 @@ const CustomerDetailPage: React.FC = () => {
       </div>
 
       {/* Tabs Menu */}
-      <div className="grid grid-cols-4 gap-1 md:flex md:gap-2 mb-0 md:mb-4 p-2 md:p-1 bg-white md:bg-transparent -mx-4 sm:mx-0 border-b md:border-0 border-border/50 shrink-0">
+      <div className={clsx(
+        "grid gap-1 md:flex md:gap-2 mb-0 md:mb-4 p-2 md:p-1 bg-white md:bg-transparent -mx-4 sm:mx-0 border-b md:border-0 border-border/50 shrink-0",
+        TABS.length === 5 ? "grid-cols-5" : "grid-cols-4"
+      )}>
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -406,6 +450,208 @@ const CustomerDetailPage: React.FC = () => {
                   ))}
                 </div>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB: ORDERS (Loyal customers only) */}
+        {activeTab === 'orders' && customer?.is_loyal && (
+          <div className="flex-1 overflow-auto custom-scrollbar flex flex-col">
+            {/* Action bar */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-muted/10 shrink-0" data-print-hide>
+              <span className="text-[13px] font-bold text-muted-foreground">
+                {selectedOrderIds.size > 0 ? `Đã chọn ${selectedOrderIds.size} đơn hàng` : 'Đơn hàng giao cho khách'}
+              </span>
+              <div className="flex items-center gap-2">
+                {selectedOrderIds.size > 0 && (
+                  <>
+                    <button
+                      onClick={handleSavePrices}
+                      disabled={updatePrices.isPending}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-[12px] font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    >
+                      <Save size={14} />
+                      Lưu đơn giá
+                    </button>
+                    <button
+                      onClick={handlePrint}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[12px] font-bold hover:bg-emerald-700 transition-colors"
+                    >
+                      <Printer size={14} />
+                      In phiếu
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {isLoadingDeliveryOrders ? (
+              <div className="p-4"><LoadingSkeleton rows={5} columns={7} /></div>
+            ) : !deliveryOrders?.length ? (
+              <EmptyState title="Không có đơn hàng" />
+            ) : (
+              <>
+                {/* Desktop Table */}
+                <div className="hidden md:block flex-1 overflow-auto" data-print-area="loyal-orders">
+                  <div className="print-header hidden">
+                    <h2>PHIẾU GIAO HÀNG</h2>
+                    <p>Khách hàng: {customer.name}</p>
+                    <p>Điện thoại: {customer.phone || '-'} | Địa chỉ: {customer.address || '-'}</p>
+                  </div>
+                  <table className="w-full border-collapse min-w-[900px]">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="bg-muted/30 border-b border-border">
+                        <th className="px-4 py-3 w-10" data-print-hide>
+                          <input
+                            type="checkbox"
+                            checked={selectedOrderIds.size > 0 && selectedOrderIds.size === deliveryOrders.length}
+                            onChange={() => {
+                              if (selectedOrderIds.size === deliveryOrders.length) {
+                                setSelectedOrderIds(new Set());
+                              } else {
+                                setSelectedOrderIds(new Set(deliveryOrders.map((o: any) => o.id)));
+                              }
+                            }}
+                            className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
+                          />
+                        </th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Ngày giờ giao</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Số lượng</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Tên hàng</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Đơn giá</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Nhân viên giao</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Thành tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {deliveryOrders.map((o: any) => {
+                        const currentPrice = editingPrices[o.id] ?? o.unit_price ?? 0;
+                        const thanhTien = o.total_quantity * currentPrice;
+                        const driverNames = (o.delivery_vehicles || [])
+                          .map((dv: any) => dv.profiles?.full_name)
+                          .filter(Boolean)
+                          .join(', ') || '-';
+                        const deliveryDateTime = [
+                          o.delivery_date ? formatDate(o.delivery_date) : '-',
+                          o.delivery_time ? o.delivery_time.slice(0, 5) : '',
+                        ].filter(Boolean).join(' ');
+
+                        return (
+                          <tr
+                            key={o.id}
+                            className={clsx(
+                              "hover:bg-muted/20 transition-colors",
+                              o.price_confirmed && "bg-emerald-50/30",
+                              selectedOrderIds.has(o.id) && "bg-primary/5"
+                            )}
+                            data-print-row={selectedOrderIds.has(o.id) ? "true" : "false"}
+                          >
+                            <td className="px-4 py-3" data-print-hide>
+                              <input
+                                type="checkbox"
+                                checked={selectedOrderIds.has(o.id)}
+                                onChange={() => {
+                                  setSelectedOrderIds(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(o.id)) next.delete(o.id);
+                                    else next.add(o.id);
+                                    return next;
+                                  });
+                                }}
+                                className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{deliveryDateTime}</td>
+                            <td className="px-4 py-3 text-[13px] font-bold text-right tabular-nums">{o.total_quantity}</td>
+                            <td className="px-4 py-3 text-[13px] font-bold text-foreground">{o.product_name}</td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="number"
+                                value={editingPrices[o.id] ?? o.unit_price ?? ''}
+                                onChange={(e) => {
+                                  setEditingPrices(prev => ({
+                                    ...prev,
+                                    [o.id]: Number(e.target.value) || 0,
+                                  }));
+                                }}
+                                placeholder="Nhập giá"
+                                className="w-28 px-2 py-1 text-[13px] font-bold text-right tabular-nums border border-border rounded-lg focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none bg-white"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-[12px] text-muted-foreground">{driverNames}</td>
+                            <td className="px-4 py-3 text-[13px] font-bold text-emerald-600 text-right tabular-nums">
+                              {formatCurrency(thanhTien)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile View */}
+                <div className="md:hidden flex flex-col gap-3 px-4 pb-24 pt-2">
+                  {deliveryOrders.map((o: any) => {
+                    const currentPrice = editingPrices[o.id] ?? o.unit_price ?? 0;
+                    const thanhTien = o.total_quantity * currentPrice;
+                    const driverNames = (o.delivery_vehicles || [])
+                      .map((dv: any) => dv.profiles?.full_name)
+                      .filter(Boolean)
+                      .join(', ') || '-';
+
+                    return (
+                      <div key={o.id} className="bg-white p-4 rounded-2xl shadow-sm border border-border flex flex-col gap-3">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-[14px] font-bold text-foreground">{o.product_name}</span>
+                            <span className="text-[12px] text-muted-foreground block">
+                              {o.delivery_date ? formatDate(o.delivery_date) : '-'}
+                              {o.delivery_time ? ` ${o.delivery_time.slice(0, 5)}` : ''}
+                            </span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={selectedOrderIds.has(o.id)}
+                            onChange={() => {
+                              setSelectedOrderIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(o.id)) next.delete(o.id);
+                                else next.add(o.id);
+                                return next;
+                              });
+                            }}
+                            className="w-4 h-4 mt-1"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 border-t border-border/50 pt-3">
+                          <div>
+                            <span className="text-[11px] text-muted-foreground">SL</span>
+                            <span className="text-[13px] font-bold block">{o.total_quantity}</span>
+                          </div>
+                          <div>
+                            <span className="text-[11px] text-muted-foreground">Đơn giá</span>
+                            <input
+                              type="number"
+                              value={editingPrices[o.id] ?? o.unit_price ?? ''}
+                              onChange={(e) => setEditingPrices(prev => ({ ...prev, [o.id]: Number(e.target.value) || 0 }))}
+                              placeholder="Nhập giá"
+                              className="w-full px-2 py-1 text-[13px] font-bold border border-border rounded-lg outline-none"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[11px] text-muted-foreground">NV giao</span>
+                            <span className="text-[12px] block">{driverNames}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[11px] text-muted-foreground">Thành tiền</span>
+                            <span className="text-[13px] font-bold text-emerald-600 block">{formatCurrency(thanhTien)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
         )}

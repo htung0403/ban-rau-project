@@ -58,6 +58,7 @@ CREATE TABLE public.customers (
   total_orders INTEGER DEFAULT 0,
   total_revenue NUMERIC(15,2) DEFAULT 0,
   debt NUMERIC(15,2) DEFAULT 0,
+  is_loyal BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -186,6 +187,7 @@ CREATE TABLE public.delivery_orders (
   delivery_time TIME WITHOUT TIME ZONE,
   driver_delivered_at TIMESTAMPTZ,
   confirmed_at TIMESTAMPTZ,
+  price_confirmed BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

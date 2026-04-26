@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/shared/PageHeader';
-import { useCustomers, useDeleteCustomer, useBulkSetLoyal } from '../../hooks/queries/useCustomers';
+import { useLoyalCustomers, useDeleteCustomer } from '../../hooks/queries/useCustomers';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Plus, Pencil, Trash2, Heart } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import AddEditCustomerDialog from './dialogs/AddEditCustomerDialog';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
@@ -31,12 +31,8 @@ const getCustomerTypeBadge = (type?: string) => {
   }
 };
 
-interface Props {
-  type?: 'grocery_sender' | 'grocery_receiver' | 'grocery';
-}
-
-const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
-  const { data: customers, isLoading, isError, refetch } = useCustomers(type);
+const LoyalCustomersPage: React.FC = () => {
+  const { data: customers, isLoading, isError, refetch } = useLoyalCustomers();
   const deleteCustomer = useDeleteCustomer();
   const navigate = useNavigate();
 
@@ -46,10 +42,6 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const bulkSetLoyal = useBulkSetLoyal();
-  const showLoyalCheckbox = type === 'grocery_sender';
 
   const closeAddDialog = () => {
     setIsAddClosing(true);
@@ -102,52 +94,18 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }));
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.size === filteredAndSortedCustomers.length && filteredAndSortedCustomers.length > 0) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredAndSortedCustomers.map(c => c.id)));
-    }
-  };
-
-  const handleBulkLoyal = async () => {
-    if (selectedIds.size === 0) return;
-    try {
-      await bulkSetLoyal.mutateAsync(Array.from(selectedIds));
-      setSelectedIds(new Set());
-    } catch {
-      // Error handled by mutation
-    }
-  };
-
-  const pageTitle = type === 'grocery_sender' ? "DS người gửi hàng tạp hóa" : 
-                    type === 'grocery_receiver' ? "DS người nhận hàng tạp hóa" : 
-                    "Danh sách KH Tạp hóa";
-
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
       <div className="hidden md:block">
         <PageHeader
-          title={pageTitle}
-          description="Quản lý khách hàng tạp hóa"
+          title="Khách hàng thân thiết"
+          description="Quản lý khách hàng thân thiết"
           backPath="/khach-hang"
           actions={
             <div className="flex items-center gap-3">
               <SearchInput
                 placeholder="Tìm kiếm khách hàng..."
-                onSearch={(raw) => {
-                  setSearchTerm(raw);
-                  setSelectedIds(new Set());
-                }}
+                onSearch={(raw) => setSearchTerm(raw)}
                 className="w-64"
               />
               <button
@@ -166,28 +124,9 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
       <div className="md:hidden px-4 mb-3">
         <SearchInput
           placeholder="Tìm kiếm khách hàng..."
-          onSearch={(raw) => {
-            setSearchTerm(raw);
-            setSelectedIds(new Set());
-          }}
+          onSearch={(raw) => setSearchTerm(raw)}
         />
       </div>
-
-      {showLoyalCheckbox && selectedIds.size > 0 && (
-        <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl mb-2 mx-0 sm:mx-0">
-          <span className="text-[13px] font-bold text-amber-800">
-            Đã chọn {selectedIds.size} khách hàng
-          </span>
-          <button
-            onClick={handleBulkLoyal}
-            disabled={bulkSetLoyal.isPending}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-white text-[13px] font-bold hover:bg-amber-600 shadow-sm transition-all disabled:opacity-50"
-          >
-            <Heart size={14} />
-            Chuyển thành KH thân thiết
-          </button>
-        </div>
-      )}
 
       <div className="md:bg-white md:rounded-2xl md:border md:border-border md:shadow-sm flex flex-col flex-1 min-h-0 md:overflow-hidden -mx-4 sm:mx-0">
         {isLoading ? (
@@ -203,16 +142,6 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-muted/30 border-b border-border">
-                    {showLoyalCheckbox && (
-                      <th className="px-4 py-3 w-10">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.size > 0 && selectedIds.size === filteredAndSortedCustomers.length}
-                          onChange={toggleSelectAll}
-                          className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
-                        />
-                      </th>
-                    )}
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Tên KH</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-42">Loại KH</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">SDT</th>
@@ -225,24 +154,14 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
                 </thead>
                 <tbody className="divide-y divide-border/50">
                   {filteredAndSortedCustomers.map((c) => (
-                      <tr
-                        key={c.id}
-                        className="hover:bg-muted/20 transition-colors cursor-pointer"
-                        onClick={() => {
-                          if (c.id) navigate(`/ke-toan/khach-hang/${c.id}`);
-                        }}
-                      >
-                        {showLoyalCheckbox && (
-                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={selectedIds.has(c.id)}
-                              onChange={() => toggleSelect(c.id)}
-                              className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
-                            />
-                          </td>
-                        )}
-                        <td className="px-4 py-3">
+                    <tr
+                      key={c.id}
+                      className="hover:bg-muted/20 transition-colors cursor-pointer"
+                      onClick={() => {
+                        if (c.id) navigate(`/ke-toan/khach-hang/${c.id}`);
+                      }}
+                    >
+                      <td className="px-4 py-3">
                         <div>
                           <span className="text-[13px] font-bold text-foreground hover:underline decoration-primary/30">
                             {c.name}
@@ -388,7 +307,6 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
         onClose={closeAddDialog}
         mode={selectedCustomer ? 'edit' : 'create'}
         customer={selectedCustomer}
-        defaultType={type}
       />
 
       <ConfirmDialog
@@ -406,4 +324,4 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
   );
 };
 
-export default GroceryCustomersPage;
+export default LoyalCustomersPage;

@@ -1,5 +1,5 @@
 import axiosClient from './axiosClient';
-import type { Customer } from '../types';
+import type { Customer, DeliveryOrder } from '../types';
 
 export const customersApi = {
   getAll: async (type?: string) => {
@@ -59,6 +59,26 @@ export const customersApi = {
 
   createAccount: async (payload: { customer_id: string; email: string; password: string }) => {
     const { data } = await axiosClient.post('/customers/create-account', payload);
+    return data;
+  },
+
+  getLoyalCustomers: async () => {
+    const { data } = await axiosClient.get<Customer[]>('/customers', { params: { is_loyal: 'true' } });
+    return data;
+  },
+
+  bulkSetLoyal: async (ids: string[]) => {
+    const { data } = await axiosClient.put('/customers/bulk-loyal', { customer_ids: ids, is_loyal: true });
+    return data;
+  },
+
+  getDeliveryOrders: async (customerId: string) => {
+    const { data } = await axiosClient.get<DeliveryOrder[]>(`/customers/${customerId}/delivery-orders`);
+    return data;
+  },
+
+  updateDeliveryOrderPrices: async ({ customerId, updates }: { customerId: string; updates: any[] }) => {
+    const { data } = await axiosClient.put(`/customers/${customerId}/delivery-order-prices`, { updates });
     return data;
   },
 };

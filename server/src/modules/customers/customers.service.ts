@@ -4,14 +4,78 @@ import { hashPassword } from '../../utils/password';
 import { normalizeEntityNameKey } from '../../utils/normalizeEntityName';
 
 export class CustomerService {
-  static async getAll(type?: string) {
+  static async getAll(type?: string, isLoyal?: boolean) {
     let query = supabaseService.from('customers').select('*').is('deleted_at', null);
     if (type) {
       query = query.eq('customer_type', type);
     }
+    if (isLoyal !== undefined) {
+      query = query.eq('is_loyal', isLoyal);
+    }
     const { data, error } = await query;
     if (error) throw error;
     return data;
+  }
+
+  static async bulkSetLoyal(customerIds: string[], isLoyal: boolean) {
+    if (!customerIds || customerIds.length === 0) return [];
+    
+    const { data, error } = await supabaseService
+      .from('customers')
+      .update({ is_loyal: isLoyal })
+      .in('id', customerIds)
+      .select();
+      
+    if (error) throw error;
+    return data;
+  }
+
+  static async getDeliveryOrders(id: string) {
+    const { data: importOrders, error: ioError } = await supabaseService
+      .from('import_orders')
+      .select('id')
+      .eq('customer_id', id);
+      
+    if (ioError) throw ioError;
+    if (!importOrders || importOrders.length === 0) return [];
+
+    const importOrderIds = importOrders.map((o: any) => o.id);
+    const CHUNK_SIZE = 100;
+    const allDeliveryOrders: any[] = [];
+    
+    for (let i = 0; i < importOrderIds.length; i += CHUNK_SIZE) {
+      const chunk = importOrderIds.slice(i, i + CHUNK_SIZE);
+      const { data, error } = await supabaseService
+        .from('delivery_orders')
+        .select('*, delivery_vehicles(*, profiles:driver_id(full_name))')
+        .eq('order_category', 'standard')
+        .in('import_order_id', chunk);
+        
+      if (error) throw error;
+      if (data) allDeliveryOrders.push(...data);
+    }
+    
+    return allDeliveryOrders;
+  }
+
+  static async updateDeliveryOrderPrices(customerId: string, updates: { deliveryOrderId: string, unitPrice: number }[]) {
+    const results = [];
+    for (const update of updates) {
+      const { data, error } = await supabaseService
+        .from('delivery_orders')
+        .update({ 
+          unit_price: update.unitPrice, 
+          price_confirmed: true 
+        })
+        .eq('id', update.deliveryOrderId)
+        .select();
+        
+      if (error) throw error;
+      if (data && data.length > 0) {
+         results.push(data[0]);
+      }
+    }
+    return results;
   }
 
   static async getById(id: string) {

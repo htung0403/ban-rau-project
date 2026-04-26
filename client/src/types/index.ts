@@ -166,6 +166,7 @@ export interface Customer {
   total_orders: number;
   total_revenue: number;
   debt: number;
+  is_loyal?: boolean;
   created_at: string;
   deleted_at?: string | null;
 }
@@ -300,6 +301,7 @@ export interface DeliveryOrder {
   /** Thời điểm admin xác nhận đã giao hàng tồn kho — khi set thì ẩn khỏi trang Tồn kho */
   warehouse_confirmed_at?: string | null;
   export_order_payment_status?: PaymentStatus;
+  price_confirmed?: boolean;
   created_at: string;
   updated_at: string;
   // Nested

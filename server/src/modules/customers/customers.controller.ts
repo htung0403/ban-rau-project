@@ -16,6 +16,19 @@ const updateCustomerSchema = z.object({
   phone: z.string().nullable().optional(),
   address: z.string().nullable().optional(),
   customer_type: z.enum(['retail', 'wholesale', 'grocery', 'vegetable', 'grocery_sender', 'grocery_receiver', 'vegetable_sender', 'vegetable_receiver']).optional(),
+  is_loyal: z.boolean().optional(),
+});
+
+const bulkLoyalSchema = z.object({
+  customer_ids: z.array(z.string().uuid()),
+  is_loyal: z.boolean(),
+});
+
+const updatePricesSchema = z.object({
+  updates: z.array(z.object({
+    deliveryOrderId: z.string().uuid(),
+    unitPrice: z.number().min(0),
+  })),
 });
 
 const debtPaymentSchema = z.object({
@@ -36,8 +49,41 @@ export class CustomerController {
   static async getAll(req: Request, res: Response) {
     try {
       const type = req.query.type as string | undefined;
-      const data = await CustomerService.getAll(type);
+      let isLoyal: boolean | undefined = undefined;
+      if (req.query.is_loyal !== undefined) {
+        isLoyal = req.query.is_loyal === 'true';
+      }
+      const data = await CustomerService.getAll(type, isLoyal);
       return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async bulkSetLoyal(req: Request, res: Response) {
+    try {
+      const validated = bulkLoyalSchema.parse(req.body);
+      const data = await CustomerService.bulkSetLoyal(validated.customer_ids, validated.is_loyal);
+      return res.status(200).json(successResponse(data, 'Customers loyalty status updated'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async getDeliveryOrders(req: Request, res: Response) {
+    try {
+      const data = await CustomerService.getDeliveryOrders(req.params.id as string);
+      return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async updateDeliveryOrderPrices(req: Request, res: Response) {
+    try {
+      const validated = updatePricesSchema.parse(req.body);
+      const data = await CustomerService.updateDeliveryOrderPrices(req.params.id as string, validated.updates as { deliveryOrderId: string, unitPrice: number }[]);
+      return res.status(200).json(successResponse(data, 'Delivery order prices updated'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
     }

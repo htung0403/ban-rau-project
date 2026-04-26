@@ -1,0 +1,1 @@
+Frontend types added: is_loyal in Customer, price_confirmed in DeliveryOrder. API methods and React Query hooks added for getLoyalCustomers, bulkSetLoyal, getDeliveryOrders, and updateDeliveryOrderPrices.

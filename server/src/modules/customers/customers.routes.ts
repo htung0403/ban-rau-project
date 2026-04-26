@@ -20,6 +20,12 @@ router.post(
 );
 
 router.put(
+	'/bulk-loyal',
+	requirePolicy('CUSTOMERS_SHARED_LOOKUP'),
+	CustomerController.bulkSetLoyal
+);
+
+router.put(
 	'/:id',
 	requirePolicy('CUSTOMERS_SHARED_LOOKUP'),
 	CustomerController.update
@@ -40,6 +46,8 @@ router.get(
 router.get('/user/:userId', requirePolicy('PROFILE_VIEW'), CustomerController.getByUserId);
 router.get('/:id/orders', requirePolicy('CUSTOMERS_DIRECTORY_READ'), CustomerController.getOrders);
 router.get('/:id/export-orders', requirePolicy('CUSTOMERS_DIRECTORY_READ'), CustomerController.getExportOrders);
+router.get('/:id/delivery-orders', requirePolicy('CUSTOMERS_DIRECTORY_READ'), CustomerController.getDeliveryOrders);
+router.put('/:id/delivery-order-prices', requirePolicy('CUSTOMERS_DIRECTORY_READ'), CustomerController.updateDeliveryOrderPrices);
 router.get('/:id/receipts', requirePolicy('CUSTOMERS_DIRECTORY_READ'), CustomerController.getReceipts);
 router.get('/:id/debt', requirePolicy('ACCOUNTING_DEBT_MANAGE'), CustomerController.getDebt);
 router.put('/:id/payment', requirePolicy('ACCOUNTING_DEBT_MANAGE'), CustomerController.updatePayment);

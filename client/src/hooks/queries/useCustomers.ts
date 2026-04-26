@@ -5,8 +5,10 @@ import toast from 'react-hot-toast';
 export const customerKeys = {
   all: ['customers'] as const,
   list: (type?: string) => [...customerKeys.all, 'list', type] as const,
+  loyalList: () => [...customerKeys.all, 'loyalList'] as const,
   detail: (id: string) => [...customerKeys.all, 'detail', id] as const,
   orders: (id: string) => [...customerKeys.all, 'orders', id] as const,
+  deliveryOrders: (id: string) => [...customerKeys.all, 'deliveryOrders', id] as const,
   exportOrders: (id: string) => [...customerKeys.all, 'export-orders', id] as const,
   receipts: (id: string) => [...customerKeys.all, 'receipts', id] as const,
 };
@@ -115,5 +117,44 @@ export function useUpdateCustomerPayment() {
       toast.success('Thanh toán công nợ thành công');
     },
     onError: () => toast.error('Lỗi khi thanh toán công nợ'),
+  });
+}
+
+export function useLoyalCustomers() {
+  return useQuery({
+    queryKey: customerKeys.loyalList(),
+    queryFn: customersApi.getLoyalCustomers,
+  });
+}
+
+export function useBulkSetLoyal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: customersApi.bulkSetLoyal,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+      toast.success('Đã cập nhật danh sách khách hàng thân thiết');
+    },
+    onError: () => toast.error('Lỗi khi cập nhật danh sách khách hàng thân thiết'),
+  });
+}
+
+export function useCustomerDeliveryOrders(id: string) {
+  return useQuery({
+    queryKey: customerKeys.deliveryOrders(id),
+    queryFn: () => customersApi.getDeliveryOrders(id),
+    enabled: !!id,
+  });
+}
+
+export function useUpdateDeliveryOrderPrices() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: customersApi.updateDeliveryOrderPrices,
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: customerKeys.deliveryOrders(variables.customerId) });
+      toast.success('Cập nhật giá thành công');
+    },
+    onError: () => toast.error('Lỗi khi cập nhật giá'),
   });
 }

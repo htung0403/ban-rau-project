@@ -35,6 +35,7 @@ import PaymentCollectionsPage from './pages/vehicles/payment-collections/Payment
 import GroceryCustomersPage from './pages/customers/GroceryCustomersPage';
 import VegetableCustomersPage from './pages/customers/VegetableCustomersPage';
 import WholesaleCustomersPage from './pages/customers/WholesaleCustomersPage';
+import LoyalCustomersPage from './pages/customers/LoyalCustomersPage';
 import SalarySettingsPage from './pages/hr/SalarySettingsPage';
 import RolePermissionsPage from './pages/hr/RolePermissionsPage';
 import CustomerDetailPage from './pages/customers/CustomerDetailPage';
@@ -136,6 +137,7 @@ function AppRoutes() {
           <Route path="vua-rau" element={<WholesaleCustomersPage type="vegetable_receiver" />} />
           <Route path="nguoi-gui-tap-hoa" element={<GroceryCustomersPage type="grocery_sender" />} />
           <Route path="nguoi-nhan-tap-hoa" element={<GroceryCustomersPage type="grocery_receiver" />} />
+          <Route path="khach-hang-than-thiet" element={<LoyalCustomersPage />} />
         </Route>
 
         {/* Ke toan module */}

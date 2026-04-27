@@ -137,7 +137,7 @@ const CustomerDetailPage: React.FC = () => {
   const backPath = getBackPath(customer?.customer_type);
 
   return (
-    <div className="animate-in fade-in flex-1 flex flex-col min-h-0 relative z-0">
+    <div className="animate-in fade-in flex-1 flex flex-col min-h-0 relative z-0 print:static">
 
       <div className="hidden md:block">
         <PageHeader
@@ -493,7 +493,7 @@ const CustomerDetailPage: React.FC = () => {
             ) : (
               <>
                 {/* Desktop Table */}
-                <div className="hidden md:block flex-1 overflow-auto" data-print-area="loyal-orders">
+                <div className="hidden md:block print:block flex-1 overflow-auto" data-print-area="loyal-orders">
                   <div className="print-header hidden">
                     <h2>PHIẾU GIAO HÀNG</h2>
                     <p>Khách hàng: {customer.name}</p>

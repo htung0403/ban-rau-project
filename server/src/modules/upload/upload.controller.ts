@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
-import { supabaseService } from '../../config/supabase';
 import { successResponse, errorResponse } from '../../utils/response';
-import { v4 as uuidv4 } from 'uuid';
+import cloudinary from '../../config/cloudinary';
 
 export class UploadController {
   static async uploadFile(req: Request, res: Response) {
@@ -11,32 +10,20 @@ export class UploadController {
       }
 
       const file = req.file;
-      const fileExt = file.originalname.split('.').pop() || 'tmp';
-      const fileName = `${uuidv4()}-${Date.now()}.${fileExt}`;
-      
-      const bucketName = req.body.bucket || 'import-orders';
-      const folderPath = req.body.folder || '';
-      const filePath = folderPath ? `${folderPath}/${fileName}` : fileName;
+      const folderPath = req.body.folder || 'import-orders';
 
-      const { data, error } = await supabaseService.storage
-        .from(bucketName)
-        .upload(filePath, file.buffer, {
-          contentType: file.mimetype,
-          upsert: false,
-        });
+      const b64 = Buffer.from(file.buffer).toString('base64');
+      const dataURI = "data:" + file.mimetype + ";base64," + b64;
 
-      if (error) {
-        console.error('Supabase upload error:', error);
-        return res.status(500).json(errorResponse('Lỗi khi tải ảnh lên storage: ' + error.message));
-      }
-
-      const { data: publicUrlData } = supabaseService.storage
-        .from(bucketName)
-        .getPublicUrl(filePath);
+      const result = await cloudinary.uploader.upload(dataURI, {
+        folder: folderPath,
+        format: 'webp',
+        quality: 'auto'
+      });
 
       return res.status(200).json(successResponse({
-        url: publicUrlData.publicUrl,
-        path: filePath
+        url: result.secure_url,
+        path: result.public_id
       }, 'Upload thành công'));
     } catch (err: any) {
       console.error('Upload catch error:', err);

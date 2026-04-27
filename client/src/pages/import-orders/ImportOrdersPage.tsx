@@ -407,9 +407,18 @@ const ImportOrdersPage: React.FC = () => {
                       {columns.filter(c => c.isVisible).map((col) => {
                         switch (col.id) {
                           case 'image': {
-                            const orderImage = order.receipt_image_url ||
-                              order.import_order_items?.[0]?.image_url ||
-                              (order.import_order_items?.[0]?.image_urls && order.import_order_items[0].image_urls.length > 0 ? order.import_order_items[0].image_urls[0] : null);
+                            let orderImage = order.receipt_image_url;
+                            if (orderImage && orderImage.includes(',')) {
+                              orderImage = orderImage.split(',')[0].trim();
+                            }
+                            if (!orderImage && order.import_order_items?.[0]) {
+                              const firstItem = order.import_order_items[0];
+                              if (firstItem.image_url) {
+                                orderImage = firstItem.image_url.includes(',') ? firstItem.image_url.split(',')[0].trim() : firstItem.image_url;
+                              } else if (firstItem.image_urls && firstItem.image_urls.length > 0) {
+                                orderImage = firstItem.image_urls[0];
+                              }
+                            }
                             return (
                               <td key={col.id} className="px-4 py-2 text-center">
                                 <div
@@ -529,9 +538,18 @@ const ImportOrdersPage: React.FC = () => {
             {/* Mobile Card List */}
             <div className="md:hidden flex-1 overflow-y-auto p-3 pb-20 flex flex-col gap-2.5">
               {paginatedOrders.map((order) => {
-                const orderImage = order.receipt_image_url ||
-                  order.import_order_items?.[0]?.image_url ||
-                  (order.import_order_items?.[0]?.image_urls && order.import_order_items[0].image_urls.length > 0 ? order.import_order_items[0].image_urls[0] : null);
+                let orderImage = order.receipt_image_url;
+                if (orderImage && orderImage.includes(',')) {
+                  orderImage = orderImage.split(',')[0].trim();
+                }
+                if (!orderImage && order.import_order_items?.[0]) {
+                  const firstItem = order.import_order_items[0];
+                  if (firstItem.image_url) {
+                    orderImage = firstItem.image_url.includes(',') ? firstItem.image_url.split(',')[0].trim() : firstItem.image_url;
+                  } else if (firstItem.image_urls && firstItem.image_urls.length > 0) {
+                    orderImage = firstItem.image_urls[0];
+                  }
+                }
                 return (
                   <div
                     key={order.id}

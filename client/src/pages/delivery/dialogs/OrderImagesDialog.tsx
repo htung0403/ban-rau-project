@@ -14,6 +14,7 @@ interface Props {
 type OrderImageRef = {
   image_url?: string | null;
   image_urls?: string[] | null;
+  products?: { name?: string };
 };
 
 type MaybeArray<T> = T | T[] | null | undefined;
@@ -103,14 +104,37 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     const linkedVegetableOrder = pickRelation(dOrder?.vegetable_orders);
 
     receiptImages = [];
-    if (linkedImportOrder?.receipt_image_url) receiptImages.push(linkedImportOrder.receipt_image_url);
+    if (linkedImportOrder?.receipt_image_url) {
+      if (linkedImportOrder.receipt_image_url.includes(',')) receiptImages.push(...linkedImportOrder.receipt_image_url.split(',').map(s => s.trim()));
+      else receiptImages.push(linkedImportOrder.receipt_image_url);
+    }
     if (linkedImportOrder?.receipt_image_urls) receiptImages.push(...linkedImportOrder.receipt_image_urls);
-    if (linkedVegetableOrder?.receipt_image_url) receiptImages.push(linkedVegetableOrder.receipt_image_url);
+    if (linkedVegetableOrder?.receipt_image_url) {
+      if (linkedVegetableOrder.receipt_image_url.includes(',')) receiptImages.push(...linkedVegetableOrder.receipt_image_url.split(',').map(s => s.trim()));
+      else receiptImages.push(linkedVegetableOrder.receipt_image_url);
+    }
     if (linkedVegetableOrder?.receipt_image_urls) receiptImages.push(...linkedVegetableOrder.receipt_image_urls);
 
+    const targetProductName = dOrder?.product_name ? (
+      dOrder.product_name.includes(' - ') 
+        ? dOrder.product_name.split(' - ').slice(1).join(' - ').trim().toLowerCase()
+        : dOrder.product_name.trim().toLowerCase()
+    ) : null;
+
+    const filterItemImages = (items: MaybeArray<OrderImageRef> | OrderImageRef[]) => {
+      const list = Array.isArray(items) ? items : (items ? [items] : []);
+      const filtered = targetProductName 
+        ? list.filter(item => {
+            const itemName = item.products?.name?.trim().toLowerCase();
+            return !itemName || itemName === targetProductName;
+          })
+        : list;
+      return collectImages(filtered);
+    };
+
     importImages = [];
-    importImages.push(...collectImages(linkedImportOrder?.import_order_items));
-    importImages.push(...collectImages(linkedVegetableOrder?.vegetable_order_items));
+    importImages.push(...filterItemImages(linkedImportOrder?.import_order_items));
+    importImages.push(...filterItemImages(linkedVegetableOrder?.vegetable_order_items));
 
     deliveryImages = [];
     deliveryImageMeta = [];
@@ -121,8 +145,18 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
       vehicleLabel?: string
     ) => {
       if (!url || typeof url !== 'string' || !url.trim()) return;
-      deliveryImages.push(url);
-      deliveryImageMeta.push({ url, source, vehicleLabel });
+      if (url.includes(',')) {
+        url.split(',').forEach(u => {
+          const t = u.trim();
+          if (t) {
+            deliveryImages.push(t);
+            deliveryImageMeta.push({ url: t, source, vehicleLabel });
+          }
+        });
+      } else {
+        deliveryImages.push(url);
+        deliveryImageMeta.push({ url, source, vehicleLabel });
+      }
     };
 
     // 1) Ảnh gắn theo xe (ưu tiên gắn nhãn biển số)
@@ -158,7 +192,13 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
   } else if (isImport) {
     const iOrder = order;
     receiptImages = [];
-    if (iOrder.receipt_image_url) receiptImages.push(iOrder.receipt_image_url);
+    if (iOrder.receipt_image_url) {
+      if (iOrder.receipt_image_url.includes(',')) {
+        receiptImages.push(...iOrder.receipt_image_url.split(',').map(s => s.trim()));
+      } else {
+        receiptImages.push(iOrder.receipt_image_url);
+      }
+    }
     if (iOrder.receipt_image_urls) receiptImages.push(...iOrder.receipt_image_urls);
     receiptImages = [...new Set(receiptImages)];
 
@@ -173,7 +213,10 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
   } else if (isExport) {
     const eOrder = order;
     deliveryImages = [];
-    if (eOrder?.image_url) deliveryImages.push(eOrder.image_url);
+    if (eOrder?.image_url) {
+      if (eOrder.image_url.includes(',')) deliveryImages.push(...eOrder.image_url.split(',').map(s => s.trim()));
+      else deliveryImages.push(eOrder.image_url);
+    }
     if (eOrder?.image_urls && Array.isArray(eOrder.image_urls)) deliveryImages.push(...eOrder.image_urls);
     deliveryImages = [...new Set(deliveryImages)];
     orderCode = eOrder?.id?.slice(0, 8).toUpperCase() || 'N/A';

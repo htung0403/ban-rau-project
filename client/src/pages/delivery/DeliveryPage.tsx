@@ -101,8 +101,32 @@ const getOrderPreviewImage = (order: any) => {
   if (linkedVeg?.receipt_image_url) return linkedVeg.receipt_image_url;
   if (linkedVeg?.receipt_image_urls?.length) return linkedVeg.receipt_image_urls[0];
 
+  const targetProductName = order.product_name ? (
+    order.product_name.includes(' - ') 
+      ? order.product_name.split(' - ').slice(1).join(' - ').trim().toLowerCase()
+      : order.product_name.trim().toLowerCase()
+  ) : null;
+
   const collectFirstImage = (refs: any): string | null => {
     const list = Array.isArray(refs) ? refs : refs ? [refs] : [];
+    
+    // First try to find an item that matches the product name
+    if (targetProductName) {
+      for (const ref of list) {
+        const itemName = ref.products?.name?.trim().toLowerCase();
+        if (itemName === targetProductName) {
+          if (ref.image_url) {
+            if (typeof ref.image_url === 'string' && ref.image_url.includes(',')) return ref.image_url.split(',')[0].trim();
+            if (typeof ref.image_url === 'string') return ref.image_url;
+          }
+          if (ref.image_urls && Array.isArray(ref.image_urls) && ref.image_urls.length > 0) {
+            return ref.image_urls[0];
+          }
+        }
+      }
+    }
+
+    // Fallback to any item if no exact match found or if item has no product info
     for (const ref of list) {
       if (ref.image_url) {
         if (typeof ref.image_url === 'string' && ref.image_url.includes(',')) return ref.image_url.split(',')[0].trim();
@@ -227,10 +251,42 @@ const DeliveryPage: React.FC = () => {
   const canShowAssignButton = isAdmin || isLoader || (isDriver && myVehicleIds.length > 0);
 
   const displayedVehicles = React.useMemo(() => {
+    let filtered = eligibleVehicles;
     if (statusFilter === 'da_giao' && isDriverOrLoader) {
-      return eligibleVehicles.filter(v => myVehicleIdSet.has(v.id));
+      filtered = eligibleVehicles.filter(v => myVehicleIdSet.has(v.id));
     }
-    return eligibleVehicles;
+    
+    const VEHICLE_PLATE_TO_SLOT: Record<string, string> = {
+      '06850': '1',
+      '07744': '2',
+      '09705': '3',
+      '03889': '4',
+      '08713': '5',
+      '12918': '6',
+      '10680': '7',
+      '23763': '8',
+      'ba1234': 'ba',
+    };
+    
+    const getVehicleSlotIndex = (licensePlate: string): number => {
+      const normalized = (licensePlate || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      
+      for (const [key, slot] of Object.entries(VEHICLE_PLATE_TO_SLOT)) {
+        if (normalized.endsWith(key) || normalized.includes(key)) {
+          return parseInt(slot) || (slot === 'ba' ? 9 : 99);
+        }
+      }
+      
+      if (normalized.includes('ba')) return 9;
+      return 99;
+    };
+    
+    return [...filtered].sort((a, b) => {
+      const indexA = getVehicleSlotIndex(a.license_plate || '');
+      const indexB = getVehicleSlotIndex(b.license_plate || '');
+      if (indexA !== indexB) return indexA - indexB;
+      return (a.license_plate || '').localeCompare(b.license_plate || '', 'vi');
+    });
   }, [eligibleVehicles, statusFilter, isDriverOrLoader, myVehicleIdSet]);
 
   const [searchQuery, setSearchQuery] = useState('');

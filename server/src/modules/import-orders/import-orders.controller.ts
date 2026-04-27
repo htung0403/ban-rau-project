@@ -36,7 +36,9 @@ const importOrderItemSchema = z.object({
     receipt_image_url: z.string().optional().nullable(),
     receipt_image_urls: z.array(z.string()).optional().nullable(),
     payment_status: z.enum(['paid', 'unpaid']).default('unpaid'),
-    items: z.array(importOrderItemSchema),
+    items: z.array(importOrderItemSchema).optional(),
+    received_by: z.string().uuid().optional().nullable(),
+    status: z.enum(['pending', 'processing', 'delivered', 'returned']).optional(),
   });
 
 export class ImportOrderController {

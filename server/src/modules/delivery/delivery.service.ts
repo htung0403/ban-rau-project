@@ -237,7 +237,7 @@ export class DeliveryService {
       let query = supabaseService
         .from('delivery_orders')
         .select(
-          '*, import_orders(order_code, sender_name, sender_id, receiver_name, customer_id, license_plate, driver_name, received_by, customers:customers!import_orders_customer_id_fkey(name), sender_customers:customers!import_orders_sender_id_fkey(name), total_amount, payment_status, profiles:received_by(full_name), receipt_image_url, receipt_image_urls, import_order_items(image_url, image_urls), deleted_at), vegetable_orders(order_code, sender_name, sender_id, receiver_name, customer_id, license_plate, driver_name, received_by, customers:customers!vegetable_orders_customer_id_fkey(name), sender_customers:customers!vegetable_orders_sender_id_fkey(name), total_amount, payment_status, profiles:received_by(full_name), receipt_image_url, receipt_image_urls, vegetable_order_items(image_url, image_urls), deleted_at), delivery_vehicles(*, vehicles(license_plate, in_charge_id)), payment_collections(id, status, vehicle_id, image_url)'
+          '*, import_orders(order_code, sender_name, sender_id, receiver_name, customer_id, license_plate, driver_name, received_by, customers:customers!import_orders_customer_id_fkey(name), sender_customers:customers!import_orders_sender_id_fkey(name), total_amount, payment_status, profiles:received_by(full_name), receipt_image_url, receipt_image_urls, import_order_items(image_url, image_urls, products(name)), deleted_at), vegetable_orders(order_code, sender_name, sender_id, receiver_name, customer_id, license_plate, driver_name, received_by, customers:customers!vegetable_orders_customer_id_fkey(name), sender_customers:customers!vegetable_orders_sender_id_fkey(name), total_amount, payment_status, profiles:received_by(full_name), receipt_image_url, receipt_image_urls, vegetable_order_items(image_url, image_urls, products(name)), deleted_at), delivery_vehicles(*, vehicles(license_plate, in_charge_id)), payment_collections(id, status, vehicle_id, image_url)'
         )
         .order('delivery_date', { ascending: false });
 
@@ -540,8 +540,8 @@ export class DeliveryService {
       .from('delivery_orders')
       .select(`
         *, 
-        import_orders(customer_id, receiver_name, receipt_image_url, receipt_image_urls, import_order_items(image_url, image_urls), customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
-        vegetable_orders(customer_id, receiver_name, receipt_image_url, receipt_image_urls, vegetable_order_items(image_url, image_urls), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name))
+        import_orders(customer_id, receiver_name, receipt_image_url, receipt_image_urls, import_order_items(image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
+        vegetable_orders(customer_id, receiver_name, receipt_image_url, receipt_image_urls, vegetable_order_items(image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name))
       `)
       .in('id', ids)
       .eq('status', 'hang_o_sg');
@@ -591,12 +591,28 @@ export class DeliveryService {
         pushRefs(o);
         pushRefs(o.import_orders);
         pushRefs(o.vegetable_orders);
+
+        const targetProductName = o.product_name ? (
+          o.product_name.includes(' - ') 
+            ? o.product_name.split(' - ').slice(1).join(' - ').trim().toLowerCase()
+            : o.product_name.trim().toLowerCase()
+        ) : null;
+        
+        const filterItems = (items: any) => {
+          if (!items || !Array.isArray(items)) return [];
+          return targetProductName 
+            ? items.filter((item: any) => {
+                const itemName = item.products?.name?.trim().toLowerCase();
+                return !itemName || itemName === targetProductName;
+              })
+            : items;
+        };
         
         const linkedImports = Array.isArray(o.import_orders) ? o.import_orders : o.import_orders ? [o.import_orders] : [];
-        linkedImports.forEach((io: any) => pushRefs(io?.import_order_items));
+        linkedImports.forEach((io: any) => pushRefs(filterItems(io?.import_order_items)));
 
         const linkedVegs = Array.isArray(o.vegetable_orders) ? o.vegetable_orders : o.vegetable_orders ? [o.vegetable_orders] : [];
-        linkedVegs.forEach((vo: any) => pushRefs(vo?.vegetable_order_items));
+        linkedVegs.forEach((vo: any) => pushRefs(filterItems(vo?.vegetable_order_items)));
       }
       return Array.from(images).filter(Boolean);
     };
@@ -621,8 +637,8 @@ export class DeliveryService {
          .from('delivery_orders')
          .select(`
            *, 
-           import_orders(customer_id, receiver_name, receipt_image_url, receipt_image_urls, import_order_items(image_url, image_urls), customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
-           vegetable_orders(customer_id, receiver_name, receipt_image_url, receipt_image_urls, vegetable_order_items(image_url, image_urls), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
+           import_orders(customer_id, receiver_name, receipt_image_url, receipt_image_urls, import_order_items(image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
+           vegetable_orders(customer_id, receiver_name, receipt_image_url, receipt_image_urls, vegetable_order_items(image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
            delivery_vehicles(id, assigned_quantity)
          `)
          .eq('status', 'can_giao')

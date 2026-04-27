@@ -69,6 +69,10 @@ export class ImportOrderService {
       }
       if (filters.supplier_name) q = q.ilike('supplier_name', `%${filters.supplier_name}%`);
       if (filters.license_plate) q = q.ilike('license_plate', `%${filters.license_plate}%`);
+      
+      // Fix missing newly created orders by sorting descending BEFORE Supabase limits the results (max-rows)
+      q = q.order('created_at', { ascending: false });
+      
       return q;
     };
 

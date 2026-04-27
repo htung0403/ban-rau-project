@@ -80,9 +80,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
     customer_id: null as string | null,
     receiver_name: '',
     image_url: '',
-    image_urls: [] as string[],
-    vehicle_id: '',
-    driver_id: ''
+    image_urls: [] as string[]
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,12 +100,6 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
             uPrice = p.base_price || 0;
          }
       }
-      let defaultVehicleId = '';
-      let defaultDriverId = '';
-      if (order.delivery_vehicles && order.delivery_vehicles.length > 0) {
-        defaultVehicleId = order.delivery_vehicles[0].vehicle_id || '';
-        defaultDriverId = order.delivery_vehicles[0].driver_id || '';
-      }
 
       const initialImages = collectDeliveryOrderImageUrlsForEdit(order);
       const legacyImage = initialImages[0] || (order as any).image_url || '';
@@ -123,9 +115,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
         customer_id: order.import_orders?.customer_id || order.vegetable_orders?.customer_id || null,
         receiver_name: order.import_orders?.receiver_name || order.vegetable_orders?.receiver_name || order.import_orders?.customers?.name || order.vegetable_orders?.customers?.name || '',
         image_url: legacyImage,
-        image_urls: initialImages,
-        vehicle_id: defaultVehicleId,
-        driver_id: defaultDriverId
+        image_urls: initialImages
       });
     }
   }, [order, isOpen, products]);
@@ -181,6 +171,13 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
       if (formData.product_name !== oldDisplayProductName) {
          const prefix = order.product_name.includes(' - ') ? order.product_name.split(' - ')[0] + ' - ' : '';
          payload.product_name = prefix + formData.product_name;
+         
+         if (!isVeg) {
+            const newProduct = products?.find((p: Product) => p.name === formData.product_name);
+            if (newProduct) {
+               payload.product_id = newProduct.id;
+            }
+         }
       }
 
       if (formData.total_quantity !== order.total_quantity) payload.total_quantity = Number(formData.total_quantity);
@@ -211,26 +208,8 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
         });
       }
 
-      if (isDaGiao && formData.vehicle_id && formData.driver_id) {
-        const existingVehicle = order.delivery_vehicles?.[0];
-        const changedVehicle = existingVehicle?.vehicle_id !== formData.vehicle_id || existingVehicle?.driver_id !== formData.driver_id || existingVehicle?.assigned_quantity !== Number(formData.total_quantity);
-        if (changedVehicle || !existingVehicle) {
-          await assignMutation.mutateAsync({
-            id: order.id,
-            payload: {
-              assignments: [{
-                vehicle_id: formData.vehicle_id,
-                driver_id: formData.driver_id,
-                quantity: Number(formData.total_quantity),
-              }]
-            }
-          });
-        }
-      }
-
       // Handle source order updates (Sender/Receiver)
       const sourceId = order.import_order_id || order.vegetable_order_id;
-      const isVeg = !!order.vegetable_order_id;
       const orderData = order.import_orders || order.vegetable_orders;
       
       if (sourceId && orderData) {
@@ -433,69 +412,6 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
                 disabled={isSubmitting}
               />
             </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Ngày giao</label>
-                <input
-                  type="date"
-                  className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
-                  value={formData.delivery_date}
-                  onChange={e => setFormData({ ...formData, delivery_date: e.target.value })}
-                  disabled={isSubmitting}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Giờ giao</label>
-                <input
-                  type="time"
-                  step={60}
-                  className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50 tabular-nums"
-                  value={formData.delivery_time}
-                  onChange={(e) => setFormData({ ...formData, delivery_time: e.target.value })}
-                  disabled={isSubmitting}
-                />
-              </div>
-            </div>
-
-            {isDaGiao && (
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-bold text-foreground flex items-center gap-1">
-                    <Truck size={14} className="text-primary" /> Xe
-                  </label>
-                  <SearchableSelect
-                    options={(vehicles || []).map(v => ({
-                      value: v.id,
-                      label: `${v.license_plate} ${v.profiles?.full_name ? '(' + v.profiles.full_name + ')' : ''}`,
-                      selectedLabel: v.license_plate
-                    }))}
-                    value={formData.vehicle_id}
-                    onValueChange={(val: string) => {
-                      setFormData(prev => ({ ...prev, vehicle_id: val }));
-                      const vehicle = vehicles?.find(v => v.id === val);
-                      if (vehicle?.driver_id || vehicle?.in_charge_id) {
-                        setFormData(prev => ({ ...prev, driver_id: vehicle.driver_id || vehicle.in_charge_id || '' }));
-                      }
-                    }}
-                    placeholder="Chọn xe..."
-                    disabled={isSubmitting}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-bold text-foreground flex items-center gap-1">
-                    <User size={14} className="text-primary" /> Tài xế
-                  </label>
-                  <SearchableSelect
-                    options={(employees || []).filter(e => e.role === 'driver' || e.role?.toLowerCase().includes('tài xế') || e.role?.toLowerCase().includes('tai xe') || e.role?.toLowerCase().includes('tai_xe') || e.role?.toLowerCase().includes('lơ xe') || e.role?.toLowerCase().includes('lo xe') || e.role?.toLowerCase().includes('lo_xe')).map(e => ({ value: e.id, label: e.full_name }))}
-                    value={formData.driver_id}
-                    onValueChange={(val: string) => setFormData(prev => ({ ...prev, driver_id: val }))}
-                    placeholder="Chọn tài xế..."
-                    disabled={isSubmitting}
-                  />
-                </div>
-              </div>
-            )}
           </form>
         </div>
 

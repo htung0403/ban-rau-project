@@ -540,8 +540,8 @@ export class DeliveryService {
       .from('delivery_orders')
       .select(`
         *, 
-        import_orders(customer_id, receiver_name, receipt_image_url, receipt_image_urls, import_order_items(image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
-        vegetable_orders(customer_id, receiver_name, receipt_image_url, receipt_image_urls, vegetable_order_items(image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name))
+        import_orders(customer_id, receiver_name, payment_status, receipt_image_url, receipt_image_urls, import_order_items(image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
+        vegetable_orders(customer_id, receiver_name, payment_status, receipt_image_url, receipt_image_urls, vegetable_order_items(image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name))
       `)
       .in('id', ids)
       .eq('status', 'hang_o_sg');
@@ -553,6 +553,12 @@ export class DeliveryService {
        const io = o.import_orders || o.vegetable_orders;
        if (!io) return '-';
        return io.customers?.name || io.receiver_name?.trim() || io.profiles?.full_name || '-';
+    };
+
+    const getSourcePaymentStatus = (o: any): string => {
+       const io = o.import_orders || o.vegetable_orders;
+       if (!io) return 'unpaid';
+       return io.payment_status || 'unpaid';
     };
 
     const collectAllImages = (orders: any[]): string[] => {
@@ -617,12 +623,13 @@ export class DeliveryService {
       return Array.from(images).filter(Boolean);
     };
 
-    // Group source orders by Key
+    // Group source orders by Key (paid orders are never merged with unpaid)
     const groups: Record<string, any[]> = {};
     for (const order of sourceOrders) {
        const receiverName = getReceiverName(order);
        const productName = (order.product_name || '').trim();
-       const key = `${order.delivery_date}|${order.order_category || 'standard'}|${receiverName}|${productName}`;
+       const paymentStatus = getSourcePaymentStatus(order);
+       const key = `${order.delivery_date}|${order.order_category || 'standard'}|${receiverName}|${productName}|${paymentStatus}`;
        if (!groups[key]) groups[key] = [];
        groups[key].push(order);
     }
@@ -632,28 +639,33 @@ export class DeliveryService {
        const groupOrders = groups[key];
        const firstOrder = groupOrders[0];
        const receiverName = getReceiverName(firstOrder);
-       
-       const { data: existingCandidates } = await supabaseService
-         .from('delivery_orders')
-         .select(`
-           *, 
-           import_orders(customer_id, receiver_name, receipt_image_url, receipt_image_urls, import_order_items(image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
-           vegetable_orders(customer_id, receiver_name, receipt_image_url, receipt_image_urls, vegetable_order_items(image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
-           delivery_vehicles(id, assigned_quantity)
-         `)
-         .eq('status', 'can_giao')
-         .eq('delivery_date', firstOrder.delivery_date)
-         .eq('order_category', firstOrder.order_category || 'standard')
-         .eq('product_name', firstOrder.product_name);
+       const groupPaymentStatus = getSourcePaymentStatus(firstOrder);
+       const isPaidGroup = groupPaymentStatus === 'paid';
 
        let targetOrder = null;
-       if (existingCandidates && existingCandidates.length > 0) {
-         // Find one with the same receiverName and total assigned quantity == 0
-         targetOrder = existingCandidates.find(o => {
-           const matchName = getReceiverName(o) === receiverName;
-           const assignedQty = (o.delivery_vehicles || []).reduce((sum: number, dv: any) => sum + Number(dv.assigned_quantity || 0), 0);
-           return matchName && assignedQty === 0;
-         });
+
+       if (!isPaidGroup) {
+         const { data: existingCandidates } = await supabaseService
+           .from('delivery_orders')
+           .select(`
+              *, 
+              import_orders(customer_id, receiver_name, payment_status, receipt_image_url, receipt_image_urls, import_order_items(image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
+              vegetable_orders(customer_id, receiver_name, payment_status, receipt_image_url, receipt_image_urls, vegetable_order_items(image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
+              delivery_vehicles(id, assigned_quantity)
+            `)
+           .eq('status', 'can_giao')
+           .eq('delivery_date', firstOrder.delivery_date)
+           .eq('order_category', firstOrder.order_category || 'standard')
+           .eq('product_name', firstOrder.product_name);
+
+         if (existingCandidates && existingCandidates.length > 0) {
+           targetOrder = existingCandidates.find(o => {
+             const matchName = getReceiverName(o) === receiverName;
+             const assignedQty = (o.delivery_vehicles || []).reduce((sum: number, dv: any) => sum + Number(dv.assigned_quantity || 0), 0);
+             const candidatePaymentStatus = getSourcePaymentStatus(o);
+             return matchName && assignedQty === 0 && candidatePaymentStatus !== 'paid';
+           });
+         }
        }
 
        if (targetOrder) {
@@ -675,38 +687,45 @@ export class DeliveryService {
          // Delete the groupOrders
          const idsToDelete = groupOrders.map(o => o.id);
          await supabaseService.from('delivery_orders').delete().in('id', idsToDelete);
-       } else {
-         // Merge groupOrders into the firstOrder
-         const targetId = firstOrder.id;
-         const remainingOrders = groupOrders.slice(1);
-         
-         if (remainingOrders.length > 0) {
-           const addedQuantity = remainingOrders.reduce((sum, o) => sum + (Number(o.total_quantity) || 0), 0);
-           const newTotal = Number(firstOrder.total_quantity || 0) + addedQuantity;
-           
-           const allImages = collectAllImages(groupOrders);
-           
-            await supabaseService
-              .from('delivery_orders')
-              .update({ 
-                total_quantity: newTotal, 
-                status: 'can_giao',
-                confirmed_at: new Date().toISOString(),
-                image_urls: allImages.length > 0 ? allImages : firstOrder.image_urls,
-                image_url: allImages.length > 0 ? allImages[0] : firstOrder.image_url
-              })
-              .eq('id', targetId);
-             
-           const idsToDelete = remainingOrders.map(o => o.id);
-           await supabaseService.from('delivery_orders').delete().in('id', idsToDelete);
-         } else {
-           // Just update its status to 'can_giao'
-            await supabaseService
-              .from('delivery_orders')
-              .update({ status: 'can_giao', confirmed_at: new Date().toISOString() })
-              .eq('id', targetId);
-         }
-       }
+        } else if (isPaidGroup) {
+          // Paid orders: confirm each individually, never merge
+          const allIds = groupOrders.map(o => o.id);
+          await supabaseService
+            .from('delivery_orders')
+            .update({ status: 'can_giao', confirmed_at: new Date().toISOString() })
+            .in('id', allIds);
+        } else {
+          // Merge groupOrders into the firstOrder
+          const targetId = firstOrder.id;
+          const remainingOrders = groupOrders.slice(1);
+          
+          if (remainingOrders.length > 0) {
+            const addedQuantity = remainingOrders.reduce((sum, o) => sum + (Number(o.total_quantity) || 0), 0);
+            const newTotal = Number(firstOrder.total_quantity || 0) + addedQuantity;
+            
+            const allImages = collectAllImages(groupOrders);
+            
+             await supabaseService
+               .from('delivery_orders')
+               .update({ 
+                 total_quantity: newTotal, 
+                 status: 'can_giao',
+                 confirmed_at: new Date().toISOString(),
+                 image_urls: allImages.length > 0 ? allImages : firstOrder.image_urls,
+                 image_url: allImages.length > 0 ? allImages[0] : firstOrder.image_url
+               })
+               .eq('id', targetId);
+              
+            const idsToDelete = remainingOrders.map(o => o.id);
+            await supabaseService.from('delivery_orders').delete().in('id', idsToDelete);
+          } else {
+            // Just update its status to 'can_giao'
+             await supabaseService
+               .from('delivery_orders')
+               .update({ status: 'can_giao', confirmed_at: new Date().toISOString() })
+               .eq('id', targetId);
+          }
+        }
     }
     
     return { success: true };
@@ -763,6 +782,15 @@ export class DeliveryService {
     if (Object.prototype.hasOwnProperty.call(payload, 'delivery_time') && payload.delivery_time === '') {
       payload.delivery_time = null;
     }
+    
+    const { data: currentOrder, error: fetchError } = await supabaseService
+      .from('delivery_orders')
+      .select('*')
+      .eq('id', id)
+      .single();
+      
+    if (fetchError) throw fetchError;
+
     const { data, error } = await supabaseService
       .from('delivery_orders')
       .update(payload)
@@ -771,6 +799,51 @@ export class DeliveryService {
       .single();
 
     if (error) throw error;
+    
+    if (currentOrder) {
+      const sourceId = currentOrder.import_order_id || currentOrder.vegetable_order_id;
+      const isVeg = !!currentOrder.vegetable_order_id;
+      const fkName = isVeg ? 'vegetable_order_id' : 'import_order_id';
+      const tName = isVeg ? 'vegetable_order_items' : 'import_order_items';
+      
+      if (sourceId) {
+        const itemUpdate: any = {};
+        if (payload.total_quantity !== undefined) itemUpdate.quantity = payload.total_quantity;
+        if (payload.unit_price !== undefined) itemUpdate.unit_price = payload.unit_price;
+        if (payload.image_url !== undefined) itemUpdate.image_url = payload.image_url;
+        if (payload.image_urls !== undefined) itemUpdate.image_urls = payload.image_urls;
+        if (payload.product_name !== undefined && isVeg) itemUpdate.package_type = payload.product_name;
+        if (payload.product_id !== undefined && !isVeg) itemUpdate.product_id = payload.product_id;
+        
+        if (Object.keys(itemUpdate).length > 0) {
+          let query = supabaseService.from(tName).update(itemUpdate).eq(fkName, sourceId);
+          if (currentOrder.product_id) {
+            query = query.eq('product_id', currentOrder.product_id);
+          } else {
+             query = query.eq('package_type', currentOrder.product_name);
+          }
+          await query;
+          
+          if (itemUpdate.quantity !== undefined || itemUpdate.unit_price !== undefined) {
+             const { data: allItems } = await supabaseService.from(tName).select('quantity, unit_price, weight_kg').eq(fkName, sourceId);
+             if (allItems) {
+                const newTotal = allItems.reduce((sum, item) => {
+                   const qty = Number(item.quantity) || 1;
+                   const price = Number(item.unit_price) || 0;
+                   const weight = Number(item.weight_kg) || 0;
+                   if (price > 0 && weight > 0 && qty > 0) {
+                      return sum + (weight * price);
+                   }
+                   return sum + (qty * price);
+                }, 0);
+                const orderTableName = isVeg ? 'vegetable_orders' : 'import_orders';
+                await supabaseService.from(orderTableName).update({ total_amount: newTotal }).eq('id', sourceId);
+             }
+          }
+        }
+      }
+    }
+
     return data;
   }
 
@@ -855,15 +928,28 @@ export class DeliveryService {
   }
 
   static async deleteOrders(ids: string[]) {
-    // Delete related delivery_vehicles first (foreign key)
-    const { error: dvError } = await supabaseService
+    const { data: deliveryOrders, error: fetchError } = await supabaseService
+      .from('delivery_orders')
+      .select('id, import_order_id, vegetable_order_id')
+      .in('id', ids);
+
+    if (fetchError) throw fetchError;
+
+    await supabaseService
+      .from('payment_collections')
+      .delete()
+      .in('delivery_order_id', ids);
+
+    await supabaseService
+      .from('export_orders')
+      .delete()
+      .in('product_id', ids);
+
+    await supabaseService
       .from('delivery_vehicles')
       .delete()
       .in('delivery_order_id', ids);
 
-    if (dvError) throw dvError;
-
-    // Delete delivery orders
     const { data, error } = await supabaseService
       .from('delivery_orders')
       .delete()
@@ -871,6 +957,29 @@ export class DeliveryService {
       .select();
 
     if (error) throw error;
+
+    if (deliveryOrders && deliveryOrders.length > 0) {
+      const importOrderIds = deliveryOrders.map(d => d.import_order_id).filter(Boolean);
+      const vegOrderIds = deliveryOrders.map(d => d.vegetable_order_id).filter(Boolean);
+      const deletedAt = new Date().toISOString();
+
+      if (importOrderIds.length > 0) {
+        await supabaseService
+          .from('import_orders')
+          .update({ deleted_at: deletedAt })
+          .in('id', importOrderIds)
+          .is('deleted_at', null);
+      }
+
+      if (vegOrderIds.length > 0) {
+        await supabaseService
+          .from('vegetable_orders')
+          .update({ deleted_at: deletedAt })
+          .in('id', vegOrderIds)
+          .is('deleted_at', null);
+      }
+    }
+
     return data;
   }
 

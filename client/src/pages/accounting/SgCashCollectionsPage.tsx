@@ -42,6 +42,57 @@ type SgRow = {
   collector?: { id?: string; full_name?: string | null } | null;
   sg_cash_handover_confirmed_at?: string | null;
   confirmer?: { full_name?: string | null } | null;
+  import_order_items?: Array<{
+    quantity?: number | null;
+    unit_price?: number | null;
+    products?: { name?: string | null } | null;
+  }> | null;
+  delivery_orders?: Array<{
+    delivery_date?: string | null;
+    delivery_time?: string | null;
+    delivery_vehicles?: Array<{
+      assigned_quantity?: number | null;
+      vehicles?: { license_plate?: string | null } | null;
+      profiles?: { full_name?: string | null } | null;
+    }> | null;
+  }> | null;
+};
+
+const getRowItemNames = (row: SgRow): string => {
+  const items = row.import_order_items || [];
+  return items.map((i) => i.products?.name).filter(Boolean).join(', ') || '—';
+};
+
+const getRowTotalQuantity = (row: SgRow): number => {
+  return (row.import_order_items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
+};
+
+const getRowUnitPrice = (row: SgRow): number | null => {
+  const items = row.import_order_items || [];
+  if (items.length === 0) return null;
+  const first = items[0];
+  return first.unit_price ?? null;
+};
+
+const getRowDeliveryDateTime = (row: SgRow): string => {
+  const dos = row.delivery_orders || [];
+  if (dos.length === 0) return '—';
+  const d = dos[0];
+  const date = d.delivery_date || '';
+  const time = d.delivery_time || '';
+  return `${date}${time ? ' ' + time : ''}`.trim() || '—';
+};
+
+const getRowDeliveryStaff = (row: SgRow): string => {
+  const dos = row.delivery_orders || [];
+  const names = new Set<string>();
+  for (const d of dos) {
+    for (const dv of d.delivery_vehicles || []) {
+      const name = dv.profiles?.full_name;
+      if (name) names.add(name);
+    }
+  }
+  return names.size > 0 ? Array.from(names).join(', ') : '—';
 };
 
 const SgCashCollectionsPage: React.FC = () => {
@@ -290,10 +341,15 @@ const SgCashCollectionsPage: React.FC = () => {
                 <thead>
                   <tr className="border-b border-border bg-muted/40">
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Mã phiếu</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ngày / giờ</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ngày / giờ nhập</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ngày giờ giao</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">NV thu tiền</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">NV giao</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">KH</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-right">Số tiền</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Tên hàng</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-center">Số lượng</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-right">Đơn giá</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-right">Thành tiền</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Trạng thái nộp tiền</th>
                     {canConfirm && (
                       <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight w-40 text-right">
@@ -327,14 +383,29 @@ const SgCashCollectionsPage: React.FC = () => {
                         <td className="px-4 py-3 text-[13px] text-muted-foreground whitespace-nowrap">
                           {row.order_date} {row.order_time}
                         </td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground whitespace-nowrap">
+                          {getRowDeliveryDateTime(row)}
+                        </td>
                         <td className="px-4 py-3 text-[13px] max-w-[160px] truncate" title={row.collector?.full_name || ''}>
                           {row.collector?.full_name || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] max-w-[160px] truncate" title={getRowDeliveryStaff(row)}>
+                          {getRowDeliveryStaff(row)}
                         </td>
                         <td className="px-4 py-3 text-[13px] max-w-[160px] truncate">
                           {row.customers?.name || '—'}
                           {row.customers?.phone ? (
                             <span className="block text-[11px] text-muted-foreground">{row.customers.phone}</span>
                           ) : null}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] max-w-[200px] truncate" title={getRowItemNames(row)}>
+                          {getRowItemNames(row)}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] font-bold text-foreground text-center tabular-nums">
+                          {getRowTotalQuantity(row) || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground text-right tabular-nums">
+                          {getRowUnitPrice(row) != null ? formatCurrency(getRowUnitPrice(row)) : '—'}
                         </td>
                         <td className="px-4 py-3 text-[13px] font-bold text-primary text-right tabular-nums">
                           {formatCurrency(row.total_amount)}
@@ -413,9 +484,26 @@ const SgCashCollectionsPage: React.FC = () => {
                     <p className="text-[12px] text-muted-foreground">
                       {row.order_date} {row.order_time}
                     </p>
+                    <p className="text-[12px] text-muted-foreground">
+                      <span className="font-medium text-foreground">Giao: </span>
+                      {getRowDeliveryDateTime(row)}
+                    </p>
+                    <p className="text-[12px]">
+                      <span className="text-muted-foreground">Hàng: </span>
+                      <span className="font-medium">{getRowItemNames(row)}</span>
+                      <span className="text-muted-foreground"> • SL </span>
+                      <span className="font-bold">{getRowTotalQuantity(row) || '—'}</span>
+                      {getRowUnitPrice(row) != null && (
+                        <span className="text-muted-foreground"> • ĐG {formatCurrency(getRowUnitPrice(row))}</span>
+                      )}
+                    </p>
                     <p className="text-[12px]">
                       <span className="text-muted-foreground">NV thu tiền: </span>
                       {row.collector?.full_name || '—'}
+                    </p>
+                    <p className="text-[12px]">
+                      <span className="text-muted-foreground">NV giao: </span>
+                      {getRowDeliveryStaff(row)}
                     </p>
                     <p className="text-[12px]">
                       {confirmed ? (

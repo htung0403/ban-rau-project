@@ -566,10 +566,25 @@ const DeliveryPage: React.FC = () => {
     : filteredOrders;
 
   // Grouping logic: Date -> [Orders]
+  // For "Đã giao" tab, an order with vehicle assignments on multiple dates appears under each date.
   const groupedOrders = (paginatedOrders || []).reduce<Record<string, DeliveryOrder[]>>((acc, order) => {
-    const date = order.delivery_date || 'N/A';
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(order);
+    if (statusFilter === 'da_giao') {
+      const vehicleDates = new Set<string>();
+      (order.delivery_vehicles || []).forEach(dv => {
+        if ((dv.assigned_quantity || 0) > 0 && dv.delivery_date) {
+          vehicleDates.add(dv.delivery_date);
+        }
+      });
+      const dates = vehicleDates.size > 0 ? Array.from(vehicleDates) : [order.delivery_date || 'N/A'];
+      dates.forEach(date => {
+        if (!acc[date]) acc[date] = [];
+        acc[date].push(order);
+      });
+    } else {
+      const date = order.delivery_date || 'N/A';
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(order);
+    }
     return acc;
   }, {});
 
@@ -1034,8 +1049,8 @@ const DeliveryPage: React.FC = () => {
                               {remainingQty < 0 ? formatNumber(remainingQty) : '-'}
                             </td>
                             {displayedVehicles.map(v => {
-                              const dv = (o.delivery_vehicles || []).find((deliveryVehicle) => deliveryVehicle.vehicle_id === v.id);
-                              const qty = dv?.assigned_quantity || 0;
+                              const dvs = (o.delivery_vehicles || []).filter((deliveryVehicle) => deliveryVehicle.vehicle_id === v.id && (deliveryVehicle.assigned_quantity || 0) > 0);
+                              const totalQty = dvs.reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
                               const isEditableByMe = myVehicleIdSet.has(v.id);
                               const canEdit = isEditableByMe || isAdmin;
 
@@ -1047,30 +1062,53 @@ const DeliveryPage: React.FC = () => {
                                 <td
                                   key={v.id}
                                   onClick={() => {
-                                    if (canEdit && statusFilter !== 'hang_o_sg' && (qty > 0 || remainingQty > 0)) {
+                                    if (canEdit && statusFilter !== 'hang_o_sg' && (totalQty > 0 || remainingQty > 0)) {
                                       handleOrderClick(o, v.id);
                                     }
                                   }}
                                   className={clsx(
-                                    "px-1 py-1 text-[13px] text-center tabular-nums border-r border-border last:border-r-0 transition-all relative",
-                                    qty > 0 ? "font-bold text-blue-600 dark:text-blue-500 bg-blue-500/10" : "text-muted-foreground/30",
-                                    canEdit && statusFilter !== 'hang_o_sg' && (qty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95"
+                                    "px-1 py-1 text-[13px] text-center tabular-nums border-r border-border last:border-r-0 transition-all relative group/cell",
+                                    totalQty > 0 ? "font-bold text-blue-600 dark:text-blue-500 bg-blue-500/10" : "text-muted-foreground/30",
+                                    canEdit && statusFilter !== 'hang_o_sg' && (totalQty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95"
                                   )}
                                 >
-                                  {qty > 0 && dv ? (
-                                    <VehicleCellTooltip dv={dv} vehicle={v} qty={qty} isPaid={isPaid}>
-                                      <span>{formatNumber(qty)}</span>
+                                  {dvs.length > 0 ? (
+                                    <div className="flex flex-col items-center justify-center">
+                                      <div className="flex flex-wrap items-center justify-center gap-x-1">
+                                        {dvs.map((dvItem, idx) => (
+                                          <React.Fragment key={dvItem.id || idx}>
+                                            {idx > 0 && <span className="text-[10px] text-muted-foreground/50">+</span>}
+                                            <VehicleCellTooltip dv={dvItem} vehicle={v} qty={dvItem.assigned_quantity || 0} isPaid={isPaid}>
+                                              <span className="cursor-help hover:text-blue-700 underline decoration-dotted decoration-blue-500/30 underline-offset-2">
+                                                {formatNumber(dvItem.assigned_quantity)}
+                                              </span>
+                                            </VehicleCellTooltip>
+                                          </React.Fragment>
+                                        ))}
+                                      </div>
+                                      {canEdit && statusFilter !== 'hang_o_sg' && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOrderClick(o, v.id);
+                                          }}
+                                          className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 text-blue-600 hover:bg-blue-500/20 rounded transition-opacity"
+                                          title="Chỉnh sửa phân xe"
+                                        >
+                                          <Pencil size={11} strokeWidth={2.5} />
+                                        </button>
+                                      )}
                                       {isPaid && (
                                         <div className="mt-0.5 flex items-center justify-center gap-0.5 text-green-600 bg-green-500/10 rounded-sm px-1" title="Đã xác nhận thu tiền">
                                           <CheckCircle size={8} strokeWidth={3} />
                                           <span className="text-[9px] font-black leading-none pb-px">Thu</span>
                                         </div>
                                       )}
-                                    </VehicleCellTooltip>
+                                    </div>
                                   ) : (
                                     <div className="flex flex-col items-center justify-center">
                                       <span>
-                                        {canEdit && statusFilter !== 'hang_o_sg' && remainingQty > 0 ? <PlusCircle size={14} className="mx-auto opacity-10 group-hover:opacity-40" /> : '-'}
+                                        {canEdit && statusFilter !== 'hang_o_sg' && remainingQty > 0 ? <PlusCircle size={14} className="mx-auto opacity-10 group-hover/cell:opacity-40" /> : '-'}
                                       </span>
                                     </div>
                                   )}

@@ -100,7 +100,7 @@ export const VehicleCellTooltip: React.FC<Props> = ({ dv, vehicle, qty, isPaid, 
   return (
     <div
       ref={wrapperRef}
-      className="flex flex-col items-center justify-center"
+      className="inline-flex flex-col items-center justify-center"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >

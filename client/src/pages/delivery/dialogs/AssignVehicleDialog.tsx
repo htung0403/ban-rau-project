@@ -150,7 +150,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
     name: 'assignments',
   });
 
-  /** SL đã lưu cho từng dòng xe khi mở form; cột «SL giao thêm» = nhập phần nốt. */
+  /** SL hiện tại theo từng dòng xe (baseline luôn 0, quantity = tổng SL trực tiếp). */
   const [assignmentBaselines, setAssignmentBaselines] = useState<number[]>([]);
 
   const watchAssignments = watch('assignments') || [];
@@ -161,13 +161,27 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   );
   const watchExportPaymentStatus = watch('export_payment_status');
   const projectedAssignedTotal = React.useMemo(
-    () =>
-      watchAssignments.reduce((acc, row, i) => {
+    () => {
+      const visibleSum = watchAssignments.reduce((acc, row, i) => {
         const b = assignmentBaselines[i] ?? 0;
         const d = Number(row.quantity) || 0;
         return acc + b + d;
-      }, 0),
-    [watchAssignments, assignmentBaselines],
+      }, 0);
+
+      let hiddenSum = 0;
+      let initialVid = initialVehicleId || '';
+      if (isDriver) {
+        initialVid = initialVid || myVehicle?.id || '';
+      }
+      if (initialVid && order?.delivery_vehicles) {
+        hiddenSum = order.delivery_vehicles
+          .filter((dv) => dv.vehicle_id !== initialVid)
+          .reduce((acc, dv) => acc + (Number(dv.assigned_quantity) || 0), 0);
+      }
+
+      return visibleSum + hiddenSum;
+    },
+    [watchAssignments, assignmentBaselines, initialVehicleId, isDriver, myVehicle, order]
   );
   const currentAvailable = order ? Math.max(0, order.total_quantity - projectedAssignedTotal) : 0;
 
@@ -254,11 +268,18 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       const baselines: number[] = [];
       const now = new Date();
 
+      let initialVid = initialVehicleId || '';
+      if (isDriver) {
+        initialVid = initialVid || myVehicle?.id || '';
+      }
+
       if (existingDvs.length > 0) {
         existingDvs.forEach((dv: any) => {
+          if (initialVid && dv.vehicle_id !== initialVid) return;
+
           const vid = dv.vehicle_id;
           const persistedQty = Number(dv.assigned_quantity) || 0;
-          baselines.push(persistedQty);
+          baselines.push(0);
           const rowImageUrls: string[] = [];
           if (Array.isArray(dv.image_urls)) {
             for (const u of dv.image_urls) {
@@ -270,15 +291,15 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               rowImageUrls.push(pc.image_url);
             }
           }
-          const rowDeliveryDate = format(now, 'yyyy-MM-dd');
-          const rowDeliveryTime = format(now, 'HH:mm');
+          const rowDeliveryDate = dv.delivery_date || format(now, 'yyyy-MM-dd');
+          const rowDeliveryTime = dv.delivery_time || format(now, 'HH:mm');
 
           initialAssignments.push({
             vehicle_id: dv.vehicle_id,
             driver_id: dv.driver_id || '',
             loader_name: dv.loader_name || '',
             unit_price: defaultUnitPrice,
-            quantity: '',
+            quantity: persistedQty,
             expected_amount: importPaidReset
               ? 0
               : dv.expected_amount || (persistedQty * defaultUnitPrice),
@@ -287,11 +308,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             delivery_time: rowDeliveryTime,
           });
         });
-      }
-
-      let initialVid = initialVehicleId || '';
-      if (isDriver) {
-        initialVid = initialVid || myVehicle?.id || '';
       }
 
       if (initialVid && !initialAssignments.some(a => a.vehicle_id === initialVid)) {
@@ -406,10 +422,23 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       return;
     }
     try {
+      let initialVid = initialVehicleId || '';
+      if (isDriver) {
+        initialVid = initialVid || myVehicle?.id || '';
+      }
+
+      let hiddenSum = 0;
+      if (initialVid && order.delivery_vehicles) {
+        hiddenSum = order.delivery_vehicles
+          .filter((dv) => dv.vehicle_id !== initialVid)
+          .reduce((acc, dv) => acc + (Number(dv.assigned_quantity) || 0), 0);
+      }
+
       const sumFinal = data.assignments.reduce(
         (s, a, i) => s + (assignmentBaselines[i] ?? 0) + (Number(a.quantity) || 0),
         0,
-      );
+      ) + hiddenSum;
+
       if (sumFinal > order.total_quantity) {
         toast(() => (
           <span className="text-[13px] font-semibold">
@@ -421,7 +450,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       for (let i = 0; i < data.assignments.length; i++) {
         const finalQty = (assignmentBaselines[i] ?? 0) + (Number(data.assignments[i].quantity) || 0);
         if (finalQty <= 0) {
-          toast.error('Mỗi dòng xe cần có tổng SL > 0 (đã gán trước đó + SL giao thêm).');
+          toast.error('Mỗi dòng xe cần có số lượng > 0.');
           return;
         }
       }
@@ -476,15 +505,35 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         return;
       }
 
-      if (normalizedAssignments.length === 0) {
+      const finalAssignmentsToSubmit = [...normalizedAssignments];
+      
+      if (initialVid) {
+        const hiddenAssignments = (order.delivery_vehicles || []).filter(
+          (dv) => dv.vehicle_id !== initialVid && (dv.assigned_quantity || 0) > 0
+        ).map((dv: any) => ({
+          vehicle_id: dv.vehicle_id,
+          driver_id: dv.driver_id || '',
+          loader_name: dv.loader_name || '',
+          unit_price: Number(dv.unit_price || order.unit_price || 0),
+          quantity: Number(dv.assigned_quantity) || 0,
+          expected_amount: Number(dv.expected_amount || 0),
+          image_urls: Array.isArray(dv.image_urls) ? dv.image_urls : [],
+          delivery_date: dv.delivery_date,
+          delivery_time: dv.delivery_time,
+        }));
+        
+        finalAssignmentsToSubmit.push(...hiddenAssignments);
+      }
+
+      if (finalAssignmentsToSubmit.length === 0) {
         toast.error('Không có phân bổ hợp lệ để lưu.');
         return;
       }
 
       const payload: any = {
-        assignments: normalizedAssignments,
+        assignments: finalAssignmentsToSubmit,
         export_payment_status: data.export_payment_status,
-        unit_price: normalizedAssignments[0]?.unit_price || 0,
+        unit_price: finalAssignmentsToSubmit[0]?.unit_price || 0,
         /** Một mốc cho cả lần lưu (sau khi chụp/tải ảnh) — trùng nhau khi phân nhiều đơn cùng lúc */
         delivered_at: new Date().toISOString(),
       };
@@ -706,7 +755,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     {/* Số lượng */}
                     <div className="w-full md:w-40 space-y-1.5 mt-2 md:mt-0">
                       <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-                        <Package size={12} className={isPaid ? "text-green-500" : "text-primary"} /> SL giao thêm
+                        <Package size={12} className={isPaid ? "text-green-500" : "text-primary"} /> Số lượng
                       </label>
                       <input
                         type="number"

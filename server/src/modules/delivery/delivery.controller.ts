@@ -27,6 +27,7 @@ const assignVehicleSchema = z.array(z.object({
 }));
 
 const deliveryOrderUpdateSchema = z.object({
+  product_id: z.string().optional(),
   product_name: z.string().min(1).optional(),
   total_quantity: z.number().int().positive().optional(),
   unit_price: z.number().optional(),

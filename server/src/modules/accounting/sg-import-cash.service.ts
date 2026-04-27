@@ -23,7 +23,9 @@ export class SgImportCashService {
         sg_cash_handover_confirmed_by,
         customers:customers!import_orders_customer_id_fkey(id, name, phone),
         collector:profiles!import_orders_received_by_fkey(id, full_name),
-        confirmer:profiles!import_orders_sg_cash_handover_confirmed_by_fkey(id, full_name)
+        confirmer:profiles!import_orders_sg_cash_handover_confirmed_by_fkey(id, full_name),
+        import_order_items(quantity, unit_price, products(name)),
+        delivery_orders(delivery_date, delivery_time, delivery_vehicles(assigned_quantity, vehicles(license_plate), profiles(full_name)))
       `
       )
       .is('deleted_at', null)

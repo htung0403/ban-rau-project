@@ -530,7 +530,7 @@ const ExpensesPage = () => {
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 border-b border-border/50 bg-emerald-50/25 dark:bg-emerald-950/30 shrink-0">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 border-b border-border/50 bg-background shrink-0">
               <span className="text-[12px] text-muted-foreground font-medium">
                 {filteredExpenses.length} phiếu
                 {(searchQuery ||
@@ -888,12 +888,19 @@ const ExpensesPage = () => {
 
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-bold text-foreground">Tên chi phí <span className="text-red-500">*</span></label>
-                    <input
-                      className="flex h-11 w-full rounded-xl border border-border/80 bg-background px-3 py-2 text-[14px] ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all font-medium"
-                      required
+                    <SearchableSelect
                       value={formData.expense_name}
-                      onChange={(e) => setFormData({ ...formData, expense_name: e.target.value })}
-                      placeholder="Ví dụ: Đổ xăng, Phí cầu đường..."
+                      onValueChange={(val) => setFormData({ ...formData, expense_name: val })}
+                      options={[
+                        { value: 'Dầu Phúc Sơn', label: 'Dầu Phúc Sơn' },
+                        { value: 'Dầu Ngoài', label: 'Dầu Ngoài' },
+                        { value: 'Phí Cầu Đường', label: 'Phí Cầu Đường' },
+                        { value: 'Sửa xe', label: 'Sửa xe' }
+                      ]}
+                      placeholder="Chọn hoặc nhập tên chi phí..."
+                      searchPlaceholder="Tìm hoặc nhập tên chi phí..."
+                      className="w-full h-11 bg-background"
+                      allowCustom
                     />
                   </div>
 

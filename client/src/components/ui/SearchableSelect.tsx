@@ -32,6 +32,7 @@ interface SearchableSelectProps {
   emptyMessage?: string
   className?: string
   disabled?: boolean
+  allowCustom?: boolean
 }
 
 export function SearchableSelect({
@@ -43,13 +44,18 @@ export function SearchableSelect({
   emptyMessage = "Không có kết quả.",
   className,
   disabled = false,
+  allowCustom = false,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false)
+  const [searchValue, setSearchValue] = React.useState("")
 
-  const selectedOption = options.find((option) => option.value === value)
+  const selectedOption = options.find((option) => option.value === value) || (allowCustom && value ? { value, label: value } : undefined)
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen);
+      if (!isOpen) setSearchValue("");
+    }}>
       <PopoverTrigger asChild>
         <button
           disabled={disabled}
@@ -87,8 +93,8 @@ export function SearchableSelect({
       <PopoverContent className="w-full min-w-[var(--radix-popover-trigger-width)] p-0 shadow-xl border-border/60">
         <Command 
           className="rounded-xl overflow-hidden"
-          filter={(value, search) => {
-            const normalizedValue = removeAccents(value).toLowerCase();
+          filter={(val, search) => {
+            const normalizedValue = removeAccents(val).toLowerCase();
             const normalizedSearch = removeAccents(search).toLowerCase();
             return normalizedValue.includes(normalizedSearch) ? 1 : 0;
           }}
@@ -96,6 +102,8 @@ export function SearchableSelect({
           <CommandInput 
             placeholder={searchPlaceholder} 
             className="h-10 border-none text-[13px] focus:ring-0"
+            value={searchValue}
+            onValueChange={setSearchValue}
           />
           <CommandList className="max-h-60 p-1">
             <CommandEmpty className="py-6 text-[12px] text-muted-foreground">
@@ -109,6 +117,7 @@ export function SearchableSelect({
                   onSelect={() => {
                     onValueChange(option.value)
                     setOpen(false)
+                    setSearchValue("")
                   }}
                   className={cn(
                     "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-[13px] font-medium transition-colors hover:bg-primary/5",
@@ -122,6 +131,21 @@ export function SearchableSelect({
                 </CommandItem>
               ))}
             </CommandGroup>
+            {allowCustom && searchValue && !options.some(opt => opt.label.toLowerCase() === searchValue.toLowerCase()) && (
+              <CommandGroup>
+                <CommandItem
+                  value={searchValue}
+                  onSelect={() => {
+                    onValueChange(searchValue)
+                    setOpen(false)
+                    setSearchValue("")
+                  }}
+                  className="flex items-center gap-2 text-primary px-3 py-2 rounded-lg cursor-pointer text-[13px] font-medium transition-colors hover:bg-primary/5"
+                >
+                  Tạo mới "{searchValue}"
+                </CommandItem>
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

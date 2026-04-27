@@ -49,7 +49,7 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const bulkSetLoyal = useBulkSetLoyal();
-  const showLoyalCheckbox = type === 'grocery_sender';
+  const showLoyalCheckbox = true;
 
   const closeAddDialog = () => {
     setIsAddClosing(true);
@@ -201,8 +201,8 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
             {/* Desktop View */}
             <div className="hidden md:block">
               <table className="w-full border-collapse">
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-muted/30 border-b border-border">
+                <thead className="sticky top-0 z-10 bg-white">
+                  <tr className="bg-slate-50 border-b border-border">
                     {showLoyalCheckbox && (
                       <th className="px-4 py-3 w-10">
                         <input

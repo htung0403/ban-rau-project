@@ -291,19 +291,24 @@
   [data-print-area="loyal-orders"] table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: 18px !important;
+    font-family: "Times New Roman", Times, serif;
   }
 
   [data-print-area="loyal-orders"] th,
   [data-print-area="loyal-orders"] td {
-    border: 1px solid #ccc;
+    border: 1px solid #000;
     padding: 6px 8px;
+    font-size: 18px !important;
+    color: #000 !important;
   }
 
   [data-print-area="loyal-orders"] th {
     background-color: #f0f0f0 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    font-size: 18px !important;
+    color: #000 !important;
   }
 
   /* Hide input borders, show value as text */
@@ -313,6 +318,9 @@
     box-shadow: none !important;
     padding: 0 !important;
     outline: none !important;
+    font-size: 18px !important;
+    color: #000 !important;
+    text-align: right !important;
   }
 
   /* Print header */
@@ -320,19 +328,21 @@
     visibility: visible;
     display: block !important;
     text-align: center;
-    margin-bottom: 16px;
+    margin-bottom: 24px;
+    font-family: "Times New Roman", Times, serif;
   }
 
   .print-header h2 {
-    font-size: 18px;
+    font-size: 26px;
     font-weight: bold;
     margin: 0;
+    color: #000;
   }
 
   .print-header p {
-    font-size: 13px;
-    color: #666;
-    margin: 4px 0;
+    font-size: 18px;
+    color: #000;
+    margin: 6px 0;
   }
 }
 

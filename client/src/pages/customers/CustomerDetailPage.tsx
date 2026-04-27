@@ -495,6 +495,7 @@ const CustomerDetailPage: React.FC = () => {
                 {/* Desktop Table */}
                 <div className="hidden md:block print:block flex-1 overflow-auto" data-print-area="loyal-orders">
                   <div className="print-header hidden">
+                    <p style={{ fontWeight: 'bold', fontSize: '20px' }}>Nhà xe Nam Sự</p>
                     <h2>PHIẾU GIAO HÀNG</h2>
                     <p>Khách hàng: {customer.name}</p>
                     <p>Điện thoại: {customer.phone || '-'} | Địa chỉ: {customer.address || '-'}</p>

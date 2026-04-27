@@ -98,9 +98,10 @@ const CustomerDetailPage: React.FC = () => {
         const order = deliveryOrders?.find((o: any) => o.id === orderId);
         if (!order) return null;
         const price = editingPrices[orderId] ?? order.unit_price ?? 0;
+        const finalPrice = price > 0 && price < 10000 ? price * 1000 : price;
         return {
           delivery_order_id: orderId,
-          unit_price: price,
+          unit_price: finalPrice,
           price_confirmed: true,
         };
       })
@@ -526,7 +527,8 @@ const CustomerDetailPage: React.FC = () => {
                     <tbody className="divide-y divide-border/50">
                       {deliveryOrders.map((o: any) => {
                         const currentPrice = editingPrices[o.id] ?? o.unit_price ?? 0;
-                        const thanhTien = o.total_quantity * currentPrice;
+                        const effectivePrice = currentPrice > 0 && currentPrice < 10000 ? currentPrice * 1000 : currentPrice;
+                        const thanhTien = o.total_quantity * effectivePrice;
                         const driverNames = (o.delivery_vehicles || [])
                           .map((dv: any) => dv.profiles?.full_name)
                           .filter(Boolean)
@@ -593,7 +595,8 @@ const CustomerDetailPage: React.FC = () => {
                 <div className="md:hidden flex flex-col gap-3 px-4 pb-24 pt-2">
                   {deliveryOrders.map((o: any) => {
                     const currentPrice = editingPrices[o.id] ?? o.unit_price ?? 0;
-                    const thanhTien = o.total_quantity * currentPrice;
+                    const effectivePrice = currentPrice > 0 && currentPrice < 10000 ? currentPrice * 1000 : currentPrice;
+                    const thanhTien = o.total_quantity * effectivePrice;
                     const driverNames = (o.delivery_vehicles || [])
                       .map((dv: any) => dv.profiles?.full_name)
                       .filter(Boolean)

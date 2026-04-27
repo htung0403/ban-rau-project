@@ -60,7 +60,6 @@ const getReceiverDisplayName = (order: DeliveryOrder) => {
   return orderObj?.customers?.name || orderObj?.receiver_name?.trim() || orderObj?.profiles?.full_name || '-';
 };
 
-const ROWS_PER_PAGE = 28;
 const ROW_HEIGHT_PX = 32;
 
 const estimateCharWidth = (char: string): number => {
@@ -111,11 +110,6 @@ const paginateOrders = (orders: DeliveryOrder[]): DeliveryOrder[][] => {
   return pages;
 };
 
-const chunkArray = <T,>(arr: T[], size: number): T[][] => {
-  const chunks: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
-  return chunks;
-};
 
 const PrintDeliveryPage: React.FC = () => {
   const navigate = useNavigate();

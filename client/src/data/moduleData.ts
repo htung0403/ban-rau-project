@@ -67,13 +67,8 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
       section: 'Khách hàng Tạp hóa',
       items: [
         { icon: Send, title: 'DS người gửi hàng tạp hóa', description: 'Danh sách khách hàng gửi hàng tạp hóa.', colorScheme: 'blue', path: '/khach-hang/nguoi-gui-tap-hoa' },
-        { icon: Store, title: 'DS người nhận hàng tạp hóa', description: 'Danh sách khách hàng nhận hàng tạp hóa.', colorScheme: 'purple', path: '/khach-hang/nguoi-nhan-tap-hoa' },
-      ]
-    },
-    {
-      section: 'Khách hàng thân thiết',
-      items: [
         { icon: Heart, title: 'DS KH thân thiết', description: 'Quản lý khách hàng thân thiết.', colorScheme: 'amber', path: '/khach-hang/khach-hang-than-thiet' },
+        { icon: Store, title: 'DS người nhận hàng tạp hóa', description: 'Danh sách khách hàng nhận hàng tạp hóa.', colorScheme: 'purple', path: '/khach-hang/nguoi-nhan-tap-hoa' },
       ]
     }
   ],

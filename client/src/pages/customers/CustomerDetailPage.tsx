@@ -539,6 +539,10 @@ const CustomerDetailPage: React.FC = () => {
                           o.delivery_time ? o.delivery_time.slice(0, 5) : '',
                         ].filter(Boolean).join(' ');
 
+                        const displayPrice = editingPrices[o.id] !== undefined 
+                           ? (editingPrices[o.id] || '')
+                           : (o.unit_price ? o.unit_price / 1000 : '');
+
                         return (
                           <tr
                             key={o.id}
@@ -570,7 +574,7 @@ const CustomerDetailPage: React.FC = () => {
                             <td className="px-4 py-3 text-right">
                               <input
                                 type="number"
-                                value={editingPrices[o.id] ?? o.unit_price ?? ''}
+                                value={displayPrice}
                                 onChange={(e) => {
                                   setEditingPrices(prev => ({
                                     ...prev,
@@ -602,6 +606,10 @@ const CustomerDetailPage: React.FC = () => {
                       .map((dv: any) => dv.profiles?.full_name)
                       .filter(Boolean)
                       .join(', ') || '-';
+
+                    const displayPrice = editingPrices[o.id] !== undefined 
+                        ? (editingPrices[o.id] || '')
+                        : (o.unit_price ? o.unit_price / 1000 : '');
 
                     return (
                       <div key={o.id} className="bg-white p-4 rounded-2xl shadow-sm border border-border flex flex-col gap-3">
@@ -636,7 +644,7 @@ const CustomerDetailPage: React.FC = () => {
                             <span className="text-[11px] text-muted-foreground">Đơn giá</span>
                             <input
                               type="number"
-                              value={editingPrices[o.id] ?? o.unit_price ?? ''}
+                              value={displayPrice}
                               onChange={(e) => setEditingPrices(prev => ({ ...prev, [o.id]: Number(e.target.value) || 0 }))}
                               placeholder="Nhập giá"
                               className="w-full px-2 py-1 text-[13px] font-bold border border-border rounded-lg outline-none"

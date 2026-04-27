@@ -515,12 +515,12 @@ const CustomerDetailPage: React.FC = () => {
                             className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
                           />
                         </th>
-                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Ngày giờ giao</th>
-                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Số lượng</th>
-                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Tên hàng</th>
-                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Đơn giá</th>
-                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Nhân viên giao</th>
-                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Thành tiền</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left whitespace-nowrap">Ngày giờ giao</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right whitespace-nowrap">Số lượng</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-full min-w-[200px]">Tên hàng</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right whitespace-nowrap">Đơn giá</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left whitespace-nowrap">Nhân viên giao</th>
+                        <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right whitespace-nowrap">Thành tiền</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50">
@@ -561,10 +561,10 @@ const CustomerDetailPage: React.FC = () => {
                                 className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
                               />
                             </td>
-                            <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums">{deliveryDateTime}</td>
+                            <td className="px-4 py-3 text-[12px] text-muted-foreground tabular-nums whitespace-nowrap">{deliveryDateTime}</td>
                             <td className="px-4 py-3 text-[13px] font-bold text-right tabular-nums">{o.total_quantity}</td>
                             <td className="px-4 py-3 text-[13px] font-bold text-foreground">{o.product_name}</td>
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 text-right">
                               <input
                                 type="number"
                                 value={editingPrices[o.id] ?? o.unit_price ?? ''}
@@ -575,11 +575,11 @@ const CustomerDetailPage: React.FC = () => {
                                   }));
                                 }}
                                 placeholder="Nhập giá"
-                                className="w-28 px-2 py-1 text-[13px] font-bold text-right tabular-nums border border-border rounded-lg focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none bg-white"
+                                className="w-28 ml-auto px-2 py-1 text-[13px] font-bold text-right tabular-nums border border-border rounded-lg focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none bg-white"
                               />
                             </td>
-                            <td className="px-4 py-3 text-[12px] text-muted-foreground">{driverNames}</td>
-                            <td className="px-4 py-3 text-[13px] font-bold text-emerald-600 text-right tabular-nums">
+                            <td className="px-4 py-3 text-[12px] text-muted-foreground whitespace-nowrap">{driverNames}</td>
+                            <td className="px-4 py-3 text-[13px] font-bold text-emerald-600 text-right tabular-nums whitespace-nowrap">
                               {formatCurrency(thanhTien)}
                             </td>
                           </tr>

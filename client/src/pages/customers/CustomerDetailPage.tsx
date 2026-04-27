@@ -100,12 +100,12 @@ const CustomerDetailPage: React.FC = () => {
         const price = editingPrices[orderId] ?? order.unit_price ?? 0;
         const finalPrice = price > 0 && price < 10000 ? price * 1000 : price;
         return {
-          delivery_order_id: orderId,
-          unit_price: finalPrice,
-          price_confirmed: true,
+          deliveryOrderId: orderId,
+          unitPrice: finalPrice,
+          priceConfirmed: true,
         };
       })
-      .filter(Boolean) as Array<{ delivery_order_id: string; unit_price: number; price_confirmed: boolean }>;
+      .filter(Boolean) as Array<{ deliveryOrderId: string; unitPrice: number; priceConfirmed: boolean }>;
 
     if (updates.length === 0) return;
 

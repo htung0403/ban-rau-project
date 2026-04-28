@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Loader2, Truck, User, Camera, ImagePlus } from 'lucide-react';
-import { useUpdateDeliveryOrder, useAssignVehicle } from '../../../hooks/queries/useDelivery';
+import { X, Loader2, Camera, ImagePlus } from 'lucide-react';
+import { useUpdateDeliveryOrder } from '../../../hooks/queries/useDelivery';
 import { useProducts } from '../../../hooks/queries/useProducts';
 import { useCustomers } from '../../../hooks/queries/useCustomers';
-import { useVehicles } from '../../../hooks/queries/useVehicles';
-import { useEmployees } from '../../../hooks/queries/useHR';
+
 import { importOrdersApi } from '../../../api/importOrdersApi';
 import { uploadApi } from '../../../api/uploadApi';
 import { CreatableSearchableSelect } from '../../../components/ui/CreatableSearchableSelect';
-import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+
 import VnUnitPriceInput from '../../../components/shared/VnUnitPriceInput';
 import type { DeliveryOrder, Product } from '../../../types';
 import { deliveryTimeToInputValue } from '../../../lib/deliveryDisplay';
@@ -25,14 +24,10 @@ interface Props {
 
 const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose }) => {
   const updateMutation = useUpdateDeliveryOrder();
-  const assignMutation = useAssignVehicle();
-  const isDaGiao = order?.status === 'da_giao';
   const isVeg = order?.order_category === 'vegetable' || !!order?.vegetable_order_id;
 
   const { data: products } = useProducts(isOpen, isVeg ? 'vegetable' : 'standard');
   const { data: allCustomers } = useCustomers(undefined, isOpen);
-  const { data: vehicles } = useVehicles(isOpen);
-  const { data: employees } = useEmployees(isOpen);
 
   const productOptions = useMemo(() => {
     if (!products) return [];

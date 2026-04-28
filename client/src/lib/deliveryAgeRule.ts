@@ -25,6 +25,9 @@ export const isOldOrderForAgeRule = (order: DeliveryOrder, anchorDate: string): 
     const confirmedDate = new Date(order.confirmed_at);
     const cutoffTime = new Date(confirmedDate);
     cutoffTime.setHours(19, 0, 0, 0);
+    if (confirmedDate >= cutoffTime) {
+      cutoffTime.setDate(cutoffTime.getDate() + 1);
+    }
     return Date.now() >= cutoffTime.getTime();
   }
   

@@ -80,12 +80,13 @@ interface Props {
   order: DeliveryOrder | null;
   initialVehicleId?: string | null;
   allOrders?: DeliveryOrder[];
+  mode?: 'edit' | 'add-new';
   onClose: () => void;
 }
 
 const EMPTY_ARRAY: DeliveryOrder[] = [];
 
-const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initialVehicleId, allOrders = EMPTY_ARRAY, onClose }) => {
+const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initialVehicleId, allOrders = EMPTY_ARRAY, mode = 'edit', onClose }) => {
   const { data: vehicles } = useVehicles(isOpen);
   const { data: employees } = useEmployees(isOpen);
   const assignMutation = useAssignVehicle();
@@ -273,60 +274,78 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         initialVid = initialVid || myVehicle?.id || '';
       }
 
-      if (existingDvs.length > 0) {
-        existingDvs.forEach((dv: any) => {
-          if (initialVid && dv.vehicle_id !== initialVid) return;
-
-          const vid = dv.vehicle_id;
-          const persistedQty = Number(dv.assigned_quantity) || 0;
+      if (mode === 'add-new') {
+        if (initialVid) {
+          const vehicle = eligibleVehicles.find(v => v.id === initialVid);
           baselines.push(0);
-          const rowImageUrls: string[] = [];
-          if (Array.isArray(dv.image_urls)) {
-            for (const u of dv.image_urls) {
-              if (u && typeof u === 'string' && !rowImageUrls.includes(u)) rowImageUrls.push(u);
-            }
-          }
-          for (const pc of order.payment_collections || []) {
-            if (pc.vehicle_id === vid && pc.image_url && !rowImageUrls.includes(pc.image_url)) {
-              rowImageUrls.push(pc.image_url);
-            }
-          }
-          const rowDeliveryDate = dv.delivery_date || format(now, 'yyyy-MM-dd');
-          const rowDeliveryTime = dv.delivery_time || format(now, 'HH:mm');
-
           initialAssignments.push({
-            vehicle_id: dv.vehicle_id,
-            driver_id: dv.driver_id || '',
-            loader_name: dv.loader_name || '',
+            vehicle_id: initialVid,
+            driver_id: vehicle?.driver_id || vehicle?.in_charge_id || (isDriver ? myEmployeeId : ''),
+            loader_name: '',
             unit_price: defaultUnitPrice,
-            quantity: persistedQty,
-            expected_amount: importPaidReset
-              ? 0
-              : dv.expected_amount || (persistedQty * defaultUnitPrice),
-            image_urls: rowImageUrls,
-            delivery_date: rowDeliveryDate,
-            delivery_time: rowDeliveryTime,
+            quantity: 0,
+            expected_amount: 0,
+            image_urls: [],
+            delivery_date: format(now, 'yyyy-MM-dd'),
+            delivery_time: format(now, 'HH:mm'),
           });
-        });
-      }
+        }
+      } else {
+        if (existingDvs.length > 0) {
+          existingDvs.forEach((dv: any) => {
+            if (initialVid && dv.vehicle_id !== initialVid) return;
 
-      if (initialVid && !initialAssignments.some(a => a.vehicle_id === initialVid)) {
-        const vehicle = eligibleVehicles.find(v => v.id === initialVid);
-        const alreadyAssignedSum = baselines.reduce((sum, b) => sum + b, 0);
-        const remainingForThis = Math.max(0, order.total_quantity - alreadyAssignedSum);
+            const vid = dv.vehicle_id;
+            const persistedQty = Number(dv.assigned_quantity) || 0;
+            baselines.push(0);
+            const rowImageUrls: string[] = [];
+            if (Array.isArray(dv.image_urls)) {
+              for (const u of dv.image_urls) {
+                if (u && typeof u === 'string' && !rowImageUrls.includes(u)) rowImageUrls.push(u);
+              }
+            }
+            for (const pc of order.payment_collections || []) {
+              if (pc.vehicle_id === vid && pc.image_url && !rowImageUrls.includes(pc.image_url)) {
+                rowImageUrls.push(pc.image_url);
+              }
+            }
+            const rowDeliveryDate = dv.delivery_date || format(now, 'yyyy-MM-dd');
+            const rowDeliveryTime = dv.delivery_time || format(now, 'HH:mm');
 
-        baselines.push(0);
-        initialAssignments.push({
-          vehicle_id: initialVid,
-          driver_id: vehicle?.driver_id || vehicle?.in_charge_id || (isDriver ? myEmployeeId : ''),
-          loader_name: '',
-          unit_price: defaultUnitPrice,
-          quantity: remainingForThis,
-          expected_amount: importPaidReset ? 0 : remainingForThis * defaultUnitPrice,
-          image_urls: [],
-          delivery_date: format(now, 'yyyy-MM-dd'),
-          delivery_time: format(now, 'HH:mm'),
-        });
+            initialAssignments.push({
+              vehicle_id: dv.vehicle_id,
+              driver_id: dv.driver_id || '',
+              loader_name: dv.loader_name || '',
+              unit_price: defaultUnitPrice,
+              quantity: persistedQty,
+              expected_amount: importPaidReset
+                ? 0
+                : dv.expected_amount || (persistedQty * defaultUnitPrice),
+              image_urls: rowImageUrls,
+              delivery_date: rowDeliveryDate,
+              delivery_time: rowDeliveryTime,
+            });
+          });
+        }
+
+        if (initialVid && !initialAssignments.some(a => a.vehicle_id === initialVid)) {
+          const vehicle = eligibleVehicles.find(v => v.id === initialVid);
+          const alreadyAssignedSum = baselines.reduce((sum, b) => sum + b, 0);
+          const remainingForThis = Math.max(0, order.total_quantity - alreadyAssignedSum);
+
+          baselines.push(0);
+          initialAssignments.push({
+            vehicle_id: initialVid,
+            driver_id: vehicle?.driver_id || vehicle?.in_charge_id || (isDriver ? myEmployeeId : ''),
+            loader_name: '',
+            unit_price: defaultUnitPrice,
+            quantity: remainingForThis,
+            expected_amount: importPaidReset ? 0 : remainingForThis * defaultUnitPrice,
+            image_urls: [],
+            delivery_date: format(now, 'yyyy-MM-dd'),
+            delivery_time: format(now, 'HH:mm'),
+          });
+        }
       }
 
       if (isDriver && initialVid && myEmployeeId) {
@@ -411,7 +430,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         export_payment_status: defaultExportPaymentStatus,
       });
     }
-  }, [order, initialVehicleId, isOpen, reset, eligibleVehicles, isDriver, myVehicle, myEmployeeId, allOrders]);
+  }, [order, initialVehicleId, isOpen, reset, eligibleVehicles, isDriver, myVehicle, myEmployeeId, allOrders, mode]);
 
   if (!isOpen && !isClosing) return null;
 
@@ -506,8 +525,23 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       }
 
       const finalAssignmentsToSubmit = [...normalizedAssignments];
-      
-      if (initialVid) {
+
+      if (mode === 'add-new') {
+        const existingAssignments = (order.delivery_vehicles || [])
+          .filter((dv) => (dv.assigned_quantity || 0) > 0)
+          .map((dv: any) => ({
+            vehicle_id: dv.vehicle_id,
+            driver_id: dv.driver_id || '',
+            loader_name: dv.loader_name || '',
+            unit_price: Number(dv.unit_price || order.unit_price || 0),
+            quantity: Number(dv.assigned_quantity) || 0,
+            expected_amount: Number(dv.expected_amount || 0),
+            image_urls: Array.isArray(dv.image_urls) ? dv.image_urls : [],
+            delivery_date: dv.delivery_date,
+            delivery_time: dv.delivery_time,
+          }));
+        finalAssignmentsToSubmit.push(...existingAssignments);
+      } else if (initialVid) {
         const hiddenAssignments = (order.delivery_vehicles || []).filter(
           (dv) => dv.vehicle_id !== initialVid && (dv.assigned_quantity || 0) > 0
         ).map((dv: any) => ({
@@ -521,7 +555,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           delivery_date: dv.delivery_date,
           delivery_time: dv.delivery_time,
         }));
-        
+
         finalAssignmentsToSubmit.push(...hiddenAssignments);
       }
 

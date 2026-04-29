@@ -119,6 +119,7 @@ const VegetableDeliveryPage: React.FC = () => {
 
   const [selectedOrder, setSelectedOrder] = useState<DeliveryOrder | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [assignMode, setAssignMode] = useState<'edit' | 'add-new'>('edit');
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isAssignClosing, setIsAssignClosing] = useState(false);
 
@@ -182,9 +183,10 @@ const VegetableDeliveryPage: React.FC = () => {
     }, 300);
   };
 
-  const openAssign = (order: DeliveryOrder, vehicleId?: string) => {
+  const openAssign = (order: DeliveryOrder, vehicleId?: string, mode?: 'edit' | 'add-new') => {
     setSelectedOrder(order);
     setSelectedVehicleId(vehicleId || null);
+    setAssignMode(mode || 'edit');
     setIsAssignOpen(true);
   };
 
@@ -270,14 +272,14 @@ const VegetableDeliveryPage: React.FC = () => {
     }
   };
 
-  const handleOrderClick = async (order: DeliveryOrder, vehicleId?: string) => {
+  const handleOrderClick = async (order: DeliveryOrder, vehicleId?: string, mode?: 'edit' | 'add-new') => {
     if (isDriver && !isLoader && myVehicleIds.length === 0) return;
 
     const clickedVehicleId =
       vehicleId ||
       (myVehicleIds.length === 1 ? myPrimaryVehicleId : getPresetVehicleIdFromOrder(order, eligibleVehicles));
 
-    openAssign(order, clickedVehicleId);
+    openAssign(order, clickedVehicleId, mode);
   };
 
   // Status counts for tabs
@@ -703,7 +705,7 @@ const VegetableDeliveryPage: React.FC = () => {
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleOrderClick(o);
+                                      handleOrderClick(o, undefined, 'add-new');
                                     }}
                                     className={clsx(
                                       "p-1.5 rounded-md transition-colors",
@@ -824,7 +826,7 @@ const VegetableDeliveryPage: React.FC = () => {
                                   key={v.id}
                                   onClick={() => {
                                     if (canEdit && (displayQty > 0 || remainingQty > 0)) {
-                                      handleOrderClick(o, v.id);
+                                      handleOrderClick(o, v.id, 'edit');
                                     }
                                   }}
                                   className={clsx(
@@ -851,7 +853,7 @@ const VegetableDeliveryPage: React.FC = () => {
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            handleOrderClick(o, v.id);
+                                            handleOrderClick(o, v.id, 'edit');
                                           }}
                                           className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 text-blue-600 hover:bg-blue-500/20 rounded transition-opacity"
                                           title="Chỉnh sửa phân xe"
@@ -875,7 +877,7 @@ const VegetableDeliveryPage: React.FC = () => {
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            handleOrderClick(o, v.id);
+                                            handleOrderClick(o, v.id, 'edit');
                                           }}
                                           className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 text-blue-600 hover:bg-blue-500/20 rounded transition-opacity"
                                           title="Chỉnh sửa phân xe"
@@ -982,7 +984,7 @@ const VegetableDeliveryPage: React.FC = () => {
                         <div
                           key={`mobile-order-${o.id}`}
                           onClick={() => {
-                            handleOrderClick(o);
+                            handleOrderClick(o, undefined, 'add-new');
                           }}
                           className={clsx(
                             "bg-card rounded-xl border shadow-sm transition-all relative overflow-hidden cursor-pointer active:scale-[0.98]",
@@ -1087,7 +1089,7 @@ const VegetableDeliveryPage: React.FC = () => {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleOrderClick(o);
+                                    handleOrderClick(o, undefined, 'add-new');
                                   }}
                                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-orange-600 dark:text-orange-500 hover:bg-orange-500/10 text-[12px] font-bold transition-colors"
                                 >
@@ -1191,6 +1193,7 @@ const VegetableDeliveryPage: React.FC = () => {
         order={selectedOrder}
         initialVehicleId={selectedVehicleId}
         allOrders={orders || []}
+        mode={assignMode}
         onClose={closeAssign}
       />
 

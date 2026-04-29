@@ -17,6 +17,7 @@ import EditDeliveryDialog from './dialogs/EditDeliveryDialog';
 import BulkAssignVehicleDialog from './dialogs/BulkAssignVehicleDialog';
 import BulkEditDeliveryDialog from './dialogs/BulkEditDeliveryDialog';
 import RevertVehicleDialog from './dialogs/RevertVehicleDialog';
+import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { Filter, X, Printer } from 'lucide-react';
@@ -228,6 +229,10 @@ const DeliveryPage: React.FC = () => {
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const [isBulkEditClosing, setIsBulkEditClosing] = useState(false);
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmClosing, setDeleteConfirmClosing] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
+
   const isLoading = ordersLoading;
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
   const normalizedRole = (user?.role || '').toLowerCase();
@@ -398,24 +403,38 @@ const DeliveryPage: React.FC = () => {
 
   const handleDeleteSelected = async () => {
     if (selectedIds.size === 0) return;
-    if (!window.confirm(`Xác nhận xoá ${selectedIds.size} đơn hàng đã chọn?`)) return;
-    try {
-      await deleteMutation.mutateAsync(Array.from(selectedIds));
-      setSelectedIds(new Set());
-    } catch {
-      // Error handled by mutation
-    }
+    setOrderToDelete('bulk');
+    setDeleteConfirmOpen(true);
   };
 
-  const handleDeleteOne = async (id: string) => {
-    if (!window.confirm('Xác nhận xoá đơn hàng này?')) return;
+  const handleDeleteOne = (id: string) => {
+    setOrderToDelete(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const closeDeleteConfirm = () => {
+    setDeleteConfirmClosing(true);
+    setTimeout(() => {
+      setDeleteConfirmOpen(false);
+      setDeleteConfirmClosing(false);
+      setOrderToDelete(null);
+    }, 300);
+  };
+
+  const executeDelete = async () => {
     try {
-      await deleteMutation.mutateAsync([id]);
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      if (orderToDelete === 'bulk') {
+        await deleteMutation.mutateAsync(Array.from(selectedIds));
+        setSelectedIds(new Set());
+      } else if (orderToDelete) {
+        await deleteMutation.mutateAsync([orderToDelete]);
+        setSelectedIds(prev => {
+          const next = new Set(prev);
+          next.delete(orderToDelete);
+          return next;
+        });
+      }
+      closeDeleteConfirm();
     } catch {
       // Error handled by mutation
     }
@@ -1065,6 +1084,20 @@ const DeliveryPage: React.FC = () => {
                                 (pc) => pc.vehicle_id === v.id && isPaidCollectionStatus(pc.status)
                               );
 
+                              const today = new Date();
+                              const deliveryDate = o.delivery_date ? new Date(o.delivery_date) : null;
+                              const isTodayDelivery = deliveryDate && 
+                                deliveryDate.getDate() === today.getDate() &&
+                                deliveryDate.getMonth() === today.getMonth() &&
+                                deliveryDate.getFullYear() === today.getFullYear();
+
+                              const textColorClass = totalQty > 0 
+                                ? (isTodayDelivery ? "text-blue-600 dark:text-blue-500" : "text-black dark:text-black")
+                                : "text-muted-foreground/30";
+                              const bgColorClass = totalQty > 0 && isTodayDelivery
+                                ? "bg-blue-500/10"
+                                : "";
+
                               return (
                                 <td
                                   key={v.id}
@@ -1075,7 +1108,9 @@ const DeliveryPage: React.FC = () => {
                                   }}
                                   className={clsx(
                                     "px-1 py-1 text-[13px] text-center tabular-nums border-r border-border last:border-r-0 transition-all relative group/cell",
-                                    totalQty > 0 ? "font-bold text-blue-600 dark:text-blue-500 bg-blue-500/10" : "text-muted-foreground/30",
+                                    totalQty > 0 && (isTodayDelivery ? "font-bold" : "font-bold"),
+                                    textColorClass,
+                                    bgColorClass,
                                     canEdit && statusFilter !== 'hang_o_sg' && (totalQty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95"
                                   )}
                                 >
@@ -1086,7 +1121,7 @@ const DeliveryPage: React.FC = () => {
                                           <React.Fragment key={dvItem.id || idx}>
                                             {idx > 0 && <span className="text-[10px] text-muted-foreground/50">+</span>}
                                             <VehicleCellTooltip dv={dvItem} vehicle={v} qty={dvItem.assigned_quantity || 0} isPaid={isPaid}>
-                                              <span className="cursor-help hover:text-blue-700 underline decoration-dotted decoration-blue-500/30 underline-offset-2">
+                                              <span className={clsx("cursor-help underline decoration-dotted underline-offset-2", isTodayDelivery ? "hover:text-blue-700 decoration-blue-500/30" : "hover:text-gray-900 decoration-black/30")}>
                                                 {formatNumber(dvItem.assigned_quantity)}
                                               </span>
                                             </VehicleCellTooltip>
@@ -1099,7 +1134,10 @@ const DeliveryPage: React.FC = () => {
                                             e.stopPropagation();
                                             handleOrderClick(o, v.id, 'edit');
                                           }}
-                                          className="absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 text-blue-600 hover:bg-blue-500/20 rounded transition-opacity"
+                                          className={clsx(
+                                            "absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded transition-opacity",
+                                            isTodayDelivery ? "text-blue-600 hover:bg-blue-500/20" : "text-black hover:bg-gray-500/20"
+                                          )}
                                           title="Chỉnh sửa phân xe"
                                         >
                                           <Pencil size={11} strokeWidth={2.5} />
@@ -1653,6 +1691,23 @@ const DeliveryPage: React.FC = () => {
             setIsViewingClosing(false);
           }, 300);
         }}
+      />
+
+      <ConfirmDialog
+        isOpen={deleteConfirmOpen}
+        isClosing={deleteConfirmClosing}
+        title="Xóa đơn hàng"
+        message={
+          orderToDelete === 'bulk'
+            ? `Bạn có chắc chắn muốn xóa ${selectedIds.size} đơn hàng đã chọn? Hành động này không thể hoàn tác.`
+            : 'Bạn có chắc chắn muốn xóa đơn hàng này? Hành động này không thể hoàn tác.'
+        }
+        confirmLabel="Xóa"
+        cancelLabel="Hủy"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={executeDelete}
+        onCancel={closeDeleteConfirm}
       />
     </div>
   );

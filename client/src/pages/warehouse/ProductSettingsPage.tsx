@@ -10,6 +10,7 @@ import { SearchInput } from '../../components/ui/SearchInput';
 import { matchesSearch } from '../../lib/str-utils';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import DraggableFAB from '../../components/shared/DraggableFAB';
+import toast from 'react-hot-toast';
 
 const InputDialog: React.FC<{
   isOpen: boolean;
@@ -177,6 +178,14 @@ const ProductSettingsPage: React.FC = () => {
       await updateProduct.mutateAsync({ id: productDialog.editingId, data });
       setSelectedProducts([]);
     } else {
+      const existingProducts = products || [];
+      const duplicate = existingProducts.find(
+        p => p.name.toLowerCase().trim() === data.name.toLowerCase().trim()
+      );
+      if (duplicate) {
+        toast.error(`Hàng hóa "${data.name}" đã tồn tại`);
+        return;
+      }
       await createProduct.mutateAsync({ name: data.name, category: 'standard', base_price: 0, price_per_weight: 1 });
     }
     setProductDialog(prev => ({ ...prev, isOpen: false }));

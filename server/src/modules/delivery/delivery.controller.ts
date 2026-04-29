@@ -193,8 +193,8 @@ export class DeliveryController {
 
   static async revertVehicle(req: Request, res: Response) {
     try {
-      const { vehicle_id } = z.object({ vehicle_id: z.string().uuid() }).parse(req.body);
-      const data = await DeliveryService.revertVehicle(req.params.id, vehicle_id);
+      const { vehicle_id, delivery_date } = z.object({ vehicle_id: z.string().uuid(), delivery_date: z.string().optional() }).parse(req.body);
+      const data = await DeliveryService.revertVehicle(req.params.id, vehicle_id, delivery_date);
       return res.status(200).json(successResponse(data, 'Đã hoàn tác xe'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));

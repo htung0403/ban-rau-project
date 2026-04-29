@@ -295,10 +295,11 @@ const DeliveryPage: React.FC = () => {
   const [filterReceiver, setFilterReceiver] = useState<string[]>([]);
   const [filterProduct, setFilterProduct] = useState<string[]>([]);
   const [filterVehicleIds, setFilterVehicleIds] = useState<string[]>([]);
+  const [filterHasExcess, setFilterHasExcess] = useState(false);
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, ageFilter, startDate, endDate, searchQuery, filterCustomer, filterReceiver, filterProduct, filterVehicleIds]);
+  }, [statusFilter, ageFilter, startDate, endDate, searchQuery, filterCustomer, filterReceiver, filterProduct, filterVehicleIds, filterHasExcess]);
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
@@ -420,90 +421,8 @@ const DeliveryPage: React.FC = () => {
     }
   };
 
-  // Status counts for tabs
-  const statusCounts = React.useMemo(() => {
-    if (!orders) return { all: 0, hang_o_sg: 0, can_giao: 0, da_giao: 0 };
-    return {
-      all: orders.length,
-      hang_o_sg: orders.filter((o) => getEffectiveDeliveryStatus(o) === 'hang_o_sg').length,
-      can_giao: orders.filter((o) => {
-        const eff = getEffectiveDeliveryStatus(o);
-        return eff === 'can_giao';
-      }).length,
-      da_giao: orders.filter((o) => {
-        const eff = getEffectiveDeliveryStatus(o);
-        if (eff === 'da_giao') return true;
-        const totalAssigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
-        return totalAssigned > 0 && totalAssigned < o.total_quantity;
-      }).length,
-    };
-  }, [orders]);
-
-  const { customerOptions, receiverOptions, productOptions } = React.useMemo(() => {
-    if (!orders) return { customerOptions: [], receiverOptions: [], productOptions: [] };
-    const cSet = new Set<string>();
-    const rSet = new Set<string>();
-    const pSet = new Set<string>();
-    orders.forEach(o => {
-      const cName = o.import_orders?.sender_name || o.import_orders?.customers?.name;
-      if (cName) cSet.add(cName);
-
-      const rName = o.import_orders?.customers?.name || o.import_orders?.receiver_name?.trim() || o.import_orders?.profiles?.full_name;
-      if (rName) rSet.add(rName);
-
-      const pName = o.product_name.includes(' - ') ? o.product_name.split(' - ').slice(1).join(' - ') : o.product_name;
-      if (pName) pSet.add(pName);
-    });
-    return {
-      customerOptions: Array.from(cSet).map(c => ({ label: c, value: c })),
-      receiverOptions: Array.from(rSet).map(c => ({ label: c, value: c })),
-      productOptions: Array.from(pSet).map(p => ({ label: p, value: p })),
-    };
-  }, [orders]);
-
-  const vehicleFilterOptions = React.useMemo(
-    () =>
-      [...eligibleVehicles]
-        .map((v) => ({
-          label: v.license_plate?.trim() || '—',
-          value: v.id,
-        }))
-        .sort((a, b) => a.label.localeCompare(b.label, 'vi')),
-    [eligibleVehicles]
-  );
-
   let filteredOrders = orders || [];
 
-  // Filter by status
-  if (statusFilter !== 'all') {
-    filteredOrders = filteredOrders.filter((o) => {
-      const eff = getEffectiveDeliveryStatus(o);
-      if (statusFilter === 'hang_o_sg') return eff === 'hang_o_sg';
-      if (statusFilter === 'can_giao') return eff === 'can_giao';
-      if (statusFilter === 'da_giao') {
-        let isDaGiao = false;
-        if (eff === 'da_giao') isDaGiao = true;
-        else {
-          const totalAssigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
-          isDaGiao = totalAssigned > 0 && totalAssigned < o.total_quantity;
-        }
-
-        if (!isDaGiao) return false;
-
-        if (isDriverOrLoader) {
-          const hasMyAssignment = (o.delivery_vehicles || []).some(dv => 
-            dv.vehicle_id && myVehicleIdSet.has(dv.vehicle_id) && (dv.assigned_quantity || 0) > 0
-          );
-          return hasMyAssignment;
-        }
-
-        return true;
-      }
-      return true;
-    });
-  }
-
-  // Filter by age (mốc 19:00: sau 19h đơn «hôm nay» chuyển sang hàng cũ so với phiên giao tối)
   const anchorStr = getDeliveryAnchorDateString();
   if (ageFilter === 'new') {
     filteredOrders = filteredOrders.filter((o) => !isOldOrderForAgeRule(o, anchorStr));
@@ -543,50 +462,124 @@ const DeliveryPage: React.FC = () => {
       if (!assignedToSelected) return false;
     }
 
+    if (filterHasExcess) {
+      const totalAssigned = (o.delivery_vehicles || []).reduce(
+        (sum, dv) => sum + (dv.assigned_quantity || 0),
+        0
+      );
+      const remainingQty = o.total_quantity - totalAssigned;
+      if (remainingQty >= 0) return false;
+    }
+
     return true;
   });
 
+  const statusCounts = React.useMemo(() => {
+    if (!filteredOrders) return { all: 0, hang_o_sg: 0, can_giao: 0, da_giao: 0 };
+    return {
+      all: filteredOrders.length,
+      hang_o_sg: filteredOrders.filter((o) => getEffectiveDeliveryStatus(o) === 'hang_o_sg').length,
+      can_giao: filteredOrders.filter((o) => {
+        const eff = getEffectiveDeliveryStatus(o);
+        return eff === 'can_giao';
+      }).length,
+      da_giao: filteredOrders.filter((o) => {
+        const eff = getEffectiveDeliveryStatus(o);
+        if (eff === 'da_giao') return true;
+        const totalAssigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
+        return totalAssigned > 0 && totalAssigned < o.total_quantity;
+      }).length,
+    };
+  }, [filteredOrders]);
+
+  const { customerOptions, receiverOptions, productOptions } = React.useMemo(() => {
+    if (!orders) return { customerOptions: [], receiverOptions: [], productOptions: [] };
+    const cSet = new Set<string>();
+    const rSet = new Set<string>();
+    const pSet = new Set<string>();
+    orders.forEach(o => {
+      const cName = o.import_orders?.sender_name || o.import_orders?.customers?.name;
+      if (cName) cSet.add(cName);
+
+      const rName = o.import_orders?.customers?.name || o.import_orders?.receiver_name?.trim() || o.import_orders?.profiles?.full_name;
+      if (rName) rSet.add(rName);
+
+      const pName = o.product_name.includes(' - ') ? o.product_name.split(' - ').slice(1).join(' - ') : o.product_name;
+      if (pName) pSet.add(pName);
+    });
+    return {
+      customerOptions: Array.from(cSet).map(c => ({ label: c, value: c })),
+      receiverOptions: Array.from(rSet).map(c => ({ label: c, value: c })),
+      productOptions: Array.from(pSet).map(p => ({ label: p, value: p })),
+    };
+  }, [orders]);
+
+  const vehicleFilterOptions = React.useMemo(
+    () =>
+      [...eligibleVehicles]
+        .map((v) => ({
+          label: v.license_plate?.trim() || '—',
+          value: v.id,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'vi')),
+    [eligibleVehicles]
+  );
+
+  let displayedOrders = filteredOrders;
+  if (statusFilter !== 'all') {
+    displayedOrders = displayedOrders.filter((o) => {
+      const eff = getEffectiveDeliveryStatus(o);
+      if (statusFilter === 'hang_o_sg') return eff === 'hang_o_sg';
+      if (statusFilter === 'can_giao') return eff === 'can_giao';
+      if (statusFilter === 'da_giao') {
+        let isDaGiao = false;
+        if (eff === 'da_giao') isDaGiao = true;
+        else {
+          const totalAssigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
+          isDaGiao = totalAssigned > 0 && totalAssigned < o.total_quantity;
+        }
+
+        if (!isDaGiao) return false;
+
+        if (isDriverOrLoader) {
+          const hasMyAssignment = (o.delivery_vehicles || []).some(dv => 
+            dv.vehicle_id && myVehicleIdSet.has(dv.vehicle_id) && (dv.assigned_quantity || 0) > 0
+          );
+          return hasMyAssignment;
+        }
+
+        return true;
+      }
+      return true;
+    });
+  }
+
   // Sort orders by customer name from A-Z
-  filteredOrders.sort((a, b) => getReceiverDisplayName(a).localeCompare(getReceiverDisplayName(b), 'vi'));
+  displayedOrders.sort((a, b) => getReceiverDisplayName(a).localeCompare(getReceiverDisplayName(b), 'vi'));
 
   // Selection helpers (admin only)
-  const isAllSelected = filteredOrders.length > 0 && filteredOrders.every(o => selectedIds.has(o.id));
-  const isSomeSelected = !isAllSelected && filteredOrders.some(o => selectedIds.has(o.id));
+  const isAllSelected = displayedOrders.length > 0 && displayedOrders.every(o => selectedIds.has(o.id));
+  const isSomeSelected = !isAllSelected && displayedOrders.some(o => selectedIds.has(o.id));
   const toggleSelectAll = () => {
     if (isAllSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredOrders.map(o => o.id)));
+      setSelectedIds(new Set(displayedOrders.map(o => o.id)));
     }
   };
 
   const isPaginatedTab = statusFilter === 'da_giao' || statusFilter === 'all';
-  const totalItems = filteredOrders.length;
+  const totalItems = displayedOrders.length;
   const totalPages = isPaginatedTab ? Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE)) : 1;
   const paginatedOrders = isPaginatedTab 
-    ? filteredOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
-    : filteredOrders;
+    ? displayedOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+    : displayedOrders;
 
   // Grouping logic: Date -> [Orders]
-  // For "Đã giao" tab, an order with vehicle assignments on multiple dates appears under each date.
   const groupedOrders = (paginatedOrders || []).reduce<Record<string, DeliveryOrder[]>>((acc, order) => {
-    if (statusFilter === 'da_giao') {
-      const vehicleDates = new Set<string>();
-      (order.delivery_vehicles || []).forEach(dv => {
-        if ((dv.assigned_quantity || 0) > 0 && dv.delivery_date) {
-          vehicleDates.add(dv.delivery_date);
-        }
-      });
-      const dates = vehicleDates.size > 0 ? Array.from(vehicleDates) : [order.delivery_date || 'N/A'];
-      dates.forEach(date => {
-        if (!acc[date]) acc[date] = [];
-        acc[date].push(order);
-      });
-    } else {
-      const date = order.delivery_date || 'N/A';
-      if (!acc[date]) acc[date] = [];
-      acc[date].push(order);
-    }
+    const date = order.delivery_date || 'N/A';
+    if (!acc[date]) acc[date] = [];
+    acc[date].push(order);
     return acc;
   }, {});
 
@@ -653,6 +646,16 @@ const DeliveryPage: React.FC = () => {
               icon={<Truck size={15} />}
             />
           </div>
+
+          <label className="flex items-center gap-2 px-3 py-2 shrink-0 border border-border/80 rounded-xl bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors">
+            <input
+              type="checkbox"
+              checked={filterHasExcess}
+              onChange={(e) => setFilterHasExcess(e.target.checked)}
+              className="w-4 h-4 rounded border-border text-red-600 focus:ring-red-500 cursor-pointer"
+            />
+            <span className="text-[12px] font-bold text-foreground whitespace-nowrap">Hàng dư</span>
+          </label>
         </div>
 
         {/* AGE FILTER */}
@@ -748,9 +751,9 @@ const DeliveryPage: React.FC = () => {
             })}
 
             {/* Confirm All Button - desktop only inline */}
-            {statusFilter === 'hang_o_sg' && isAdmin && filteredOrders.length > 0 && (
+            {statusFilter === 'hang_o_sg' && isAdmin && displayedOrders.length > 0 && (
               <button
-                onClick={() => handleConfirm(filteredOrders.map(o => o.id))}
+                onClick={() => handleConfirm(displayedOrders.map(o => o.id))}
                 disabled={confirmMutation.isPending}
                 className="hidden md:flex ml-auto items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-primary text-white hover:bg-primary/90 transition-all shadow-sm disabled:opacity-50 whitespace-nowrap"
               >
@@ -761,15 +764,15 @@ const DeliveryPage: React.FC = () => {
           </div>
 
           {/* Mobile Confirm All Button - separate row */}
-          {statusFilter === 'hang_o_sg' && isAdmin && filteredOrders.length > 0 && (
+          {statusFilter === 'hang_o_sg' && isAdmin && displayedOrders.length > 0 && (
             <div className="md:hidden px-3 pb-2">
               <button
-                onClick={() => handleConfirm(filteredOrders.map(o => o.id))}
+                onClick={() => handleConfirm(displayedOrders.map(o => o.id))}
                 disabled={confirmMutation.isPending}
                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-bold bg-primary text-white hover:bg-primary/90 transition-all shadow-sm disabled:opacity-50"
               >
                 <Check size={15} strokeWidth={2.5} />
-                {confirmMutation.isPending ? 'Đang xử lý...' : `Xác nhận tất cả (${filteredOrders.length})`}
+                {confirmMutation.isPending ? 'Đang xử lý...' : `Xác nhận tất cả (${displayedOrders.length})`}
               </button>
             </div>
           )}
@@ -779,7 +782,7 @@ const DeliveryPage: React.FC = () => {
           <div className="p-4"><LoadingSkeleton rows={10} columns={6} /></div>
         ) : isError ? (
           <ErrorState onRetry={() => refetch()} />
-        ) : !filteredOrders?.length ? (
+        ) : !displayedOrders?.length ? (
           <EmptyState 
             title={statusFilter === 'all' ? "Không có dữ liệu" : statusFilter === 'can_giao' ? "Không có đơn cần giao" : statusFilter === 'hang_o_sg' ? "Không có hàng ở SG" : "Không có đơn đã giao"} 
             description={`Không có đơn hàng nào với trạng thái "${STATUS_LABELS[statusFilter]}" phù hợp với bộ lọc.`} 
@@ -791,7 +794,7 @@ const DeliveryPage: React.FC = () => {
               <table className="w-full border-collapse bg-card">
                 <thead className="sticky top-0 z-20">
                   <tr className="bg-card border-b border-border text-muted-foreground">
-                    {isAdmin && (
+                    {isAdmin && (statusFilter !== 'all' || !isDriverOrLoader) && (
                       <th className="px-3 py-3 w-10 border-r border-border">
                         <div className="flex items-center justify-center">
                           <input
@@ -808,7 +811,9 @@ const DeliveryPage: React.FC = () => {
                         </div>
                       </th>
                     )}
-                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-24 border-r border-border">Thao tác</th>
+                    {(isAdmin || statusFilter !== 'all') && (
+                      <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-24 border-r border-border">Thao tác</th>
+                    )}
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-20 border-r border-border">Loại</th>
                     <th className="px-2 py-3 text-[11px] font-bold uppercase tracking-tight text-center w-32 border-r border-border whitespace-nowrap">Ngày giờ giao</th>
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-tight text-left min-w-20 border-r border-border">Người nhận</th>
@@ -842,9 +847,9 @@ const DeliveryPage: React.FC = () => {
                     <React.Fragment key={date}>
                       {/* Date separator row */}
                       <tr className="bg-muted/80 dark:bg-muted/40 border-y border-border shadow-sm overflow-hidden">
-                        <td colSpan={(isAdmin ? 13 : 12) + (displayedVehicles.length || ((statusFilter === 'da_giao' && isDriverOrLoader) ? 0 : 10))} className="px-4 py-2.5">    
+                        <td colSpan={(isAdmin && (statusFilter !== 'all' || !isDriverOrLoader) ? 13 : 12) + (displayedVehicles.length || ((statusFilter === 'da_giao' && isDriverOrLoader) ? 0 : 10))} className="px-4 py-2.5">    
                           <div className="flex items-center gap-2">
-                            {isAdmin && (
+                            {isAdmin && (statusFilter !== 'all' || !isDriverOrLoader) && (
                               <input
                                 type="checkbox"
                                 className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer mr-2"
@@ -890,7 +895,7 @@ const DeliveryPage: React.FC = () => {
 
                         return (
                           <tr key={o.id} className={clsx("transition-colors group", selectedIds.has(o.id) ? "bg-primary/5 dark:bg-primary/10" : "hover:bg-muted/50")}>
-                            {isAdmin && (
+                            {isAdmin && (statusFilter !== 'all' || !isDriverOrLoader) && (
                               <td className="px-3 py-3 border-r border-border text-center">
                                 <div className="flex items-center justify-center">
                                   <input
@@ -937,7 +942,7 @@ const DeliveryPage: React.FC = () => {
                                     <Truck size={14} strokeWidth={2.5} />
                                   </button>
                                 )}
-                                {isAdmin && (
+                                {isAdmin && (statusFilter !== 'all' || !isDriverOrLoader) && (
                                   <>
                                     <button
                                       onClick={(e) => {
@@ -1154,7 +1159,7 @@ const DeliveryPage: React.FC = () => {
               {sortedDates.map((date) => (
                 <div key={`mobile-${date}`} className="flex flex-col gap-2.5">
                   <div className="flex items-center gap-2 sticky top-0 bg-muted/80 dark:bg-muted/40 backdrop-blur-md p-3 -mx-3 px-5 z-10 border-b border-border shadow-sm">
-                    {isAdmin && (
+                    {isAdmin && (statusFilter !== 'all' || !isDriverOrLoader) && (
                       <input
                         type="checkbox"
                         className="w-5 h-5 rounded-md border-border text-primary focus:ring-primary mr-1"
@@ -1205,7 +1210,7 @@ const DeliveryPage: React.FC = () => {
                         >
                             {/* Card body */}
                             <div className="p-3 flex flex-col gap-2.5">
-                              {isAdmin && (
+                              {isAdmin && (statusFilter !== 'all' || !isDriverOrLoader) && (
                                 <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
                                   <input
                                     type="checkbox"
@@ -1333,7 +1338,7 @@ const DeliveryPage: React.FC = () => {
                           </div>
 
                           {/* Bottom action bar */}
-                          {isAdmin || canShowAssignButton ? (
+                          {(isAdmin || canShowAssignButton) && (statusFilter !== 'all' || !isDriverOrLoader) ? (
                             <div className="flex border-t border-slate-100 divide-x divide-slate-100">
                               {statusFilter === 'hang_o_sg' && isAdmin && (
                                 <button
@@ -1360,7 +1365,7 @@ const DeliveryPage: React.FC = () => {
                                   Phân xe
                                 </button>
                               )}
-                              {isAdmin && (
+                              {isAdmin && (statusFilter !== 'all' || !isDriverOrLoader) && (
                                 <>
                                   <button
                                     onClick={(e) => {
@@ -1438,7 +1443,7 @@ const DeliveryPage: React.FC = () => {
           )}
           </div>
   
-        {isAdmin && selectedIds.size > 0 && createPortal(
+        {isAdmin && selectedIds.size > 0 && (statusFilter !== 'all' || !isDriverOrLoader) && createPortal(
         <div className="fixed bottom-0 md:bottom-6 left-0 right-0 md:left-1/2 md:-translate-x-1/2 bg-card md:rounded-2xl shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.15)] md:shadow-xl border-t md:border border-border p-3 z-[900] flex flex-col md:flex-row items-center gap-3 animate-in slide-in-from-bottom-10 md:min-w-[400px]">
           <div className="flex items-center gap-2 px-2 shrink-0 self-start md:self-auto w-full md:w-auto justify-between md:justify-start">
             <span className="text-[13px] font-bold text-foreground whitespace-nowrap">Đã chọn <strong className="text-primary">{selectedIds.size}</strong></span>
@@ -1509,14 +1514,14 @@ const DeliveryPage: React.FC = () => {
       <BulkAssignVehicleDialog
         isOpen={isBulkAssignOpen}
         isClosing={isBulkAssignClosing}
-        orders={filteredOrders.filter(o => selectedIds.has(o.id))}
+        orders={displayedOrders.filter(o => selectedIds.has(o.id))}
         onClose={closeBulkAssign}
       />
 
       <BulkEditDeliveryDialog
         isOpen={isBulkEditOpen}
         isClosing={isBulkEditClosing}
-        orders={filteredOrders.filter(o => selectedIds.has(o.id))}
+        orders={displayedOrders.filter(o => selectedIds.has(o.id))}
         onClose={closeBulkEdit}
       />
 
@@ -1542,12 +1547,14 @@ const DeliveryPage: React.FC = () => {
           setFilterReceiver([]);
           setFilterProduct([]);
           setFilterVehicleIds([]);
+          setFilterHasExcess(false);
         }}
         showClearButton={
           filterCustomer.length > 0 ||
           filterReceiver.length > 0 ||
           filterProduct.length > 0 ||
-          filterVehicleIds.length > 0
+          filterVehicleIds.length > 0 ||
+          filterHasExcess
         }
         initialDateFrom={startDate}
         initialDateTo={endDate}
@@ -1600,6 +1607,18 @@ const DeliveryPage: React.FC = () => {
             inline
             icon={<Truck size={15} />}
           />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[13px] font-bold text-muted-foreground">Bộ lọc khác</label>
+          <label className="flex items-center gap-2 px-3 py-2.5 border border-border/80 rounded-xl bg-muted/10 cursor-pointer hover:bg-muted/20 transition-colors">
+            <input
+              type="checkbox"
+              checked={filterHasExcess}
+              onChange={(e) => setFilterHasExcess(e.target.checked)}
+              className="w-4 h-4 rounded border-border text-red-600 focus:ring-red-500 cursor-pointer"
+            />
+            <span className="text-[13px] font-bold text-foreground">Chỉ hiện đơn hàng dư</span>
+          </label>
         </div>
         <div className="space-y-1.5">
           <label className="text-[13px] font-bold text-muted-foreground">Phân loại hàng</label>

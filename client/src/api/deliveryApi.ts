@@ -83,8 +83,8 @@ export const deliveryApi = {
     return data;
   },
 
-  revertVehicle: async (id: string, vehicleId: string) => {
-    const { data } = await axiosClient.put(`/delivery/${id}/revert-vehicle`, { vehicle_id: vehicleId });
+  revertVehicle: async (id: string, vehicleId: string, deliveryDate?: string) => {
+    const { data } = await axiosClient.put(`/delivery/${id}/revert-vehicle`, { vehicle_id: vehicleId, delivery_date: deliveryDate });
     return data;
   },
 };

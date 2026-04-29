@@ -400,28 +400,13 @@ const VegetableDeliveryPage: React.FC = () => {
   };
 
   // Grouping logic: Date -> Supplier -> [Orders]
-  // For "Đã giao" tab, an order with vehicle assignments on multiple dates appears under each date.
   const groupedOrders = (filteredOrders || []).reduce<Record<string, Record<string, DeliveryOrder[]>>>((acc, order) => {
+    const date = order.delivery_date || 'N/A';
     const supplierName = getSenderName(order) || 'Chưa rõ vựa';
 
-    let dates: string[];
-    if (statusFilter === 'da_giao') {
-      const vehicleDates = new Set<string>();
-      (order.delivery_vehicles || []).forEach(dv => {
-        if ((dv.assigned_quantity || 0) > 0 && dv.delivery_date) {
-          vehicleDates.add(dv.delivery_date);
-        }
-      });
-      dates = vehicleDates.size > 0 ? Array.from(vehicleDates) : [order.delivery_date || 'N/A'];
-    } else {
-      dates = [order.delivery_date || 'N/A'];
-    }
-
-    dates.forEach(date => {
-      if (!acc[date]) acc[date] = {};
-      if (!acc[date][supplierName]) acc[date][supplierName] = [];
-      acc[date][supplierName].push(order);
-    });
+    if (!acc[date]) acc[date] = {};
+    if (!acc[date][supplierName]) acc[date][supplierName] = [];
+    acc[date][supplierName].push(order);
     return acc;
   }, {});
 

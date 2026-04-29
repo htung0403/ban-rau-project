@@ -86,9 +86,22 @@ export const VehicleCellTooltip: React.FC<Props> = ({ dv, vehicle, qty, isPaid, 
   const handleMouseEnter = useCallback(() => {
     if (!wrapperRef.current) return;
     const rect = wrapperRef.current.getBoundingClientRect();
+    const tooltipWidth = 190;
+    const padding = 8;
+
+    let left = rect.left + window.scrollX + rect.width / 2;
+    const viewportWidth = window.innerWidth;
+
+    if (left + tooltipWidth / 2 > viewportWidth - padding) {
+      left = viewportWidth - tooltipWidth / 2 - padding;
+    }
+    if (left - tooltipWidth / 2 < padding) {
+      left = tooltipWidth / 2 + padding;
+    }
+
     setPos({
       top: rect.top + window.scrollY - 8,
-      left: rect.left + window.scrollX + rect.width / 2,
+      left,
     });
     setVisible(true);
   }, []);

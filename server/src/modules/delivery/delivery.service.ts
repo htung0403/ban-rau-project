@@ -847,21 +847,33 @@ export class DeliveryService {
     return data;
   }
 
-  static async revertVehicle(deliveryId: string, vehicleId: string) {
-    const { error: deleteError } = await supabaseService
+  static async revertVehicle(deliveryId: string, vehicleId: string, deliveryDate?: string) {
+    let deleteQuery = supabaseService
       .from('delivery_vehicles')
       .delete()
       .eq('delivery_order_id', deliveryId)
       .eq('vehicle_id', vehicleId);
 
+    if (deliveryDate) {
+      deleteQuery = deleteQuery.eq('delivery_date', deliveryDate);
+    }
+
+    const { error: deleteError } = await deleteQuery;
+
     if (deleteError) throw deleteError;
 
-    await supabaseService
+    let paymentQuery = supabaseService
       .from('payment_collections')
       .delete()
       .eq('delivery_order_id', deliveryId)
       .eq('vehicle_id', vehicleId)
       .in('status', ['draft']);
+
+    if (deliveryDate) {
+      paymentQuery = paymentQuery.eq('delivery_date', deliveryDate);
+    }
+
+    await paymentQuery;
 
     const { data: allDvs } = await supabaseService
       .from('delivery_vehicles')

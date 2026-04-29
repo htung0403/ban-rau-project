@@ -30,8 +30,8 @@ const assignmentSchema = z.object({
   expected_amount: z.coerce.number().min(0).optional().default(0),
   /** Ảnh gắn với xe dòng này (phiếu thu / chứng từ theo xe); khi lưu gộp vào image_urls đơn. */
   image_urls: z.array(z.string()).default([]),
-  delivery_date: z.string().optional(),
-  delivery_time: z.string().optional(),
+  delivery_date: z.string().optional().nullable(),
+  delivery_time: z.string().optional().nullable(),
 });
 
 const schema = z.object({

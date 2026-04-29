@@ -230,7 +230,6 @@ const DeliveryPage: React.FC = () => {
   const [isBulkEditClosing, setIsBulkEditClosing] = useState(false);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleteConfirmClosing, setDeleteConfirmClosing] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
 
   const isLoading = ordersLoading;
@@ -413,12 +412,8 @@ const DeliveryPage: React.FC = () => {
   };
 
   const closeDeleteConfirm = () => {
-    setDeleteConfirmClosing(true);
-    setTimeout(() => {
-      setDeleteConfirmOpen(false);
-      setDeleteConfirmClosing(false);
-      setOrderToDelete(null);
-    }, 300);
+    setDeleteConfirmOpen(false);
+    setOrderToDelete(null);
   };
 
   const executeDelete = async () => {
@@ -1695,7 +1690,6 @@ const DeliveryPage: React.FC = () => {
 
       <ConfirmDialog
         isOpen={deleteConfirmOpen}
-        isClosing={deleteConfirmClosing}
         title="Xóa đơn hàng"
         message={
           orderToDelete === 'bulk'

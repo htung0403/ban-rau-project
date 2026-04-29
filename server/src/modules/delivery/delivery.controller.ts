@@ -79,8 +79,8 @@ export class DeliveryController {
         quantity: z.number().positive().optional(),
         expected_amount: z.number().nonnegative().optional(),
         image_urls: z.array(z.string()).optional(),
-        delivery_date: z.string().optional(),
-        delivery_time: z.string().optional(),
+        delivery_date: z.string().optional().nullable(),
+        delivery_time: z.string().optional().nullable(),
       });
 
       const body = req.body;

@@ -156,7 +156,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
     const requiredDriverType: 'heavy' | 'light' | undefined =
       tonnage == null ? undefined : tonnage > 10 ? 'heavy' : 'light';
 
-    return (employees || [])
+    const driverList = (employees || [])
       .filter((employee) => {
         const normalizedRole = normalizeText(employee.role);
         const isDriverByBaseRole =
@@ -181,13 +181,23 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
         value: employee.id,
         label: `${employee.full_name} (${employee.phone || 'Chưa cập nhật'})`,
       }));
+
+    return [
+      { value: '', label: '-- Không chọn tài xế --' },
+      ...driverList
+    ];
   }, [employees, loadCapacityTon, vehicleType]);
 
   const inChargeOptions = React.useMemo(() => {
-    return (employees || []).map((employee) => ({
+    const employeeList = (employees || []).map((employee) => ({
       value: employee.id,
       label: `${employee.full_name} (${employee.phone || 'Chưa cập nhật'})`,
     }));
+
+    return [
+      { value: '', label: '-- Không chọn phụ xe --' },
+      ...employeeList
+    ];
   }, [employees]);
 
 

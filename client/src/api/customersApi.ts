@@ -7,12 +7,12 @@ export const customersApi = {
     return data;
   },
 
-  create: async (payload: { name: string; phone?: string; address?: string; customer_type?: string }) => {
+  create: async (payload: { name: string; phone?: string; address?: string; customer_type?: string; aliases?: string[] }) => {
     const { data } = await axiosClient.post<Customer>('/customers', payload);
     return data;
   },
 
-  update: async (id: string, payload: { name?: string; phone?: string | null; address?: string | null; customer_type?: string }) => {
+  update: async (id: string, payload: { name?: string; phone?: string | null; address?: string | null; customer_type?: string; aliases?: string[] }) => {
     const { data } = await axiosClient.put<Customer>(`/customers/${id}`, payload);
     return data;
   },

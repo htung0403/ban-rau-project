@@ -81,7 +81,7 @@ export function useUpdateCustomer() {
       payload,
     }: {
       id: string;
-      payload: { name?: string; phone?: string | null; address?: string | null; customer_type?: string };
+      payload: { name?: string; phone?: string | null; address?: string | null; customer_type?: string; aliases?: string[] };
     }) => customersApi.update(id, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: customerKeys.all });

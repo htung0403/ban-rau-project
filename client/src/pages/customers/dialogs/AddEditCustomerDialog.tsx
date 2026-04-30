@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Building2, Phone, MapPin, Plus, ChevronRight } from 'lucide-react';
+import { X, Building2, Phone, MapPin, Plus, ChevronRight, Tag } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,6 +14,7 @@ const customerSchema = z.object({
   phone: z.string().optional(),
   address: z.string().optional(),
   customer_type: z.enum(['wholesale', 'grocery', 'retail', 'vegetable', 'grocery_sender', 'grocery_receiver', 'vegetable_sender', 'vegetable_receiver']).default('grocery'),
+  aliases: z.array(z.string()).optional(),
 });
 
 type CustomerFormData = z.infer<typeof customerSchema>;
@@ -40,6 +41,7 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors, isSubmitting: isHookSubmitting },
     setError,
   } = useForm<CustomerFormData>({
@@ -48,10 +50,33 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
       name: '',
       phone: '',
       address: '',
+      aliases: [],
     },
   });
 
   const selectedType = watch('customer_type');
+  const aliases = watch('aliases') || [];
+
+  const addAlias = () => {
+    const currentAliases = watch('aliases') || [];
+    setValue('aliases', [...currentAliases, ''], { shouldValidate: true });
+  };
+
+  const removeAlias = (index: number) => {
+    const currentAliases = watch('aliases') || [];
+    setValue(
+      'aliases',
+      currentAliases.filter((_, i) => i !== index),
+      { shouldValidate: true }
+    );
+  };
+
+  const updateAlias = (index: number, value: string) => {
+    const currentAliases = watch('aliases') || [];
+    const newAliases = [...currentAliases];
+    newAliases[index] = value;
+    setValue('aliases', newAliases, { shouldValidate: true });
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -60,6 +85,7 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
         phone: isEditMode ? (customer?.phone || '') : '',
         address: isEditMode ? (customer?.address || '') : '',
         customer_type: (isEditMode ? customer?.customer_type : defaultType) as any || 'grocery',
+        aliases: isEditMode ? (customer?.aliases || []) : [],
       });
     }
   }, [isOpen, reset, defaultType, isEditMode, customer]);
@@ -84,6 +110,7 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
         phone: data.phone || undefined,
         address: data.address || undefined,
         customer_type: data.customer_type,
+        aliases: data.aliases?.filter(a => a.trim() !== '') || undefined,
       };
       if (isEditMode && customer?.id) {
         await updateMutation.mutateAsync({ id: customer.id, payload });
@@ -184,6 +211,43 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
                   />
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Aliases Section */}
+          <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
+              <Tag size={16} className="text-primary" />
+              <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Biệt danh</span>
+            </div>
+            <div className="p-5 space-y-3">
+              {aliases.map((alias, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={alias}
+                    onChange={(e) => updateAlias(index, e.target.value)}
+                    placeholder="Nhập biệt danh"
+                    className="flex-1 px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeAlias(index)}
+                    aria-label={`Xóa biệt danh ${index + 1}`}
+                    className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => addAlias()}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-border hover:bg-muted text-muted-foreground text-[13px] font-medium transition-all"
+              >
+                <Plus size={16} />
+                Thêm biệt danh
+              </button>
             </div>
           </div>
         </form>

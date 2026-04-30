@@ -122,7 +122,7 @@ const ImportOrdersPage: React.FC = () => {
     const receiverSet = new Set<string>();
 
     orders.forEach(order => {
-      const chuHang = order.customers?.name || order.sender_name;
+      const chuHang = order.selected_alias || order.customers?.name || order.sender_name;
       if (chuHang) vuaSet.add(chuHang);
 
       const tai = getOrderVehicles(order);
@@ -130,7 +130,7 @@ const ImportOrdersPage: React.FC = () => {
         tai.split(', ').forEach((t: string) => taiSet.add(t));
       }
 
-      const receiver = (order as any).profiles?.full_name || order.receiver_name || order.received_by;
+      const receiver = (order as any).profiles?.full_name || order.selected_alias || order.receiver_name || order.received_by;
       if (receiver) receiverSet.add(receiver);
     });
 
@@ -145,8 +145,8 @@ const ImportOrdersPage: React.FC = () => {
   const filteredOrders = (orders || []).filter((o) => {
     if ((o as any).deleted_at) return false;
 
-    const chuHang = o.customers?.name || o.sender_name;
-    const receiver = (o as any).profiles?.full_name || o.receiver_name || o.received_by;
+    const chuHang = o.selected_alias || o.customers?.name || o.sender_name;
+    const receiver = (o as any).profiles?.full_name || o.selected_alias || o.receiver_name || o.received_by;
     const tai = getOrderVehicles(o);
 
     let matches = true;
@@ -155,6 +155,7 @@ const ImportOrdersPage: React.FC = () => {
         matchesSearch(o.order_code || '', searchText) ||
         matchesSearch(chuHang || '', searchText) ||
         matchesSearch(receiver || '', searchText) ||
+        matchesSearch(o.selected_alias || '', searchText) ||
         (o.receiver_phone || '').includes(searchText.trim())
       );
     }
@@ -461,7 +462,7 @@ const ImportOrdersPage: React.FC = () => {
                           );
                           case 'sender': return (
                             <td key={col.id} className="px-4 py-3">
-                              <span className="text-[13px] font-bold text-foreground">{order.customers?.name || order.sender_name || '-'}</span>
+                              <span className="text-[13px] font-bold text-foreground">{order.selected_alias || order.customers?.name || order.sender_name || '-'}</span>
                             </td>
                           );
                           case 'item_name': {
@@ -500,7 +501,7 @@ const ImportOrdersPage: React.FC = () => {
                           );
                           case 'receiver': return (
                             <td key={col.id} className="px-4 py-3">
-                              <span className="text-[13px] font-medium text-foreground">{(order as any).profiles?.full_name || order.receiver_name || '-'}</span>
+                              <span className="text-[13px] font-medium text-foreground">{(order as any).profiles?.full_name || order.selected_alias || order.receiver_name || '-'}</span>
                             </td>
                           );
                           case 'status': return (
@@ -582,7 +583,7 @@ const ImportOrdersPage: React.FC = () => {
                       {/* Right: Data */}
                       <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[13px] font-bold text-foreground truncate">{order.customers?.name || order.sender_name || '-'}</span>
+                          <span className="text-[13px] font-bold text-foreground truncate">{order.selected_alias || order.customers?.name || order.sender_name || '-'}</span>
                           <StatusBadge status={order.status} label={statusLabels[order.status]} />
                         </div>
                         <div className="flex flex-wrap gap-x-2 gap-y-0.5">

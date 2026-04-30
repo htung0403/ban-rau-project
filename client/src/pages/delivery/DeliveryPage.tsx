@@ -69,8 +69,14 @@ const getDisplayProductName = (order: DeliveryOrder) =>
   order.product_name.includes(' - ') ? order.product_name.split(' - ').slice(1).join(' - ') : order.product_name;
 
 const getReceiverDisplayName = (order: DeliveryOrder) => {
-  const orderObj = order.import_orders;
-  return orderObj?.customers?.name || orderObj?.receiver_name?.trim() || orderObj?.profiles?.full_name || '-';
+  const orderObj = order.import_orders || order.vegetable_orders;
+  if (!orderObj) return '-';
+
+  if (order.status === 'hang_o_sg' && orderObj.selected_alias) {
+    return orderObj.selected_alias;
+  }
+
+  return orderObj.customers?.name || orderObj.receiver_name?.trim() || orderObj.profiles?.full_name || '-';
 };
 
 const pickRelation = <T,>(relation: any): T | undefined => {

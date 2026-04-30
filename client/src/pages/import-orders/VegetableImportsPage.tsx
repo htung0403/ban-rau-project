@@ -79,9 +79,7 @@ const getOrderDriverName = (order: any) => {
 };
 
 const getOrderReceiverName = (order: any) => {
-  if (order.receiver_name) return order.receiver_name;
-  if (order.profiles?.role && !isDriverRole(order.profiles.role)) return order.profiles.full_name || '';
-  return '-';
+  return order.selected_alias || order.receiver_name || order.profiles?.full_name || '-';
 };
 
 const normalizeRoleText = (value?: string | null) =>

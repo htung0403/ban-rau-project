@@ -72,8 +72,7 @@ const getAssignedDrivers = (item: any) => {
 };
 
 const getReceiverName = (item: any) => {
-  if (item.order?.receiver_name) return item.order.receiver_name;
-  return '-';
+  return item.order?.selected_alias || item.order?.receiver_name || '-';
 };
 
 const getItemTotalAmount = (item: any) => {

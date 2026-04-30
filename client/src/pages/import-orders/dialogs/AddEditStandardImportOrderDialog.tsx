@@ -640,8 +640,8 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                         <SearchableSelect
                           options={filteredCustomers.map((c: any) => ({ 
                             value: c.id, 
-                            label: `${c.name} ${c.phone ? `(${c.phone})` : ''}`, 
-                            selectedLabel: watchCustomerId === c.id && watchSelectedAlias ? watchSelectedAlias : `${c.name} ${c.phone ? `(${c.phone})` : ''}`,
+                            label: c.aliases?.length > 0 ? c.aliases[0] : `${c.name} ${c.phone ? `(${c.phone})` : ''}`,
+                            selectedLabel: watchCustomerId === c.id && watchSelectedAlias ? watchSelectedAlias : (c.aliases?.length > 0 ? c.aliases[0] : `${c.name} ${c.phone ? `(${c.phone})` : ''}`),
                             searchText: [c.name, c.phone, ...(c.aliases || [])].filter(Boolean).join(' ') 
                           }))}
                           value={watchCustomerId}
@@ -911,8 +911,8 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                         <SearchableSelect
                           options={filteredCustomers.map((c: any) => ({ 
                             value: c.id, 
-                            label: `${c.name} ${c.phone ? `(${c.phone})` : ''}`,
-                            selectedLabel: watchCustomerId === c.id && watchSelectedAlias ? watchSelectedAlias : `${c.name} ${c.phone ? `(${c.phone})` : ''}`,
+                            label: c.aliases?.length > 0 ? c.aliases[0] : `${c.name} ${c.phone ? `(${c.phone})` : ''}`,
+                            selectedLabel: watchCustomerId === c.id && watchSelectedAlias ? watchSelectedAlias : (c.aliases?.length > 0 ? c.aliases[0] : `${c.name} ${c.phone ? `(${c.phone})` : ''}`),
                             searchText: [c.name, c.phone, ...(c.aliases || [])].filter(Boolean).join(' ') 
                           }))}
                           value={watchCustomerId}

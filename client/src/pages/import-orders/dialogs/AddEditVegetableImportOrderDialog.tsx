@@ -782,7 +782,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
                         {hasAliases && (
                           <div className="mt-2">
-                            <label className="text-[12px] font-bold text-muted-foreground">Biệt danh (tùy chọn)</label>
+                            <label className="text-[12px] font-bold text-muted-foreground">Tên khác (tùy chọn)</label>
                             <SearchableSelect
                               options={[
                                 { value: '', label: selectedCustomer.name },
@@ -984,7 +984,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
                         {hasAliases && (
                           <div className="mt-2">
-                            <label className="text-[12px] font-bold text-muted-foreground">Biệt danh (tùy chọn)</label>
+                            <label className="text-[12px] font-bold text-muted-foreground">Tên khác (tùy chọn)</label>
                             <SearchableSelect
                               options={[
                                 { value: '', label: selectedCustomer.name },

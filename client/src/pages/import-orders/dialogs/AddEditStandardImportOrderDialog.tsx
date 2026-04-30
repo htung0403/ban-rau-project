@@ -149,7 +149,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
         ? c.customer_type === 'vegetable_receiver'
         : c.customer_type === 'grocery_receiver'
     ) || [];
-    
+
     if (editingOrder?.customers && !list.find((c: any) => c.id === editingOrder.customer_id)) {
       list.push(editingOrder.customers);
     }
@@ -204,12 +204,12 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
     if (!watchItems) return;
 
     const currentItemsString = JSON.stringify(watchItems);
-    
+
     // Only recalculate if items literally changed or products array size changed (prevent background fetch overwrites)
     if (currentItemsString === previousItemsRef.current && previousProductsRef.current === filteredProducts?.length) {
       return;
     }
-    
+
     previousItemsRef.current = currentItemsString;
     previousProductsRef.current = filteredProducts?.length;
 
@@ -336,15 +336,15 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       const uploadPromises = validFiles.map(file => uploadApi.uploadFile(file, 'import-orders', 'orders'));
       const results = await Promise.all(uploadPromises);
       const newUrls = results.map(r => r.url);
-      
+
       const currentUrls = getValues('receipt_image_urls') || [];
       const updatedUrls = [...currentUrls, ...newUrls];
-      
+
       setValue('receipt_image_urls', updatedUrls, { shouldValidate: true });
       if (updatedUrls.length > 0) {
         setValue('receipt_image_url', updatedUrls[0], { shouldValidate: true });
       }
-      
+
       toast.success('Tải ảnh lên thành công!');
     } catch (error) {
       console.error('File upload error:', error);
@@ -375,10 +375,10 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       const uploadPromises = validFiles.map(file => uploadApi.uploadFile(file, 'import-orders', 'items'));
       const results = await Promise.all(uploadPromises);
       const newUrls = results.map(r => r.url);
-      
+
       const currentUrls = getValues(`items.${index}.image_urls`) || [];
       const updatedUrls = [...currentUrls, ...newUrls];
-      
+
       setValue(`items.${index}.image_urls`, updatedUrls, { shouldValidate: true });
       if (updatedUrls.length > 0) {
         setValue(`items.${index}.image_url`, updatedUrls[0], { shouldValidate: true });
@@ -638,11 +638,11 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           </button>
                         </div>
                         <SearchableSelect
-                          options={filteredCustomers.map((c: any) => ({ 
-                            value: c.id, 
-                            label: c.aliases?.length > 0 ? c.aliases[0] : `${c.name} ${c.phone ? `(${c.phone})` : ''}`,
-                            selectedLabel: watchCustomerId === c.id && watchSelectedAlias ? watchSelectedAlias : (c.aliases?.length > 0 ? c.aliases[0] : `${c.name} ${c.phone ? `(${c.phone})` : ''}`),
-                            searchText: [c.name, c.phone, ...(c.aliases || [])].filter(Boolean).join(' ') 
+                          options={filteredCustomers.map((c: any) => ({
+                            value: c.id,
+                            label: c.phone ? `${c.name} (${c.phone})` : c.name,
+                            selectedLabel: watchCustomerId === c.id && watchSelectedAlias ? watchSelectedAlias : (c.phone ? `${c.name} (${c.phone})` : c.name),
+                            searchText: [c.name, c.phone, ...(c.aliases || [])].filter(Boolean).join(' ')
                           }))}
                           value={watchCustomerId}
                           onValueChange={(val) => { setValue('customer_id', val, { shouldValidate: true }); setValue('selected_alias', '', { shouldValidate: true }); }}
@@ -653,7 +653,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
 
                         {hasAliases && (
                           <div className="mt-2">
-                            <label className="text-[12px] font-bold text-muted-foreground">Biệt danh (tùy chọn)</label>
+                            <label className="text-[12px] font-bold text-muted-foreground">Tên khác (Tùy chọn)</label>
                             <SearchableSelect
                               options={[
                                 { value: '', label: selectedCustomer.name },
@@ -909,11 +909,11 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           </button>
                         </div>
                         <SearchableSelect
-                          options={filteredCustomers.map((c: any) => ({ 
-                            value: c.id, 
-                            label: c.aliases?.length > 0 ? c.aliases[0] : `${c.name} ${c.phone ? `(${c.phone})` : ''}`,
-                            selectedLabel: watchCustomerId === c.id && watchSelectedAlias ? watchSelectedAlias : (c.aliases?.length > 0 ? c.aliases[0] : `${c.name} ${c.phone ? `(${c.phone})` : ''}`),
-                            searchText: [c.name, c.phone, ...(c.aliases || [])].filter(Boolean).join(' ') 
+                          options={filteredCustomers.map((c: any) => ({
+                            value: c.id,
+                            label: c.phone ? `${c.name} (${c.phone})` : c.name,
+                            selectedLabel: watchCustomerId === c.id && watchSelectedAlias ? watchSelectedAlias : (c.phone ? `${c.name} (${c.phone})` : c.name),
+                            searchText: [c.name, c.phone, ...(c.aliases || [])].filter(Boolean).join(' ')
                           }))}
                           value={watchCustomerId}
                           onValueChange={(val) => { setValue('customer_id', val, { shouldValidate: true }); setValue('selected_alias', '', { shouldValidate: true }); }}
@@ -924,7 +924,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
 
                         {hasAliases && (
                           <div className="mt-2">
-                            <label className="text-[12px] font-bold text-muted-foreground">Biệt danh (tùy chọn)</label>
+                            <label className="text-[12px] font-bold text-muted-foreground">Tên khác (tùy chọn)</label>
                             <SearchableSelect
                               options={[
                                 { value: '', label: selectedCustomer.name },
@@ -1061,73 +1061,73 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                   )}
 
                   {defaultCategory !== 'vegetable' && (
-                  <div className="space-y-1.5 pt-2">
-                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ảnh biên nhận/Sản phẩm</label>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                      {watchReceiptImageUrls.map((url: string, idx: number) => (
-                        <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden bg-muted/20">
-                          <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
+                    <div className="space-y-1.5 pt-2">
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ảnh biên nhận/Sản phẩm</label>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                        {watchReceiptImageUrls.map((url: string, idx: number) => (
+                          <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden bg-muted/20">
+                            <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newUrls = watchReceiptImageUrls.filter((_: any, i: number) => i !== idx);
+                                setValue('receipt_image_urls', newUrls, { shouldValidate: true });
+                                setValue('receipt_image_url', newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
+                              }}
+                              className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
+                              aria-label="Xóa ảnh"
+                              title="Xóa ảnh"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                        <div className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/5 overflow-hidden flex flex-col">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            ref={fileInputRef}
+                            className="hidden"
+                            onChange={handleImageUpload}
+                          />
                           <button
                             type="button"
-                            onClick={() => {
-                              const newUrls = watchReceiptImageUrls.filter((_: any, i: number) => i !== idx);
-                              setValue('receipt_image_urls', newUrls, { shouldValidate: true });
-                              setValue('receipt_image_url', newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
-                            }}
-                            className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
-                            aria-label="Xóa ảnh"
-                            title="Xóa ảnh"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploading}
+                            className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 px-1 py-2 touch-manipulation active:scale-[0.99]"
                           >
-                            <X size={14} />
+                            {isUploading ? (
+                              <Loader2 size={20} className="animate-spin text-primary" />
+                            ) : (
+                              <>
+                                <ImagePlus size={22} className="text-primary" />
+                                <span className="text-[10px] font-bold text-center px-0.5 leading-tight">Chọn ảnh</span>
+                              </>
+                            )}
                           </button>
                         </div>
-                      ))}
-                      <div className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/5 overflow-hidden flex flex-col">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          ref={fileInputRef}
-                          className="hidden"
-                          onChange={handleImageUpload}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={isUploading}
-                          className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 px-1 py-2 touch-manipulation active:scale-[0.99]"
-                        >
-                          {isUploading ? (
-                            <Loader2 size={20} className="animate-spin text-primary" />
-                          ) : (
-                            <>
-                              <ImagePlus size={22} className="text-primary" />
-                              <span className="text-[10px] font-bold text-center px-0.5 leading-tight">Chọn ảnh</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      <div className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/5 overflow-hidden flex flex-col">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          ref={receiptCameraInputRef}
-                          className="hidden"
-                          onChange={handleImageUpload}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => receiptCameraInputRef.current?.click()}
-                          disabled={isUploading}
-                          className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 px-1 py-2 touch-manipulation active:scale-[0.99]"
-                        >
-                          <Camera size={22} className="text-primary" />
-                          <span className="text-[10px] font-bold text-center px-0.5 leading-tight">Chụp ảnh</span>
-                        </button>
+                        <div className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/5 overflow-hidden flex flex-col">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            ref={receiptCameraInputRef}
+                            className="hidden"
+                            onChange={handleImageUpload}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => receiptCameraInputRef.current?.click()}
+                            disabled={isUploading}
+                            className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 px-1 py-2 touch-manipulation active:scale-[0.99]"
+                          >
+                            <Camera size={22} className="text-primary" />
+                            <span className="text-[10px] font-bold text-center px-0.5 leading-tight">Chụp ảnh</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
                   )}
 
                   <div className="space-y-1.5 pt-2">
@@ -1184,8 +1184,8 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                         return (
                           <div key={field.id} className={clsx(
                             "grid gap-2 md:gap-3 p-3 md:px-4 md:py-2 md:items-center bg-card rounded-xl md:rounded-none border border-border md:border-none shadow-sm md:shadow-none hover:bg-muted/50/50 transition-all group relative",
-                            defaultCategory === 'standard' 
-                              ? "grid-cols-1 md:grid-cols-[1fr_60px_90px_100px_120px_36px]" 
+                            defaultCategory === 'standard'
+                              ? "grid-cols-1 md:grid-cols-[1fr_60px_90px_100px_120px_36px]"
                               : "grid-cols-1 md:grid-cols-[60px_minmax(150px,3fr)_100px_36px]"
                           )}>
 
@@ -1360,7 +1360,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                                     )}
                                   </div>
 
-                                                                    {/* Mobile Delete Button */}
+                                  {/* Mobile Delete Button */}
                                   <button
                                     type="button"
                                     onClick={() => remove(index)}
@@ -1463,66 +1463,66 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
 
                             {/* Desktop Single Image - only for standard */}
                             {defaultCategory === 'standard' && (
-                            <div className="hidden md:flex items-start justify-start w-full">
-                              <div className="flex justify-start w-full">
-                                <div className="flex items-center gap-1 flex-wrap w-[110px]">
-                                  {(watch(`items.${index}.image_urls`) || []).map((url: string, imgIdx: number) => (
-                                    <div key={imgIdx} className="relative w-8 h-8 rounded-md border border-border overflow-hidden shrink-0">
-                                      <img src={url} alt="item" className="w-full h-full object-cover" />
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          const newUrls = watch(`items.${index}.image_urls`).filter((_: any, i: number) => i !== imgIdx);
-                                          setValue(`items.${index}.image_urls`, newUrls, { shouldValidate: true });
-                                          setValue(`items.${index}.image_url`, newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
-                                        }}
-                                        className="absolute -top-1 -right-1 z-10 w-4 h-4 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
-                                        aria-label="Xóa ảnh"
-                                        title="Xóa ảnh"
-                                      >
-                                        <X size={10} />
-                                      </button>
-                                    </div>
-                                  ))}
-                                  <label className="w-8 h-8 border border-dashed border-border bg-muted/50 rounded-md flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all shrink-0" title="Thêm ảnh">
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      multiple
-                                      className="hidden"
-                                      onChange={(e) => handleItemImageUpload(index, e)}
-                                    />
-                                    {uploadingItemIndex === index ? <Loader2 size={12} className="animate-spin text-primary" /> : <Plus size={12} />}
-                                  </label>
-                                  <label className="w-8 h-8 border border-dashed border-border bg-muted/50 rounded-md flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all shrink-0" title="Chụp ảnh">
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      capture="environment"
-                                      className="hidden"
-                                      onChange={(e) => handleItemImageUpload(index, e)}
-                                    />
-                                    {uploadingItemIndex === index ? <Loader2 size={12} className="animate-spin text-primary" /> : <Camera size={12} />}
-                                  </label>
+                              <div className="hidden md:flex items-start justify-start w-full">
+                                <div className="flex justify-start w-full">
+                                  <div className="flex items-center gap-1 flex-wrap w-[110px]">
+                                    {(watch(`items.${index}.image_urls`) || []).map((url: string, imgIdx: number) => (
+                                      <div key={imgIdx} className="relative w-8 h-8 rounded-md border border-border overflow-hidden shrink-0">
+                                        <img src={url} alt="item" className="w-full h-full object-cover" />
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            const newUrls = watch(`items.${index}.image_urls`).filter((_: any, i: number) => i !== imgIdx);
+                                            setValue(`items.${index}.image_urls`, newUrls, { shouldValidate: true });
+                                            setValue(`items.${index}.image_url`, newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
+                                          }}
+                                          className="absolute -top-1 -right-1 z-10 w-4 h-4 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
+                                          aria-label="Xóa ảnh"
+                                          title="Xóa ảnh"
+                                        >
+                                          <X size={10} />
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <label className="w-8 h-8 border border-dashed border-border bg-muted/50 rounded-md flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all shrink-0" title="Thêm ảnh">
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        className="hidden"
+                                        onChange={(e) => handleItemImageUpload(index, e)}
+                                      />
+                                      {uploadingItemIndex === index ? <Loader2 size={12} className="animate-spin text-primary" /> : <Plus size={12} />}
+                                    </label>
+                                    <label className="w-8 h-8 border border-dashed border-border bg-muted/50 rounded-md flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer transition-all shrink-0" title="Chụp ảnh">
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        className="hidden"
+                                        onChange={(e) => handleItemImageUpload(index, e)}
+                                      />
+                                      {uploadingItemIndex === index ? <Loader2 size={12} className="animate-spin text-primary" /> : <Camera size={12} />}
+                                    </label>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
                             )}
 
                             {/* Desktop Delete Button - only for standard */}
                             {defaultCategory === 'standard' && (
-                            <div className="hidden md:flex items-center justify-center">
-                              <button
-                                type="button"
-                                onClick={() => remove(index)}
-                                className="p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-md transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                title="Xóa dòng"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
+                              <div className="hidden md:flex items-center justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => remove(index)}
+                                  className="p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-md transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                  title="Xóa dòng"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
                             )}
                           </div>
                         );
@@ -1539,18 +1539,18 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                   const items = watchItems || [];
                   return defaultCategory === 'standard' && items.some((item: any) => Number(item.unit_price) > 0);
                 })()) && (
-                  <div className="p-4 md:p-5 bg-primary/5 flex flex-col md:flex-row items-center justify-between border-t border-primary/10 shrink-0 gap-1 md:gap-0">
-                    <div className="flex flex-col items-center md:items-start text-center md:text-left">
-                      <span className="text-[12px] font-bold text-primary uppercase tracking-widest">Tổng tiền phiếu nhập</span>
-                      <span className="text-[12px] text-primary/70 font-medium">
-                        {defaultCategory === 'vegetable' ? 'Được cộng vào Công Nợ của Khách' : 'SL × Đơn giá'}
-                      </span>
+                    <div className="p-4 md:p-5 bg-primary/5 flex flex-col md:flex-row items-center justify-between border-t border-primary/10 shrink-0 gap-1 md:gap-0">
+                      <div className="flex flex-col items-center md:items-start text-center md:text-left">
+                        <span className="text-[12px] font-bold text-primary uppercase tracking-widest">Tổng tiền phiếu nhập</span>
+                        <span className="text-[12px] text-primary/70 font-medium">
+                          {defaultCategory === 'vegetable' ? 'Được cộng vào Công Nợ của Khách' : 'SL × Đơn giá'}
+                        </span>
+                      </div>
+                      <div className="text-3xl font-black text-primary tabular-nums drop-shadow-sm">
+                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format((watchTotalAmountInput || 0) * (defaultCategory === 'standard' ? 1 : 1000))}
+                      </div>
                     </div>
-                    <div className="text-3xl font-black text-primary tabular-nums drop-shadow-sm">
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format((watchTotalAmountInput || 0) * (defaultCategory === 'standard' ? 1 : 1000))}
-                    </div>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           </div>

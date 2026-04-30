@@ -22,6 +22,8 @@ export interface CreatableOption {
   label: string
   /** So khớp «tạo mới» không phân biệt hoa thường (vd tên khách / tên hàng); bỏ qua hậu tố SĐT trong label. */
   matchKey?: string
+  /** Extra text included in search matching but not displayed (e.g. aliases). */
+  searchText?: string
 }
 
 function compareKeyFromOption(option: CreatableOption): string {
@@ -149,10 +151,10 @@ export const CreatableSearchableSelect = React.memo((props: CreatableSearchableS
             
             <CommandGroup>
               {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.label}
-                  onSelect={() => {
+<CommandItem
+                   key={option.value}
+                   value={option.searchText || option.label}
+                   onSelect={() => {
                     onValueChange(option.value)
                     setOpen(false)
                     setSearchQuery("")

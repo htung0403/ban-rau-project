@@ -21,6 +21,8 @@ interface Option {
   value: string
   label: string
   selectedLabel?: string
+  /** Extra text included in search matching but not displayed (e.g. aliases). */
+  searchText?: string
 }
 
 interface SearchableSelectProps {
@@ -113,7 +115,7 @@ export function SearchableSelect({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.label}
+                  value={option.searchText || option.label}
                   onSelect={() => {
                     onValueChange(option.value)
                     setOpen(false)

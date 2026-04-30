@@ -546,7 +546,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           </button>
                         </div>
                         <CreatableSearchableSelect
-                          options={filteredSenders.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}`, matchKey: c.name }))}
+                          options={filteredSenders.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}`, matchKey: c.name, searchText: [c.name, c.phone, ...(c.aliases || [])].filter(Boolean).join(' ') }))}
                           value={watchSenderId || ''}
                           onValueChange={(val) => {
                             setValue('sender_id', val, { shouldValidate: true });
@@ -637,7 +637,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           </button>
                         </div>
                         <SearchableSelect
-                          options={filteredCustomers.map((c: any) => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}` }))}
+                          options={filteredCustomers.map((c: any) => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}`, searchText: [c.name, c.phone, ...(c.aliases || [])].filter(Boolean).join(' ') }))}
                           value={watchCustomerId}
                           onValueChange={(val) => { setValue('customer_id', val, { shouldValidate: true }); setValue('selected_alias', '', { shouldValidate: true }); }}
                           placeholder="Nhập tên người nhận hàng"
@@ -812,7 +812,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           </button>
                         </div>
                         <CreatableSearchableSelect
-                          options={filteredSenders.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}`, matchKey: c.name }))}
+                          options={filteredSenders.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}`, matchKey: c.name, searchText: [c.name, c.phone, ...(c.aliases || [])].filter(Boolean).join(' ') }))}
                           value={watchSenderId || ''}
                           onValueChange={(val) => {
                             setValue('sender_id', val, { shouldValidate: true });
@@ -903,7 +903,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           </button>
                         </div>
                         <SearchableSelect
-                          options={filteredCustomers.map((c: any) => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}` }))}
+                          options={filteredCustomers.map((c: any) => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}`, searchText: [c.name, c.phone, ...(c.aliases || [])].filter(Boolean).join(' ') }))}
                           value={watchCustomerId}
                           onValueChange={(val) => { setValue('customer_id', val, { shouldValidate: true }); setValue('selected_alias', '', { shouldValidate: true }); }}
                           placeholder="Tìm vựa rau hoặc KH Rau..."

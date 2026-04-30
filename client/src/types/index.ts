@@ -167,6 +167,7 @@ export interface Customer {
   total_revenue: number;
   debt: number;
   is_loyal?: boolean;
+  aliases?: string[];
   created_at: string;
   deleted_at?: string | null;
 }
@@ -207,6 +208,7 @@ export interface ImportOrder {
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
+  selected_alias?: string;
   // Invoice export tracking
   invoice_exported?: boolean;
   invoice_exported_at?: string | null;
@@ -215,7 +217,7 @@ export interface ImportOrder {
   import_order_items?: ImportOrderItem[];
   profiles?: { full_name: string };
   warehouses?: { name: string };
-  customers?: { id: string; name: string; phone?: string; address?: string };
+  customers?: { id: string; name: string; phone?: string; address?: string; aliases?: string[] };
   sender_customers?: { id: string; name: string; phone?: string };
   products?: Product;
 }
@@ -320,6 +322,7 @@ export interface DeliveryOrder {
       total_amount?: number;
       payment_status?: 'paid' | 'unpaid' | 'partial';
       profiles?: { full_name: string };
+      selected_alias?: string | null;
       deleted_at?: string | null;
     };
     vegetable_orders?: {
@@ -336,6 +339,7 @@ export interface DeliveryOrder {
       total_amount?: number;
       payment_status?: 'paid' | 'unpaid' | 'partial';
       profiles?: { full_name: string };
+      selected_alias?: string | null;
       deleted_at?: string | null;
     };
   payment_collections?: {

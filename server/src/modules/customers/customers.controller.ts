@@ -9,6 +9,7 @@ const createCustomerSchema = z.object({
   address: z.string().optional(),
   customer_type: z.enum(['retail', 'wholesale', 'grocery', 'vegetable', 'grocery_sender', 'grocery_receiver', 'vegetable_sender', 'vegetable_receiver']).default('retail'),
   user_id: z.string().uuid().optional(),
+  aliases: z.array(z.string()).optional(),
 });
 
 const updateCustomerSchema = z.object({
@@ -17,6 +18,7 @@ const updateCustomerSchema = z.object({
   address: z.string().nullable().optional(),
   customer_type: z.enum(['retail', 'wholesale', 'grocery', 'vegetable', 'grocery_sender', 'grocery_receiver', 'vegetable_sender', 'vegetable_receiver']).optional(),
   is_loyal: z.boolean().optional(),
+  aliases: z.array(z.string()).optional(),
 });
 
 const bulkLoyalSchema = z.object({

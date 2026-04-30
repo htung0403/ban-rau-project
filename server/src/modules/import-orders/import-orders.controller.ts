@@ -39,6 +39,7 @@ const importOrderItemSchema = z.object({
     items: z.array(importOrderItemSchema).optional(),
     received_by: z.string().uuid().optional().nullable(),
     status: z.enum(['pending', 'processing', 'delivered', 'returned']).optional(),
+    selected_alias: z.string().optional().nullable(),
   });
 
 export class ImportOrderController {

@@ -171,6 +171,7 @@ export class CustomerService {
       phone?: string | null;
       address?: string | null;
       customer_type?: 'retail' | 'wholesale' | 'grocery' | 'vegetable' | 'grocery_sender' | 'grocery_receiver' | 'vegetable_sender' | 'vegetable_receiver';
+      aliases?: string[];
     }
   ) {
     const { data, error } = await supabaseService

@@ -38,6 +38,7 @@ const importOrderSchema = z.object({
   sender_name: z.string().optional(),
   sender_id: z.string().optional(),
   receiver_name: z.string().optional(),
+  selected_alias: z.string().optional(),
   notes: z.string().optional(),
   payment_status: z.enum(['paid', 'unpaid']).default('unpaid'),
   items: z.array(importOrderItemSchema).min(1, 'Vui lòng thêm ít nhất 1 mặt hàng'),
@@ -185,6 +186,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       sender_name: '',
       sender_id: '',
       receiver_name: '',
+      selected_alias: '',
       received_by: '',
       notes: '',
       total_amount: 0,
@@ -251,6 +253,8 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
   const watchSenderId = watch('sender_id');
   const watchReceivedBy = watch('received_by');
   const watchPaymentStatus = watch('payment_status');
+  const selectedCustomer = filteredCustomers.find((c: any) => c.id === watchCustomerId);
+  const hasAliases = selectedCustomer?.aliases && selectedCustomer.aliases.length > 0;
   useEffect(() => {
     if (editingOrder) {
       let receiptUrls = [...(editingOrder.receipt_image_urls || [])];
@@ -266,6 +270,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
         sender_name: editingOrder.sender_name || '',
         sender_id: editingOrder.sender_id || '',
         receiver_name: editingOrder.receiver_name || '',
+        selected_alias: editingOrder.selected_alias || '',
         notes: editingOrder.notes || '',
         items: editingOrder.import_order_items?.map((item: ImportOrderItem) => {
           let urls = [...(item.image_urls || [])];
@@ -297,6 +302,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
         sender_name: '',
         sender_id: '',
         receiver_name: '',
+        selected_alias: '',
         received_by: user?.id || employees?.[0]?.id || '',
         notes: '',
         total_amount: 0,
@@ -434,6 +440,8 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
       }
 
       payload.receipt_image_urls = getValues('receipt_image_urls') || [];
+
+      payload.selected_alias = payload.selected_alias || null;
 
       Object.keys(payload).forEach(key => {
         if (payload[key] === '') delete payload[key];
@@ -631,11 +639,26 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                         <SearchableSelect
                           options={filteredCustomers.map((c: any) => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}` }))}
                           value={watchCustomerId}
-                          onValueChange={(val) => setValue('customer_id', val, { shouldValidate: true })}
+                          onValueChange={(val) => { setValue('customer_id', val, { shouldValidate: true }); setValue('selected_alias', '', { shouldValidate: true }); }}
                           placeholder="Nhập tên người nhận hàng"
                           disabled={showNewCustomerForm}
                         />
                         {errors.customer_id && <p className="text-red-500 text-[11px] font-medium">{errors.customer_id.message as string}</p>}
+
+                        {hasAliases && (
+                          <div className="mt-2">
+                            <label className="text-[12px] font-bold text-muted-foreground">Biệt danh (tùy chọn)</label>
+                            <SearchableSelect
+                              options={[
+                                { value: '', label: selectedCustomer.name },
+                                ...selectedCustomer.aliases.map((alias: string) => ({ value: alias, label: alias }))
+                              ]}
+                              value={watch('selected_alias') || ''}
+                              onValueChange={(val) => setValue('selected_alias', val, { shouldValidate: true })}
+                              placeholder="Chọn biệt danh hoặc để trống"
+                            />
+                          </div>
+                        )}
 
                         {/* Inline Add Customer Form */}
                         {showNewCustomerForm && (
@@ -882,11 +905,26 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                         <SearchableSelect
                           options={filteredCustomers.map((c: any) => ({ value: c.id, label: `${c.name} ${c.phone ? `(${c.phone})` : ''}` }))}
                           value={watchCustomerId}
-                          onValueChange={(val) => setValue('customer_id', val, { shouldValidate: true })}
+                          onValueChange={(val) => { setValue('customer_id', val, { shouldValidate: true }); setValue('selected_alias', '', { shouldValidate: true }); }}
                           placeholder="Tìm vựa rau hoặc KH Rau..."
                           disabled={showNewCustomerForm}
                         />
                         {errors.customer_id && <p className="text-red-500 text-[11px] font-medium">{errors.customer_id.message as string}</p>}
+
+                        {hasAliases && (
+                          <div className="mt-2">
+                            <label className="text-[12px] font-bold text-muted-foreground">Biệt danh (tùy chọn)</label>
+                            <SearchableSelect
+                              options={[
+                                { value: '', label: selectedCustomer.name },
+                                ...selectedCustomer.aliases.map((alias: string) => ({ value: alias, label: alias }))
+                              ]}
+                              value={watch('selected_alias') || ''}
+                              onValueChange={(val) => setValue('selected_alias', val, { shouldValidate: true })}
+                              placeholder="Chọn biệt danh hoặc để trống"
+                            />
+                          </div>
+                        )}
 
                         {/* Inline Add Customer Form */}
                         {showNewCustomerForm && (

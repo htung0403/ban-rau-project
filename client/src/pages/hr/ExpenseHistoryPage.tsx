@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import PageHeader from '../../components/shared/PageHeader';
@@ -9,7 +9,7 @@ import ErrorState from '../../components/shared/ErrorState';
 import StatusBadge from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { format } from 'date-fns';
-import { Receipt, X, ChevronLeft, ChevronRight, Image as ImageIcon, CalendarDays, User, Car, Banknote, CheckCircle2, ChevronRight as ChevronRightIcon, Printer, Filter } from 'lucide-react';
+import { Receipt, X, ChevronLeft, Image as ImageIcon, CalendarDays, User, Car, Banknote, CheckCircle2, ChevronRight as ChevronRightIcon, Printer, Filter } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Expense } from '../../types';
 

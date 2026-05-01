@@ -8,7 +8,6 @@ import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Filter } from 'lucide-react';
 
 const VN_TZ = 'Asia/Ho_Chi_Minh';
 

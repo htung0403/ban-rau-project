@@ -29,6 +29,7 @@ import ApprovalsPage from './pages/hr/ApprovalsPage';
 import SalaryAdvancesPage from './pages/hr/SalaryAdvancesPage';
 import ExpensesPage from './pages/hr/ExpensesPage';
 import ExpenseHistoryPage from './pages/hr/ExpenseHistoryPage';
+import PrintExpensesPage from './pages/hr/PrintExpensesPage';
 import VehiclesPage from './pages/vehicles/VehiclesPage';
 import DriverCheckinPage from './pages/vehicles/DriverCheckinPage';
 import PaymentCollectionsPage from './pages/vehicles/payment-collections/PaymentCollectionsPage';
@@ -129,6 +130,7 @@ function AppRoutes() {
         <Route path="/chi-phi" element={<ModulePage />} />
         <Route path="/chi-phi/phieu" element={<ExpensesPage />} />
         <Route path="/chi-phi/lich-su" element={<ExpenseHistoryPage />} />
+        <Route path="/chi-phi/in-chi-phi" element={<PrintExpensesPage />} />
 
         {/* Khách hàng module */}
         <Route path="/khach-hang">

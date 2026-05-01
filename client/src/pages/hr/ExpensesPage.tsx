@@ -179,6 +179,9 @@ const ExpensesPage = () => {
     }
 
     return expenses.filter((e) => {
+      // Don't show confirmed expenses on this page (they move to History)
+      if (e.payment_status === 'confirmed') return false;
+
       if (searchQuery) {
         const matchName = matchesSearch(e.expense_name, searchQuery);
         const matchEmployee = e.employee?.full_name ? matchesSearch(e.employee.full_name, searchQuery) : false;
@@ -482,7 +485,6 @@ const ExpensesPage = () => {
                       { value: '', label: 'Tất cả' },
                       { value: 'unpaid', label: 'Chưa thanh toán' },
                       { value: 'paid', label: 'Đã thanh toán (chưa xác nhận)' },
-                      { value: 'confirmed', label: 'Đã xác nhận' },
                     ]}
                     placeholder="Lọc theo trạng thái"
                     className="h-10 w-full bg-background"
@@ -1110,7 +1112,6 @@ const ExpensesPage = () => {
           { value: '', label: 'Tất cả' },
           { value: 'unpaid', label: 'Chưa thanh toán' },
           { value: 'paid', label: 'Đã thanh toán (chưa xác nhận)' },
-          { value: 'confirmed', label: 'Đã xác nhận' },
         ]}
         onClear={() => {
           setFilterEmployee('');

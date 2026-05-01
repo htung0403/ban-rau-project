@@ -12,6 +12,7 @@ import { useVehicles } from '../../../hooks/queries/useVehicles';
 import { CreatableSearchableSelect } from '../../../components/ui/CreatableSearchableSelect';
 import { MultiSearchableSelect } from '../../../components/ui/MultiSearchableSelect';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import ConfirmDialog from '../../../components/shared/ConfirmDialog';
 import type { Vehicle } from '../../../types';
 
 import { removeAccents } from '../../../lib/str-utils';
@@ -121,6 +122,76 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
 
   const [customVehicleTypes, setCustomVehicleTypes] = React.useState<string[]>([]);
 
+  const [confirmInfo, setConfirmInfo] = React.useState<{
+    isOpen: boolean;
+    type: 'driver' | 'inCharge';
+    targetUserId: string;
+    targetUserName: string;
+    existingVehiclePlate: string;
+    existingRoleName: string;
+  } | null>(null);
+
+  const handleDriverChange = (val: string) => {
+    if (!val) {
+      setValue('driver_id', val, { shouldValidate: true });
+      return;
+    }
+    
+    const otherVehicle = vehicles?.find(v => v.id !== vehicle?.id && (v.driver_id === val || v.in_charge_id === val));
+    
+    if (otherVehicle) {
+      const roleName = otherVehicle.driver_id === val ? 'tài xế' : 'lơ xe';
+      const targetUserName = employees?.find(e => e.id === val)?.full_name || 'Nhân viên này';
+      
+      setConfirmInfo({
+        isOpen: true,
+        type: 'driver',
+        targetUserId: val,
+        targetUserName,
+        existingVehiclePlate: otherVehicle.license_plate,
+        existingRoleName: roleName,
+      });
+    } else {
+      setValue('driver_id', val, { shouldValidate: true });
+    }
+  };
+
+  const handleInChargeChange = (val: string) => {
+    if (!val) {
+      setValue('in_charge_id', val, { shouldValidate: true });
+      return;
+    }
+    
+    const otherVehicle = vehicles?.find(v => v.id !== vehicle?.id && (v.driver_id === val || v.in_charge_id === val));
+    
+    if (otherVehicle) {
+      const roleName = otherVehicle.driver_id === val ? 'tài xế' : 'lơ xe';
+      const targetUserName = employees?.find(e => e.id === val)?.full_name || 'Nhân viên này';
+      
+      setConfirmInfo({
+        isOpen: true,
+        type: 'inCharge',
+        targetUserId: val,
+        targetUserName,
+        existingVehiclePlate: otherVehicle.license_plate,
+        existingRoleName: roleName,
+      });
+    } else {
+      setValue('in_charge_id', val, { shouldValidate: true });
+    }
+  };
+
+  const handleConfirmAssignment = () => {
+    if (confirmInfo) {
+      if (confirmInfo.type === 'driver') {
+        setValue('driver_id', confirmInfo.targetUserId, { shouldValidate: true });
+      } else {
+        setValue('in_charge_id', confirmInfo.targetUserId, { shouldValidate: true });
+      }
+    }
+    setConfirmInfo(null);
+  };
+
   const vehicleTypeOptions = React.useMemo(() => {
     const set = new Set<string>();
 
@@ -227,13 +298,37 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
 
   const onSubmit = async (data: VehicleFormData) => {
     try {
+      if (data.driver_id) {
+        const oldVehicleDriver = vehicles?.find(v => v.id !== vehicle?.id && (v.driver_id === data.driver_id || v.in_charge_id === data.driver_id));
+        if (oldVehicleDriver) {
+          const payload = {
+            ...(oldVehicleDriver.driver_id === data.driver_id ? { driver_id: null } : {}),
+            ...(oldVehicleDriver.in_charge_id === data.driver_id ? { in_charge_id: null } : {})
+          };
+          // @ts-ignore
+          await updateMutation.mutateAsync({ id: oldVehicleDriver.id, payload });
+        }
+      }
+
+      if (data.in_charge_id) {
+        const oldVehicleInCharge = vehicles?.find(v => v.id !== vehicle?.id && (v.driver_id === data.in_charge_id || v.in_charge_id === data.in_charge_id));
+        if (oldVehicleInCharge) {
+          const payload = {
+            ...(oldVehicleInCharge.driver_id === data.in_charge_id ? { driver_id: null } : {}),
+            ...(oldVehicleInCharge.in_charge_id === data.in_charge_id ? { in_charge_id: null } : {})
+          };
+          // @ts-ignore
+          await updateMutation.mutateAsync({ id: oldVehicleInCharge.id, payload });
+        }
+      }
+
       const payload = {
         license_plate: data.license_plate,
         vehicle_type: data.vehicle_type || undefined,
         load_capacity_ton: data.load_capacity_ton,
         goods_categories: data.goods_categories,
-        driver_id: data.driver_id || undefined,
-        in_charge_id: data.in_charge_id || undefined,
+        driver_id: data.driver_id || null,
+        in_charge_id: data.in_charge_id || null,
       };
       if (vehicle) {
         await updateMutation.mutateAsync({ id: vehicle.id, payload });
@@ -365,7 +460,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
                 <SearchableSelect
                   options={driverOptions}
                   value={driverId || ''}
-                  onValueChange={(val) => setValue('driver_id', val, { shouldValidate: true })}
+                  onValueChange={handleDriverChange}
                   placeholder="Chọn tài xế (tùy chọn)..."
                 />
               </div>
@@ -375,7 +470,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
                 <SearchableSelect
                   options={inChargeOptions}
                   value={inChargeId || ''}
-                  onValueChange={(val) => setValue('in_charge_id', val, { shouldValidate: true })}
+                  onValueChange={handleInChargeChange}
                   placeholder="Chọn người phụ trách (tùy chọn)..."
                 />
               </div>
@@ -412,6 +507,17 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
             <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>
+
+        <ConfirmDialog
+          isOpen={!!confirmInfo?.isOpen}
+          title="Xác nhận thay đổi xe phụ trách"
+          message={confirmInfo ? `${confirmInfo.targetUserName} đang là ${confirmInfo.existingRoleName} phụ trách xe ${confirmInfo.existingVehiclePlate}. Bạn có chắc chắn muốn thay đổi và gán vào xe này không?` : ''}
+          confirmLabel="Đồng ý"
+          cancelLabel="Hủy"
+          variant="warning"
+          onConfirm={handleConfirmAssignment}
+          onCancel={() => setConfirmInfo(null)}
+        />
       </div>
     </div>,
     document.body

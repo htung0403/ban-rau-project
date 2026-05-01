@@ -361,8 +361,8 @@ export interface Vehicle {
   vehicle_type?: string;
   load_capacity_ton?: number;
   goods_categories?: VehicleGoodsCategory[];
-  driver_id?: string;
-  in_charge_id?: string;
+  driver_id?: string | null;
+  in_charge_id?: string | null;
   status: VehicleStatus;
   created_at: string;
   // Nested

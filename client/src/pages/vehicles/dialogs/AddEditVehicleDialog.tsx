@@ -25,8 +25,8 @@ const vehicleSchema = z.object({
     z.number().positive('Tải trọng phải lớn hơn 0').optional()
   ),
   goods_categories: z.array(z.enum(['grocery', 'vegetable'])).min(1, 'Vui lòng chọn ít nhất một loại hàng'),
-  driver_id: z.string().optional(),
-  in_charge_id: z.string().optional(),
+  driver_id: z.string().nullable().optional(),
+  in_charge_id: z.string().nullable().optional(),
 });
 
 type VehicleFormData = z.infer<typeof vehicleSchema>;
@@ -109,8 +109,8 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
       vehicle_type: '',
       load_capacity_ton: undefined,
       goods_categories: ['grocery', 'vegetable'],
-      driver_id: '',
-      in_charge_id: '',
+      driver_id: null,
+      in_charge_id: null,
     },
   });
 
@@ -133,7 +133,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
 
   const handleDriverChange = (val: string) => {
     if (!val) {
-      setValue('driver_id', val, { shouldValidate: true });
+      setValue('driver_id', null, { shouldValidate: true });
       return;
     }
     
@@ -158,7 +158,7 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
 
   const handleInChargeChange = (val: string) => {
     if (!val) {
-      setValue('in_charge_id', val, { shouldValidate: true });
+      setValue('in_charge_id', null, { shouldValidate: true });
       return;
     }
     
@@ -280,8 +280,8 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
           vehicle_type: vehicle.vehicle_type || '',
           load_capacity_ton: vehicle.load_capacity_ton,
           goods_categories: vehicle.goods_categories?.length ? vehicle.goods_categories : ['grocery', 'vegetable'],
-          driver_id: vehicle.driver_id || '',
-          in_charge_id: vehicle.in_charge_id || '',
+          driver_id: vehicle.driver_id ?? null,
+          in_charge_id: vehicle.in_charge_id ?? null,
         });
       } else {
         reset({
@@ -289,8 +289,8 @@ const AddEditVehicleDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
           vehicle_type: '',
           load_capacity_ton: undefined,
           goods_categories: ['grocery', 'vegetable'],
-          driver_id: '',
-          in_charge_id: '',
+          driver_id: null,
+          in_charge_id: null,
         });
       }
     }

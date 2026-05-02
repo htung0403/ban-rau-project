@@ -23,6 +23,7 @@ import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { Filter, X, Printer } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SearchInput } from '../../components/ui/SearchInput';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { matchesSearch } from '../../lib/str-utils';
 import { getDeliveryAnchorDateString } from '../../lib/deliveryDayAnchor';
 import { isOldOrderForAgeRule, getEffectiveDeliveryStatus } from '../../lib/deliveryAgeRule';
@@ -621,6 +622,21 @@ const DeliveryPage: React.FC = () => {
           />
         </div>
 
+        {/* AGE FILTER */}
+        <div className="hidden md:block shrink-0 w-32">
+          <SearchableSelect
+            options={[
+              { value: 'all', label: 'Tất cả' },
+              { value: 'new', label: 'Hàng mới' },
+              { value: 'old', label: 'Hàng cũ' },
+            ]}
+            value={ageFilter}
+            onValueChange={(val) => setAgeFilter(val as any)}
+            placeholder="Phân loại..."
+            className="h-9.5"
+          />
+        </div>
+
         {/* DESKTOP ADVANCED FILTERS */}
         <div className="hidden md:flex gap-2 items-center shrink-0">
           <div className="w-50">
@@ -676,24 +692,6 @@ const DeliveryPage: React.FC = () => {
             />
             <span className="text-[12px] font-bold text-foreground whitespace-nowrap">Hàng dư</span>
           </label>
-        </div>
-
-        {/* AGE FILTER */}
-        <div className="hidden md:flex shrink-0 bg-muted/20 border border-border/80 rounded-xl p-0.5">
-          {(['all', 'new', 'old'] as const).map((age) => (
-                  <button
-                    key={age}
-                    onClick={() => setAgeFilter(age)}
-                    className={clsx(
-                      "px-3 py-1.5 text-[12px] font-bold rounded-lg transition-all",
-                      ageFilter === age
-                        ? "bg-background text-primary shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-              {age === 'all' ? 'Tất cả' : age === 'new' ? 'Hàng mới' : 'Hàng cũ'}
-            </button>
-          ))}
         </div>
 
         {/* DESKTOP DATE FILTER */}
@@ -1648,6 +1646,20 @@ const DeliveryPage: React.FC = () => {
           />
         </div>
         <div className="space-y-1.5">
+          <label className="text-[13px] font-bold text-muted-foreground">Phân loại hàng</label>
+          <SearchableSelect
+            options={[
+              { value: 'all', label: 'Tất cả' },
+              { value: 'new', label: 'Hàng mới' },
+              { value: 'old', label: 'Hàng cũ' },
+            ]}
+            value={ageFilter}
+            onValueChange={(val) => setAgeFilter(val as any)}
+            placeholder="Chọn phân loại..."
+            className="w-full bg-muted/10 h-10.5 border-border/80 rounded-xl"
+          />
+        </div>
+        <div className="space-y-1.5">
           <label className="text-[13px] font-bold text-muted-foreground">Bộ lọc khác</label>
           <label className="flex items-center gap-2 px-3 py-2.5 border border-border/80 rounded-xl bg-muted/10 cursor-pointer hover:bg-muted/20 transition-colors">
             <input
@@ -1659,25 +1671,8 @@ const DeliveryPage: React.FC = () => {
             <span className="text-[13px] font-bold text-foreground">Chỉ hiện đơn hàng dư</span>
           </label>
         </div>
-        <div className="space-y-1.5">
-          <label className="text-[13px] font-bold text-muted-foreground">Phân loại hàng</label>
-          <div className="flex gap-2">
-            {(['all', 'new', 'old'] as const).map((age) => (
-              <button
-                key={age}
-                onClick={() => setAgeFilter(age)}
-                className={clsx(
-                  "flex-1 py-2.5 text-[12px] font-bold rounded-xl border transition-all",
-                  ageFilter === age
-                    ? "bg-primary border-primary text-white shadow-md"
-                    : "bg-card border-border text-muted-foreground"
-                )}
-              >
-                {age === 'all' ? 'Tất cả' : age === 'new' ? 'Hàng mới' : 'Hàng cũ'}
-              </button>
-            ))}
-          </div>
-        </div>
+
+
       </MobileFilterSheet>
 
       {/* Dialog xem ảnh chi tiết */}

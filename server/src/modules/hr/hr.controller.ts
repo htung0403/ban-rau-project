@@ -370,4 +370,15 @@ export class HRController {
       return res.status(status).json(errorResponse(err.message));
     }
   }
+  
+  static async confirmExpensesBulk(req: Request, res: Response) {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids)) throw new Error('Danh sách ID không hợp lệ');
+      const data = await HRService.confirmExpenses(ids, req.user!.id);
+      return res.json(successResponse(data, `Đã xác nhận ${data.count} phiếu chi phí`));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
 }

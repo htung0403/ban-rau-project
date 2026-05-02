@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import PageHeader from '../../components/shared/PageHeader';
-import { useExpenses, useCreateExpense, useUpdateExpense, useConfirmExpense, useEmployees, hrKeys } from '../../hooks/queries/useHR';
+import { useExpenses, useCreateExpense, useUpdateExpense, useConfirmExpense, useConfirmExpensesBulk, useEmployees, hrKeys } from '../../hooks/queries/useHR';
 import { hrApi } from '../../api/hrApi';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { useAuth } from '../../context/AuthContext';
@@ -22,7 +23,7 @@ import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { uploadApi } from '../../api/uploadApi';
 import { matchesSearch } from '../../lib/str-utils';
 import { format } from 'date-fns';
-import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, ChevronLeft, ChevronRight as ChevronRightIcon, Camera, Filter, CalendarDays } from 'lucide-react';
+import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, ChevronLeft, ChevronRight as ChevronRightIcon, Camera, Filter, CalendarDays, Printer } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import type { Expense } from '../../types';
@@ -119,6 +120,7 @@ const ExpensesPage = () => {
   const createMutation = useCreateExpense();
   const updateMutation = useUpdateExpense();
   const confirmMutation = useConfirmExpense();
+  const confirmBulkMutation = useConfirmExpensesBulk();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -129,6 +131,7 @@ const ExpensesPage = () => {
   const [deleteConfirmIds, setDeleteConfirmIds] = useState<string[] | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [isBulkConfirmOpen, setIsBulkConfirmOpen] = useState(false);
   const confirmingExpense = expenses?.find(e => e.id === confirmId);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -229,6 +232,13 @@ const ExpensesPage = () => {
     deletableInView.length > 0 && deletableInView.every((e) => selectedIds.has(e.id));
   const someDeletableSelected = deletableInView.some((e) => selectedIds.has(e.id));
   const selectedDeletableCount = deletableInView.filter((e) => selectedIds.has(e.id)).length;
+
+  const selectedTotalAmount = React.useMemo(() => {
+    return Array.from(selectedIds).reduce((sum, id) => {
+      const expense = expenses?.find((e) => e.id === id);
+      return sum + (Number(expense?.amount) || 0);
+    }, 0);
+  }, [selectedIds, expenses]);
 
   useEffect(() => {
     const el = selectAllCheckboxRef.current;
@@ -426,13 +436,22 @@ const ExpensesPage = () => {
           description="Quản lý các khoản chi phí phát sinh"
           backPath="/chi-phi"
           actions={
-            <button
-              onClick={() => openDialog()}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all"
-            >
-              <Plus size={16} />
-              Thêm chi phí
-            </button>
+            <div className="flex items-center gap-3">
+              <Link
+                to="/chi-phi/in-chi-phi"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted hover:bg-muted/80 text-foreground text-[13px] font-bold transition-all border border-border"
+              >
+                <Printer size={16} />
+                In chi phí
+              </Link>
+              <button
+                onClick={() => openDialog()}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all"
+              >
+                <Plus size={16} />
+                Thêm chi phí
+              </button>
+            </div>
           }
         />
       </div>
@@ -554,32 +573,6 @@ const ExpensesPage = () => {
               </div>
             </div>
 
-            {selectedDeletableCount > 0 && (
-              <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-border bg-red-500/5 shrink-0">
-                <span className="text-[13px] font-semibold text-foreground">
-                  Đã chọn {selectedDeletableCount}
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDeleteConfirmIds(
-                      deletableInView.filter((e) => selectedIds.has(e.id)).map((e) => e.id)
-                    )
-                  }
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-[12px] font-bold hover:bg-red-700 transition-colors"
-                >
-                  <Trash2 size={14} />
-                  Xóa đã chọn
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedIds(new Set())}
-                  className="text-[12px] font-medium text-muted-foreground hover:text-foreground px-2 py-1"
-                >
-                  Bỏ chọn
-                </button>
-              </div>
-            )}
 
             <div className="flex-1 overflow-auto custom-scrollbar">
               {filteredExpenses.length === 0 ? (
@@ -1219,6 +1212,29 @@ const ExpensesPage = () => {
         isLoading={confirmMutation.isPending}
       />
 
+      <ConfirmDialog
+        isOpen={isBulkConfirmOpen}
+        onCancel={() => setIsBulkConfirmOpen(false)}
+        onConfirm={() => {
+          const ids = Array.from(selectedIds).filter(id => {
+            const exp = expenses?.find(e => e.id === id);
+            return exp && exp.payment_status !== 'confirmed';
+          });
+          confirmBulkMutation.mutate(ids, {
+            onSuccess: () => {
+              setIsBulkConfirmOpen(false);
+              setSelectedIds(new Set());
+            }
+          });
+        }}
+        title="Xác nhận hàng loạt"
+        message={`Bạn có chắc chắn muốn xác nhận ${selectedIds.size} phiếu chi phí đã chọn? Hành động này sẽ chuyển trạng thái các phiếu sang "Đã xác nhận".`}
+        confirmLabel="Xác nhận"
+        cancelLabel="Hủy"
+        variant="primary"
+        isLoading={confirmBulkMutation.isPending}
+      />
+
       {previewImages && createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 animate-in fade-in duration-300">
           <button
@@ -1262,6 +1278,52 @@ const ExpensesPage = () => {
                 {currentImageIndex + 1} / {previewImages.length}
               </div>
             )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {selectedIds.size > 0 && createPortal(
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000] w-[calc(100%-2rem)] max-w-4xl animate-in slide-in-from-bottom-8 duration-300">
+          <div className="bg-neutral-900/90 dark:bg-neutral-800/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl px-4 py-3 sm:px-6 flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="flex flex-col">
+                <span className="text-[11px] text-white/50 uppercase font-bold tracking-wider">Đã chọn</span>
+                <span className="text-[16px] font-black text-white">{selectedIds.size} phiếu</span>
+              </div>
+              <div className="h-8 w-px bg-white/10 hidden sm:block" />
+              <div className="flex flex-col">
+                <span className="text-[11px] text-emerald-400/60 uppercase font-bold tracking-wider">Tổng cộng</span>
+                <span className="text-[16px] font-black text-emerald-400 tabular-nums">{formatCurrency(selectedTotalAmount)}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="flex-1 sm:flex-none px-4 py-2 text-[13px] font-bold text-white/70 hover:text-white transition-colors"
+              >
+                Bỏ chọn
+              </button>
+              <button
+                onClick={() => setDeleteConfirmIds(Array.from(selectedIds))}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-[13px] font-bold rounded-xl shadow-lg shadow-red-500/20 transition-all"
+              >
+                <Trash2 size={16} />
+                <span className="hidden sm:inline">Xóa đã chọn</span>
+                <span className="sm:hidden">Xóa</span>
+              </button>
+              {user?.role === 'admin' && (
+                <button
+                  onClick={() => setIsBulkConfirmOpen(true)}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
+                >
+                  <CheckCircle2 size={16} />
+                  <span className="hidden sm:inline">Xác nhận hàng loạt</span>
+                  <span className="sm:hidden">Xác nhận</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>,
         document.body

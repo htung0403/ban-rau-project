@@ -166,4 +166,9 @@ export const hrApi = {
     const { data } = await axiosClient.put<Expense>(`/hr/expenses/${id}/confirm`);
     return data;
   },
+  
+  confirmExpensesBulk: async (ids: string[]) => {
+    const { data } = await axiosClient.post('/hr/expenses/confirm-bulk', { ids });
+    return data;
+  },
 };

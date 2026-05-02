@@ -481,4 +481,27 @@ export class HRService {
     if (error) throw error;
     return data;
   }
+
+  static async confirmExpenses(ids: string[], adminId: string) {
+    if (!ids || ids.length === 0) return { success: true, count: 0 };
+
+    const { data, error } = await supabaseService
+      .from('expenses')
+      .update({
+        payment_status: 'confirmed',
+        confirmed_by: adminId,
+        confirmed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .in('id', ids)
+      .select(`
+        *,
+        employee:profiles!expenses_employee_id_fkey(id, full_name),
+        vehicle:vehicles!expenses_vehicle_id_fkey(id, license_plate),
+        confirmer:profiles!expenses_confirmed_by_fkey(id, full_name)
+      `);
+
+    if (error) throw error;
+    return { success: true, count: data?.length || 0, data };
+  }
 }

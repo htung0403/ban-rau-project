@@ -237,7 +237,7 @@ export class DeliveryService {
       let query = supabaseService
         .from('delivery_orders')
         .select(
-          '*, import_orders(order_code, sender_name, sender_id, receiver_name, customer_id, selected_alias, license_plate, driver_name, received_by, customers:customers!import_orders_customer_id_fkey(name), sender_customers:customers!import_orders_sender_id_fkey(name), total_amount, payment_status, profiles:received_by(full_name), receipt_image_url, receipt_image_urls, import_order_items(image_url, image_urls, products(name)), deleted_at), vegetable_orders(order_code, sender_name, sender_id, receiver_name, customer_id, selected_alias, license_plate, driver_name, received_by, customers:customers!vegetable_orders_customer_id_fkey(name), sender_customers:customers!vegetable_orders_sender_id_fkey(name), total_amount, payment_status, profiles:received_by(full_name), receipt_image_url, receipt_image_urls, vegetable_order_items(image_url, image_urls, products(name)), deleted_at), delivery_vehicles(*, vehicles(license_plate, in_charge_id)), payment_collections(id, status, vehicle_id, image_url)'
+          '*, import_orders(order_code, sender_name, sender_id, receiver_name, customer_id, selected_alias, license_plate, driver_name, received_by, customers:customers!import_orders_customer_id_fkey(name), sender_customers:customers!import_orders_sender_id_fkey(name), total_amount, payment_status, profiles:received_by(full_name), receipt_image_url, receipt_image_urls, import_order_items(id, image_url, image_urls, products(name)), deleted_at), vegetable_orders(order_code, sender_name, sender_id, receiver_name, customer_id, selected_alias, license_plate, driver_name, received_by, customers:customers!vegetable_orders_customer_id_fkey(name), sender_customers:customers!vegetable_orders_sender_id_fkey(name), total_amount, payment_status, profiles:received_by(full_name), receipt_image_url, receipt_image_urls, vegetable_order_items(id, image_url, image_urls, products(name)), deleted_at), delivery_vehicles(*, vehicles(license_plate, in_charge_id)), payment_collections(id, status, vehicle_id, image_url)'
         )
         .order('delivery_date', { ascending: false });
 
@@ -540,8 +540,8 @@ export class DeliveryService {
       .from('delivery_orders')
       .select(`
         *, 
-        import_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, import_order_items(image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
-        vegetable_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, vegetable_order_items(image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name))
+        import_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, import_order_items(id, image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
+        vegetable_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, vegetable_order_items(id, image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name))
       `)
       .in('id', ids)
       .eq('status', 'hang_o_sg');
@@ -561,32 +561,64 @@ export class DeliveryService {
        return io.payment_status || 'unpaid';
     };
 
-    const collectAllImages = (orders: any[]): string[] => {
-      const images = new Set<string>();
+    const collectCategorizedImages = (orders: any[]) => {
+      const receiptImages = new Set<string>();
+      const deliveryImages = new Set<string>();
+      const itemImages = new Set<string>();
       
-      const pushRefs = (refs: any) => {
+      const pushReceipts = (refs: any) => {
+        const list = Array.isArray(refs) ? refs : refs ? [refs] : [];
+        for (const ref of list) {
+          if (!ref) continue;
+          if (ref.receipt_image_url) {
+             if (typeof ref.receipt_image_url === 'string' && ref.receipt_image_url.includes(',')) {
+               ref.receipt_image_url.split(',').forEach((u: string) => receiptImages.add(u.trim()));
+             } else if (typeof ref.receipt_image_url === 'string') {
+               receiptImages.add(ref.receipt_image_url);
+             }
+          }
+          if (ref.receipt_image_urls && Array.isArray(ref.receipt_image_urls)) {
+             ref.receipt_image_urls.forEach((u: string) => {
+               if (typeof u === 'string') receiptImages.add(u);
+             });
+          }
+        }
+      };
+
+      const pushItems = (refs: any) => {
+        const list = Array.isArray(refs) ? refs : refs ? [refs] : [];
+        for (const ref of list) {
+          if (!ref) continue;
+          if (ref.image_url) {
+             if (typeof ref.image_url === 'string' && ref.image_url.includes(',')) {
+               ref.image_url.split(',').forEach((u: string) => itemImages.add(u.trim()));
+             } else if (typeof ref.image_url === 'string') {
+               itemImages.add(ref.image_url);
+             }
+          }
+          if (ref.image_urls && Array.isArray(ref.image_urls)) {
+             ref.image_urls.forEach((u: string) => {
+               if (typeof u === 'string') itemImages.add(u);
+             });
+          }
+        }
+      };
+
+      const pushDeliveries = (refs: any) => {
         const list = Array.isArray(refs) ? refs : refs ? [refs] : [];
         for (const ref of list) {
           if (!ref) continue;
           if (ref.image_url) {
             if (typeof ref.image_url === 'string' && ref.image_url.includes(',')) {
-              ref.image_url.split(',').forEach((u: string) => images.add(u.trim()));
+              ref.image_url.split(',').forEach((u: string) => deliveryImages.add(u.trim()));
             } else if (typeof ref.image_url === 'string') {
-              images.add(ref.image_url);
+              deliveryImages.add(ref.image_url);
             }
           }
           if (ref.image_urls && Array.isArray(ref.image_urls)) {
             ref.image_urls.forEach((u: string) => {
-              if (typeof u === 'string') images.add(u);
+              if (typeof u === 'string') deliveryImages.add(u);
             });
-          }
-          if (ref.receipt_image_url && typeof ref.receipt_image_url === 'string') {
-             images.add(ref.receipt_image_url);
-          }
-          if (ref.receipt_image_urls && Array.isArray(ref.receipt_image_urls)) {
-             ref.receipt_image_urls.forEach((u: string) => {
-               if (typeof u === 'string') images.add(u);
-             });
           }
         }
       };
@@ -594,10 +626,14 @@ export class DeliveryService {
       for (const o of orders) {
         if (!o) continue;
         
-        pushRefs(o);
-        pushRefs(o.import_orders);
-        pushRefs(o.vegetable_orders);
+        pushDeliveries(o);
+        
+        const linkedImports = Array.isArray(o.import_orders) ? o.import_orders : o.import_orders ? [o.import_orders] : [];
+        pushReceipts(linkedImports);
 
+        const linkedVegs = Array.isArray(o.vegetable_orders) ? o.vegetable_orders : o.vegetable_orders ? [o.vegetable_orders] : [];
+        pushReceipts(linkedVegs);
+        
         const targetProductName = o.product_name ? (
           o.product_name.includes(' - ') 
             ? o.product_name.split(' - ').slice(1).join(' - ').trim().toLowerCase()
@@ -606,21 +642,20 @@ export class DeliveryService {
         
         const filterItems = (items: any) => {
           if (!items || !Array.isArray(items)) return [];
-          return targetProductName 
-            ? items.filter((item: any) => {
-                const itemName = item.products?.name?.trim().toLowerCase();
-                return !itemName || itemName === targetProductName;
-              })
-            : items;
+          return items.filter((i: any) => {
+            const iName = i.products?.name?.toLowerCase() || '';
+            return !targetProductName || iName === targetProductName || targetProductName.includes(iName) || iName.includes(targetProductName);
+          });
         };
-        
-        const linkedImports = Array.isArray(o.import_orders) ? o.import_orders : o.import_orders ? [o.import_orders] : [];
-        linkedImports.forEach((io: any) => pushRefs(filterItems(io?.import_order_items)));
 
-        const linkedVegs = Array.isArray(o.vegetable_orders) ? o.vegetable_orders : o.vegetable_orders ? [o.vegetable_orders] : [];
-        linkedVegs.forEach((vo: any) => pushRefs(filterItems(vo?.vegetable_order_items)));
+        linkedImports.forEach((io: any) => pushItems(filterItems(io?.import_order_items)));
+        linkedVegs.forEach((vo: any) => pushItems(filterItems(vo?.vegetable_order_items)));
       }
-      return Array.from(images).filter(Boolean);
+      return {
+        receiptImages: Array.from(receiptImages).filter(Boolean),
+        deliveryImages: Array.from(deliveryImages).filter(Boolean),
+        itemImages: Array.from(itemImages).filter(Boolean)
+      };
     };
 
     // Group source orders by Key (paid orders are never merged with unpaid)
@@ -649,8 +684,8 @@ export class DeliveryService {
            .from('delivery_orders')
 .select(`
                *, 
-               import_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, import_order_items(image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
-               vegetable_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, vegetable_order_items(image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
+               import_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, import_order_items(id, image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
+               vegetable_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, vegetable_order_items(id, image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
                delivery_vehicles(id, assigned_quantity)
              `)
            .eq('status', 'can_giao')
@@ -673,16 +708,54 @@ export class DeliveryService {
          const addedQuantity = groupOrders.reduce((sum, o) => sum + (Number(o.total_quantity) || 0), 0);
          const newTotal = Number(targetOrder.total_quantity || 0) + addedQuantity;
          
-         const allImages = collectAllImages([targetOrder, ...groupOrders]);
+         const allImages = collectCategorizedImages([targetOrder, ...groupOrders]);
          
          await supabaseService
            .from('delivery_orders')
            .update({ 
              total_quantity: newTotal,
-             image_urls: allImages.length > 0 ? allImages : targetOrder.image_urls,
-             image_url: allImages.length > 0 ? allImages[0] : targetOrder.image_url
+             image_urls: allImages.deliveryImages.length > 0 ? allImages.deliveryImages : targetOrder.image_urls,
+             image_url: allImages.deliveryImages.length > 0 ? allImages.deliveryImages[0] : targetOrder.image_url
            })
            .eq('id', targetOrder.id);
+           
+         if (allImages.receiptImages.length > 0) {
+           if (targetOrder.import_order_id) {
+             await supabaseService.from('import_orders')
+               .update({ receipt_image_urls: allImages.receiptImages, receipt_image_url: allImages.receiptImages[0] })
+               .eq('id', targetOrder.import_order_id);
+           } else if (targetOrder.vegetable_order_id) {
+             await supabaseService.from('vegetable_orders')
+               .update({ receipt_image_urls: allImages.receiptImages, receipt_image_url: allImages.receiptImages[0] })
+               .eq('id', targetOrder.vegetable_order_id);
+           }
+         }
+         
+         if (allImages.itemImages.length > 0) {
+           const targetProductName = targetOrder.product_name ? (
+             targetOrder.product_name.includes(' - ') 
+               ? targetOrder.product_name.split(' - ').slice(1).join(' - ').trim().toLowerCase()
+               : targetOrder.product_name.trim().toLowerCase()
+           ) : null;
+           
+           const orderObj = targetOrder.import_orders || targetOrder.vegetable_orders;
+           const isVeg = !!targetOrder.vegetable_order_id;
+           const items = isVeg ? orderObj?.vegetable_order_items : orderObj?.import_order_items;
+           
+           if (items && Array.isArray(items)) {
+             const matchingItem = items.find((i: any) => {
+               const iName = i.products?.name?.toLowerCase() || '';
+               return !targetProductName || iName === targetProductName || targetProductName.includes(iName) || iName.includes(targetProductName);
+             });
+             
+             if (matchingItem && matchingItem.id) {
+               const table = isVeg ? 'vegetable_order_items' : 'import_order_items';
+               await supabaseService.from(table)
+                 .update({ image_urls: allImages.itemImages, image_url: allImages.itemImages[0] })
+                 .eq('id', matchingItem.id);
+             }
+           }
+         }
            
          // Delete the groupOrders
          const idsToDelete = groupOrders.map(o => o.id);
@@ -703,7 +776,7 @@ export class DeliveryService {
             const addedQuantity = remainingOrders.reduce((sum, o) => sum + (Number(o.total_quantity) || 0), 0);
             const newTotal = Number(firstOrder.total_quantity || 0) + addedQuantity;
             
-            const allImages = collectAllImages(groupOrders);
+            const allImages = collectCategorizedImages(groupOrders);
             
              await supabaseService
                .from('delivery_orders')
@@ -711,10 +784,48 @@ export class DeliveryService {
                  total_quantity: newTotal, 
                  status: 'can_giao',
                  confirmed_at: new Date().toISOString(),
-                 image_urls: allImages.length > 0 ? allImages : firstOrder.image_urls,
-                 image_url: allImages.length > 0 ? allImages[0] : firstOrder.image_url
+                 image_urls: allImages.deliveryImages.length > 0 ? allImages.deliveryImages : firstOrder.image_urls,
+                 image_url: allImages.deliveryImages.length > 0 ? allImages.deliveryImages[0] : firstOrder.image_url
                })
                .eq('id', targetId);
+               
+             if (allImages.receiptImages.length > 0) {
+               if (firstOrder.import_order_id) {
+                 await supabaseService.from('import_orders')
+                   .update({ receipt_image_urls: allImages.receiptImages, receipt_image_url: allImages.receiptImages[0] })
+                   .eq('id', firstOrder.import_order_id);
+               } else if (firstOrder.vegetable_order_id) {
+                 await supabaseService.from('vegetable_orders')
+                   .update({ receipt_image_urls: allImages.receiptImages, receipt_image_url: allImages.receiptImages[0] })
+                   .eq('id', firstOrder.vegetable_order_id);
+               }
+             }
+             
+             if (allImages.itemImages.length > 0) {
+               const targetProductName = firstOrder.product_name ? (
+                 firstOrder.product_name.includes(' - ') 
+                   ? firstOrder.product_name.split(' - ').slice(1).join(' - ').trim().toLowerCase()
+                   : firstOrder.product_name.trim().toLowerCase()
+               ) : null;
+               
+               const orderObj = firstOrder.import_orders || firstOrder.vegetable_orders;
+               const isVeg = !!firstOrder.vegetable_order_id;
+               const items = isVeg ? orderObj?.vegetable_order_items : orderObj?.import_order_items;
+               
+               if (items && Array.isArray(items)) {
+                 const matchingItem = items.find((i: any) => {
+                   const iName = i.products?.name?.toLowerCase() || '';
+                   return !targetProductName || iName === targetProductName || targetProductName.includes(iName) || iName.includes(targetProductName);
+                 });
+                 
+                 if (matchingItem && matchingItem.id) {
+                   const table = isVeg ? 'vegetable_order_items' : 'import_order_items';
+                   await supabaseService.from(table)
+                     .update({ image_urls: allImages.itemImages, image_url: allImages.itemImages[0] })
+                     .eq('id', matchingItem.id);
+                 }
+               }
+             }
               
             const idsToDelete = remainingOrders.map(o => o.id);
             await supabaseService.from('delivery_orders').delete().in('id', idsToDelete);

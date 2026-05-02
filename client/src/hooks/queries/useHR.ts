@@ -269,3 +269,15 @@ export function useConfirmExpense() {
     onError: (err: any) => toast.error(err.response?.data?.error || 'Lỗi khi xác nhận chi phí'),
   });
 }
+
+export function useConfirmExpensesBulk() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => hrApi.confirmExpensesBulk(ids),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: hrKeys.expenses() });
+      toast.success(data.message || 'Xác nhận hàng loạt thành công');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Lỗi khi xác nhận hàng loạt'),
+  });
+}

@@ -8,8 +8,11 @@ import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import StatusBadge from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { matchesSearch } from '../../lib/str-utils';
 import { format } from 'date-fns';
-import { Receipt, X, ChevronLeft, Image as ImageIcon, CalendarDays, User, Car, Banknote, CheckCircle2, ChevronRight as ChevronRightIcon, Printer, Filter } from 'lucide-react';
+import { Receipt, X, ChevronLeft, Image as ImageIcon, CalendarDays, User, Car, Banknote, CheckCircle2, ChevronRight as ChevronRightIcon, Printer, Filter, Search } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Expense } from '../../types';
 
@@ -44,6 +47,7 @@ const ExpenseHistoryPage = () => {
   const [previewImages, setPreviewImages] = useState<string[] | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [filterType, setFilterType] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const openDetailDialog = (expense: Expense) => {
     setSelectedExpense(expense);
@@ -82,8 +86,16 @@ const ExpenseHistoryPage = () => {
     if (filterType !== 'all') {
       result = result.filter((e) => e.expense_name === filterType);
     }
+    if (searchQuery) {
+      result = result.filter((e) => {
+        const matchName = matchesSearch(e.expense_name, searchQuery);
+        const matchEmployee = e.employee?.full_name ? matchesSearch(e.employee.full_name, searchQuery) : false;
+        const matchVehicle = e.vehicle?.license_plate ? matchesSearch(e.vehicle.license_plate, searchQuery) : false;
+        return matchName || matchEmployee || matchVehicle;
+      });
+    }
     return result.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
-  }, [confirmedExpenses, filterType]);
+  }, [confirmedExpenses, filterType, searchQuery]);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
@@ -105,12 +117,13 @@ const ExpenseHistoryPage = () => {
       </div>
 
       <div className="bg-card rounded-2xl md:border md:border-border sm:shadow-sm flex flex-col flex-1 min-h-0 mt-0 md:mt-4">
-        <div className="p-4 border-b border-border/50 flex flex-wrap items-center justify-between gap-3 bg-muted/5">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
-              <Filter size={16} />
-            </div>
-            <span className="text-[13px] font-bold text-foreground">Bộ lọc</span>
+        <div className="p-4 border-b border-border/50 flex flex-wrap items-center justify-start gap-4 bg-muted/5">
+          <div className="w-full sm:w-[400px]">
+            <SearchInput
+              onSearch={(q) => setSearchQuery(q)}
+              placeholder="Tìm kiếm..."
+              className="bg-background shadow-sm"
+            />
           </div>
 
           <CustomSelect
@@ -118,8 +131,7 @@ const ExpenseHistoryPage = () => {
             onChange={setFilterType}
             options={filterOptions}
             placeholder="Loại chi phí..."
-            className="w-full sm:w-[240px]"
-            align="end"
+            className="w-full sm:w-[240px] shadow-sm"
           />
         </div>
 

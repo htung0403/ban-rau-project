@@ -34,5 +34,6 @@ router.post('/expenses', requirePolicy('HR_EXPENSES'), HRController.createExpens
 router.put('/expenses/:id', requirePolicy('HR_EXPENSES'), HRController.updateExpense);
 router.delete('/expenses/:id', requirePolicy('HR_EXPENSES'), HRController.deleteExpense);
 router.put('/expenses/:id/confirm', requirePolicy('HR_APPROVALS'), HRController.confirmExpense);
+router.post('/expenses/confirm-bulk', requirePolicy('HR_APPROVALS'), HRController.confirmExpensesBulk);
 
 export default router;

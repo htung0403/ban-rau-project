@@ -32,12 +32,15 @@ type DeliveryOrderLike = DeliveryOrder & {
   image_urls?: string[] | null;
   import_orders?: MaybeArray<LinkedImportOrder>;
   vegetable_orders?: MaybeArray<LinkedImportOrder>;
-  payment_collections?: Array<{ image_url?: string | null; image_urls?: string[] | null }>;
+  payment_collections?: Array<{ vehicle_id?: string | null; image_url?: string | null; image_urls?: string[] | null }>;
   delivery_vehicles?: Array<{
     vehicle_id?: string | null;
+    assigned_quantity?: number | null;
     image_urls?: string[] | null;
     vehicles?: { license_plate?: string | null } | null;
   }>;
+  driver_delivered_at?: string | null;
+  created_at?: string | null;
 };
 
 type ImportOrderLike = ImportOrder & {
@@ -81,7 +84,16 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
   let receiptImages: string[] = [];
   let importImages: string[] = [];
   let deliveryImages: string[] = [];
-  let deliveryImageMeta: Array<{ url: string; vehicleLabel?: string; source: 'vehicle' | 'payment' | 'delivery' }> = [];
+  let deliveryImageMeta: Array<{ 
+    url: string; 
+    vehicleLabel?: string; 
+    source: 'vehicle' | 'payment' | 'delivery';
+    deliveryDate?: string;
+    deliveryTime?: string | null;
+    productName?: string;
+    driverDeliveredAt?: string | null;
+    createdAt?: string | null;
+  }> = [];
   let orderCode = 'N/A';
   let orderLabel = '';
 
@@ -139,10 +151,23 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     deliveryImages = [];
     deliveryImageMeta = [];
 
+    // Map to link vehicle IDs to plates for payment images
+    const vehiclePlateMap = new Map<string, string>();
+    (dOrder?.delivery_vehicles || []).forEach(dv => {
+      if (dv.vehicle_id && dv.vehicles?.license_plate) {
+        vehiclePlateMap.set(dv.vehicle_id, dv.vehicles.license_plate);
+      }
+    });
+
     const pushDeliveryMeta = (
       url: string | null | undefined,
       source: 'vehicle' | 'payment' | 'delivery',
-      vehicleLabel?: string
+      vehicleLabel?: string,
+      deliveryDate?: string,
+      deliveryTime?: string | null,
+      productName?: string,
+      driverDeliveredAt?: string | null,
+      createdAt?: string | null
     ) => {
       if (!url || typeof url !== 'string' || !url.trim()) return;
       if (url.includes(',')) {
@@ -150,34 +175,105 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
           const t = u.trim();
           if (t) {
             deliveryImages.push(t);
-            deliveryImageMeta.push({ url: t, source, vehicleLabel });
+            deliveryImageMeta.push({ 
+              url: t, 
+              source, 
+              vehicleLabel,
+              deliveryDate,
+              deliveryTime,
+              productName,
+              driverDeliveredAt,
+              createdAt
+            });
           }
         });
       } else {
         deliveryImages.push(url);
-        deliveryImageMeta.push({ url, source, vehicleLabel });
+        deliveryImageMeta.push({ 
+          url, 
+          source, 
+          vehicleLabel,
+          deliveryDate,
+          deliveryTime,
+          productName,
+          driverDeliveredAt,
+          createdAt
+        });
       }
     };
 
-    // 1) Ảnh gắn theo xe (ưu tiên gắn nhãn biển số)
+    // 1) Ảnh gắn theo xe (ưu tiên gắn nhãn biển số + số lượng)
     (dOrder?.delivery_vehicles || []).forEach((dv) => {
       const plate = dv?.vehicles?.license_plate?.trim();
-      const vehicleLabel = plate ? `Xe: ${plate}` : undefined;
-      (dv?.image_urls || []).forEach((u) => pushDeliveryMeta(u, 'vehicle', vehicleLabel));
+      const qty = dv?.assigned_quantity;
+      const pName = dOrder.product_name.includes(' - ') ? dOrder.product_name.split(' - ').slice(1).join(' - ') : dOrder.product_name;
+      const vehicleLabel = plate 
+        ? (qty ? `Xe: ${plate} (${pName}: SL ${qty})` : `Xe: ${plate}`) 
+        : undefined;
+
+      (dv?.image_urls || []).forEach((u) => pushDeliveryMeta(
+        u, 
+        'vehicle', 
+        vehicleLabel,
+        dOrder.delivery_date,
+        dOrder.delivery_time,
+        dOrder.product_name,
+        dOrder.driver_delivered_at,
+        dOrder.created_at
+      ));
     });
 
-    // 2) Ảnh thu tiền/nhận tiền (chưa chắc có plate trong payload)
+    // 2) Ảnh thu tiền/nhận tiền (liên kết với xe qua vehicle_id)
     dOrder?.payment_collections?.forEach(pc => {
-      if (pc.image_url) pushDeliveryMeta(pc.image_url, 'payment');
+      const plate = pc.vehicle_id ? vehiclePlateMap.get(pc.vehicle_id) : undefined;
+      const vehicleLabel = plate ? `Thu tiền - Xe: ${plate}` : 'Thu tiền';
+
+      if (pc.image_url) pushDeliveryMeta(
+        pc.image_url, 
+        'payment', 
+        vehicleLabel,
+        dOrder.delivery_date,
+        dOrder.delivery_time,
+        dOrder.product_name,
+        dOrder.driver_delivered_at,
+        dOrder.created_at
+      );
       if (pc.image_urls && Array.isArray(pc.image_urls)) {
-        pc.image_urls.forEach((u) => pushDeliveryMeta(u, 'payment'));
+        pc.image_urls.forEach((u) => pushDeliveryMeta(
+          u, 
+          'payment', 
+          vehicleLabel,
+          dOrder.delivery_date,
+          dOrder.delivery_time,
+          dOrder.product_name,
+          dOrder.driver_delivered_at,
+          dOrder.created_at
+        ));
       }
     });
 
     // 3) Ảnh chung của delivery order (legacy/global)
-    if (dOrder?.image_url) pushDeliveryMeta(dOrder.image_url, 'delivery');
+    if (dOrder?.image_url) pushDeliveryMeta(
+      dOrder.image_url, 
+      'delivery', 
+      undefined,
+      dOrder.delivery_date,
+      dOrder.delivery_time,
+      dOrder.product_name,
+      dOrder.driver_delivered_at,
+      dOrder.created_at
+    );
     if (dOrder?.image_urls && Array.isArray(dOrder.image_urls)) {
-      dOrder.image_urls.forEach((u) => pushDeliveryMeta(u, 'delivery'));
+      dOrder.image_urls.forEach((u) => pushDeliveryMeta(
+        u, 
+        'delivery', 
+        undefined,
+        dOrder.delivery_date,
+        dOrder.delivery_time,
+        dOrder.product_name,
+        dOrder.driver_delivered_at,
+        dOrder.created_at
+      ));
     }
 
     receiptImages = [...new Set(receiptImages)];
@@ -206,7 +302,70 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     importImages.push(...collectImages(iOrder.import_order_items));
     importImages = [...new Set(importImages)];
 
-    deliveryImages = collectImages(iOrder.delivery_orders);
+    deliveryImages = [];
+    deliveryImageMeta = [];
+    const pushImportDeliveryMeta = (
+      url: string | null | undefined,
+      source: 'vehicle' | 'payment' | 'delivery',
+      delivery: any
+    ) => {
+      if (!url || typeof url !== 'string' || !url.trim()) return;
+      const plate = delivery.delivery_vehicles?.[0]?.vehicles?.license_plate;
+      const vehicleLabel = plate ? `Xe: ${plate}` : undefined;
+      
+      if (url.includes(',')) {
+        url.split(',').forEach(u => {
+          const t = u.trim();
+          if (t) {
+            deliveryImages.push(t);
+            deliveryImageMeta.push({ 
+              url: t, 
+              source, 
+              vehicleLabel,
+              deliveryDate: delivery.delivery_date,
+              deliveryTime: delivery.delivery_time,
+              productName: delivery.product_name,
+              driverDeliveredAt: delivery.driver_delivered_at,
+              createdAt: delivery.created_at
+            });
+          }
+        });
+      } else {
+        deliveryImages.push(url);
+        deliveryImageMeta.push({ 
+          url, 
+          source, 
+          vehicleLabel,
+          deliveryDate: delivery.delivery_date,
+          deliveryTime: delivery.delivery_time,
+          productName: delivery.product_name,
+          driverDeliveredAt: delivery.driver_delivered_at,
+          createdAt: delivery.created_at
+        });
+      }
+    };
+
+    (iOrder.delivery_orders || []).forEach((doItem: any) => {
+      if (doItem.image_url) pushImportDeliveryMeta(doItem.image_url, 'delivery', doItem);
+      if (doItem.image_urls && Array.isArray(doItem.image_urls)) {
+        doItem.image_urls.forEach((u: string) => pushImportDeliveryMeta(u, 'delivery', doItem));
+      }
+      // Also collect from vehicles and payments if they are joined
+      (doItem.delivery_vehicles || []).forEach((dv: any) => {
+        (dv.image_urls || []).forEach((u: string) => pushImportDeliveryMeta(u, 'vehicle', doItem));
+      });
+      (doItem.payment_collections || []).forEach((pc: any) => {
+        if (pc.image_url) pushImportDeliveryMeta(pc.image_url, 'payment', doItem);
+        if (pc.image_urls && Array.isArray(pc.image_urls)) {
+          pc.image_urls.forEach((u: string) => pushImportDeliveryMeta(u, 'payment', doItem));
+        }
+      });
+    });
+
+    deliveryImages = [...new Set(deliveryImages)];
+    deliveryImageMeta = deliveryImageMeta.filter(
+      (item, idx, arr) => arr.findIndex((x) => x.url === item.url) === idx
+    );
     
     orderCode = iOrder?.order_code || 'N/A';
     orderLabel = iOrder?.supplier_name || iOrder?.sender_name || orderCode;
@@ -317,10 +476,57 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
                     <img src={img} alt={`Nhận hàng ${idx + 1}`} className="w-full h-full object-cover" />
                     {(() => {
                       const meta = nhanHangImageMetaMap.get(img);
-                      if (!meta?.vehicleLabel) return null;
+                      if (!meta) return null;
+                      
+                      const showMeta = meta.vehicleLabel || meta.deliveryDate || meta.productName;
+                      if (!showMeta) return null;
+
                       return (
-                        <div className="absolute left-1.5 bottom-1.5 px-1.5 py-0.5 rounded bg-black/65 text-white text-[10px] font-semibold">
-                          {meta.vehicleLabel}
+                        <div className="absolute inset-x-0 bottom-0 p-2 bg-black/60 backdrop-blur-[2px] text-white flex flex-col gap-0.5">
+                          {meta.vehicleLabel && (
+                            <div className="text-[11px] font-bold leading-tight">
+                              {meta.vehicleLabel}
+                            </div>
+                          )}
+                          {(meta.deliveryDate || meta.deliveryTime) && (
+                            <div className="text-[10px] font-medium opacity-90 leading-tight">
+                              {(() => {
+                                // Priority: driver_delivered_at > delivery_time > created_at fallback
+                                if (meta.driverDeliveredAt) {
+                                  const d = new Date(meta.driverDeliveredAt);
+                                  if (!Number.isNaN(d.getTime())) {
+                                    const dd = String(d.getDate()).padStart(2, '0');
+                                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                                    const yyyy = d.getFullYear();
+                                    const hh = String(d.getHours()).padStart(2, '0');
+                                    const min = String(d.getMinutes()).padStart(2, '0');
+                                    return `${hh}:${min} ${dd}-${mm}-${yyyy}`;
+                                  }
+                                }
+
+                                const datePart = meta.deliveryDate ? (() => {
+                                  const [y, m, d] = meta.deliveryDate.split('-');
+                                  return `${d}-${m}-${y}`;
+                                })() : '';
+
+                                if (meta.deliveryTime) {
+                                  const timePart = meta.deliveryTime.slice(0, 5);
+                                  return `${timePart} ${datePart}`;
+                                }
+
+                                if (meta.createdAt) {
+                                  const d = new Date(meta.createdAt);
+                                  if (!Number.isNaN(d.getTime())) {
+                                    const hh = String(d.getHours()).padStart(2, '0');
+                                    const min = String(d.getMinutes()).padStart(2, '0');
+                                    return `${hh}:${min} ${datePart}`;
+                                  }
+                                }
+
+                                return datePart;
+                              })()}
+                            </div>
+                          )}
                         </div>
                       );
                     })()}

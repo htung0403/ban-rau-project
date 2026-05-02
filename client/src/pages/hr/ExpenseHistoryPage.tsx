@@ -8,11 +8,10 @@ import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import StatusBadge from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
-import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { matchesSearch } from '../../lib/str-utils';
 import { format } from 'date-fns';
-import { Receipt, X, ChevronLeft, Image as ImageIcon, CalendarDays, User, Car, Banknote, CheckCircle2, ChevronRight as ChevronRightIcon, Printer, Filter, Search } from 'lucide-react';
+import { Receipt, X, ChevronLeft, Image as ImageIcon, CalendarDays, User, Car, Banknote, CheckCircle2, ChevronRight as ChevronRightIcon, Printer } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Expense } from '../../types';
 

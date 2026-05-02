@@ -231,7 +231,6 @@ const ExpensesPage = () => {
   const allDeletableSelected =
     deletableInView.length > 0 && deletableInView.every((e) => selectedIds.has(e.id));
   const someDeletableSelected = deletableInView.some((e) => selectedIds.has(e.id));
-  const selectedDeletableCount = deletableInView.filter((e) => selectedIds.has(e.id)).length;
 
   const selectedTotalAmount = React.useMemo(() => {
     return Array.from(selectedIds).reduce((sum, id) => {

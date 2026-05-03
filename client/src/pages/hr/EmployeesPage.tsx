@@ -28,7 +28,8 @@ const getRoleDisplayName = (roleName: string, roleKey?: string) => {
 const normalizeText = (value?: string | null) =>
   removeAccents(value || '')
     .toLowerCase()
-    .replace(/[^a-z0-9\s_]/g, ' ')
+    .replace(/_/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -61,6 +62,37 @@ const inferSystemRole = (roleKeyOrName?: string): 'admin' | 'manager' | 'staff' 
   if (normalized.includes('manager') || normalized.includes('quan_ly')) return 'manager';
   if (normalized.includes('driver') || normalized.includes('tai_xe')) return 'driver';
   return 'staff';
+};
+
+/** Thứ tự ưu tiên hiển thị cấp bậc (normalized, không dấu, lowercase). */
+const ROLE_DISPLAY_ORDER = [
+  'admin',
+  'tai xe xe nho moi',
+  'tai xe xe nho cu',
+  'tai xe xe lon chinh',
+  'tai xe xe lon phu',
+  'lo xe moi',
+  'lo xe cu',
+  'nhan vien nhan hang',
+];
+
+/**
+ * So khớp chính xác: kiểm tra xem normalized có khớp với label không
+ * theo logic: exact match hoặc label là chuỗi con đầy đủ-word của normalized.
+ */
+const matchRoleLabel = (normalized: string, label: string): boolean => {
+  if (normalized === label) return true;
+  // Kiểm tra label là sub-phrase đầy đủ (không bị cắt nửa chừng)
+  const labelTokens = label.split(' ');
+  const normalizedTokens = normalized.split(' ');
+  // label phải là consecutive sub-sequence của normalized tokens
+  outer: for (let i = 0; i <= normalizedTokens.length - labelTokens.length; i++) {
+    for (let j = 0; j < labelTokens.length; j++) {
+      if (normalizedTokens[i + j] !== labelTokens[j]) continue outer;
+    }
+    return true;
+  }
+  return false;
 };
 
 const extractPhoneDigits = (phone?: string | null) => (phone || '').replace(/\D/g, '');
@@ -147,30 +179,33 @@ const EmployeesPage: React.FC = () => {
     return map;
   }, [vehicles]);
 
-  /** Thứ tự ưu tiên hiển thị cấp bậc (normalized, không dấu, lowercase). */
-  const ROLE_DISPLAY_ORDER = [
-    'admin',
-    'tai xe xe nho moi',
-    'tai xe xe nho cu',
-    'tai xe xe lon chinh',
-    'tai xe xe lon phu',
-    'lo xe moi',
-    'lo xe cu',
-    'nhan vien nhan hang',
-  ];
 
   /** Sắp xếp nhân sự theo thứ tự cấp bậc đã định sẵn. */
   const sortedEmployees = useMemo(() => {
     if (!employees?.length) return employees;
 
+    // Loại bỏ các bản ghi trùng lặp id (nếu có)
+    const uniqueEmployees = Array.from(new Map(employees.map(e => [e.id, e])).values());
+
     const getRolePriority = (roleKey: string) => {
       const displayName = roleNameByKey[roleKey] || roleKey;
       const normalized = normalizeText(displayName);
-      const idx = ROLE_DISPLAY_ORDER.findIndex((label) => normalized.includes(label) || label.includes(normalized));
+      // Ưu tiên exact match trước, rồi mới word-boundary match
+      const idx = ROLE_DISPLAY_ORDER.findIndex((label) => matchRoleLabel(normalized, label));
       return idx >= 0 ? idx : Number.MAX_SAFE_INTEGER;
     };
 
-    return [...employees].sort((a, b) => getRolePriority(a.role) - getRolePriority(b.role));
+    return [...uniqueEmployees].sort((a, b) => {
+      const priorityA = getRolePriority(a.role);
+      const priorityB = getRolePriority(b.role);
+      if (priorityA !== priorityB) return priorityA - priorityB;
+
+      const labelA = (roleNameByKey[a.role] || a.role).toLowerCase();
+      const labelB = (roleNameByKey[b.role] || b.role).toLowerCase();
+      if (labelA !== labelB) return labelA.localeCompare(labelB);
+
+      return a.full_name.localeCompare(b.full_name);
+    });
   }, [employees, roleNameByKey]);
 
   const groupedEmployees = useMemo(() => {
@@ -178,10 +213,10 @@ const EmployeesPage: React.FC = () => {
     if (!sortedEmployees?.length) return groups;
 
     sortedEmployees.forEach((employee) => {
-      const roleLabel = roleNameByKey[employee.role] || employee.role;
+      const roleLabel = (roleNameByKey[employee.role] || employee.role).toUpperCase();
       const lastGroup = groups[groups.length - 1];
       if (!lastGroup || lastGroup.roleLabel !== roleLabel) {
-        groups.push({ roleLabel, items: [employee] as typeof sortedEmployees });
+        groups.push({ roleLabel, items: [employee] });
       } else {
         lastGroup.items!.push(employee);
       }
@@ -334,16 +369,15 @@ const EmployeesPage: React.FC = () => {
             <div className="flex flex-col gap-3">
               {(groupedEmployees || []).map((group) => (
                 <div key={group.roleLabel} className="space-y-3">
-                  <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm rounded-xl border border-border/70 px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-px flex-1 bg-border/70" />
-                      <span className="shrink-0 text-[11px] font-black uppercase tracking-wider text-primary">
+                  <div className="sticky top-0 z-10 py-1">
+                    <div className="flex items-center gap-3 bg-primary/8 border border-primary/20 rounded-xl px-4 py-2.5 backdrop-blur-sm shadow-sm">
+                      <div className="w-1 h-5 rounded-full bg-primary shrink-0" />
+                      <span className="flex-1 text-[12px] font-black uppercase tracking-[0.12em] text-primary">
                         {group.roleLabel}
                       </span>
-                      <span className="shrink-0 text-[10px] font-bold text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded-md">
-                        {group.items!.length}
+                      <span className="shrink-0 text-[11px] font-bold text-primary bg-primary/15 border border-primary/25 px-2 py-0.5 rounded-full">
+                        {group.items!.length} người
                       </span>
-                      <div className="h-px flex-1 bg-border/70" />
                     </div>
                   </div>
                   {group.items!.map((e) => {

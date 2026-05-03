@@ -1,4 +1,3 @@
-import { format } from 'date-fns';
 import type { DeliveryOrder, DeliveryStatus } from '../types';
 
 export const getDeliveryRemainingQty = (order: DeliveryOrder): number => {
@@ -23,8 +22,9 @@ export const isOldOrderForAgeRule = (order: DeliveryOrder, anchorDate: string): 
   if (effectiveStatus === 'hang_o_sg') return false;
   
   if (order.confirmed_at) {
-    const confirmedDateStr = format(new Date(order.confirmed_at), 'yyyy-MM-dd');
-    return confirmedDateStr < anchorDate;
+    const confirmedAt = new Date(order.confirmed_at).getTime();
+    const now = Date.now();
+    return (now - confirmedAt) > 24 * 60 * 60 * 1000;
   }
   
   const refDate = order.delivery_date;

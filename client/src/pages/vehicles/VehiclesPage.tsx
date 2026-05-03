@@ -198,7 +198,7 @@ const VehiclesPage: React.FC = () => {
                                 handleDelete(v);
                               }}
                               disabled={deleteVehicle.isPending}
-                              className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50 opacity-0 group-hover:opacity-100 z-10"
+                              className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 z-10"
                               title="Xóa xe"
                             >
                               <Trash2 size={14} />

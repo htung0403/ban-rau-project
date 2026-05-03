@@ -7,7 +7,7 @@ import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import { useAuth } from '../../context/AuthContext';
-import { useConfirmSgHandover, useSgImportCashList, useSgImportCashOrderDetail } from '../../hooks/queries/useSgImportCash';
+import { useConfirmSgHandover, useBulkConfirmSgHandover, useSgImportCashList, useSgImportCashOrderDetail } from '../../hooks/queries/useSgImportCash';
 import { useCustomers } from '../../hooks/queries/useCustomers';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { useEmployees } from '../../hooks/queries/useHR';
@@ -74,27 +74,6 @@ const getRowUnitPrice = (row: SgRow): number | null => {
   return first.unit_price ?? null;
 };
 
-const getRowDeliveryDateTime = (row: SgRow): string => {
-  const dos = row.delivery_orders || [];
-  if (dos.length === 0) return '—';
-  const d = dos[0];
-  const date = d.delivery_date || '';
-  const time = d.delivery_time || '';
-  return `${date}${time ? ' ' + time : ''}`.trim() || '—';
-};
-
-const getRowDeliveryStaff = (row: SgRow): string => {
-  const dos = row.delivery_orders || [];
-  const names = new Set<string>();
-  for (const d of dos) {
-    for (const dv of d.delivery_vehicles || []) {
-      const name = dv.profiles?.full_name;
-      if (name) names.add(name);
-    }
-  }
-  return names.size > 0 ? Array.from(names).join(', ') : '—';
-};
-
 const SgCashCollectionsPage: React.FC = () => {
   const { user } = useAuth();
   const role = user?.role || '';
@@ -154,8 +133,10 @@ const SgCashCollectionsPage: React.FC = () => {
 
   const { data, isLoading, isError, refetch } = useSgImportCashList({ from, to });
   const confirmMut = useConfirmSgHandover();
+  const bulkConfirmMut = useBulkConfirmSgHandover();
 
   const rows = useMemo(() => (Array.isArray(data) ? (data as SgRow[]) : []), [data]);
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
 
   const customerOptions = useMemo(
     () =>
@@ -236,6 +217,39 @@ const SgCashCollectionsPage: React.FC = () => {
       setIsFilterClosing(false);
     }, 300);
   };
+
+  const confirmableRows = useMemo(() => filteredRows.filter(r => !r.sg_cash_handover_confirmed_at), [filteredRows]);
+  
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedRowIds(new Set(confirmableRows.map(r => r.id)));
+    } else {
+      setSelectedRowIds(new Set());
+    }
+  };
+
+  const handleSelectRow = (id: string, checked: boolean) => {
+    setSelectedRowIds(prev => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const handleBulkConfirm = () => {
+    if (selectedRowIds.size === 0) return;
+    bulkConfirmMut.mutate(Array.from(selectedRowIds), {
+      onSuccess: () => setSelectedRowIds(new Set()),
+    });
+  };
+
+  const selectedTotalAmount = useMemo(() => {
+    return Array.from(selectedRowIds).reduce((sum, id) => {
+      const row = rows.find((r) => r.id === id);
+      return sum + (row?.total_amount || 0);
+    }, 0);
+  }, [selectedRowIds, rows]);
 
   const hasActiveFilters =
     filterCustomer.length > 0 || filterDriver.length > 0 || filterVehicle.length > 0 || searchQuery.trim() !== '';
@@ -322,6 +336,36 @@ const SgCashCollectionsPage: React.FC = () => {
         </div>
       </div>
 
+      {canConfirm && selectedRowIds.size > 0 && (
+        <div className="flex justify-between items-center bg-primary/10 border border-primary/20 rounded-xl p-3 md:mb-4 mb-3 mx-4 sm:mx-0">
+          <div className="flex flex-col">
+            <span className="text-[13px] font-bold text-primary">Đã chọn {selectedRowIds.size} phiếu</span>
+            <span className="text-[12px] font-medium text-primary/80">Tổng tiền: {formatCurrency(selectedTotalAmount)}</span>
+          </div>
+          <button
+            type="button"
+            disabled={bulkConfirmMut.isPending}
+            onClick={handleBulkConfirm}
+            className="px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 disabled:opacity-50"
+          >
+            {bulkConfirmMut.isPending ? 'Đang xử lý...' : 'Xác nhận tất cả'}
+          </button>
+        </div>
+      )}
+
+      {canConfirm && selectedRowIds.size === 0 && confirmableRows.length > 0 && (
+        <div className="md:hidden flex items-center gap-2 mb-3 mx-4 sm:mx-0">
+          <input
+            type="checkbox"
+            className="w-4 h-4 rounded border-border"
+            checked={false}
+            onChange={(e) => handleSelectAll(e.target.checked)}
+            id="mobile-select-all"
+          />
+          <label htmlFor="mobile-select-all" className="text-[13px] font-medium text-muted-foreground">Chọn tất cả</label>
+        </div>
+      )}
+
       <div className="md:bg-card md:rounded-2xl md:border md:border-border md:shadow-sm flex flex-col flex-1 min-h-0 md:overflow-hidden -mx-4 sm:mx-0">
         {isLoading ? (
           <LoadingSkeleton className="h-64" />
@@ -340,11 +384,20 @@ const SgCashCollectionsPage: React.FC = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-border bg-muted/40">
+                    {canConfirm && (
+                      <th className="px-4 py-3 w-[40px] text-center">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-border"
+                          checked={confirmableRows.length > 0 && selectedRowIds.size === confirmableRows.length}
+                          onChange={(e) => handleSelectAll(e.target.checked)}
+                          disabled={confirmableRows.length === 0}
+                        />
+                      </th>
+                    )}
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Mã phiếu</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ngày / giờ nhập</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Ngày giờ giao</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">NV thu tiền</th>
-                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">NV giao</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">KH</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Tên hàng</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground uppercase tracking-tight text-center">Số lượng</th>
@@ -379,18 +432,24 @@ const SgCashCollectionsPage: React.FC = () => {
                         }}
                         className="border-b border-border/80 hover:bg-muted/20 transition-colors cursor-pointer"
                       >
+                        {canConfirm && (
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            {!confirmed ? (
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 rounded border-border cursor-pointer"
+                                checked={selectedRowIds.has(row.id)}
+                                onChange={(e) => handleSelectRow(row.id, e.target.checked)}
+                              />
+                            ) : null}
+                          </td>
+                        )}
                         <td className="px-4 py-3 text-[13px] font-bold tabular-nums">{row.order_code}</td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground whitespace-nowrap">
                           {row.order_date} {row.order_time}
                         </td>
-                        <td className="px-4 py-3 text-[13px] text-muted-foreground whitespace-nowrap">
-                          {getRowDeliveryDateTime(row)}
-                        </td>
                         <td className="px-4 py-3 text-[13px] max-w-[160px] truncate" title={row.collector?.full_name || ''}>
                           {row.collector?.full_name || '—'}
-                        </td>
-                        <td className="px-4 py-3 text-[13px] max-w-[160px] truncate" title={getRowDeliveryStaff(row)}>
-                          {getRowDeliveryStaff(row)}
                         </td>
                         <td className="px-4 py-3 text-[13px] max-w-[160px] truncate">
                           {row.customers?.name || '—'}
@@ -476,17 +535,25 @@ const SgCashCollectionsPage: React.FC = () => {
                     className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-2 cursor-pointer active:opacity-90"
                   >
                     <div className="flex justify-between items-start gap-2">
-                      <span className="text-[13px] font-bold">{row.order_code}</span>
+                      <div className="flex items-center gap-2">
+                        {canConfirm && !confirmed && (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 rounded border-border cursor-pointer"
+                              checked={selectedRowIds.has(row.id)}
+                              onChange={(e) => handleSelectRow(row.id, e.target.checked)}
+                            />
+                          </div>
+                        )}
+                        <span className="text-[13px] font-bold">{row.order_code}</span>
+                      </div>
                       <span className="text-[12px] font-bold text-primary tabular-nums">
                         {formatCurrency(row.total_amount)}
                       </span>
                     </div>
                     <p className="text-[12px] text-muted-foreground">
                       {row.order_date} {row.order_time}
-                    </p>
-                    <p className="text-[12px] text-muted-foreground">
-                      <span className="font-medium text-foreground">Giao: </span>
-                      {getRowDeliveryDateTime(row)}
                     </p>
                     <p className="text-[12px]">
                       <span className="text-muted-foreground">Hàng: </span>
@@ -500,10 +567,6 @@ const SgCashCollectionsPage: React.FC = () => {
                     <p className="text-[12px]">
                       <span className="text-muted-foreground">NV thu tiền: </span>
                       {row.collector?.full_name || '—'}
-                    </p>
-                    <p className="text-[12px]">
-                      <span className="text-muted-foreground">NV giao: </span>
-                      {getRowDeliveryStaff(row)}
                     </p>
                     <p className="text-[12px]">
                       {confirmed ? (

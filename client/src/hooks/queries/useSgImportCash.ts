@@ -37,3 +37,18 @@ export function useConfirmSgHandover() {
     },
   });
 }
+
+export function useBulkConfirmSgHandover() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (importOrderIds: string[]) => accountingApi.bulkConfirmSgHandover(importOrderIds),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: sgImportCashKeys.all });
+      toast.success(data.message || 'Đã xác nhận nhận tiền hàng loạt');
+    },
+    onError: (e: any) => {
+      const msg = e?.response?.data?.error || e?.response?.data?.message || e?.message;
+      toast.error(msg || 'Không xác nhận được');
+    },
+  });
+}

@@ -16,6 +16,12 @@ router.get(
   requirePagePermission('/ke-toan/thu-tien-sg'),
   AccountingController.listSgImportCash
 );
+router.patch(
+  '/sg-import-cash/bulk-confirm-handover',
+  requirePagePermission('/ke-toan/thu-tien-sg'),
+  requireRolesOnly('admin', 'manager', 'ke_toan'),
+  AccountingController.bulkConfirmSgHandover
+);
 router.get(
   '/sg-import-cash/:id',
   requirePagePermission('/ke-toan/thu-tien-sg'),

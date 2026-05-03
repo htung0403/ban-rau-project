@@ -1,0 +1,59 @@
+{
+  "active_plan": "D:\\job-banrau\\.sisyphus\\plans\\customer-alias-feature.md",
+  "started_at": "2026-04-30T08:39:54.522Z",
+  "session_ids": [
+    "ses_222b13ec6ffePSlkExn5cOj0K1"
+  ],
+  "session_origins": {
+    "ses_222b13ec6ffePSlkExn5cOj0K1": "direct"
+  },
+  "plan_name": "customer-alias-feature",
+  "agent": "atlas",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "Database Migration + TypeScript Types",
+      "session_id": "ses_222730c2dffedm9oBGrZVJgSIG",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-30T08:45:55.199Z"
+    },
+    "todo:2": {
+      "task_key": "todo:2",
+      "task_label": "2",
+      "task_title": "Server API — Customer Aliases CRUD + Import Order selected_alias",
+      "session_id": "ses_2224e9b95ffekWjImSs4DAYGR2",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-30T09:27:19.066Z"
+    },
+    "todo:3": {
+      "task_key": "todo:3",
+      "task_label": "3",
+      "task_title": "Customer Dialog — Alias Management UI",
+      "session_id": "ses_2224767f0ffeP0p2s9ygymDBgU",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-30T09:47:30.604Z"
+    },
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "4",
+      "task_title": "Order Creation Dialogs — Alias Selection Dropdown",
+      "session_id": "ses_222313051ffetedXV25bx3Jyf0",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-30T10:05:25.443Z"
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "Display Logic — All Pages (Alias/Main Name Switching)",
+      "session_id": "ses_22221f3b2ffe7hZA54ndTwuiRL",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-30T10:15:09.192Z"
+    }
+  }
+}

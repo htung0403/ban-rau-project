@@ -74,6 +74,22 @@ export class AccountingController {
     }
   }
 
+  static async bulkConfirmSgHandover(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json(errorResponse('Authentication required', 'UNAUTHORIZED'));
+      }
+      const { ids } = req.body;
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json(errorResponse('Vui lòng chọn ít nhất 1 phiếu'));
+      }
+      const result = await SgImportCashService.bulkConfirmHandover(ids, req.user.id);
+      return res.status(200).json(successResponse(result, `Đã xác nhận ${result.updated} phiếu`));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
   static async getInvoiceOrders(req: Request, res: Response) {
     try {
       const category = (req.query.category as string) || 'standard';

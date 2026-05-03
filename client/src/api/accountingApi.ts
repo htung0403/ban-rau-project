@@ -34,6 +34,11 @@ export const accountingApi = {
     return data;
   },
 
+  bulkConfirmSgHandover: async (ids: string[]) => {
+    const { data } = await axiosClient.patch(`/accounting/sg-import-cash/bulk-confirm-handover`, { ids });
+    return data;
+  },
+
   getInvoiceOrders: async (params?: {
     category?: string;
     dateFrom?: string;

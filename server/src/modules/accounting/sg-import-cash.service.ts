@@ -100,4 +100,34 @@ export class SgImportCashService {
     if (updateErr) throw updateErr;
     return { alreadyConfirmed: false as const };
   }
+
+  static async bulkConfirmHandover(importOrderIds: string[], userId: string) {
+    if (!importOrderIds || importOrderIds.length === 0) return { updated: 0 };
+    
+    const { data: rows, error: findErr } = await supabaseService
+      .from('import_orders')
+      .select('id, payment_status, sg_cash_handover_confirmed_at')
+      .in('id', importOrderIds)
+      .is('deleted_at', null);
+
+    if (findErr) throw findErr;
+    if (!rows || rows.length === 0) return { updated: 0 };
+
+    const validIds = rows
+      .filter((r) => r.payment_status === 'paid' && !r.sg_cash_handover_confirmed_at)
+      .map((r) => r.id);
+
+    if (validIds.length === 0) return { updated: 0 };
+
+    const { error: updateErr } = await supabaseService
+      .from('import_orders')
+      .update({
+        sg_cash_handover_confirmed_at: new Date().toISOString(),
+        sg_cash_handover_confirmed_by: userId,
+      })
+      .in('id', validIds);
+
+    if (updateErr) throw updateErr;
+    return { updated: validIds.length };
+  }
 }

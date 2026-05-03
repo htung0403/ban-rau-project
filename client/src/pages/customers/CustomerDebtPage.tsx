@@ -84,8 +84,8 @@ const CustomerDebtPage: React.FC = () => {
   const refetch = () => { refetchExport(); refetchImport(); };
 
   // Lọc chỉ những đơn chưa thanh toán
-  const unpaidExport = (exportOrders || []).filter(o => o.payment_status !== 'paid').map(o => ({ ...o, _type: 'export' }));
-  const unpaidImport = (importOrders || []).filter(o => o.payment_status !== 'paid').map(o => ({ ...o, _type: 'import' }));
+  const unpaidExport = (exportOrders?.data || []).filter((o: any) => o.payment_status !== 'paid').map((o: any) => ({ ...o, _type: 'export' }));
+  const unpaidImport = (importOrders?.data || []).filter((o: any) => o.payment_status !== 'paid').map((o: any) => ({ ...o, _type: 'import' }));
 
   const unpaidOrders = [...unpaidExport, ...unpaidImport];
 

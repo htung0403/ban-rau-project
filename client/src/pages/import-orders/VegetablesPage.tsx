@@ -185,7 +185,7 @@ const VegetablesPage: React.FC = () => {
   const { data: vehicles } = useVehicles();
   const { data: ordersRaw, isLoading, isError, refetch } = useImportOrders(filters);
   const orders = useMemo(() => {
-    const raw = ordersRaw || [];
+    const raw = ordersRaw?.data || [];
     if (!user || hasFullGoodsModuleAccess(user)) return raw;
     return raw.filter((o) =>
       importOrderVisibleToUser(o, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])

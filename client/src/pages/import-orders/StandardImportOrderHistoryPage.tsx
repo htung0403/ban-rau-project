@@ -65,16 +65,10 @@ const defaultColumns: ColumnOption[] = [
   { id: 'actions', label: 'Thao tác', isVisible: true },
 ];
 
-const getTodayVN = () => {
-  const now = new Date();
-  const vnTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-  return vnTime.toISOString().split('T')[0];
-};
-
-const ImportOrdersPage: React.FC = () => {
+const StandardImportOrderHistoryPage: React.FC = () => {
   const [searchText, setSearchText] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState(getTodayVN());
-  const [filterDateTo, setFilterDateTo] = useState(getTodayVN());
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
 
   const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
@@ -113,9 +107,6 @@ const ImportOrdersPage: React.FC = () => {
   if (filterDateTo) filters.dateTo = filterDateTo;
   if (filterStatus.length > 0) filters.status = filterStatus.join(',');
   if (searchText.trim()) filters.search = searchText.trim();
-  if (filterCustomer.length > 0) filters.sender = filterCustomer.join(',');
-  if (filterVehicle.length > 0) filters.license_plate = filterVehicle.join(',');
-  if (filterReceiver.length > 0) filters.receiver = filterReceiver.join(',');
   filters.order_category = 'standard';
   filters.page = page;
   filters.pageSize = pageSize;
@@ -200,8 +191,8 @@ const ImportOrdersPage: React.FC = () => {
 
   const clearFilters = () => {
     setSearchText('');
-    setFilterDateFrom(getTodayVN());
-    setFilterDateTo(getTodayVN());
+    setFilterDateFrom('');
+    setFilterDateTo('');
     setFilterStatus([]);
     setFilterCustomer([]);
     setFilterVehicle([]);
@@ -215,8 +206,8 @@ const ImportOrdersPage: React.FC = () => {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
       <div className="hidden md:block">
         <PageHeader
-          title="Nhập hàng"
-          description="Quản lý danh sách đơn nhập hàng"
+          title="Lịch sử nhập hàng tạp hóa"
+          description="Xem toàn bộ lịch sử đơn nhập hàng tạp hóa"
           backPath="/hang-hoa"
           actions={
             <button
@@ -334,8 +325,8 @@ const ImportOrdersPage: React.FC = () => {
           <ErrorState onRetry={() => refetch()} />
         ) : orders.length === 0 ? (
           <EmptyState
-            title="Chưa có đơn nhập hàng"
-            description="Bắt đầu bằng cách thêm đơn nhập hàng mới."
+            title="Chưa có lịch sử đơn nhập hàng tạp hóa"
+            description="Các đơn nhập hàng sẽ xuất hiện tại đây sau khi được tạo."
             action={
               <button
                 onClick={openAddDialog}
@@ -755,4 +746,4 @@ const ImportOrdersPage: React.FC = () => {
   );
 };
 
-export default ImportOrdersPage;
+export default StandardImportOrderHistoryPage;

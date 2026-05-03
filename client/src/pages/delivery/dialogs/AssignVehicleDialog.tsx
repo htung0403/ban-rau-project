@@ -80,7 +80,7 @@ interface Props {
   order: DeliveryOrder | null;
   initialVehicleId?: string | null;
   allOrders?: DeliveryOrder[];
-  mode?: 'edit' | 'add-new';
+  mode?: 'edit' | 'add-new' | 'view';
   onClose: () => void;
 }
 
@@ -95,6 +95,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const normalizedRole = (user?.role || '').toLowerCase();
   const isLoader = normalizedRole.includes('lo_xe') || normalizedRole.includes('lơ xe');
   const isDriver = normalizedRole === 'driver' || normalizedRole.includes('tai_xe') || normalizedRole.includes('tài xế') || normalizedRole.includes('driver') || isLoader;
+  const isViewMode = mode === 'view';
 
   const myEmployee = React.useMemo(() => {
     if (!user) return null;
@@ -622,7 +623,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             </div>
             <div>
               <h2 className="text-lg font-bold text-foreground">
-                Phân xe cho đơn hàng
+                {isViewMode ? 'Xem phân xe' : 'Phân xe cho đơn hàng'}
               </h2>
               <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
                 {order?.product_name}
@@ -690,7 +691,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                   return null;
                 }
 
-                const isRowDisabled = isPaid || (isDriver && !isMyVehicleRow);
+                const isRowDisabled = isPaid || (isDriver && !isMyVehicleRow) || isViewMode;
                 const isMoneyFieldsLocked = isRowDisabled || importPaid;
                 const currentDelta = Number(watchAssignments[index]?.quantity) || 0;
                 const baselineQty = assignmentBaselines[index] ?? 0;
@@ -855,7 +856,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     </div>
 
                     {/* Tiền thu (chỉ đơn tạp hóa/standard) */}
-                    {isStandardOrder && (
+            {!isViewMode && isStandardOrder && (
                       <div className="w-full md:w-52 space-y-1.5 mt-2 md:mt-0">
                         <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Tiền thu (VND)</label>
                         {importPaid ? (
@@ -999,7 +1000,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               })}
             </div>
 
-            {order?.total_quantity && projectedAssignedTotal > order.total_quantity && (
+            {!isViewMode && order?.total_quantity && projectedAssignedTotal > order.total_quantity && (
               <div className="p-3 rounded-xl bg-amber-50 border border-amber-100 flex items-start gap-2 text-amber-700 mt-4">
                 <AlertCircle size={16} className="mt-0.5 shrink-0" />
                 <p className="text-[12px] font-medium italic">Tổng số lượng đã phân ({projectedAssignedTotal.toLocaleString()}) đang vượt quá yêu cầu của đơn hàng ({order.total_quantity.toLocaleString()}).</p>
@@ -1038,7 +1039,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               </div>
             )}
 
-            {/* Upload Image Section — lưới lớn: mọi ảnh (chung + theo từng xe) */}
+            {!isViewMode && (
             <div className="space-y-1.5 pt-4 border-t border-border mt-2">
               <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                 <Camera size={12} />
@@ -1122,6 +1123,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                 </div>
               </div>
             </div>
+            )}
 
           </div>
         </form>
@@ -1129,29 +1131,41 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         {/* Footer Buttons */}
         <div className="p-5 sm:p-6 pt-4 bg-card border-t border-border shrink-0 sm:rounded-b-3xl">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 rounded-xl border border-border hover:bg-muted text-foreground text-[14px] font-bold transition-all"
-            >
-              Hủy bỏ
-            </button>
-            <button
-              type="submit"
-              form="assign-vehicle-form"
-              disabled={isSubmitting}
-              className={clsx(
-                "flex-2 py-3 rounded-xl bg-primary text-white text-[14px] font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2",
-                isSubmitting && "opacity-70 cursor-not-allowed pointer-events-none"
-              )}
-            >
-              {isSubmitting ? (
-                <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Truck size={18} />
-              )}
-              {isStandardOrder ? 'Xác nhận thông tin' : 'Xuất hàng'}
-            </button>
+            {isViewMode ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-3 rounded-xl border border-border hover:bg-muted text-foreground text-[14px] font-bold transition-all"
+              >
+                Đóng
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 py-3 rounded-xl border border-border hover:bg-muted text-foreground text-[14px] font-bold transition-all"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  form="assign-vehicle-form"
+                  disabled={isSubmitting}
+                  className={clsx(
+                    "flex-2 py-3 rounded-xl bg-primary text-white text-[14px] font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2",
+                    isSubmitting && "opacity-70 cursor-not-allowed pointer-events-none"
+                  )}
+                >
+                  {isSubmitting ? (
+                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Truck size={18} />
+                  )}
+                  {isStandardOrder ? 'Xác nhận thông tin' : 'Xuất hàng'}
+                </button>
+              </>
+            )}
           </div>
         </div>
 

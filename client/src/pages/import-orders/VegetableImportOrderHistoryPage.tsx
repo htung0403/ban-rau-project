@@ -108,19 +108,13 @@ const defaultColumns: ColumnOption[] = [
   { id: 'actions', label: 'Thao tác', isVisible: true },
 ];
 
-const getTodayVN = () => {
-  const now = new Date();
-  const vnTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-  return vnTime.toISOString().split('T')[0];
-};
-
-const VegetableImportsPage: React.FC = () => {
+const VegetableImportOrderHistoryPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const [searchText, setSearchText] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState(getTodayVN());
-  const [filterDateTo, setFilterDateTo] = useState(getTodayVN());
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
   
   const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
@@ -304,8 +298,8 @@ const VegetableImportsPage: React.FC = () => {
 
   const clearFilters = () => {
     setSearchText('');
-    setFilterDateFrom(getTodayVN());
-    setFilterDateTo(getTodayVN());
+    setFilterDateFrom('');
+    setFilterDateTo('');
     setFilterStatus([]);
     setFilterCustomer([]);
     setFilterVehicle([]);
@@ -319,8 +313,8 @@ const VegetableImportsPage: React.FC = () => {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
       <div className="hidden md:block">
         <PageHeader
-          title="Nhập hàng rau"
-          description="Quản lý danh sách đơn nhập hàng rau"
+          title="Lịch sử nhập hàng rau"
+          description="Xem toàn bộ lịch sử đơn nhập hàng rau"
           backPath="/hang-hoa"
           actions={
             <div className="flex items-center gap-2">
@@ -469,8 +463,8 @@ const VegetableImportsPage: React.FC = () => {
           <ErrorState onRetry={() => refetch()} />
         ) : orders.length === 0 ? (
           <EmptyState
-            title="Chưa có đơn nhập hàng"
-            description="Bắt đầu bằng cách thêm đơn nhập hàng mới."
+            title="Chưa có lịch sử đơn nhập hàng rau"
+            description="Các đơn nhập hàng rau sẽ xuất hiện tại đây sau khi được tạo."
             action={
               <button
                 onClick={openAddDialog}
@@ -916,4 +910,4 @@ const VegetableImportsPage: React.FC = () => {
   );
 };
 
-export default VegetableImportsPage;
+export default VegetableImportOrderHistoryPage;

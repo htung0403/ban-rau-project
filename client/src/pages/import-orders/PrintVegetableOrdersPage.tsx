@@ -57,7 +57,8 @@ const PrintVegetableOrdersPage: React.FC = () => {
     order_category: 'vegetable',
   };
 
-  const { data: orders, isLoading, isError, refetch } = useImportOrders(filters);
+  const { data: ordersResponse, isLoading, isError, refetch } = useImportOrders(filters);
+  const orders = ordersResponse?.data || [];
 
   // Fetch vehicles for Số Xe selector
   const { data: vehicles } = useVehicles();
@@ -419,45 +420,161 @@ const PrintVegetableOrdersPage: React.FC = () => {
                       <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 700, border: '1px solid #000' }}>Tên Hàng</th>
                       <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700, width: 60, border: '1px solid #000' }}>Tiền(K)</th>
                       <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700, width: 100, border: '1px solid #000' }}>Thành Tiền</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700, width: 100, border: '1px solid #000' }}>Tổng Vựa</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {sheetItems.map((item, idx) => (
-                      <tr key={idx}>
-                        <td style={{ padding: '3px 6px', fontWeight: 500, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>{item.supplierName}</td>
-                        <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>{item.taiRank}</td>
-                        <td style={{ padding: '3px 6px', textAlign: 'center', fontWeight: 600, borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>{item.quantity || ''}</td>
-                        <td style={{ padding: '3px 6px', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>{item.productName}</td>
-                        <td style={{ padding: '3px 6px', textAlign: 'center', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>{item.priceK > 0 ? item.priceK : ''}</td>
-                        <td style={{ padding: '3px 6px', textAlign: 'right', fontWeight: 600, borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
-                          {item.totalAmount > 0 ? formatNumber(item.totalAmount) : ''}
-                        </td>
-                      </tr>
-                    ))}
+                    {(() => {
+                      const groups: FlatItem[][] = [];
+                      let currentGroup: FlatItem[] = [];
+                      let currentSupplier = '';
+                      sheetItems.forEach((item) => {
+                        if (item.supplierName !== currentSupplier) {
+                          if (currentGroup.length > 0) groups.push(currentGroup);
+                          currentGroup = [];
+                          currentSupplier = item.supplierName;
+                        }
+                        currentGroup.push(item);
+                      });
+                      if (currentGroup.length > 0) groups.push(currentGroup);
+
+                      const dataRows = sheetItems.length;
+                      const tfootRows = printMode === 'amount' ? 3 : 1;
+                      const fillerCount = Math.max(0, ROWS_PER_A4 - dataRows - tfootRows);
+
+                      return (
+                        <>
+                          {groups.map((group, groupIdx) => {
+                            const groupTotal = group.reduce((s, i) => s + i.totalAmount, 0);
+
+                            return group.map((item, idxInGroup) => {
+                              const isLastInGroup = idxInGroup === group.length - 1;
+                              const isFirstInGroup = idxInGroup === 0;
+
+                              const groupBorderTop = isFirstInGroup ? '2px solid #000' : 'none';
+                              const rowBorderBottom = isLastInGroup ? '2px solid #000' : '1px solid #ccc';
+
+                              return (
+                                <tr key={`${groupIdx}-${idxInGroup}`}>
+                                  <td style={{
+                                    padding: '4px 6px',
+                                    fontWeight: 500,
+                                    fontSize: 14,
+                                    borderLeft: '2px solid #000',
+                                    borderRight: '1px solid #000',
+                                    borderTop: groupBorderTop,
+                                    borderBottom: rowBorderBottom,
+                                  }}>
+                                    {isFirstInGroup ? item.supplierName : ''}
+                                  </td>
+                                  <td style={{
+                                    padding: '4px 6px',
+                                    textAlign: 'center',
+                                    fontSize: 14,
+                                    borderRight: '1px solid #000',
+                                    borderTop: groupBorderTop,
+                                    borderBottom: rowBorderBottom,
+                                  }}>
+                                    {item.taiRank}
+                                  </td>
+                                  <td style={{
+                                    padding: '4px 6px',
+                                    textAlign: 'center',
+                                    fontWeight: 600,
+                                    fontSize: 14,
+                                    borderRight: '1px solid #000',
+                                    borderTop: groupBorderTop,
+                                    borderBottom: rowBorderBottom,
+                                  }}>
+                                    {item.quantity || ''}
+                                  </td>
+                                  <td style={{
+                                    padding: '4px 6px',
+                                    fontSize: 14,
+                                    borderRight: '1px solid #000',
+                                    borderTop: groupBorderTop,
+                                    borderBottom: rowBorderBottom,
+                                  }}>
+                                    {item.productName}
+                                  </td>
+                                  <td style={{
+                                    padding: '4px 6px',
+                                    textAlign: 'center',
+                                    fontSize: 14,
+                                    borderRight: '1px solid #000',
+                                    borderTop: groupBorderTop,
+                                    borderBottom: rowBorderBottom,
+                                  }}>
+                                    {item.priceK > 0 ? item.priceK : ''}
+                                  </td>
+                                  <td style={{
+                                    padding: '4px 6px',
+                                    textAlign: 'right',
+                                    fontWeight: 600,
+                                    fontSize: 14,
+                                    borderRight: '1px solid #000',
+                                    borderTop: groupBorderTop,
+                                    borderBottom: rowBorderBottom,
+                                  }}>
+                                    {item.totalAmount > 0 ? formatNumber(item.totalAmount) : ''}
+                                  </td>
+                                  <td style={{
+                                    padding: '4px 6px',
+                                    textAlign: 'right',
+                                    fontWeight: isLastInGroup ? 900 : 400,
+                                    fontSize: 14,
+                                    borderRight: '2px solid #000',
+                                    borderTop: groupBorderTop,
+                                    borderBottom: rowBorderBottom,
+                                  }}>
+                                    {isLastInGroup ? formatNumber(groupTotal) : ''}
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          })}
+                          {Array.from({ length: fillerCount }).map((_, i) => (
+                            <tr key={`filler-${i}`}>
+                              <td style={{ padding: '4px 6px', fontSize: 14, borderLeft: '2px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc', height: '22px' }}>&nbsp;</td>
+                              <td style={{ padding: '4px 6px', fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc', height: '22px' }}>&nbsp;</td>
+                              <td style={{ padding: '4px 6px', fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc', height: '22px' }}>&nbsp;</td>
+                              <td style={{ padding: '4px 6px', fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc', height: '22px' }}>&nbsp;</td>
+                              <td style={{ padding: '4px 6px', fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc', height: '22px' }}>&nbsp;</td>
+                              <td style={{ padding: '4px 6px', fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc', height: '22px' }}>&nbsp;</td>
+                              <td style={{ padding: '4px 6px', fontSize: 14, borderRight: '2px solid #000', borderBottom: '1px solid #ccc', height: '22px' }}>&nbsp;</td>
+                            </tr>
+                          ))}
+                        </>
+                      );
+                    })()}
                   </tbody>
                   <tfoot>
-                    <tr style={{ borderTop: '2px solid #000' }}>
-                      <td colSpan={5} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 13, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
-                        Cộng Tiền Hàng
-                      </td>
-                      <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
-                        {formatNumber(sheetTotal)}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td colSpan={5} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 13, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
-                        Thuế VAT (8%)
-                      </td>
-                      <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
-                        {formatNumber(sheetTotal * 0.08)}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td colSpan={5} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 13, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>
+                    {printMode === 'amount' && (
+                      <>
+                        <tr style={{ borderTop: '2px solid #000' }}>
+                          <td colSpan={6} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 13, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
+                            Cộng Tiền Hàng
+                          </td>
+                          <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
+                            {formatNumber(sheetTotal)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td colSpan={6} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 13, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
+                            Thuế VAT (8%)
+                          </td>
+                          <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
+                            {formatNumber(sheetTotal * 0.08)}
+                          </td>
+                        </tr>
+                      </>
+                    )}
+                    <tr style={{ borderTop: printMode === 'amount' ? '1px solid #ccc' : '2px solid #000' }}>
+                      <td colSpan={6} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 13, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>
                         Tổng Cộng
                       </td>
                       <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>
-                        {formatNumber(sheetTotal * 1.08)}
+                        {printMode === 'amount' ? formatNumber(sheetTotal * 1.08) : formatNumber(sheetTotal)}
                       </td>
                     </tr>
                   </tfoot>

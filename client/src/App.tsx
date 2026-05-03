@@ -18,6 +18,8 @@ import ProductSettingsPage from './pages/warehouse/ProductSettingsPage';
 import VegetableProductSettingsPage from './pages/warehouse/VegetableProductSettingsPage';
 import VegetableWarehousePage from './pages/warehouse/VegetableWarehousePage';
 import VegetableImportsPage from './pages/import-orders/VegetableImportsPage';
+import StandardImportOrderHistoryPage from './pages/import-orders/StandardImportOrderHistoryPage';
+import VegetableImportOrderHistoryPage from './pages/import-orders/VegetableImportOrderHistoryPage';
 import VegetablesPage from './pages/import-orders/VegetablesPage';
 import VegetableDeliveryPage from './pages/delivery/VegetableDeliveryPage';
 import EmployeesPage from './pages/hr/EmployeesPage';
@@ -102,7 +104,9 @@ function AppRoutes() {
         {/* Hang hoa module */}
         <Route path="/hang-hoa" element={<ModulePage />} />
         <Route path="/hang-hoa/nhap-hang" element={<ImportOrdersPage />} />
+        <Route path="/hang-hoa/nhap-hang/lich-su" element={<StandardImportOrderHistoryPage />} />
         <Route path="/hang-hoa/nhap-hang-rau" element={<VegetableImportsPage />} />
+        <Route path="/hang-hoa/nhap-hang-rau/lich-su" element={<VegetableImportOrderHistoryPage />} />
         <Route path="/hang-hoa/hang-rau" element={<VegetablesPage />} />
         <Route path="/hang-hoa/in-phieu-rau" element={<PrintVegetableOrdersPage />} />
         <Route path="/hang-hoa/giao-hang-rau" element={<VegetableDeliveryPage />} />

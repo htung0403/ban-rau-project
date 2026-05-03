@@ -7,6 +7,8 @@ import {
   PlusCircle,
   Truck,
   Check,
+  CheckCircle,
+  Pencil,
   Store,
   Package,
   User,
@@ -94,6 +96,7 @@ const WarehousesPage: React.FC = () => {
   // Assign dialog
   const [selectedOrder, setSelectedOrder] = useState<DeliveryOrder | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [assignMode, setAssignMode] = useState<'edit' | 'add-new' | 'view'>('edit');
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isAssignClosing, setIsAssignClosing] = useState(false);
 
@@ -332,9 +335,10 @@ const WarehousesPage: React.FC = () => {
     }, 300);
   };
 
-  const openAssign = (order: DeliveryOrder, vehicleId?: string) => {
+  const openAssign = (order: DeliveryOrder, vehicleId?: string, mode?: 'edit' | 'add-new' | 'view') => {
     setSelectedOrder(order);
     setSelectedVehicleId(vehicleId || myPrimaryVehicleId || null);
+    setAssignMode(mode || 'edit');
     setIsAssignOpen(true);
     setIsAssignClosing(false);
   };
@@ -695,10 +699,10 @@ const WarehousesPage: React.FC = () => {
 
                             {/* Vehicle columns */}
                             {eligibleVehicles.map((v) => {
-                              const dv = (o.delivery_vehicles || []).find(
-                                (deliveryVehicle) => deliveryVehicle.vehicle_id === v.id
+                              const dvs = (o.delivery_vehicles || []).filter(
+                                (deliveryVehicle) => deliveryVehicle.vehicle_id === v.id && (deliveryVehicle.assigned_quantity || 0) > 0
                               );
-                              const qty = dv?.assigned_quantity || 0;
+                              const totalQty = dvs.reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
                               const isEditableByMe = myVehicleIdSet.has(v.id);
                               const canEdit = isEditableByMe || isAdmin;
                               const isPaid = (o.payment_collections || []).some(
@@ -706,35 +710,90 @@ const WarehousesPage: React.FC = () => {
                                   pc.vehicle_id === v.id && isPaidCollectionStatus(pc.status)
                               );
 
+                              const today = new Date();
+                              const deliveryDate = o.delivery_date ? new Date(o.delivery_date) : null;
+                              const isTodayDelivery = deliveryDate &&
+                                deliveryDate.getDate() === today.getDate() &&
+                                deliveryDate.getMonth() === today.getMonth() &&
+                                deliveryDate.getFullYear() === today.getFullYear();
+
+                              const textColorClass = totalQty > 0
+                                ? (isTodayDelivery ? 'text-blue-600 dark:text-blue-500' : 'text-black dark:text-black')
+                                : 'text-muted-foreground/30';
+                              const bgColorClass = totalQty > 0 && isTodayDelivery
+                                ? 'bg-blue-500/10'
+                                : '';
+
                               return (
                                 <td
                                   key={v.id}
                                   onClick={() => {
-                                    if (canEdit && (qty > 0 || remainingQty > 0)) {
+                                    if (canEdit && totalQty === 0 && remainingQty > 0) {
                                       openAssign(o, v.id);
                                     }
                                   }}
                                   className={clsx(
-                                    'px-1 py-1 text-[13px] text-center tabular-nums border-r border-border last:border-r-0 transition-all relative',
-                                    qty > 0
-                                      ? 'font-bold text-blue-600 dark:text-blue-500 bg-blue-500/10'
-                                      : 'text-muted-foreground/30',
+                                    'px-1 py-1 text-[13px] text-center tabular-nums border-r border-border last:border-r-0 transition-all relative group/cell',
+                                    totalQty > 0 ? 'font-bold' : '',
+                                    textColorClass,
+                                    bgColorClass,
                                     canEdit &&
-                                      (qty > 0 || remainingQty > 0) &&
+                                      totalQty === 0 &&
+                                      remainingQty > 0 &&
                                       'cursor-pointer hover:bg-primary/5 active:scale-95'
                                   )}
                                 >
-                                  {qty > 0 && dv ? (
-                                    <VehicleCellTooltip dv={dv} vehicle={v} qty={qty} isPaid={isPaid}>
-                                      <span>{formatNumber(qty)}</span>
-                                    </VehicleCellTooltip>
+                                  {dvs.length > 0 ? (
+                                    <div className="flex flex-col items-center justify-center">
+                                      <div className="flex flex-wrap items-center justify-center gap-x-1">
+                                        {dvs.map((dvItem, idx) => (
+                                          <React.Fragment key={dvItem.id || idx}>
+                                            {idx > 0 && <span className="text-[10px] text-muted-foreground/50">+</span>}
+                                            <VehicleCellTooltip dv={dvItem} vehicle={v} qty={dvItem.assigned_quantity || 0} isPaid={isPaid}>
+                                              <span
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  if (canEdit) {
+                                                    openAssign(o, v.id, 'view');
+                                                  }
+                                                }}
+                                                className={clsx('cursor-pointer underline decoration-dotted underline-offset-2', isTodayDelivery ? 'hover:text-blue-700 decoration-blue-500/30' : 'hover:text-gray-900 decoration-black/30')}
+                                              >
+                                                {formatNumber(dvItem.assigned_quantity)}
+                                              </span>
+                                            </VehicleCellTooltip>
+                                          </React.Fragment>
+                                        ))}
+                                      </div>
+                                      {canEdit && (
+                                        <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              openAssign(o, v.id, 'edit');
+                                            }}
+                                          className={clsx(
+                                            'absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded transition-opacity',
+                                            isTodayDelivery ? 'text-blue-600 hover:bg-blue-500/20' : 'text-black hover:bg-gray-500/20'
+                                          )}
+                                          title="Chỉnh sửa phân xe"
+                                        >
+                                          <Pencil size={11} strokeWidth={2.5} />
+                                        </button>
+                                      )}
+                                      {isPaid && (
+                                        <div className="mt-0.5 flex items-center justify-center gap-0.5 text-green-600 bg-green-500/10 rounded-sm px-1" title="Đã xác nhận thu tiền">
+                                          <CheckCircle size={8} strokeWidth={3} />
+                                          <span className="text-[9px] font-black leading-none pb-px">Thu</span>
+                                        </div>
+                                      )}
+                                    </div>
                                   ) : (
                                     <div className="flex flex-col items-center justify-center">
                                       <span>
                                         {canEdit && remainingQty > 0 ? (
                                           <PlusCircle
                                             size={14}
-                                            className="mx-auto opacity-10 group-hover:opacity-40"
+                                            className="mx-auto opacity-10 group-hover/cell:opacity-40"
                                           />
                                         ) : (
                                           '-'
@@ -1026,6 +1085,7 @@ const WarehousesPage: React.FC = () => {
         order={selectedOrder}
         initialVehicleId={selectedVehicleId}
         allOrders={inventoryOrders}
+        mode={assignMode}
         onClose={closeAssign}
       />
 

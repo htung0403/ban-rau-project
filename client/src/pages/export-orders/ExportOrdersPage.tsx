@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import PageHeader from '../../components/shared/PageHeader';
 import { useExportOrders, useDeleteExportOrders } from '../../hooks/queries/useExportOrders';
@@ -6,7 +6,7 @@ import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import StatusBadge from '../../components/shared/StatusBadge';
-import { Plus, X, Filter, Image as ImageIcon, Eye, Trash2 } from 'lucide-react';
+import { Plus, X, Filter, Image as ImageIcon, Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import { clsx } from 'clsx';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
@@ -28,11 +28,18 @@ const formatCurrency = (value?: number | null) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
+const PAGE_SIZE = 50;
+
 const ExportOrdersPage: React.FC = () => {
-  const { data: orders, isLoading, isError, refetch } = useExportOrders();
+  const [page, setPage] = useState(1);
+  const { data: response, isLoading, isError, refetch } = useExportOrders({ page, limit: PAGE_SIZE });
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const deleteMutation = useDeleteExportOrders();
+
+  const orders = response?.data || [];
+  const meta = response?.meta;
+  const totalPages = meta ? Math.ceil(meta.total / meta.limit) : 1;
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isAddClosing, setIsAddClosing] = useState(false);
@@ -49,6 +56,8 @@ const ExportOrdersPage: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  const resetPage = () => setPage(1);
+
   const closeFilter = () => {
     setIsFilterClosing(true);
     setTimeout(() => {
@@ -57,16 +66,18 @@ const ExportOrdersPage: React.FC = () => {
     }, 300);
   };
 
-  const filteredOrders = (orders || []).filter((o) => {
-    if (searchText.trim()) {
-      if (!matchesSearch((o as any).product_name || '', searchText)) {
-        return false;
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      if (searchText.trim()) {
+        if (!matchesSearch((o as any).product_name || '', searchText)) {
+          return false;
+        }
       }
-    }
-    if (filterDateFrom && o.export_date < filterDateFrom) return false;
-    if (filterDateTo && o.export_date > filterDateTo) return false;
-    return true;
-  });
+      if (filterDateFrom && o.export_date < filterDateFrom) return false;
+      if (filterDateTo && o.export_date > filterDateTo) return false;
+      return true;
+    });
+  }, [orders, searchText, filterDateFrom, filterDateTo]);
 
   const closeAddDialog = () => {
     setIsAddClosing(true);
@@ -111,12 +122,12 @@ const ExportOrdersPage: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div className="flex-1">
-                <SearchInput
-                  placeholder="Tìm kiếm theo mặt hàng..."
-                  onSearch={(raw) => setSearchText(raw)}
-                />
-              </div>
+          <div className="flex-1">
+            <SearchInput
+              placeholder="Tìm kiếm theo mặt hàng..."
+              onSearch={(raw) => { setSearchText(raw); resetPage(); }}
+            />
+          </div>
             )}
 
             <button
@@ -152,12 +163,13 @@ const ExportOrdersPage: React.FC = () => {
                 };
                 setFilterDateFrom(range.from ? format(range.from) : '');
                 setFilterDateTo(range.to ? format(range.to) : '');
+                resetPage();
               }}
             />
           </div>
           {(searchText || filterDateFrom || filterDateTo) && (
             <button
-              onClick={() => { setSearchText(''); setFilterDateFrom(''); setFilterDateTo(''); }}
+              onClick={() => { setSearchText(''); setFilterDateFrom(''); setFilterDateTo(''); resetPage(); }}
               className="flex items-center gap-1 px-3 py-2 rounded-xl border border-dashed border-red-300 text-red-500 text-[12px] font-bold hover:bg-red-500/10 transition-all shrink-0 justify-center"
             >
               <X size={14} />
@@ -354,6 +366,56 @@ const ExportOrdersPage: React.FC = () => {
               ))}
             </div>
           </>
+        )}
+
+        {/* Pagination Footer */}
+        {meta && meta.total > PAGE_SIZE && (
+          <div className="border-t border-border px-4 py-3 flex items-center justify-between">
+            <span className="text-[12px] text-muted-foreground">
+              Hiển thị {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, meta.total)} / {meta.total} phiếu
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:pointer-events-none transition-all"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                let pageNum: number;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (page <= 3) {
+                  pageNum = i + 1;
+                } else if (page >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = page - 2 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setPage(pageNum)}
+                    className={`w-8 h-8 rounded-lg text-[12px] font-bold transition-all ${
+                      page === pageNum
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:pointer-events-none transition-all"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

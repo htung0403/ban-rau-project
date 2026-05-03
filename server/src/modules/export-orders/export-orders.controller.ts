@@ -23,9 +23,16 @@ const paymentUpdateSchema = z.object({
 export class ExportOrderController {
   static async getAll(req: Request, res: Response) {
     try {
-      const data = await ExportOrderService.getAll(req.query, req.user);
-      return res.status(200).json(successResponse(data));
+      const { page, limit, date, customer_id } = req.query;
+      console.log('[ExportOrderController.getAll] User:', req.user?.id, 'Role:', req.user?.role);
+      console.log('[ExportOrderController.getAll] Query params:', { page, limit, date, customer_id });
+      const { data, meta } = await ExportOrderService.getAll(req.query, req.user);
+      console.log('[ExportOrderController.getAll] Success, rows:', data?.length ?? 0, 'total:', meta?.total);
+      return res.status(200).json(successResponse(data, undefined, meta));
     } catch (err: any) {
+      console.error('[ExportOrderController.getAll] ERROR:', err);
+      console.error('[ExportOrderController.getAll] Error message:', err.message);
+      console.error('[ExportOrderController.getAll] Error details:', JSON.stringify(err, null, 2));
       return res.status(400).json(errorResponse(err.message));
     }
   }

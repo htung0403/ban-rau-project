@@ -599,4 +599,6 @@ export interface ImportOrderFilters {
   license_plate?: string;
   received_by?: string;
   search?: string;
+  page?: number;
+  pageSize?: number;
 }

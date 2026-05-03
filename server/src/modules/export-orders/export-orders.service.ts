@@ -1,5 +1,6 @@
 import { supabaseService } from '../../config/supabase';
-import type { UserPayload } from '../../types';
+import type { UserPayload, PaginationMeta } from '../../types';
+import { getPagination, getPaginationMeta } from '../../utils/pagination';
 import {
   exportOrderRowMatchesGoodsScope,
   fetchDriverScopeForUser,
@@ -19,47 +20,83 @@ function deliverySourceSoftDeleted(d: any): boolean {
 
 export class ExportOrderService {
   static async getAll(filters: any, actor?: UserPayload) {
+    const page = Number(filters.page) || 1;
+    const limit = Number(filters.limit) || 50;
+    const { offset } = getPagination(page, limit);
+
+    console.log('[ExportOrderService.getAll] Starting query...');
     let query = supabaseService.from('export_orders').select('*, profiles(full_name), customers(id, name, debt)');
 
     if (filters.date) query = query.eq('export_date', filters.date);
     if (filters.customer_id) query = query.eq('customer_id', filters.customer_id);
 
     const { data, error } = await query;
-    if (error) throw error;
-    if (!data || data.length === 0) return data;
+    console.log('[ExportOrderService.getAll] Supabase query result - data length:', data?.length ?? 0, 'error:', error);
+    if (error) {
+      console.error('[ExportOrderService.getAll] Supabase error details:', JSON.stringify(error, null, 2));
+      throw error;
+    }
+    if (!data || data.length === 0) return { data: [], meta: getPaginationMeta(0, page, limit) };
 
     const deliveryIds = [...new Set(data.map((o: any) => o.product_id).filter(Boolean))] as string[];
-    if (deliveryIds.length === 0) return data;
+    console.log('[ExportOrderService.getAll] deliveryIds count:', deliveryIds.length);
 
-    const { data: deliveries, error: delErr } = await supabaseService
-      .from('delivery_orders')
-      .select(
-        'id, import_orders(deleted_at, received_by, license_plate, driver_name), vegetable_orders(deleted_at, received_by, license_plate, driver_name), delivery_vehicles(driver_id, vehicle_id, vehicles(license_plate))'
-      )
-      .in('id', deliveryIds);
+    let filtered = data;
+    if (deliveryIds.length > 0) {
+      const CHUNK_SIZE = 100;
+      const chunks: string[][] = [];
+      for (let i = 0; i < deliveryIds.length; i += CHUNK_SIZE) {
+        chunks.push(deliveryIds.slice(i, i + CHUNK_SIZE));
+      }
+      console.log('[ExportOrderService.getAll] Split into', chunks.length, 'chunks');
 
-    if (delErr) throw delErr;
+      const allDeliveries: any[] = [];
+      for (const chunk of chunks) {
+        const { data: chunkDeliveries, error: delErr } = await supabaseService
+          .from('delivery_orders')
+          .select(
+            'id, import_orders(deleted_at, received_by, license_plate, driver_name), vegetable_orders(deleted_at, received_by, license_plate, driver_name), delivery_vehicles(driver_id, vehicle_id, vehicles(license_plate))'
+          )
+          .in('id', chunk);
 
-    const deliveryById = new Map((deliveries || []).map((d: any) => [d.id, d]));
+        if (delErr) {
+          console.error('[ExportOrderService.getAll] delivery_orders chunk error:', JSON.stringify(delErr, null, 2));
+          throw delErr;
+        }
+        if (chunkDeliveries) allDeliveries.push(...chunkDeliveries);
+      }
 
-    let driverScope: DriverScope | null = null;
-    if (actor && goodsScopeIsDriverRole(actor.role) && !goodsScopeFullAccess(actor.role)) {
-      driverScope = await fetchDriverScopeForUser(actor.id);
+      console.log('[ExportOrderService.getAll] Total deliveries fetched:', allDeliveries.length);
+      const deliveryById = new Map(allDeliveries.map((d: any) => [d.id, d]));
+
+      let driverScope: DriverScope | null = null;
+      if (actor && goodsScopeIsDriverRole(actor.role) && !goodsScopeFullAccess(actor.role)) {
+        console.log('[ExportOrderService.getAll] Fetching driver scope for user:', actor.id);
+        driverScope = await fetchDriverScopeForUser(actor.id);
+        console.log('[ExportOrderService.getAll] Driver scope:', driverScope);
+      }
+
+      const needScope =
+        actor &&
+        !goodsScopeFullAccess(actor.role) &&
+        (goodsScopeIsStaffRole(actor.role) || goodsScopeIsDriverRole(actor.role));
+
+      console.log('[ExportOrderService.getAll] needScope:', needScope, 'role:', actor?.role);
+      filtered = data.filter((o: any) => {
+        if (!o.product_id) return true;
+        const d = deliveryById.get(o.product_id);
+        if (!d) return true;
+        if (deliverySourceSoftDeleted(d)) return false;
+        if (needScope && actor && !exportOrderRowMatchesGoodsScope(o, d, actor, driverScope)) return false;
+        return true;
+      });
     }
+    console.log('[ExportOrderService.getAll] Filtered result:', filtered.length, 'from', data.length);
 
-    const needScope =
-      actor &&
-      !goodsScopeFullAccess(actor.role) &&
-      (goodsScopeIsStaffRole(actor.role) || goodsScopeIsDriverRole(actor.role));
+    const total = filtered.length;
+    const paginatedData = filtered.slice(offset, offset + limit);
 
-    return data.filter((o: any) => {
-      if (!o.product_id) return true;
-      const d = deliveryById.get(o.product_id);
-      if (!d) return true;
-      if (deliverySourceSoftDeleted(d)) return false;
-      if (needScope && actor && !exportOrderRowMatchesGoodsScope(o, d, actor, driverScope)) return false;
-      return true;
-    });
+    return { data: paginatedData, meta: getPaginationMeta(total, page, limit) };
   }
 
   static async create(orderData: any, userId: string) {

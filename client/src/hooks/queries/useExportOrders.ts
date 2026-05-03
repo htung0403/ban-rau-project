@@ -4,13 +4,13 @@ import toast from 'react-hot-toast';
 
 export const exportOrderKeys = {
   all: ['export-orders'] as const,
-  list: () => [...exportOrderKeys.all, 'list'] as const,
+  list: (params?: { page?: number; limit?: number }) => [...exportOrderKeys.all, 'list', params] as const,
 };
 
-export function useExportOrders() {
+export function useExportOrders(params?: { page?: number; limit?: number }) {
   return useQuery({
-    queryKey: exportOrderKeys.list(),
-    queryFn: () => exportOrdersApi.getAll(),
+    queryKey: exportOrderKeys.list(params),
+    queryFn: () => exportOrdersApi.getAll(params),
   });
 }
 

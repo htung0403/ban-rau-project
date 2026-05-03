@@ -19,6 +19,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
         { icon: Warehouse, title: 'Tồn kho thực tế', description: 'Quản lý sản phẩm còn tồn kho chờ giao.', colorScheme: 'teal', path: '/hang-hoa/kho' },
         { icon: Upload, title: 'Xuất hàng', description: 'Quản lý phiếu xuất kho.', colorScheme: 'red', path: '/hang-hoa/xuat-hang' },
         { icon: Download, title: 'Nhập hàng', description: 'Quản lý phiếu nhập kho.', colorScheme: 'green', path: '/hang-hoa/nhap-hang' },
+        { icon: History, title: 'Lịch sử nhập hàng', description: 'Xem toàn bộ lịch sử đơn nhập hàng tạp hóa.', colorScheme: 'slate', path: '/hang-hoa/nhap-hang/lich-su' },
         { icon: DeliveryIcon, title: 'Hàng cần giao', description: 'Danh sách các đơn hàng cần giao.', colorScheme: 'orange', path: '/hang-hoa/giao-hang' },
         { icon: Settings2, title: 'Cài đặt hàng tạp hóa', description: 'Quản lý từ điển hàng tạp hóa.', colorScheme: 'slate', path: '/hang-hoa/cai-dat' },
       ]
@@ -28,6 +29,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
       items: [
         { icon: Warehouse, title: 'Hàng trên Xe Tải Lớn', description: 'Hàng rau tồn kho chờ giao hàng.', colorScheme: 'teal', path: '/hang-hoa/kho-rau' },
         { icon: Download, title: 'Nhập hàng rau', description: 'Quản lý phiếu nhập kho mặt hàng rau.', colorScheme: 'green', path: '/hang-hoa/nhap-hang-rau' },
+        { icon: History, title: 'Lịch sử nhập hàng rau', description: 'Xem toàn bộ lịch sử đơn nhập hàng rau.', colorScheme: 'slate', path: '/hang-hoa/nhap-hang-rau/lich-su' },
         { icon: ClipboardList, title: 'Bảng Hàng Rau', description: 'Bảng xem chi tiết các mặt hàng rau nhập.', colorScheme: 'purple', path: '/hang-hoa/hang-rau' },
         { icon: DeliveryIcon, title: 'Giao hàng rau', description: 'Danh sách các đơn hàng rau cần giao.', colorScheme: 'orange', path: '/hang-hoa/giao-hang-rau' },
         { icon: Settings2, title: 'Cài đặt hàng rau', description: 'Quản lý từ điển hàng vựa rau.', colorScheme: 'slate', path: '/hang-hoa/cai-dat-rau' },

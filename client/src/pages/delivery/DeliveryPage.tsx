@@ -220,7 +220,7 @@ const DeliveryPage: React.FC = () => {
 
   const [selectedOrder, setSelectedOrder] = useState<DeliveryOrder | null>(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
-  const [assignMode, setAssignMode] = useState<'edit' | 'add-new'>('edit');
+  const [assignMode, setAssignMode] = useState<'edit' | 'add-new' | 'view'>('edit');
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isAssignClosing, setIsAssignClosing] = useState(false);
 
@@ -324,7 +324,7 @@ const DeliveryPage: React.FC = () => {
     }, 300);
   };
 
-  const openAssign = (order: DeliveryOrder, vehicleId?: string, mode?: 'edit' | 'add-new') => {
+  const openAssign = (order: DeliveryOrder, vehicleId?: string, mode?: 'edit' | 'add-new' | 'view') => {
     setSelectedOrder(order);
     setSelectedVehicleId(vehicleId || null);
     setAssignMode(mode || 'edit');
@@ -382,7 +382,7 @@ const DeliveryPage: React.FC = () => {
     }, 300);
   };
 
-  const handleOrderClick = async (order: DeliveryOrder, vehicleId?: string, mode?: 'edit' | 'add-new') => {
+  const handleOrderClick = async (order: DeliveryOrder, vehicleId?: string, mode?: 'edit' | 'add-new' | 'view') => {
     if (isDriver && !isLoader && myVehicleIds.length === 0) return;
 
     const clickedVehicleId = vehicleId || (myVehicleIds.length === 1 ? myPrimaryVehicleId : undefined);
@@ -1101,8 +1101,8 @@ const DeliveryPage: React.FC = () => {
                                 <td
                                   key={v.id}
                                   onClick={() => {
-                                    if (canEdit && statusFilter !== 'hang_o_sg' && (totalQty > 0 || remainingQty > 0)) {
-                                      handleOrderClick(o, v.id, 'edit');
+                                    if (canEdit && statusFilter !== 'hang_o_sg' && totalQty === 0 && remainingQty > 0) {
+                                      handleOrderClick(o, v.id, 'add-new');
                                     }
                                   }}
                                   className={clsx(
@@ -1110,7 +1110,7 @@ const DeliveryPage: React.FC = () => {
                                     totalQty > 0 && (isTodayDelivery ? "font-bold" : "font-bold"),
                                     textColorClass,
                                     bgColorClass,
-                                    canEdit && statusFilter !== 'hang_o_sg' && (totalQty > 0 || remainingQty > 0) && "cursor-pointer hover:bg-primary/5 active:scale-95"
+                                    canEdit && statusFilter !== 'hang_o_sg' && totalQty === 0 && remainingQty > 0 && "cursor-pointer hover:bg-primary/5 active:scale-95"
                                   )}
                                 >
                                   {dvs.length > 0 ? (
@@ -1120,7 +1120,15 @@ const DeliveryPage: React.FC = () => {
                                           <React.Fragment key={dvItem.id || idx}>
                                             {idx > 0 && <span className="text-[10px] text-muted-foreground/50">+</span>}
                                             <VehicleCellTooltip dv={dvItem} vehicle={v} qty={dvItem.assigned_quantity || 0} isPaid={isPaid}>
-                                              <span className={clsx("cursor-help underline decoration-dotted underline-offset-2", isTodayDelivery ? "hover:text-blue-700 decoration-blue-500/30" : "hover:text-gray-900 decoration-black/30")}>
+                                              <span
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  if (canEdit && statusFilter !== 'hang_o_sg') {
+                                                    handleOrderClick(o, v.id, 'view');
+                                                  }
+                                                }}
+                                                className={clsx("cursor-pointer underline decoration-dotted underline-offset-2", isTodayDelivery ? "hover:text-blue-700 decoration-blue-500/30" : "hover:text-gray-900 decoration-black/30")}
+                                              >
                                                 {formatNumber(dvItem.assigned_quantity)}
                                               </span>
                                             </VehicleCellTooltip>

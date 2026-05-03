@@ -100,14 +100,14 @@ const RevenueReportPage: React.FC = () => {
 
   const customerOptions = useMemo<SelectOption[]>(() => {
     const list = new Set<string>();
-    if (exportOrders) {
-      exportOrders.forEach(o => {
+    if (exportOrders?.data) {
+      exportOrders.data.forEach((o: any) => {
         const name = getSafeName(o.customers, 'Khách lẻ');
         if (name && name !== 'N/A') list.add(name);
       });
     }
-    if (importOrders) {
-      importOrders.forEach(o => {
+    if (importOrders?.data) {
+      importOrders.data.forEach((o: any) => {
         const name = getSafeName(o.customers, o.sender_name || 'N/A');
         if (name && name !== 'N/A') list.add(name);
       });
@@ -117,13 +117,13 @@ const RevenueReportPage: React.FC = () => {
 
   const vehicleOptions = useMemo<SelectOption[]>(() => {
     const list = new Set<string>();
-    if (exportOrders) {
-      exportOrders.forEach(o => {
+    if (exportOrders?.data) {
+      exportOrders.data.forEach((o: any) => {
         if ((o as any).license_plate) list.add((o as any).license_plate);
       });
     }
-    if (importOrders) {
-      importOrders.forEach(o => {
+    if (importOrders?.data) {
+      importOrders.data.forEach((o: any) => {
         if (o.license_plate) list.add(o.license_plate);
       });
     }
@@ -189,8 +189,8 @@ const RevenueReportPage: React.FC = () => {
     return true;
   };
 
-  const filteredExport = useMemo(() => exportOrders?.filter(o => filterOrder(o, 'export')) || [], [exportOrders, dateRange, searchQuery, selectedCustomers, selectedVehicles, revenueRange, debtRange]);
-  const filteredImport = useMemo(() => importOrders?.filter(o => filterOrder(o, 'import')) || [], [importOrders, dateRange, searchQuery, selectedCustomers, selectedVehicles, revenueRange, debtRange]);
+  const filteredExport = useMemo(() => exportOrders?.data?.filter((o: any) => filterOrder(o, 'export')) || [], [exportOrders, dateRange, searchQuery, selectedCustomers, selectedVehicles, revenueRange, debtRange]);
+  const filteredImport = useMemo(() => importOrders?.data?.filter((o: any) => filterOrder(o, 'import')) || [], [importOrders, dateRange, searchQuery, selectedCustomers, selectedVehicles, revenueRange, debtRange]);
 
   const metrics = useMemo(() => {
     return filteredExport.reduce((acc: any, order: ExportOrder) => {

@@ -38,7 +38,16 @@ export class ImportOrderService {
     const isStandardOnly = filters.order_category === 'standard';
     const fetchBoth = !isVegOnly && !isStandardOnly;
 
-    const buildQuery = (tName: string, iName: string) => {
+    // Pagination params
+    const page = filters.page ? parseInt(filters.page, 10) : 1;
+    const pageSize = filters.pageSize ? parseInt(filters.pageSize, 10) : 20;
+    const offset = (page - 1) * pageSize;
+    const limit = pageSize;
+
+    // Search param
+    const search = filters.search ? String(filters.search).trim() : null;
+
+    const buildQuery = (tName: string, iName: string, forCount = false) => {
       // import_orders có 2 FK tới profiles (received_by, sg_cash_handover_confirmed_by) → bắt buộc chỉ rõ quan hệ
       const receivedByProfile =
         tName === 'import_orders'
@@ -52,9 +61,13 @@ export class ImportOrderService {
         tName === 'import_orders'
           ? 'customers:customers!import_orders_customer_id_fkey(id, name, phone, address, aliases)'
           : 'customers:customers!vegetable_orders_customer_id_fkey(id, name, phone, address, aliases)';
-      let q = supabaseService
-        .from(tName)
-        .select(`*, ${receivedByProfile}, warehouses(name), ${customerJoin}, ${senderCustomerJoin}, ${iName}(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))`);
+      
+      // Use count option for total count, otherwise select with joins
+      let q = forCount
+        ? supabaseService.from(tName).select('*', { count: 'exact', head: true })
+        : supabaseService
+            .from(tName)
+            .select(`*, ${receivedByProfile}, warehouses(name), ${customerJoin}, ${senderCustomerJoin}, ${iName}(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))`);
 
       q = q.is('deleted_at', null);
       
@@ -68,13 +81,69 @@ export class ImportOrderService {
         }
       }
       if (filters.supplier_name) q = q.ilike('supplier_name', `%${filters.supplier_name}%`);
-      if (filters.license_plate) q = q.ilike('license_plate', `%${filters.license_plate}%`);
+      if (filters.license_plate) {
+        const plates = filters.license_plate.split(',').map((p: string) => p.trim()).filter(Boolean);
+        if (plates.length === 1) {
+          q = q.ilike('license_plate', `%${plates[0]}%`);
+        } else if (plates.length > 1) {
+          const orClause = plates.map((p: string) => `license_plate.ilike.%${p}%`).join(',');
+          q = q.or(orClause);
+        }
+      }
+      if (filters.sender) {
+        const senders = filters.sender.split(',').map((s: string) => s.trim()).filter(Boolean);
+        if (senders.length === 1) {
+          q = q.ilike('sender_name', `%${senders[0]}%`);
+        } else if (senders.length > 1) {
+          const orClause = senders.map((s: string) => `sender_name.ilike.%${s}%`).join(',');
+          q = q.or(orClause);
+        }
+      }
+      if (filters.receiver) {
+        const receivers = filters.receiver.split(',').map((r: string) => r.trim()).filter(Boolean);
+        if (receivers.length === 1) {
+          q = q.ilike('receiver_name', `%${receivers[0]}%`);
+        } else if (receivers.length > 1) {
+          const orClause = receivers.map((r: string) => `receiver_name.ilike.%${r}%`).join(',');
+          q = q.or(orClause);
+        }
+      }
+      if (filters.customer_id) q = q.eq('customer_id', filters.customer_id);
+      
+      // Apply search filter using .or() for order_code, sender_name, receiver_name, selected_alias
+      if (search) {
+        const searchPattern = `%${search}%`;
+        q = q.or(`order_code.ilike.${searchPattern},sender_name.ilike.${searchPattern},receiver_name.ilike.${searchPattern},selected_alias.ilike.${searchPattern}`);
+      }
       
       // Fix missing newly created orders by sorting descending BEFORE Supabase limits the results (max-rows)
       q = q.order('created_at', { ascending: false });
       
+      // Apply pagination at database level
+      if (!forCount) {
+        q = q.range(offset, offset + limit - 1);
+      }
+      
       return q;
     };
+
+    // Get total counts for pagination metadata
+    let totalStandard = 0;
+    let totalVeg = 0;
+    
+    if (fetchBoth || isStandardOnly) {
+      const { count: standardCount, error: standardCountError } = await buildQuery('import_orders', 'import_order_items', true);
+      if (standardCountError) throw standardCountError;
+      totalStandard = standardCount || 0;
+    }
+    
+    if (fetchBoth || isVegOnly) {
+      const { count: vegCount, error: vegCountError } = await buildQuery('vegetable_orders', 'vegetable_order_items', true);
+      if (vegCountError) throw vegCountError;
+      totalVeg = vegCount || 0;
+    }
+    
+    const total = totalStandard + totalVeg;
 
     let allData: any[] = [];
     
@@ -119,7 +188,13 @@ export class ImportOrderService {
       }
     }
 
-    return mapped;
+    // Return paginated response with metadata
+    return {
+      data: mapped,
+      total,
+      page,
+      pageSize,
+    };
   }
 
   static async getById(id: string, actor?: UserPayload) {

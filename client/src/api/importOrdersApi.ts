@@ -1,9 +1,16 @@
 import axiosClient from './axiosClient';
 import type { ImportOrder, ImportOrderCreatePayload, ImportOrderFilters } from '../types';
 
+export interface PaginatedImportOrders {
+  data: ImportOrder[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export const importOrdersApi = {
-  getAll: async (filters?: ImportOrderFilters) => {
-    const { data } = await axiosClient.get<ImportOrder[]>('/import-orders', { params: filters });
+  getAll: async (filters?: ImportOrderFilters & { page?: number; pageSize?: number }) => {
+    const { data } = await axiosClient.get<PaginatedImportOrders>('/import-orders', { params: filters });
     return data;
   },
 

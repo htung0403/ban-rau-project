@@ -47,6 +47,13 @@ axiosClient.interceptors.response.use(
         window.location.href = '/login';
       }
     }
+    // Diagnostic: log all error responses
+    console.error('[axiosClient] Error response:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      url: error.config?.url,
+      method: error.config?.method,
+    });
     return Promise.reject(error);
   },
 );

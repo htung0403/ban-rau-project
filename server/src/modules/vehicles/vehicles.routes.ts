@@ -14,5 +14,6 @@ router.put('/:id', VehicleController.update);
 router.post('/:id/checkin', VehicleController.checkin);
 router.get('/:id/checkins', VehicleController.getCheckins);
 router.get('/:id/assignments', VehicleController.getAssignments);
+router.delete('/:id', VehicleController.delete);
 
 export default router;

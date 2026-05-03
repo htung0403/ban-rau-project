@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
 import PageHeader from '../../components/shared/PageHeader';
-import { useVehicles } from '../../hooks/queries/useVehicles';
+import { useVehicles, useDeleteVehicle } from '../../hooks/queries/useVehicles';
+import { useAuth } from '../../context/AuthContext';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import DraggableFAB from '../../components/shared/DraggableFAB';
-import { Plus, Truck } from 'lucide-react';
+import { Plus, Truck, Trash2 } from 'lucide-react';
 import AddEditVehicleDialog from './dialogs/AddEditVehicleDialog';
 import VehicleDetailsDialog from './dialogs/VehicleDetailsDialog';
+import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import type { Vehicle } from '../../types';
 
 const VehiclesPage: React.FC = () => {
   const { data: vehicles, isLoading, isError, refetch } = useVehicles();
+  const deleteVehicle = useDeleteVehicle();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isAddClosing, setIsAddClosing] = useState(false);
@@ -19,6 +24,9 @@ const VehiclesPage: React.FC = () => {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isDetailClosing, setIsDetailClosing] = useState(false);
+
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
 
   const openAddEdit = (vehicle?: Vehicle) => {
     setVehicleToEdit(vehicle || null);
@@ -53,6 +61,28 @@ const VehiclesPage: React.FC = () => {
       setIsDetailClosing(false);
       setSelectedVehicle(null);
     }, 350);
+  };
+
+  const handleDelete = (vehicle: Vehicle) => {
+    setVehicleToDelete(vehicle);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const closeDeleteConfirm = () => {
+    if (deleteVehicle.isPending) return;
+    setIsDeleteConfirmOpen(false);
+    setVehicleToDelete(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!vehicleToDelete?.id) return;
+    try {
+      await deleteVehicle.mutateAsync(vehicleToDelete.id);
+      setIsDeleteConfirmOpen(false);
+      setVehicleToDelete(null);
+    } catch {
+      // Error handled by mutation
+    }
   };
 
   const inferTonnage = (v: Vehicle): number => {
@@ -158,8 +188,22 @@ const VehiclesPage: React.FC = () => {
                         <div
                           key={v.id}
                           onClick={() => openDetail(v)}
-                          className="bg-white rounded-2xl border border-slate-200 shadow-[0_2px_4px_rgba(0,0,0,0.02)] p-4 hover:shadow-lg hover:border-primary/20 hover:-translate-y-1 transition-all duration-300 cursor-pointer group"
+                          className="bg-white rounded-2xl border border-slate-200 shadow-[0_2px_4px_rgba(0,0,0,0.02)] p-4 hover:shadow-lg hover:border-primary/20 hover:-translate-y-1 transition-all duration-300 cursor-pointer group relative"
                         >
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(v);
+                              }}
+                              disabled={deleteVehicle.isPending}
+                              className="absolute top-3 right-3 p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50 opacity-0 group-hover:opacity-100 z-10"
+                              title="Xóa xe"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                           <div className="flex items-center gap-3 mb-4">
                             <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 ${column.icon}`}>
                               <Truck size={22} />
@@ -215,6 +259,18 @@ const VehiclesPage: React.FC = () => {
         isClosing={isDetailClosing}
         onClose={closeDetail}
         onEdit={handleEditVehicle}
+      />
+
+      <ConfirmDialog
+        isOpen={isDeleteConfirmOpen}
+        title="Xóa xe"
+        message={`Bạn có chắc chắn muốn xóa xe "${vehicleToDelete?.license_plate}"?`}
+        confirmLabel="Xóa"
+        cancelLabel="Hủy"
+        variant="danger"
+        isLoading={deleteVehicle.isPending}
+        onConfirm={confirmDelete}
+        onCancel={closeDeleteConfirm}
       />
     </div>
   );

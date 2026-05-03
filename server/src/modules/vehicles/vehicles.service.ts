@@ -4,7 +4,8 @@ export class VehicleService {
   static async getAll() {
     const { data, error } = await supabaseService
       .from('vehicles')
-      .select('*, profiles:profiles!vehicles_driver_id_fkey(full_name), responsible_profile:profiles!vehicles_in_charge_id_fkey(full_name)');
+      .select('*, profiles:profiles!vehicles_driver_id_fkey(full_name), responsible_profile:profiles!vehicles_in_charge_id_fkey(full_name)')
+      .is('deleted_at', null);
     if (error) throw error;
     return data;
   }
@@ -64,5 +65,15 @@ export class VehicleService {
 
     if (error) throw error;
     return data;
+  }
+
+  static async softDelete(id: string) {
+    const { error } = await supabaseService
+      .from('vehicles')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+      .is('deleted_at', null);
+
+    if (error) throw error;
   }
 }

@@ -17,6 +17,11 @@ export const vehiclesApi = {
     return data;
   },
 
+  delete: async (id: string) => {
+    const { data } = await axiosClient.delete(`/vehicles/${id}`);
+    return data;
+  },
+
   checkin: async (id: string, payload: { checkin_type: 'in' | 'out'; latitude?: number; longitude?: number; address_snapshot?: string }) => {
     const { data } = await axiosClient.post<VehicleCheckin>(`/vehicles/${id}/checkin`, payload);
     return data;

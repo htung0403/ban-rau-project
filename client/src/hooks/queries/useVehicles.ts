@@ -50,6 +50,18 @@ export function useUpdateVehicle() {
   });
 }
 
+export function useDeleteVehicle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => vehiclesApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.all });
+      toast.success('Đã xóa xe');
+    },
+    onError: () => toast.error('Lỗi khi xóa xe'),
+  });
+}
+
 export function useCheckin() {
   const queryClient = useQueryClient();
   return useMutation({

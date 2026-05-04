@@ -305,8 +305,16 @@ const VegetablesPage: React.FC = () => {
         return String(a.id).localeCompare(String(b.id));
       });
 
-      sorted.forEach((order, index) => {
-        rankMap.set(order.id, index + 1);
+      const driverRankMap = new Map<string, number>();
+      let nextRank = 1;
+
+      sorted.forEach((order) => {
+        const driverId = order.received_by || order.driver_name || 'unknown';
+        if (!driverRankMap.has(driverId)) {
+          driverRankMap.set(driverId, nextRank);
+          nextRank += 1;
+        }
+        rankMap.set(order.id, driverRankMap.get(driverId)!);
       });
     });
 

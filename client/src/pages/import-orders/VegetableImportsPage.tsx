@@ -95,15 +95,13 @@ const isDriverRole = (role?: string | null) => {
 };
 
 const defaultColumns: ColumnOption[] = [
-  { id: 'order_date', label: 'Ngày', isVisible: true },
-  { id: 'order_time', label: 'Giờ', isVisible: true },
-  { id: 'receiver', label: 'Người nhận', isVisible: true },
-  { id: 'nguoi_gui', label: 'Người gửi', isVisible: true },
-  { id: 'sender', label: 'Chủ hàng', isVisible: true },
+  { id: 'order_datetime', label: 'Ngày giờ', isVisible: true },
+  { id: 'driver_received', label: 'Tài xế nhận', isVisible: true },
   { id: 'tai_rank', label: 'Tài', isVisible: true },
-  { id: 'vehicle', label: 'Biển số xe', isVisible: true },
-  { id: 'driver', label: 'Tài xế', isVisible: true },
-  { id: 'total_amount', label: 'Tổng tiền', isVisible: true },
+  { id: 'nguoi_gui', label: 'Người gửi', isVisible: true },
+  { id: 'quantity', label: 'Số lượng', isVisible: true },
+  { id: 'item_names', label: 'Tên hàng', isVisible: true },
+  { id: 'total_amount', label: 'Thành tiền', isVisible: true },
   { id: 'status', label: 'Trạng thái', isVisible: true },
   { id: 'actions', label: 'Thao tác', isVisible: true },
 ];
@@ -215,8 +213,16 @@ const VegetableImportsPage: React.FC = () => {
         return a.id.localeCompare(b.id);
       });
 
-      sorted.forEach((order, index) => {
-        rankMap.set(order.id, index + 1);
+      const driverRankMap = new Map<string, number>();
+      let nextRank = 1;
+
+      sorted.forEach((order) => {
+        const driverId = order.received_by || order.driver_name || getOrderDriverName(order) || 'unknown';
+        if (!driverRankMap.has(driverId)) {
+          driverRankMap.set(driverId, nextRank);
+          nextRank += 1;
+        }
+        rankMap.set(order.id, driverRankMap.get(driverId)!);
       });
     });
 
@@ -489,15 +495,13 @@ const VegetableImportsPage: React.FC = () => {
                   <tr className="bg-muted/30 border-b border-border">
                     {columns.filter(c => c.isVisible).map((col) => {
                       switch (col.id) {
-                        case 'order_date': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-28">Ngày</th>;
-                        case 'order_time': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-20">Giờ</th>;
-                        case 'nguoi_gui': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left min-w-[100px]">Người gửi</th>;
-                        case 'sender': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left min-w-[100px]">Chủ hàng</th>;
+                        case 'order_datetime': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-36">Ngày giờ</th>;
+                        case 'driver_received': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-36">Tài xế nhận</th>;
                         case 'tai_rank': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-16">Tài</th>;
-                        case 'vehicle': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-36">Biển số xe</th>;
-                        case 'driver': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left w-36">Tài xế</th>;
-                        case 'total_amount': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-36">Tổng tiền</th>;
-                        case 'receiver': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Người nhận</th>;
+                        case 'nguoi_gui': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left min-w-[120px]">Người gửi</th>;
+                        case 'quantity': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-24">Số lượng</th>;
+                        case 'item_names': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left min-w-[150px]">Tên hàng</th>;
+                        case 'total_amount': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right w-36">Thành tiền</th>;
                         case 'status': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-28">Trạng thái</th>;
                         case 'actions': return <th key={col.id} className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-24">Thao tác</th>;
                         default: return null;
@@ -528,24 +532,17 @@ const VegetableImportsPage: React.FC = () => {
                             >
                               {columns.filter(c => c.isVisible).map((col) => {
                                 switch (col.id) {
-                                  case 'order_date': return (
+                                  case 'order_datetime': return (
                                     <td key={col.id} className="px-4 py-3">
-                                      <span className="text-[12px] text-muted-foreground font-medium tabular-nums">{order.order_date}</span>
+                                      <div className="flex flex-col">
+                                        <span className="text-[12px] text-foreground font-bold tabular-nums">{formatDateDMY(order.order_date)}</span>
+                                        <span className="text-[11px] text-muted-foreground tabular-nums">{order.order_time || '-'}</span>
+                                      </div>
                                     </td>
                                   );
-                                  case 'order_time': return (
+                                  case 'driver_received': return (
                                     <td key={col.id} className="px-4 py-3">
-                                      <span className="text-[12px] text-muted-foreground font-medium tabular-nums">{order.order_time || '-'}</span>
-                                    </td>
-                                  );
-                                  case 'nguoi_gui': return (
-                                    <td key={col.id} className="px-4 py-3">
-                                      <span className="text-[13px] font-medium text-foreground">{order.sender_name || '-'}</span>
-                                    </td>
-                                  );
-                                  case 'sender': return (
-                                    <td key={col.id} className="px-4 py-3">
-                                      <span className="text-[13px] font-bold text-foreground">{getSupplierName(order)}</span>
+                                      <span className="text-[12px] font-medium text-foreground">{getOrderDriverName(order) || '-'}</span>
                                     </td>
                                   );
                                   case 'tai_rank': return (
@@ -555,34 +552,30 @@ const VegetableImportsPage: React.FC = () => {
                                       </span>
                                     </td>
                                   );
-                                  case 'vehicle': {
-                                    const taiStr = getOrderVehicles(order);
+                                  case 'nguoi_gui': return (
+                                    <td key={col.id} className="px-4 py-3">
+                                      <span className="text-[13px] font-medium text-foreground">{order.sender_name || '-'}</span>
+                                    </td>
+                                  );
+                                  case 'quantity': {
+                                    const totalQty = order.import_order_items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
                                     return (
-                                      <td key={col.id} className="px-4 py-3">
-                                        <span className="text-[12px] font-bold text-amber-700 tabular-nums">
-                                          {taiStr || '-'}
-                                        </span>
+                                      <td key={col.id} className="px-4 py-3 text-center font-bold text-blue-600 text-[13px]">
+                                        {totalQty}
                                       </td>
                                     );
                                   }
-                                  case 'driver': {
-                                    const driverName = getOrderDriverName(order);
+                                  case 'item_names': {
+                                    const items = order.import_order_items?.map(item => item.products?.name).filter(Boolean).join(', ') || '-';
                                     return (
                                       <td key={col.id} className="px-4 py-3">
-                                        <span className="text-[12px] font-medium text-foreground">
-                                          {driverName || '-'}
-                                        </span>
+                                        <span className="text-[12px] text-foreground line-clamp-2">{items}</span>
                                       </td>
                                     );
                                   }
                                   case 'total_amount': return (
                                     <td key={col.id} className="px-4 py-3 text-right text-[13px] font-black text-primary tabular-nums">
                                       {formatCurrency(order.total_amount)}
-                                    </td>
-                                  );
-                                  case 'receiver': return (
-                                    <td key={col.id} className="px-4 py-3">
-                                      <span className="text-[13px] font-medium text-foreground">{getOrderReceiverName(order)}</span>
                                     </td>
                                   );
                                   case 'status': return (

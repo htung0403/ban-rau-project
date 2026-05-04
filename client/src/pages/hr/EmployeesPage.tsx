@@ -6,7 +6,7 @@ import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import DraggableFAB from '../../components/shared/DraggableFAB';
-import { Users, Plus, X, UserPlus, Mail, Lock, Phone, ShieldCheck, ChevronRight, Loader2, Trash2, AlertTriangle, UserCog, Pencil, PhoneCall, MessageCircle, Car } from 'lucide-react';
+import { Users, Plus, X, UserPlus, Mail, Lock, Phone, ShieldCheck, ChevronRight, Loader2, Trash2, AlertTriangle, UserCog, Pencil, PhoneCall, MessageCircle, Car, Search, Filter } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
@@ -15,6 +15,7 @@ import { useAppRoles, useAssignUserRoles, useUserRoles } from '../../hooks/queri
 import { useRoleSalaries } from '../../hooks/queries/usePriceSettings';
 import { useAuth } from '../../context/AuthContext';
 import { useVehicles } from '../../hooks/queries/useVehicles';
+import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 
 import { removeAccents } from '../../lib/str-utils';
 
@@ -29,8 +30,6 @@ const normalizeText = (value?: string | null) =>
   removeAccents(value || '')
     .toLowerCase()
     .replace(/_/g, ' ')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
     .trim();
 
 const DRIVER_HEAVY_ROLE_KEYS = ['tai_xe_xe_tai_lon', 'tai_xe_tai_lon'];
@@ -208,11 +207,41 @@ const EmployeesPage: React.FC = () => {
     });
   }, [employees, roleNameByKey]);
 
-  const groupedEmployees = useMemo(() => {
-    const groups: Array<{ roleLabel: string; items: typeof sortedEmployees }> = [];
-    if (!sortedEmployees?.length) return groups;
+  const [isAdding, setIsAdding] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterRole, setFilterRole] = useState<string>('');
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [isFilterSheetClosing, setIsFilterSheetClosing] = useState(false);
 
-    sortedEmployees.forEach((employee) => {
+  /** Lọc danh sách nhân sự theo từ khóa tìm kiếm. */
+  const filteredEmployees = useMemo(() => {
+    let result = sortedEmployees || [];
+
+    // Lọc theo role nếu có chọn
+    if (filterRole) {
+      result = result.filter(e => e.role === filterRole);
+    }
+
+    if (!searchQuery.trim()) return result;
+    const q = normalizeText(searchQuery);
+    return result.filter((e) => {
+      const nameMatch = normalizeText(e.full_name).includes(q);
+      const phoneDigits = (e.phone || '').replace(/\D/g, '');
+      const queryDigits = searchQuery.replace(/\D/g, '');
+      const phoneMatch = queryDigits ? phoneDigits.includes(queryDigits) : false;
+      const roleDisplayName = roleNameByKey[e.role] || e.role;
+      const roleMatch = normalizeText(roleDisplayName).includes(q);
+      return nameMatch || phoneMatch || roleMatch;
+    });
+  }, [sortedEmployees, searchQuery, roleNameByKey, filterRole]);
+
+  /** Nhóm nhân sự đã qua lọc theo vai trò. */
+  const groupedEmployees = useMemo(() => {
+    const groups: Array<{ roleLabel: string; items: typeof filteredEmployees }> = [];
+    if (!filteredEmployees?.length) return groups;
+
+    filteredEmployees.forEach((employee) => {
       const roleLabel = (roleNameByKey[employee.role] || employee.role).toUpperCase();
       const lastGroup = groups[groups.length - 1];
       if (!lastGroup || lastGroup.roleLabel !== roleLabel) {
@@ -223,10 +252,7 @@ const EmployeesPage: React.FC = () => {
     });
 
     return groups;
-  }, [sortedEmployees, roleNameByKey]);
-
-  const [isAdding, setIsAdding] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
+  }, [filteredEmployees, roleNameByKey]);
   const [formData, setFormData] = useState({
     password: '',
     full_name: '',
@@ -357,13 +383,67 @@ const EmployeesPage: React.FC = () => {
         />
       </div>
       <DraggableFAB icon={<Plus size={24} />} onClick={handleOpenAdd} />
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0 flex flex-col gap-3">
+        {/* Filters */}
+        <div className="flex items-center gap-2">
+          {/* Search bar */}
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm theo tên, SĐT..."
+              className="w-full pl-10 pr-10 py-2.5 bg-card border border-border rounded-xl text-[13px] font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all placeholder:text-muted-foreground/40 shadow-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground transition-colors"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          
+          {/* Desktop Filter */}
+          <div className="hidden md:block w-56 shrink-0">
+            <SearchableSelect
+              options={salaryLevelOptions}
+              value={filterRole}
+              onValueChange={setFilterRole}
+              placeholder="Tất cả chức vụ"
+              searchPlaceholder="Tìm chức vụ..."
+            />
+          </div>
+
+          {/* Mobile Filter Button */}
+          <button
+            onClick={() => setIsFilterSheetOpen(true)}
+            className="flex md:hidden items-center justify-center w-11 h-11 rounded-xl border border-border bg-card text-muted-foreground hover:bg-muted transition-colors relative"
+          >
+            <Filter size={18} />
+            {filterRole && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full border-2 border-background" />
+            )}
+          </button>
+        </div>
         {isLoading ? (
           <div className="bg-card rounded-2xl border border-border shadow-sm p-4 flex-1"><LoadingSkeleton rows={6} columns={4} /></div>
         ) : isError ? (
           <div className="bg-card rounded-2xl border border-border shadow-sm flex-1"><ErrorState onRetry={() => refetch()} /></div>
         ) : !employees?.length ? (
           <div className="bg-card rounded-2xl border border-border shadow-sm flex-1"><EmptyState title="Chưa có nhân viên" /></div>
+        ) : groupedEmployees.length === 0 ? (
+          <div className="bg-card rounded-2xl border border-border shadow-sm flex-1 flex flex-col items-center justify-center gap-3 py-16">
+            <div className="w-12 h-12 rounded-full bg-muted/30 flex items-center justify-center">
+              <Search size={22} className="text-muted-foreground/40" />
+            </div>
+            <p className="text-[13px] font-medium text-muted-foreground">Không tìm thấy nhân sự phù hợp</p>
+            <button onClick={() => { setSearchQuery(''); setFilterRole(''); }} className="text-[12px] font-bold text-primary hover:underline">
+              Xóa bộ lọc
+            </button>
+          </div>
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar pb-6 px-1">
             <div className="flex flex-col gap-3">
@@ -784,6 +864,26 @@ const EmployeesPage: React.FC = () => {
         </div>,
         document.body
       )}
+      <MobileFilterSheet
+        isOpen={isFilterSheetOpen}
+        isClosing={isFilterSheetClosing}
+        onClose={() => {
+          setIsFilterSheetClosing(true);
+          setTimeout(() => {
+            setIsFilterSheetOpen(false);
+            setIsFilterSheetClosing(false);
+          }, 300);
+        }}
+        onApply={({ status }) => setFilterRole(status)}
+        initialDateFrom=""
+        initialDateTo=""
+        initialStatus={filterRole}
+        statusOptions={salaryLevelOptions}
+        statusLabel="Chức vụ"
+        hideDateFilter
+        onClear={() => setFilterRole('')}
+        showClearButton={!!filterRole}
+      />
     </div>
   );
 };

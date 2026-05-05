@@ -148,13 +148,13 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
 
   const { data: vehicles } = useVehicles();
   const { data: apiResponse, isLoading, isError, refetch } = useImportOrders(filters);
+  const allOrders = useMemo(() => apiResponse?.data || [], [apiResponse?.data]);
   const orders = useMemo(() => {
-    const raw = apiResponse?.data || [];
-    if (!user || hasFullGoodsModuleAccess(user)) return raw;
-    return raw.filter((o) =>
+    if (!user || hasFullGoodsModuleAccess(user)) return allOrders;
+    return allOrders.filter((o) =>
       importOrderVisibleToUser(o, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])
     );
-  }, [apiResponse?.data, user, vehicles]);
+  }, [allOrders, user, vehicles]);
   const deleteMutation = useDeleteImportOrder();
 
   const { vuaOptions, taiOptions, nguoiNhapOptions } = useMemo(() => {
@@ -190,7 +190,7 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
     const rankMap = new Map<string, number>();
     const ordersBySupplierDate = new Map<string, ImportOrder[]>();
 
-    orders.forEach((order) => {
+    allOrders.forEach((order) => {
       const supplierName = getSupplierName(order);
       const orderDate = order.order_date || '';
       const key = `${supplierName}||${orderDate}`;
@@ -221,7 +221,7 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
     });
 
     return rankMap;
-  }, [orders]);
+  }, [allOrders]);
 
   const groupedByDateThenCustomer = useMemo(() => {
     const byDate = new Map<string, ImportOrder[]>();

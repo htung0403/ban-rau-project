@@ -184,13 +184,13 @@ const VegetablesPage: React.FC = () => {
   const { user } = useAuth();
   const { data: vehicles } = useVehicles();
   const { data: ordersRaw, isLoading, isError, refetch } = useImportOrders(filters);
+  const allOrders = useMemo(() => ordersRaw?.data || [], [ordersRaw]);
   const orders = useMemo(() => {
-    const raw = ordersRaw?.data || [];
-    if (!user || hasFullGoodsModuleAccess(user)) return raw;
-    return raw.filter((o) =>
+    if (!user || hasFullGoodsModuleAccess(user)) return allOrders;
+    return allOrders.filter((o) =>
       importOrderVisibleToUser(o, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])
     );
-  }, [ordersRaw, user, vehicles]);
+  }, [allOrders, user, vehicles]);
 
   // Flatten items for table display
   const flattenedItems = useMemo(() => {
@@ -213,6 +213,23 @@ const VegetablesPage: React.FC = () => {
     // Sort logic could go here
     return items;
   }, [orders]);
+
+  const allFlattenedItems = useMemo(() => {
+    if (!allOrders) return [];
+    const items: any[] = [];
+    allOrders.forEach(order => {
+      if (isSoftDeletedOrderRecord(order)) return;
+      if (order.import_order_items && order.import_order_items.length > 0) {
+        order.import_order_items.forEach(item => {
+          items.push({
+            ...item,
+            order: order,
+          });
+        });
+      }
+    });
+    return items;
+  }, [allOrders]);
 
   const { vuaOptions, taiOptions, nguoiNhapOptions } = useMemo(() => {
     if (!flattenedItems) return { vuaOptions: [], taiOptions: [], nguoiNhapOptions: [] };
@@ -286,7 +303,7 @@ const VegetablesPage: React.FC = () => {
     const rankMap = new Map<string, number>();
     const ordersBySupplier = new Map<string, any[]>();
 
-    filteredItems.forEach((item) => {
+    allFlattenedItems.forEach((item) => {
       const order = item.order;
       if (!order?.id) return;
       const supplierName = order.sender_name || order.customers?.name || 'Chưa rõ chủ vựa';
@@ -319,7 +336,7 @@ const VegetablesPage: React.FC = () => {
     });
 
     return rankMap;
-  }, [filteredItems]);
+  }, [allFlattenedItems]);
 
   const groupedPaginatedItems = useMemo(() => {
     const grouped = new Map<string, any[]>();

@@ -158,13 +158,13 @@ const PrintVegetableOrdersPage: React.FC = () => {
       }
     });
 
-    // Sort by supplierName, then taiRank, then senderName
+    // Sort by senderName, then supplierName, then taiRank
     items.sort((a, b) => {
+      const cmpS = a.senderName.localeCompare(b.senderName, 'vi');
+      if (cmpS !== 0) return cmpS;
       const cmp = a.supplierName.localeCompare(b.supplierName, 'vi');
       if (cmp !== 0) return cmp;
       if (a.taiRank !== b.taiRank) return a.taiRank - b.taiRank;
-      const cmpS = a.senderName.localeCompare(b.senderName, 'vi');
-      if (cmpS !== 0) return cmpS;
       return a.productName.localeCompare(b.productName, 'vi');
     });
 
@@ -247,7 +247,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
           }
 
           .print-table {
-            font-size: 11px !important;
+            font-size: 14px !important;
           }
           .print-table th,
           .print-table td {
@@ -429,14 +429,14 @@ const PrintVegetableOrdersPage: React.FC = () => {
                 >
                   <thead>
                     <tr style={{ borderBottom: '2px solid #000' }}>
-                      <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 700, border: '1px solid #000' }}>Tên Vựa</th>
-                      <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700, width: 40, border: '1px solid #000' }}>Tải</th>
-                      <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 700, border: '1px solid #000' }}>Người Gửi</th>
-                      <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700, width: 45, border: '1px solid #000' }}>SL</th>
-                      <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 700, border: '1px solid #000' }}>Tên Hàng</th>
-                      <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700, width: 60, border: '1px solid #000' }}>Tiền(K)</th>
-                      <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700, width: 100, border: '1px solid #000' }}>Thành Tiền</th>
-                      <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700, width: 100, border: '1px solid #000' }}>Tổng Vựa</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 700, border: '1px solid #000', fontSize: 14 }}>Người Gửi</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 700, border: '1px solid #000', fontSize: 14 }}>Tên Vựa</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700, width: 40, border: '1px solid #000', fontSize: 14 }}>Tải</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700, width: 45, border: '1px solid #000', fontSize: 14 }}>SL</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 700, border: '1px solid #000', fontSize: 14 }}>Tên Hàng</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700, width: 60, border: '1px solid #000', fontSize: 14 }}>Tiền(K)</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700, width: 100, border: '1px solid #000', fontSize: 14 }}>Thành Tiền</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700, width: 100, border: '1px solid #000', fontSize: 14 }}>Tổng Vựa</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -444,14 +444,12 @@ const PrintVegetableOrdersPage: React.FC = () => {
                       const groups: FlatItem[][] = [];
                       let currentGroup: FlatItem[] = [];
                       let currentSupplier = '';
-                      let currentTai = -1;
                       let currentSender = '';
                       sheetItems.forEach((item) => {
-                        if (item.supplierName !== currentSupplier || item.taiRank !== currentTai || item.senderName !== currentSender) {
+                        if (item.supplierName !== currentSupplier || item.senderName !== currentSender) {
                           if (currentGroup.length > 0) groups.push(currentGroup);
                           currentGroup = [];
                           currentSupplier = item.supplierName;
-                          currentTai = item.taiRank;
                           currentSender = item.senderName;
                         }
                         currentGroup.push(item);
@@ -485,17 +483,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
                                     borderTop: groupBorderTop,
                                     borderBottom: rowBorderBottom,
                                   }}>
-                                    {isFirstInGroup ? item.supplierName : ''}
-                                  </td>
-                                  <td style={{
-                                    padding: '4px 6px',
-                                    textAlign: 'center',
-                                    fontSize: 14,
-                                    borderRight: '1px solid #000',
-                                    borderTop: groupBorderTop,
-                                    borderBottom: rowBorderBottom,
-                                  }}>
-                                    {isFirstInGroup ? item.taiRank : ''}
+                                    {item.senderName}
                                   </td>
                                   <td style={{
                                     padding: '4px 6px',
@@ -505,7 +493,17 @@ const PrintVegetableOrdersPage: React.FC = () => {
                                     borderTop: groupBorderTop,
                                     borderBottom: rowBorderBottom,
                                   }}>
-                                    {isFirstInGroup ? item.senderName : ''}
+                                    {item.supplierName}
+                                  </td>
+                                  <td style={{
+                                    padding: '4px 6px',
+                                    textAlign: 'center',
+                                    fontSize: 14,
+                                    borderRight: '1px solid #000',
+                                    borderTop: groupBorderTop,
+                                    borderBottom: rowBorderBottom,
+                                  }}>
+                                    {item.taiRank}
                                   </td>
                                   <td style={{
                                     padding: '4px 6px',
@@ -583,7 +581,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
                     {printMode === 'amount' && (
                       <>
                         <tr style={{ borderTop: '2px solid #000' }}>
-                          <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 13, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
+                          <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 14, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
                             Cộng Tiền Hàng
                           </td>
                           <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
@@ -591,7 +589,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
                           </td>
                         </tr>
                         <tr>
-                          <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 13, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
+                          <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 14, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
                             Thuế VAT (8%)
                           </td>
                           <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
@@ -601,7 +599,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
                       </>
                     )}
                     <tr style={{ borderTop: printMode === 'amount' ? '1px solid #ccc' : '2px solid #000' }}>
-                      <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 13, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>
+                      <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 14, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>
                         Tổng Cộng
                       </td>
                       <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>

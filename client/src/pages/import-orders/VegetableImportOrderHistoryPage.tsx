@@ -148,13 +148,13 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
 
   const { data: vehicles } = useVehicles();
   const { data: apiResponse, isLoading, isError, refetch } = useImportOrders(filters);
-  const allOrders = useMemo(() => apiResponse?.data || [], [apiResponse?.data]);
   const orders = useMemo(() => {
-    if (!user || hasFullGoodsModuleAccess(user)) return allOrders;
-    return allOrders.filter((o) =>
+    const raw = apiResponse?.data || [];
+    if (!user || hasFullGoodsModuleAccess(user)) return raw;
+    return raw.filter((o) =>
       importOrderVisibleToUser(o, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])
     );
-  }, [allOrders, user, vehicles]);
+  }, [apiResponse?.data, user, vehicles]);
   const deleteMutation = useDeleteImportOrder();
 
   const { vuaOptions, taiOptions, nguoiNhapOptions } = useMemo(() => {
@@ -186,43 +186,6 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
   const totalItems = apiResponse?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
-  const taiRankByOrderId = useMemo(() => {
-    const rankMap = new Map<string, number>();
-    const ordersBySupplierDate = new Map<string, ImportOrder[]>();
-
-    allOrders.forEach((order) => {
-      const supplierName = getSupplierName(order);
-      const orderDate = order.order_date || '';
-      const key = `${supplierName}||${orderDate}`;
-      const current = ordersBySupplierDate.get(key) || [];
-      current.push(order);
-      ordersBySupplierDate.set(key, current);
-    });
-
-    ordersBySupplierDate.forEach((supplierOrders) => {
-      const sorted = [...supplierOrders].sort((a, b) => {
-        const timeA = new Date(a.created_at || 0).getTime();
-        const timeB = new Date(b.created_at || 0).getTime();
-        if (timeA !== timeB) return timeA - timeB;
-        return a.id.localeCompare(b.id);
-      });
-
-      const driverRankMap = new Map<string, number>();
-      let nextRank = 1;
-
-      sorted.forEach((order) => {
-        const driverId = order.received_by || order.driver_name || 'unknown';
-        if (!driverRankMap.has(driverId)) {
-          driverRankMap.set(driverId, nextRank);
-          nextRank += 1;
-        }
-        rankMap.set(order.id, driverRankMap.get(driverId)!);
-      });
-    });
-
-    return rankMap;
-  }, [allOrders]);
-
   const groupedByDateThenCustomer = useMemo(() => {
     const byDate = new Map<string, ImportOrder[]>();
     orders.forEach((order) => {
@@ -248,8 +211,8 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
       const customerGroups: [string, ImportOrder[]][] = [];
       byCustomer.forEach((customerOrders, customerName) => {
         const sorted = [...customerOrders].sort((a, b) => {
-          const rankA = taiRankByOrderId.get(a.id) || 1;
-          const rankB = taiRankByOrderId.get(b.id) || 1;
+          const rankA = a.tai_rank || 1;
+          const rankB = b.tai_rank || 1;
           if (rankA !== rankB) return rankA - rankB;
           const timeA = new Date(a.created_at || 0).getTime();
           const timeB = new Date(b.created_at || 0).getTime();
@@ -263,7 +226,7 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
     });
 
     return result;
-  }, [orders, taiRankByOrderId]);
+  }, [orders]);
 
   const openAddDialog = () => {
     setEditingOrder(null);
@@ -542,7 +505,7 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
                                   case 'tai_rank': return (
                                     <td key={col.id} className="px-4 py-3 text-center">
                                       <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/10 text-amber-700 text-[12px] font-black">
-                                        {taiRankByOrderId.get(order.id) || 1}
+                                        {order.tai_rank || 1}
                                       </span>
                                     </td>
                                   );
@@ -623,7 +586,7 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
 
                       {ordersInSupplier.map((order) => {
                         const orderImage = order.receipt_image_url || order.import_order_items?.[0]?.image_url;
-                        const taiRank = taiRankByOrderId.get(order.id) || 1;
+                        const taiRank = order.tai_rank || 1;
                         
                         const totalQuantity = order.import_order_items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
                         const itemNames = order.import_order_items?.map(item => item.products?.name).filter(Boolean).join(', ') || '';

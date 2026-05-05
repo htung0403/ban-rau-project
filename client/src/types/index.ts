@@ -208,6 +208,7 @@ export interface ImportOrder {
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
+  tai_rank?: number;
   selected_alias?: string;
   // Invoice export tracking
   invoice_exported?: boolean;

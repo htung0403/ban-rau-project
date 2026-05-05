@@ -84,15 +84,15 @@ const getItemTotalAmount = (item: any) => {
   return null;
 };
 
-const COL_DEF: Record<string, { thClass: string, tdClass: string, render: (item: any, taiRankByOrderId: Map<string, number>) => React.ReactNode }> = {
+const COL_DEF: Record<string, { thClass: string, tdClass: string, render: (item: any) => React.ReactNode }> = {
   nguoi_nhan: { thClass: 'text-left', tdClass: '', render: (item: any) => <div className="font-bold text-[13px] text-foreground">{getReceiverName(item)}</div> },
   chu_hang: { thClass: 'text-left', tdClass: '', render: (item: any) => <div className="font-bold text-[13px] text-foreground">{item.order?.sender_name || item.order?.customers?.name || '-'}</div> },
   tai: {
     thClass: 'text-center w-20',
     tdClass: 'text-center',
-    render: (item: any, taiRankByOrderId: Map<string, number>) => (
+    render: (item: any) => (
       <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-50 text-amber-700 text-[12px] font-black">
-        {taiRankByOrderId.get(item.order?.id) || 1}
+        {item.order?.tai_rank || 1}
       </span>
     ),
   },
@@ -184,13 +184,13 @@ const VegetablesPage: React.FC = () => {
   const { user } = useAuth();
   const { data: vehicles } = useVehicles();
   const { data: ordersRaw, isLoading, isError, refetch } = useImportOrders(filters);
-  const allOrders = useMemo(() => ordersRaw?.data || [], [ordersRaw]);
   const orders = useMemo(() => {
-    if (!user || hasFullGoodsModuleAccess(user)) return allOrders;
-    return allOrders.filter((o) =>
+    const raw = ordersRaw?.data || [];
+    if (!user || hasFullGoodsModuleAccess(user)) return raw;
+    return raw.filter((o) =>
       importOrderVisibleToUser(o, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])
     );
-  }, [allOrders, user, vehicles]);
+  }, [ordersRaw, user, vehicles]);
 
   // Flatten items for table display
   const flattenedItems = useMemo(() => {
@@ -213,23 +213,6 @@ const VegetablesPage: React.FC = () => {
     // Sort logic could go here
     return items;
   }, [orders]);
-
-  const allFlattenedItems = useMemo(() => {
-    if (!allOrders) return [];
-    const items: any[] = [];
-    allOrders.forEach(order => {
-      if (isSoftDeletedOrderRecord(order)) return;
-      if (order.import_order_items && order.import_order_items.length > 0) {
-        order.import_order_items.forEach(item => {
-          items.push({
-            ...item,
-            order: order,
-          });
-        });
-      }
-    });
-    return items;
-  }, [allOrders]);
 
   const { vuaOptions, taiOptions, nguoiNhapOptions } = useMemo(() => {
     if (!flattenedItems) return { vuaOptions: [], taiOptions: [], nguoiNhapOptions: [] };
@@ -299,45 +282,6 @@ const VegetablesPage: React.FC = () => {
     }
   }, [page, totalPages]);
 
-  const taiRankByOrderId = useMemo(() => {
-    const rankMap = new Map<string, number>();
-    const ordersBySupplier = new Map<string, any[]>();
-
-    allFlattenedItems.forEach((item) => {
-      const order = item.order;
-      if (!order?.id) return;
-      const supplierName = order.sender_name || order.customers?.name || 'Chưa rõ chủ vựa';
-      const current = ordersBySupplier.get(supplierName) || [];
-      if (!current.some((o) => o.id === order.id)) {
-        current.push(order);
-        ordersBySupplier.set(supplierName, current);
-      }
-    });
-
-    ordersBySupplier.forEach((supplierOrders) => {
-      const sorted = [...supplierOrders].sort((a, b) => {
-        const timeA = new Date(a.created_at || 0).getTime();
-        const timeB = new Date(b.created_at || 0).getTime();
-        if (timeA !== timeB) return timeA - timeB;
-        return String(a.id).localeCompare(String(b.id));
-      });
-
-      const driverRankMap = new Map<string, number>();
-      let nextRank = 1;
-
-      sorted.forEach((order) => {
-        const driverId = order.received_by || order.driver_name || 'unknown';
-        if (!driverRankMap.has(driverId)) {
-          driverRankMap.set(driverId, nextRank);
-          nextRank += 1;
-        }
-        rankMap.set(order.id, driverRankMap.get(driverId)!);
-      });
-    });
-
-    return rankMap;
-  }, [allFlattenedItems]);
-
   const groupedPaginatedItems = useMemo(() => {
     const grouped = new Map<string, any[]>();
     paginatedItems.forEach((item) => {
@@ -349,8 +293,8 @@ const VegetablesPage: React.FC = () => {
 
     grouped.forEach((itemsInSupplier, supplierName) => {
       const sortedByTai = [...itemsInSupplier].sort((a, b) => {
-        const rankA = taiRankByOrderId.get(a.order?.id) || 1;
-        const rankB = taiRankByOrderId.get(b.order?.id) || 1;
+        const rankA = a.order?.tai_rank || 1;
+        const rankB = b.order?.tai_rank || 1;
         if (rankA !== rankB) return rankA - rankB;
 
         const timeA = new Date(a.order?.created_at || 0).getTime();
@@ -364,7 +308,7 @@ const VegetablesPage: React.FC = () => {
     });
 
     return Array.from(grouped.entries());
-  }, [paginatedItems, taiRankByOrderId]);
+  }, [paginatedItems]);
 
   const totalAmount = filteredItems.reduce((acc, curr) => acc + (getItemTotalAmount(curr) || 0), 0);
 
@@ -372,7 +316,7 @@ const VegetablesPage: React.FC = () => {
     const wsData = filteredItems.map(item => ({
       "Người Nhận": getReceiverName(item),
       "Chủ Hàng": item.order?.sender_name || item.order?.customers?.name || '-',
-      "Tài": taiRankByOrderId.get(item.order?.id) || 1,
+      "Tài": item.order?.tai_rank || 1,
       "Tài Xế": getAssignedDrivers(item),
       "Biển Số Xe": getAssignedVehicles(item),
       "Số lượng": item.quantity,
@@ -560,7 +504,7 @@ const VegetablesPage: React.FC = () => {
                             }
                             return (
                               <td key={col.id} className={`px-4 py-3 ${COL_DEF[col.id]?.tdClass || ''}`}>
-                                {COL_DEF[col.id]?.render(item, taiRankByOrderId)}
+                                {COL_DEF[col.id]?.render(item)}
                               </td>
                             );
                           })}
@@ -611,7 +555,7 @@ const VegetablesPage: React.FC = () => {
                             {getReceiverName(item)}
                           </div>
                           <div className="text-[12px] font-medium text-muted-foreground mb-2 whitespace-normal leading-snug">
-                            Chủ hàng: {item.order?.sender_name || item.order?.customers?.name || '-'} • Tài {taiRankByOrderId.get(item.order?.id) || 1}
+                            Chủ hàng: {item.order?.sender_name || item.order?.customers?.name || '-'} • Tài {item.order?.tai_rank || 1}
                           </div>
                           <div className="space-y-1">
                             <div className="text-[12px] text-muted-foreground flex items-center gap-2">

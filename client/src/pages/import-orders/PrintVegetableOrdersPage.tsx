@@ -20,9 +20,6 @@ const formatNumber = (value?: number | null) => {
 const getSupplierName = (order: any) =>
   order.customers?.name || order.sender_name || '';
 
-const getTaiRank = (order: any, rankMap: Map<string, number>) =>
-  rankMap.get(order.id) || 1;
-
 // ─── Constants ────────────────────────────────────────────
 const ROWS_PER_A4 = 35; // ~35 data rows fit on one A4 page
 const MAX_AMOUNT_PER_SHEET = 4_500_000; // 4.5 triệu
@@ -71,46 +68,6 @@ const PrintVegetableOrdersPage: React.FC = () => {
     }));
   }, [vehicles]);
 
-  // ─── Compute taiRank per order ────────────────────────
-  const taiRankByOrderId = useMemo(() => {
-    const rankMap = new Map<string, number>();
-    if (!orders) return rankMap;
-
-    const ordersBySupplierDate = new Map<string, any[]>();
-    orders.forEach((order) => {
-      if ((order as any).deleted_at) return;
-      const supplierName = getSupplierName(order);
-      const orderDate = order.order_date || '';
-      const key = `${supplierName}||${orderDate}`;
-      const current = ordersBySupplierDate.get(key) || [];
-      current.push(order);
-      ordersBySupplierDate.set(key, current);
-    });
-
-    ordersBySupplierDate.forEach((supplierOrders) => {
-      const sorted = [...supplierOrders].sort((a, b) => {
-        const timeA = new Date(a.created_at || 0).getTime();
-        const timeB = new Date(b.created_at || 0).getTime();
-        if (timeA !== timeB) return timeA - timeB;
-        return a.id.localeCompare(b.id);
-      });
-
-      const driverRankMap = new Map<string, number>();
-      let nextRank = 1;
-
-      sorted.forEach((order) => {
-        const driverId = order.received_by || order.driver_name || 'unknown';
-        if (!driverRankMap.has(driverId)) {
-          driverRankMap.set(driverId, nextRank);
-          nextRank += 1;
-        }
-        rankMap.set(order.id, driverRankMap.get(driverId)!);
-      });
-    });
-
-    return rankMap;
-  }, [orders]);
-
   // ─── Flatten & sort ABC ───────────────────────────────
   const flatItems: FlatItem[] = useMemo(() => {
     if (!orders) return [];
@@ -120,7 +77,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
       if ((order as any).deleted_at) return;
       const supplierName = getSupplierName(order);
       const senderName = order.sender_name || '';
-      const taiRank = getTaiRank(order, taiRankByOrderId);
+      const taiRank = order.tai_rank || 1;
 
       if (order.import_order_items && order.import_order_items.length > 0) {
         order.import_order_items.forEach((item) => {
@@ -169,7 +126,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
     });
 
     return items;
-  }, [orders, taiRankByOrderId]);
+  }, [orders]);
 
   // ─── Split into sheets ────────────────────────────────
   const sheets: FlatItem[][] = useMemo(() => {

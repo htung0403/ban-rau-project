@@ -178,10 +178,10 @@ export class ImportOrderService {
     });
 
     const resolveDriverId = (order: any): string => {
-      if (order.received_by) return `rb:${order.received_by}`;
-      if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
       const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
       if (dvDriverId) return `dvid:${dvDriverId}`;
+      if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
+      if (order.received_by) return `rb:${order.received_by}`;
       return 'unknown';
     };
 

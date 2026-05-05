@@ -53,6 +53,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
     dateFrom: selectedDate,
     dateTo: selectedDate,
     order_category: 'vegetable',
+    pageSize: 9999,
   };
 
   const { data: ordersResponse, isLoading, isError, refetch } = useImportOrders(filters);

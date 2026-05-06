@@ -325,14 +325,13 @@ const DeliveryPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
   const [filterReceiver, setFilterReceiver] = useState<string[]>([]);
-  const [filterProduct, setFilterProduct] = useState<string[]>([]);
   const [filterVehicleIds, setFilterVehicleIds] = useState<string[]>([]);
   const [filterDeliveryDate, setFilterDeliveryDate] = useState<string>('');
   const [filterHasExcess, setFilterHasExcess] = useState(false);
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, ageFilter, startDate, endDate, searchQuery, filterCustomer, filterReceiver, filterProduct, filterVehicleIds, filterHasExcess, filterDeliveryDate]);
+  }, [statusFilter, ageFilter, startDate, endDate, searchQuery, filterCustomer, filterReceiver, filterVehicleIds, filterHasExcess, filterDeliveryDate]);
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
@@ -493,7 +492,6 @@ const DeliveryPage: React.FC = () => {
     }
     if (filterCustomer.length > 0 && cName && !filterCustomer.includes(cName)) return false;
     if (filterReceiver.length > 0 && rName && !filterReceiver.includes(rName)) return false;
-    if (filterProduct.length > 0 && pName && !filterProduct.includes(pName)) return false;
     if (filterDeliveryDate) {
       const vehicleDateMatch = (o.delivery_vehicles || []).some(
         (dv) => (dv.assigned_quantity || 0) > 0 && dv.delivery_date === filterDeliveryDate
@@ -541,25 +539,20 @@ const DeliveryPage: React.FC = () => {
     };
   }, [filteredOrders]);
 
-  const { customerOptions, receiverOptions, productOptions } = React.useMemo(() => {
-    if (!orders) return { customerOptions: [], receiverOptions: [], productOptions: [] };
+  const { customerOptions, receiverOptions } = React.useMemo(() => {
+    if (!orders) return { customerOptions: [], receiverOptions: [] };
     const cSet = new Set<string>();
     const rSet = new Set<string>();
-    const pSet = new Set<string>();
     orders.forEach(o => {
       const cName = o.import_orders?.sender_name || o.import_orders?.customers?.name;
       if (cName) cSet.add(cName);
 
       const rName = o.import_orders?.customers?.name || o.import_orders?.receiver_name?.trim() || o.import_orders?.profiles?.full_name;
       if (rName) rSet.add(rName);
-
-      const pName = o.product_name.includes(' - ') ? o.product_name.split(' - ').slice(1).join(' - ') : o.product_name;
-      if (pName) pSet.add(pName);
     });
     return {
       customerOptions: Array.from(cSet).map(c => ({ label: c, value: c })),
       receiverOptions: Array.from(rSet).map(c => ({ label: c, value: c })),
-      productOptions: Array.from(pSet).map(p => ({ label: p, value: p })),
     };
   }, [orders]);
 
@@ -651,19 +644,6 @@ const DeliveryPage: React.FC = () => {
         </div>
 
         {/* AGE FILTER */}
-        <div className="hidden md:block shrink-0 w-32">
-          <SearchableSelect
-            options={[
-              { value: 'all', label: 'Tất cả' },
-              { value: 'new', label: 'Hàng mới' },
-              { value: 'old', label: 'Hàng cũ' },
-            ]}
-            value={ageFilter}
-            onValueChange={(val) => setAgeFilter(val as any)}
-            placeholder="Phân loại..."
-            className="h-9.5"
-          />
-        </div>
 
         <div className="hidden md:flex gap-2 items-center shrink-0">
           <div className="w-50">
@@ -677,7 +657,7 @@ const DeliveryPage: React.FC = () => {
             />
           </div>
 
-          <div className="w-50">
+          <div className="w-40">
             <MultiSearchableSelect
               options={receiverOptions}
               value={filterReceiver}
@@ -688,18 +668,22 @@ const DeliveryPage: React.FC = () => {
             />
           </div>
 
-          <div className="w-50">
-            <MultiSearchableSelect
-              options={productOptions}
-              value={filterProduct}
-              onValueChange={setFilterProduct}
-              placeholder="Tên hàng"
-              className="bg-transparent"
+          <div className="w-44">
+            <SearchableSelect
+              options={[
+                { value: 'all', label: 'Tất cả' },
+                { value: 'new', label: 'Hàng mới' },
+                { value: 'old', label: 'Hàng cũ' },
+              ]}
+              value={ageFilter}
+              onValueChange={(val) => setAgeFilter(val as any)}
+              placeholder="Phân loại..."
+              className="h-9.5 bg-transparent"
               icon={<Package size={15} />}
             />
           </div>
 
-          <div className="w-50">
+          <div className="w-40">
             <MultiSearchableSelect
               options={vehicleFilterOptions}
               value={filterVehicleIds}
@@ -1650,18 +1634,18 @@ const DeliveryPage: React.FC = () => {
         onClear={() => {
           setFilterCustomer([]);
           setFilterReceiver([]);
-          setFilterProduct([]);
           setFilterVehicleIds([]);
           setFilterDeliveryDate('');
           setFilterHasExcess(false);
+          setAgeFilter('all');
         }}
         showClearButton={
           filterCustomer.length > 0 ||
           filterReceiver.length > 0 ||
-          filterProduct.length > 0 ||
           filterVehicleIds.length > 0 ||
           !!filterDeliveryDate ||
-          filterHasExcess
+          filterHasExcess ||
+          ageFilter !== 'all'
         }
         initialDateFrom={startDate}
         initialDateTo={endDate}
@@ -1700,18 +1684,6 @@ const DeliveryPage: React.FC = () => {
             icon={<User size={15} />}
           />
         </div>
-        <div className="space-y-1.5 z-20">
-          <label className="text-[13px] font-bold text-muted-foreground">Tên hàng</label>
-          <MultiSearchableSelect
-            options={productOptions}
-            value={filterProduct}
-            onValueChange={setFilterProduct}
-            placeholder="Tất cả..."
-            className="w-full bg-muted/10 h-10.5 border-border/80 rounded-xl"
-            inline
-            icon={<Package size={15} />}
-          />
-        </div>
         <div className="space-y-1.5 z-[19]">
           <label className="text-[13px] font-bold text-muted-foreground">Xe (biển số)</label>
           <MultiSearchableSelect
@@ -1736,6 +1708,7 @@ const DeliveryPage: React.FC = () => {
             onValueChange={(val) => setAgeFilter(val as any)}
             placeholder="Chọn phân loại..."
             className="w-full bg-muted/10 h-10.5 border-border/80 rounded-xl"
+            icon={<Package size={15} />}
           />
         </div>
         <div className="space-y-1.5">

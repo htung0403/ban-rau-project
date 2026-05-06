@@ -35,6 +35,7 @@ interface SearchableSelectProps {
   className?: string
   disabled?: boolean
   allowCustom?: boolean
+  icon?: React.ReactNode
 }
 
 export function SearchableSelect({
@@ -47,6 +48,7 @@ export function SearchableSelect({
   className,
   disabled = false,
   allowCustom = false,
+  icon,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false)
   const [searchValue, setSearchValue] = React.useState("")
@@ -68,9 +70,12 @@ export function SearchableSelect({
             className
           )}
         >
-          <span className="truncate">
-            {selectedOption ? (selectedOption.selectedLabel || selectedOption.label) : placeholder}
-          </span>
+          <div className="flex items-center gap-2 overflow-hidden">
+            {icon && <span className="text-muted-foreground/60 shrink-0">{icon}</span>}
+            <span className="truncate">
+              {selectedOption ? (selectedOption.selectedLabel || selectedOption.label) : placeholder}
+            </span>
+          </div>
           <div className="flex items-center gap-1.5 ml-2">
             {value && !disabled && (
               <X

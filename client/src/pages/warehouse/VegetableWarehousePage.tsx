@@ -22,9 +22,30 @@ const formatNumber = (val?: number) => {
   return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
 };
 
+const getTodayString = () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const getOneWeekAgoString = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 6); // 7 days including today
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 const VegetableWarehousePage: React.FC = () => {
   const { data: vehicles } = useVehicles();
-  const { data: deliveriesRaw, isLoading, isError, refetch } = useDeliveryOrders(undefined, undefined, 'vegetable');
+  const today = getTodayString();
+  const oneWeekAgo = getOneWeekAgoString();
+  const [filterDateFrom, setFilterDateFrom] = useState(oneWeekAgo);
+  const [filterDateTo, setFilterDateTo] = useState(today);
+  const { data: deliveriesRaw, isLoading, isError, refetch } = useDeliveryOrders(filterDateFrom, filterDateTo, 'vegetable');
   const { user } = useAuth();
   const deliveries = useMemo(() => {
     let d = (deliveriesRaw || []).filter((x) => !isSoftDeletedSourceOrder(x));
@@ -37,6 +58,7 @@ const VegetableWarehousePage: React.FC = () => {
   }, [deliveriesRaw, user, vehicles]);
   const deleteMutation = useDeleteDeliveryOrders();
   const isAdmin = user?.role === 'admin';
+  // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -44,8 +66,6 @@ const VegetableWarehousePage: React.FC = () => {
   // Filter states
   const [filterReceiver, setFilterReceiver] = useState<string[]>([]);
   const [filterProduct, setFilterProduct] = useState<string[]>([]);
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
 
   // Mobile filter sheet
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -206,7 +226,7 @@ const VegetableWarehousePage: React.FC = () => {
                 icon={<Package size={15} />}
               />
             </div>
-            <div className="relative z-20">
+            <div className="hidden md:flex items-center gap-1 shrink-0 relative z-20">
               <DateRangePicker
                 initialDateFrom={filterDateFrom || undefined}
                 initialDateTo={filterDateTo || undefined}
@@ -219,6 +239,15 @@ const VegetableWarehousePage: React.FC = () => {
                   setFilterDateTo(range.to ? format(range.to) : '');
                 }}
               />
+              {(filterDateFrom !== oneWeekAgo || filterDateTo !== today) && (
+                <button
+                  onClick={() => { setFilterDateFrom(oneWeekAgo); setFilterDateTo(today); }}
+                  className="h-9.5 px-2.5 shrink-0 border border-border/80 rounded-xl text-[11px] font-bold bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-all whitespace-nowrap"
+                  title="Về một tuần qua"
+                >
+                  1 tuần qua
+                </button>
+              )}
             </div>
             {hasActiveFilters && (
               <button

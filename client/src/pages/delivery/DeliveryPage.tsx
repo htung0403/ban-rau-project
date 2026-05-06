@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
+import { format } from 'date-fns';
 import { Calendar, PlusCircle, Truck, CheckCircle, Check, Store, Package, User, Image as ImageIcon, Eye, Trash2, Pencil, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
+
 import { DatePicker } from '../../components/shared/DatePicker';
+import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import PageHeader from '../../components/shared/PageHeader';
 import { useDeliveryOrders, useConfirmDelivery, useDeleteDeliveryOrders } from '../../hooks/queries/useDelivery';
 import { useVehicles } from '../../hooks/queries/useVehicles';
@@ -188,10 +191,29 @@ const getOrderPaymentStatus = (order: DeliveryOrder): keyof typeof PAYMENT_STATU
   return 'partial';
 };
 
+const getTodayString = () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const getOneWeekAgoString = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 6); // 7 days including today
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 const DeliveryPage: React.FC = () => {
   const navigate = useNavigate();
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const today = getTodayString();
+  const oneWeekAgo = getOneWeekAgoString();
+  const [startDate, setStartDate] = useState<string>(oneWeekAgo);
+  const [endDate, setEndDate] = useState<string>(today);
   const [statusFilter, setStatusFilter] = useState<'all' | 'can_giao' | 'hang_o_sg' | 'da_giao'>('can_giao');
   const [ageFilter, setAgeFilter] = useState<'all' | 'new' | 'old'>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -708,16 +730,32 @@ const DeliveryPage: React.FC = () => {
         </div>
 
         {/* DESKTOP DATE FILTER */}
-        <div className="hidden md:block shrink-0">
-          <DatePicker
-            value={startDate}
-            onChange={(val) => {
-              setStartDate(val);
-              setEndDate(val);
+        <div className="hidden md:flex items-center gap-1 shrink-0">
+          <DateRangePicker
+            initialDateFrom={startDate}
+            initialDateTo={endDate}
+            onUpdate={(values) => {
+              if (values.range.from) {
+                setStartDate(format(values.range.from, 'yyyy-MM-dd'));
+              } else {
+                setStartDate('');
+              }
+              if (values.range.to) {
+                setEndDate(format(values.range.to, 'yyyy-MM-dd'));
+              } else {
+                setEndDate('');
+              }
             }}
-            placeholder="Ngày nhận đơn"
-            className="h-9.5 w-40 bg-muted/20 border-border/80"
           />
+          {(startDate !== oneWeekAgo || endDate !== today) && (
+            <button
+              onClick={() => { setStartDate(oneWeekAgo); setEndDate(today); }}
+              className="h-9.5 px-2.5 shrink-0 border border-border/80 rounded-xl text-[11px] font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-all whitespace-nowrap"
+              title="Về một tuần qua"
+            >
+              1 tuần qua
+            </button>
+          )}
         </div>
 
         {/* ACTIONS */}

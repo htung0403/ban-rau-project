@@ -80,10 +80,29 @@ const getImportReceivedByStaffName = (order: DeliveryOrder) => {
 
 const ITEMS_PER_PAGE = 30;
 
+const getTodayString = () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const getOneWeekAgoString = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 6); // 7 days including today
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 const WarehousesPage: React.FC = () => {
   const { user } = useAuth();
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const today = getTodayString();
+  const oneWeekAgo = getOneWeekAgoString();
+  const [startDate, setStartDate] = useState<string>(oneWeekAgo);
+  const [endDate, setEndDate] = useState<string>(today);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
@@ -447,7 +466,7 @@ const WarehousesPage: React.FC = () => {
         </div>
 
         {/* Desktop date picker */}
-        <div className="hidden md:block shrink-0">
+        <div className="hidden md:flex items-center gap-1 shrink-0">
           <DateRangePicker
             initialDateFrom={startDate}
             initialDateTo={endDate}
@@ -464,6 +483,15 @@ const WarehousesPage: React.FC = () => {
               }
             }}
           />
+          {(startDate !== oneWeekAgo || endDate !== today) && (
+            <button
+              onClick={() => { setStartDate(oneWeekAgo); setEndDate(today); }}
+              className="h-9.5 px-2.5 shrink-0 border border-border/80 rounded-xl text-[11px] font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-all whitespace-nowrap"
+              title="Về một tuần qua"
+            >
+              1 tuần qua
+            </button>
+          )}
         </div>
 
         {/* Mobile filter button */}

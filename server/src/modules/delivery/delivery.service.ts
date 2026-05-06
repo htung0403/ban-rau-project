@@ -251,6 +251,10 @@ export class DeliveryService {
       // Filter by (confirmed_at in range) OR (created_at in range)
       // Note: and() nested in or() is supported in modern PostgREST
       query = query.or(`and(confirmed_at.gte.${startT},confirmed_at.lte.${endT}),and(created_at.gte.${startT},created_at.lte.${endT})`);
+    } else {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      query = query.gte('created_at', sevenDaysAgo.toISOString());
     }
 
     const { data: rawData, error } = await query;

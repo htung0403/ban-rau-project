@@ -116,13 +116,13 @@ const PrintVegetableOrdersPage: React.FC = () => {
       }
     });
 
-    // Sort by senderName, then supplierName, then taiRank
+    // Sort by supplierName, then taiRank, then senderName
     items.sort((a, b) => {
-      const cmpS = a.senderName.localeCompare(b.senderName, 'vi');
-      if (cmpS !== 0) return cmpS;
       const cmp = a.supplierName.localeCompare(b.supplierName, 'vi');
       if (cmp !== 0) return cmp;
       if (a.taiRank !== b.taiRank) return a.taiRank - b.taiRank;
+      const cmpS = a.senderName.localeCompare(b.senderName, 'vi');
+      if (cmpS !== 0) return cmpS;
       return a.productName.localeCompare(b.productName, 'vi');
     });
 
@@ -163,6 +163,8 @@ const PrintVegetableOrdersPage: React.FC = () => {
       return result;
     }
   }, [flatItems, printMode]);
+
+  const totalAmount = useMemo(() => flatItems.reduce((s, i) => s + i.totalAmount, 0), [flatItems]);
 
   // ─── Parse date for display ───────────────────────────
   const dateParts = useMemo(() => {
@@ -314,10 +316,10 @@ const PrintVegetableOrdersPage: React.FC = () => {
               Tổng: <strong className="text-foreground">{flatItems.length}</strong> dòng
             </span>
             <span className="text-[12px] text-muted-foreground">
-              Tiền hàng: <strong className="text-foreground font-black">{formatNumber(flatItems.reduce((s, i) => s + i.totalAmount, 0))}</strong>
+              Tiền hàng: <strong className="text-foreground font-black">{formatNumber(totalAmount)}</strong>
             </span>
             <span className="text-[12px] text-muted-foreground">
-              Sau thuế (8%): <strong className="text-primary font-black">{formatNumber(flatItems.reduce((s, i) => s + i.totalAmount, 0) * 1.08)}</strong>
+              Sau thuế (8%): <strong className="text-primary font-black">{formatNumber(totalAmount * 1.08)}</strong>
             </span>
             <span className="text-[12px] text-muted-foreground">
               Số tờ: <strong className="text-foreground">{sheets.length}</strong>
@@ -346,6 +348,9 @@ const PrintVegetableOrdersPage: React.FC = () => {
         <div className="print-area" ref={printRef}>
           {sheets.map((sheetItems, sheetIndex) => {
             const sheetTotal = sheetItems.reduce((s, i) => s + i.totalAmount, 0);
+            const isLastSheet = sheetIndex === sheets.length - 1;
+            const showGrandTotal = isLastSheet && sheets.length > 1;
+
             return (
               <div key={sheetIndex} className="print-sheet">
                 {/* Header */}
@@ -404,18 +409,17 @@ const PrintVegetableOrdersPage: React.FC = () => {
                       let currentSupplier = '';
                       let currentSender = '';
                       sheetItems.forEach((item) => {
-                        if (item.supplierName !== currentSupplier || item.senderName !== currentSender) {
+                        if (item.supplierName !== currentSupplier) {
                           if (currentGroup.length > 0) groups.push(currentGroup);
                           currentGroup = [];
                           currentSupplier = item.supplierName;
-                          currentSender = item.senderName;
                         }
                         currentGroup.push(item);
                       });
                       if (currentGroup.length > 0) groups.push(currentGroup);
 
                       const dataRows = sheetItems.length;
-                      const tfootRows = printMode === 'amount' ? 3 : 1;
+                      const tfootRows = (printMode === 'amount' ? 3 : 1) + (showGrandTotal ? 1 : 0);
                       const fillerCount = Math.max(0, ROWS_PER_A4 - dataRows - tfootRows);
 
                       return (
@@ -557,13 +561,23 @@ const PrintVegetableOrdersPage: React.FC = () => {
                       </>
                     )}
                     <tr style={{ borderTop: printMode === 'amount' ? '1px solid #ccc' : '2px solid #000' }}>
-                      <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 14, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>
+                      <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 14, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: showGrandTotal ? '1px solid #ccc' : '2px solid #000' }}>
                         Tổng Cộng
                       </td>
-                      <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: showGrandTotal ? '1px solid #ccc' : '2px solid #000' }}>
                         {printMode === 'amount' ? formatNumber(sheetTotal * 1.08) : formatNumber(sheetTotal)}
                       </td>
                     </tr>
+                    {showGrandTotal && (
+                      <tr style={{ borderTop: '2px solid #000' }}>
+                        <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 16, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>
+                          TỔNG TẤT CẢ CÁC TỜ ({sheets.length} tờ)
+                        </td>
+                        <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 16, borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>
+                          {printMode === 'amount' ? formatNumber(totalAmount * 1.08) : formatNumber(totalAmount)}
+                        </td>
+                      </tr>
+                    )}
                   </tfoot>
                 </table>
               </div>

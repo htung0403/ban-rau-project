@@ -645,7 +645,7 @@ const VegetablesPage: React.FC = () => {
         isOpen={isFilterOpen}
         isClosing={isFilterClosing}
         onClose={closeFilter}
-        onApply={(filters) => {
+        onApply={() => {
           setPage(1);
         }}
         onClear={() => {

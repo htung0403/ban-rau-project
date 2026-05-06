@@ -449,7 +449,7 @@ const VegetableImportsPage: React.FC = () => {
           <div className="hidden md:block w-[180px] relative z-20">
             <DatePicker
               value={filterDate}
-              onChange={(val) => { setFilterDate(val); setPage(1); }}
+              onChange={(val: string) => { setFilterDate(val); setPage(1); }}
               placeholder="Chọn ngày"
             />
           </div>
@@ -870,7 +870,7 @@ const VegetableImportsPage: React.FC = () => {
           <label className="text-[13px] font-bold text-muted-foreground">Ngày nhập</label>
           <DatePicker
             value={filterDate}
-            onChange={(val) => { setFilterDate(val); setPage(1); }}
+            onChange={(val: string) => { setFilterDate(val); setPage(1); }}
             placeholder="Chọn ngày"
             className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
           />

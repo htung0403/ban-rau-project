@@ -4,10 +4,10 @@ import { useImportOrders, useDeleteImportOrder } from '../../hooks/queries/useIm
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Filter, FileDown, Store, Truck, UserCircle, CalendarDays, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
+import { Filter, FileDown, Store, Truck, UserCircle, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
-import { DateRangePicker } from '../../components/shared/DateRangePicker';
+import { DatePicker } from '../../components/shared/DatePicker';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { matchesSearch } from '../../lib/str-utils';
 import * as XLSX from 'xlsx';
@@ -407,7 +407,7 @@ const VegetablesPage: React.FC = () => {
         <div className="hidden md:block w-[180px] shrink-0 relative z-20">
           <DatePicker
             value={filterDate}
-            onChange={(val) => { setFilterDate(val); setPage(1); }}
+            onChange={(val: string) => { setFilterDate(val); setPage(1); }}
             placeholder="Chọn ngày"
           />
         </div>
@@ -445,11 +445,9 @@ const VegetablesPage: React.FC = () => {
         <EmptyState
           title="Không có dữ liệu hàng rau"
           description={
-            (filterDateFrom && filterDateTo && filterDateFrom !== filterDateTo)
-              ? `Không có mặt hàng nào từ ngày ${format(new Date(filterDateFrom), 'dd/MM/yyyy')} đến ${format(new Date(filterDateTo), 'dd/MM/yyyy')}`
-              : filterDateFrom
-                ? `Không có mặt hàng nào được nhập vào ngày ${format(new Date(filterDateFrom), 'dd/MM/yyyy')}`
-                : "Chưa có mặt hàng nào được tạo."
+            filterDate
+              ? `Không có mặt hàng nào được nhập vào ngày ${format(new Date(filterDate), 'dd/MM/yyyy')}`
+              : "Chưa có mặt hàng nào được tạo."
           }
         />
       ) : (
@@ -667,7 +665,7 @@ const VegetablesPage: React.FC = () => {
           <label className="text-[13px] font-bold text-muted-foreground">Ngày nhập</label>
           <DatePicker
             value={filterDate}
-            onChange={(val) => { setFilterDate(val); setPage(1); }}
+            onChange={(val: string) => { setFilterDate(val); setPage(1); }}
             placeholder="Chọn ngày"
             className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
           />

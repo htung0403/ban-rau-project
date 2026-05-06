@@ -10,7 +10,7 @@ import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import PageHeader from '../../components/shared/PageHeader';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
-import { DateRangePicker } from '../../components/shared/DateRangePicker';
+import { DatePicker } from '../../components/shared/DatePicker';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { ColumnSettings, type ColumnOption } from '../../components/shared/ColumnSettings';
@@ -113,12 +113,7 @@ const getTodayVN = () => {
   return vnTime.toISOString().split('T')[0];
 };
 
-const getDaysAgoVN = (days: number) => {
-  const now = new Date();
-  const vnTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-  vnTime.setDate(vnTime.getDate() - days);
-  return vnTime.toISOString().split('T')[0];
-};
+
 
 const VegetableImportOrderHistoryPage: React.FC = () => {
   const { user } = useAuth();
@@ -455,7 +450,7 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
           <div className="hidden md:block w-[180px] relative z-20">
             <DatePicker
               value={filterDate}
-              onChange={(val) => { setFilterDate(val); setPage(1); }}
+              onChange={(val: string) => { setFilterDate(val); setPage(1); }}
               placeholder="Chọn ngày"
             />
           </div>
@@ -876,7 +871,7 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
           <label className="text-[13px] font-bold text-muted-foreground">Ngày nhập</label>
           <DatePicker
             value={filterDate}
-            onChange={(val) => { setFilterDate(val); setPage(1); }}
+            onChange={(val: string) => { setFilterDate(val); setPage(1); }}
             placeholder="Chọn ngày"
             className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
           />

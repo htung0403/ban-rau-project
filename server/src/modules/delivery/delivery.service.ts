@@ -243,15 +243,14 @@ export class DeliveryService {
 
     if (orderCategory) query = query.eq('order_category', orderCategory);
 
-    if (startDate && endDate) {
-      query = query.gte('delivery_date', startDate).lte('delivery_date', endDate);
-    } else if (startDate) {
-      query = query.eq('delivery_date', startDate);
-    } else if (!startDate && !endDate) {
-      // Fetch all if no dates provided or empty strings (used for inventory/full list)
-    } else {
-      const today = format(new Date(), 'yyyy-MM-dd');
-      query = query.eq('delivery_date', today);
+    if (startDate) {
+      const startT = `${startDate}T00:00:00.000Z`;
+      const endDateStr = endDate || startDate;
+      const endT = `${endDateStr}T23:59:59.999Z`;
+      
+      // Filter by (confirmed_at in range) OR (created_at in range)
+      // Note: and() nested in or() is supported in modern PostgREST
+      query = query.or(`and(confirmed_at.gte.${startT},confirmed_at.lte.${endT}),and(created_at.gte.${startT},created_at.lte.${endT})`);
     }
 
     const { data: rawData, error } = await query;

@@ -10,6 +10,7 @@ import {
   CommandItem,
   CommandList,
 } from "./command"
+import { removeAccents } from "../../lib/str-utils"
 import {
   Popover,
   PopoverContent,
@@ -107,7 +108,14 @@ export function MultiSearchableSelect({
   );
 
   const content = (
-    <Command className="rounded-xl overflow-hidden">
+    <Command 
+      className="rounded-xl overflow-hidden"
+      filter={(val, search) => {
+        const normalizedValue = removeAccents(val).toLowerCase();
+        const normalizedSearch = removeAccents(search).toLowerCase();
+        return normalizedValue.includes(normalizedSearch) ? 1 : 0;
+      }}
+    >
       <CommandInput 
         placeholder={searchPlaceholder} 
         className="h-10 border-none text-[13px] focus:ring-0"

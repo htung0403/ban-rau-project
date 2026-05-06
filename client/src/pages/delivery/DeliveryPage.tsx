@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { Calendar, PlusCircle, Truck, CheckCircle, Check, Store, Package, User, Image as ImageIcon, Eye, Trash2, Pencil, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
-import { DateRangePicker } from '../../components/shared/DateRangePicker';
+import { DatePicker } from '../../components/shared/DatePicker';
 import PageHeader from '../../components/shared/PageHeader';
 import { useDeliveryOrders, useConfirmDelivery, useDeleteDeliveryOrders } from '../../hooks/queries/useDelivery';
 import { useVehicles } from '../../hooks/queries/useVehicles';
@@ -110,14 +110,14 @@ const getOrderPreviewImage = (order: any) => {
   if (linkedVeg?.receipt_image_urls?.length) return linkedVeg.receipt_image_urls[0];
 
   const targetProductName = order.product_name ? (
-    order.product_name.includes(' - ') 
+    order.product_name.includes(' - ')
       ? order.product_name.split(' - ').slice(1).join(' - ').trim().toLowerCase()
       : order.product_name.trim().toLowerCase()
   ) : null;
 
   const collectFirstImage = (refs: any): string | null => {
     const list = Array.isArray(refs) ? refs : refs ? [refs] : [];
-    
+
     // First try to find an item that matches the product name
     if (targetProductName) {
       for (const ref of list) {
@@ -161,9 +161,9 @@ const getOrderPaymentStatus = (order: DeliveryOrder): keyof typeof PAYMENT_STATU
     return order.export_order_payment_status === 'paid' ? 'paid_driver' : order.export_order_payment_status as keyof typeof PAYMENT_STATUS_CONFIG;
   }
 
-  const sourceOrder = Array.isArray(order.import_orders) ? order.import_orders[0] : order.import_orders 
+  const sourceOrder = Array.isArray(order.import_orders) ? order.import_orders[0] : order.import_orders
     || (Array.isArray(order.vegetable_orders) ? order.vegetable_orders[0] : order.vegetable_orders);
-  
+
   if (sourceOrder && sourceOrder.payment_status === 'paid') {
     return 'paid_sg';
   }
@@ -250,8 +250,8 @@ const DeliveryPage: React.FC = () => {
     [vehicles]
   );
   const myVehicleIds = React.useMemo(
-    () => eligibleVehicles.filter((v) => 
-      v.driver_id === user?.id || 
+    () => eligibleVehicles.filter((v) =>
+      v.driver_id === user?.id ||
       v.in_charge_id === user?.id ||
       (user?.full_name && v.profiles?.full_name === user?.full_name) ||
       (user?.full_name && v.responsible_profile?.full_name === user?.full_name)
@@ -267,7 +267,7 @@ const DeliveryPage: React.FC = () => {
     if (statusFilter === 'da_giao' && isDriverOrLoader) {
       filtered = eligibleVehicles.filter(v => myVehicleIdSet.has(v.id));
     }
-    
+
     const VEHICLE_PLATE_TO_SLOT: Record<string, string> = {
       '06850': '1',
       '07744': '2',
@@ -279,20 +279,20 @@ const DeliveryPage: React.FC = () => {
       '23763': '8',
       'ba1234': 'ba',
     };
-    
+
     const getVehicleSlotIndex = (licensePlate: string): number => {
       const normalized = (licensePlate || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-      
+
       for (const [key, slot] of Object.entries(VEHICLE_PLATE_TO_SLOT)) {
         if (normalized.endsWith(key) || normalized.includes(key)) {
           return parseInt(slot) || (slot === 'ba' ? 9 : 99);
         }
       }
-      
+
       if (normalized.includes('ba')) return 9;
       return 99;
     };
-    
+
     return [...filtered].sort((a, b) => {
       const indexA = getVehicleSlotIndex(a.license_plate || '');
       const indexB = getVehicleSlotIndex(b.license_plate || '');
@@ -306,11 +306,12 @@ const DeliveryPage: React.FC = () => {
   const [filterReceiver, setFilterReceiver] = useState<string[]>([]);
   const [filterProduct, setFilterProduct] = useState<string[]>([]);
   const [filterVehicleIds, setFilterVehicleIds] = useState<string[]>([]);
+  const [filterDeliveryDate, setFilterDeliveryDate] = useState<string>('');
   const [filterHasExcess, setFilterHasExcess] = useState(false);
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, ageFilter, startDate, endDate, searchQuery, filterCustomer, filterReceiver, filterProduct, filterVehicleIds, filterHasExcess]);
+  }, [statusFilter, ageFilter, startDate, endDate, searchQuery, filterCustomer, filterReceiver, filterProduct, filterVehicleIds, filterHasExcess, filterDeliveryDate]);
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
@@ -460,9 +461,9 @@ const DeliveryPage: React.FC = () => {
 
     if (searchQuery) {
       if (
-        !matchesSearch(cName || '', searchQuery) && 
-        !matchesSearch(rName || '', searchQuery) && 
-        !matchesSearch(pName || '', searchQuery) && 
+        !matchesSearch(cName || '', searchQuery) &&
+        !matchesSearch(rName || '', searchQuery) &&
+        !matchesSearch(pName || '', searchQuery) &&
         !matchesSearch(o.import_orders?.order_code || '', searchQuery) &&
         !matchesSearch(staffRecv === '—' ? '' : staffRecv, searchQuery)
       ) {
@@ -472,6 +473,12 @@ const DeliveryPage: React.FC = () => {
     if (filterCustomer.length > 0 && cName && !filterCustomer.includes(cName)) return false;
     if (filterReceiver.length > 0 && rName && !filterReceiver.includes(rName)) return false;
     if (filterProduct.length > 0 && pName && !filterProduct.includes(pName)) return false;
+    if (filterDeliveryDate) {
+      const vehicleDateMatch = (o.delivery_vehicles || []).some(
+        (dv) => (dv.assigned_quantity || 0) > 0 && dv.delivery_date === filterDeliveryDate
+      );
+      if (!vehicleDateMatch) return false;
+    }
 
     if (filterVehicleIds.length > 0) {
       const assignedToSelected = (o.delivery_vehicles || []).some(
@@ -563,7 +570,7 @@ const DeliveryPage: React.FC = () => {
         if (!isDaGiao) return false;
 
         if (isDriverOrLoader) {
-          const hasMyAssignment = (o.delivery_vehicles || []).some(dv => 
+          const hasMyAssignment = (o.delivery_vehicles || []).some(dv =>
             dv.vehicle_id && myVehicleIdSet.has(dv.vehicle_id) && (dv.assigned_quantity || 0) > 0
           );
           return hasMyAssignment;
@@ -592,7 +599,7 @@ const DeliveryPage: React.FC = () => {
   const isPaginatedTab = statusFilter === 'da_giao' || statusFilter === 'all';
   const totalItems = displayedOrders.length;
   const totalPages = isPaginatedTab ? Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE)) : 1;
-  const paginatedOrders = isPaginatedTab 
+  const paginatedOrders = isPaginatedTab
     ? displayedOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
     : displayedOrders;
 
@@ -637,7 +644,6 @@ const DeliveryPage: React.FC = () => {
           />
         </div>
 
-        {/* DESKTOP ADVANCED FILTERS */}
         <div className="hidden md:flex gap-2 items-center shrink-0">
           <div className="w-50">
             <MultiSearchableSelect
@@ -692,25 +698,26 @@ const DeliveryPage: React.FC = () => {
             />
             <span className="text-[12px] font-bold text-foreground whitespace-nowrap">Hàng dư</span>
           </label>
+          <div className="w-40">
+            <DatePicker
+              value={filterDeliveryDate}
+              onChange={setFilterDeliveryDate}
+              placeholder="Ngày giao"
+              className="h-9.5 bg-muted/20 border-border/80"
+            />
+          </div>
         </div>
 
         {/* DESKTOP DATE FILTER */}
         <div className="hidden md:block shrink-0">
-          <DateRangePicker
-            initialDateFrom={startDate}
-            initialDateTo={endDate}
-            onUpdate={(values) => {
-              if (values.range.from) {
-                setStartDate(format(values.range.from, 'yyyy-MM-dd'));
-              } else {
-                setStartDate('');
-              }
-              if (values.range.to) {
-                setEndDate(format(values.range.to, 'yyyy-MM-dd'));
-              } else {
-                setEndDate('');
-              }
+          <DatePicker
+            value={startDate}
+            onChange={(val) => {
+              setStartDate(val);
+              setEndDate(val);
             }}
+            placeholder="Ngày nhận đơn"
+            className="h-9.5 w-40 bg-muted/20 border-border/80"
           />
         </div>
 
@@ -724,7 +731,7 @@ const DeliveryPage: React.FC = () => {
             <Printer size={16} />
             <span className="hidden md:inline">In phiếu</span>
           </button>
-          
+
           {/* MOBILE FILTER BUTTON */}
           <button
             onClick={openFilter}
@@ -801,9 +808,9 @@ const DeliveryPage: React.FC = () => {
         ) : isError ? (
           <ErrorState onRetry={() => refetch()} />
         ) : !displayedOrders?.length ? (
-          <EmptyState 
-            title={statusFilter === 'all' ? "Không có dữ liệu" : statusFilter === 'can_giao' ? "Không có đơn cần giao" : statusFilter === 'hang_o_sg' ? "Không có hàng ở SG" : "Không có đơn đã giao"} 
-            description={`Không có đơn hàng nào với trạng thái "${STATUS_LABELS[statusFilter]}" phù hợp với bộ lọc.`} 
+          <EmptyState
+            title={statusFilter === 'all' ? "Không có dữ liệu" : statusFilter === 'can_giao' ? "Không có đơn cần giao" : statusFilter === 'hang_o_sg' ? "Không có hàng ở SG" : "Không có đơn đã giao"}
+            description={`Không có đơn hàng nào với trạng thái "${STATUS_LABELS[statusFilter]}" phù hợp với bộ lọc.`}
           />
         ) : (
           <div className="flex-1 overflow-auto custom-scrollbar bg-muted/30 md:bg-transparent relative">
@@ -865,7 +872,7 @@ const DeliveryPage: React.FC = () => {
                     <React.Fragment key={date}>
                       {/* Date separator row */}
                       <tr className="bg-muted/80 dark:bg-muted/40 border-y border-border shadow-sm overflow-hidden">
-                        <td colSpan={(isAdmin && (statusFilter !== 'all' || !isDriverOrLoader) ? 13 : 12) + (displayedVehicles.length || ((statusFilter === 'da_giao' && isDriverOrLoader) ? 0 : 10))} className="px-4 py-2.5">    
+                        <td colSpan={(isAdmin && (statusFilter !== 'all' || !isDriverOrLoader) ? 13 : 12) + (displayedVehicles.length || ((statusFilter === 'da_giao' && isDriverOrLoader) ? 0 : 10))} className="px-4 py-2.5">
                           <div className="flex items-center gap-2">
                             {isAdmin && (statusFilter !== 'all' || !isDriverOrLoader) && (
                               <input
@@ -895,7 +902,7 @@ const DeliveryPage: React.FC = () => {
                             <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-primary/10 text-primary">
                               <Calendar size={14} />
                             </div>
-                            <span className="text-[13px] font-black text-foreground uppercase tracking-wider">Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}</span>
+                            <span className="text-[13px] font-black text-foreground uppercase tracking-wider">Ngày nhận đơn: {new Date(date).toLocaleDateString('vi-VN')}</span>
                           </div>
                         </td>
                       </tr>
@@ -1074,7 +1081,14 @@ const DeliveryPage: React.FC = () => {
                               {remainingQty < 0 ? formatNumber(remainingQty) : '-'}
                             </td>
                             {displayedVehicles.map(v => {
-                              const dvs = (o.delivery_vehicles || []).filter((deliveryVehicle) => deliveryVehicle.vehicle_id === v.id && (deliveryVehicle.assigned_quantity || 0) > 0);
+                              const dvs = (o.delivery_vehicles || []).filter((dv) => {
+                                const vehicleMatch = dv.vehicle_id === v.id && (dv.assigned_quantity || 0) > 0;
+                                if (!vehicleMatch) return false;
+                                if (filterDeliveryDate) {
+                                  return dv.delivery_date === filterDeliveryDate;
+                                }
+                                return true;
+                              });
                               const totalQty = dvs.reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
                               const isEditableByMe = myVehicleIdSet.has(v.id);
                               const canEdit = isEditableByMe || isAdmin;
@@ -1085,12 +1099,12 @@ const DeliveryPage: React.FC = () => {
 
                               const today = new Date();
                               const deliveryDate = o.delivery_date ? new Date(o.delivery_date) : null;
-                              const isTodayDelivery = deliveryDate && 
+                              const isTodayDelivery = deliveryDate &&
                                 deliveryDate.getDate() === today.getDate() &&
                                 deliveryDate.getMonth() === today.getMonth() &&
                                 deliveryDate.getFullYear() === today.getFullYear();
 
-                              const textColorClass = totalQty > 0 
+                              const textColorClass = totalQty > 0
                                 ? (isTodayDelivery ? "text-blue-600 dark:text-blue-500" : "text-black dark:text-black")
                                 : "text-muted-foreground/30";
                               const bgColorClass = totalQty > 0 && isTodayDelivery
@@ -1171,9 +1185,16 @@ const DeliveryPage: React.FC = () => {
                               const getQtyForCol = (col: string) => {
                                 const matches = (o.delivery_vehicles || []).filter((dv) => {
                                   const plate = (dv.vehicles?.license_plate || '').toLowerCase();
-                                  if (col === 'ba') return plate.includes('ba');
-                                  if (col === 'kho') return plate.includes('kho');
-                                  return plate.includes(col);
+                                  let colMatch = false;
+                                  if (col === 'ba') colMatch = plate.includes('ba');
+                                  else if (col === 'kho') colMatch = plate.includes('kho');
+                                  else colMatch = plate.includes(col);
+
+                                  if (!colMatch) return false;
+                                  if (filterDeliveryDate) {
+                                    return dv.delivery_date === filterDeliveryDate;
+                                  }
+                                  return true;
                                 });
                                 return matches.reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
                               };
@@ -1226,7 +1247,7 @@ const DeliveryPage: React.FC = () => {
                       <Calendar size={14} />
                     </div>
                     <span className="text-[13px] font-black text-foreground uppercase tracking-wider">
-                      Ngày giao: {new Date(date).toLocaleDateString('vi-VN')}
+                      Ngày nhận đơn: {new Date(date).toLocaleDateString('vi-VN')}
                     </span>
                   </div>
 
@@ -1253,28 +1274,28 @@ const DeliveryPage: React.FC = () => {
                             remainingQty > 0 ? "border-orange-500/30 dark:border-orange-500/20" : "border-border"
                           )}
                         >
-                            {/* Card body */}
-                            <div className="p-3 flex flex-col gap-2.5">
-                              {isAdmin && (statusFilter !== 'all' || !isDriverOrLoader) && (
-                                <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
-                                  <input
-                                    type="checkbox"
-                                    className="w-5 h-5 rounded-md border-slate-300 text-primary focus:ring-primary"
-                                    checked={selectedIds.has(o.id)}
-                                    onChange={() => toggleSelectId(o.id)}
-                                  />
-                                </div>
-                              )}
-                              <div className="flex gap-3">
+                          {/* Card body */}
+                          <div className="p-3 flex flex-col gap-2.5">
+                            {isAdmin && (statusFilter !== 'all' || !isDriverOrLoader) && (
+                              <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  className="w-5 h-5 rounded-md border-slate-300 text-primary focus:ring-primary"
+                                  checked={selectedIds.has(o.id)}
+                                  onChange={() => toggleSelectId(o.id)}
+                                />
+                              </div>
+                            )}
+                            <div className="flex gap-3">
                               {/* Left: Image Thumbnail */}
-                              <div 
+                              <div
                                 className="w-16 h-16 shrink-0 bg-muted/20 rounded-lg overflow-hidden border border-border/50 self-center"
                                 onClick={(e) => {
-                                   const previewImage = getOrderPreviewImage(o);
-                                   if (previewImage) {
-                                      e.stopPropagation();
-                                      setViewingImageOrder(o);
-                                   }
+                                  const previewImage = getOrderPreviewImage(o);
+                                  if (previewImage) {
+                                    e.stopPropagation();
+                                    setViewingImageOrder(o);
+                                  }
                                 }}
                               >
                                 {getOrderPreviewImage(o) ? (
@@ -1290,12 +1311,12 @@ const DeliveryPage: React.FC = () => {
                                   </div>
                                 ) : (
                                   <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
-                                     <ImageIcon size={20} className="opacity-30 mb-0.5" />
-                                     <span className="text-[9px] font-medium opacity-50">NO IMG</span>
+                                    <ImageIcon size={20} className="opacity-30 mb-0.5" />
+                                    <span className="text-[9px] font-medium opacity-50">NO IMG</span>
                                   </div>
                                 )}
                               </div>
-  
+
                               {/* Right: Data */}
                               <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
                                 {/* Row 1: Customer name + Product name */}
@@ -1309,7 +1330,7 @@ const DeliveryPage: React.FC = () => {
                                     {getDisplayProductName(o)}
                                   </span>
                                 </div>
-    
+
                                 <div className="text-[11px] text-muted-foreground">
                                   <span className="font-semibold text-foreground/80">NV nhận:</span>{' '}
                                   {getImportReceivedByStaffName(o)}
@@ -1352,34 +1373,36 @@ const DeliveryPage: React.FC = () => {
                               const deliveryVehicles = o.delivery_vehicles || [];
                               return deliveryVehicles.length > 0 && deliveryVehicles.some((dv) => {
                                 if ((dv.assigned_quantity || 0) <= 0) return false;
+                                if (filterDeliveryDate && dv.delivery_date !== filterDeliveryDate) return false;
                                 if (statusFilter === 'da_giao' && isDriverOrLoader) {
                                   return dv.vehicle_id && myVehicleIdSet.has(dv.vehicle_id);
                                 }
                                 return true;
                               });
                             })() && (
-                              <div className="pt-2 border-t border-border flex flex-wrap gap-1.5">
-                                {(o.delivery_vehicles || []).filter((dv) => {
-                                  if ((dv.assigned_quantity || 0) <= 0) return false;
-                                  if (statusFilter === 'da_giao' && isDriverOrLoader) {
-                                    return dv.vehicle_id && myVehicleIdSet.has(dv.vehicle_id);
-                                  }
-                                  return true;
-                                }).map((dv) => {
-                                  const isPaid = (o.payment_collections || []).some(
-                                    (pc) => pc.vehicle_id === dv.vehicle_id && isPaidCollectionStatus(pc.status)
-                                  );
-                                  return (
-                                    <div key={dv.id} className={clsx("flex items-center gap-1.5 px-2 py-1 rounded-md border", isPaid ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-100")} title={isPaid ? "Đã thu tiền" : undefined}>
-                                      <Truck size={12} className={isPaid ? "text-green-500" : "text-blue-500"} />
-                                      <span className={clsx("text-[11px] font-bold", isPaid ? "text-green-700 dark:text-green-500" : "text-blue-700 dark:text-blue-500")}>{dv.vehicles?.license_plate || '-'}</span>
-                                      <span className="text-[11px] font-black text-foreground ml-1">{formatNumber(dv.assigned_quantity)}</span>
-                                      {isPaid && <CheckCircle size={12} className="text-green-600 ml-0.5" />}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
+                                <div className="pt-2 border-t border-border flex flex-wrap gap-1.5">
+                                  {(o.delivery_vehicles || []).filter((dv) => {
+                                    if ((dv.assigned_quantity || 0) <= 0) return false;
+                                    if (filterDeliveryDate && dv.delivery_date !== filterDeliveryDate) return false;
+                                    if (statusFilter === 'da_giao' && isDriverOrLoader) {
+                                      return dv.vehicle_id && myVehicleIdSet.has(dv.vehicle_id);
+                                    }
+                                    return true;
+                                  }).map((dv) => {
+                                    const isPaid = (o.payment_collections || []).some(
+                                      (pc) => pc.vehicle_id === dv.vehicle_id && isPaidCollectionStatus(pc.status)
+                                    );
+                                    return (
+                                      <div key={dv.id} className={clsx("flex items-center gap-1.5 px-2 py-1 rounded-md border", isPaid ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-100")} title={isPaid ? "Đã thu tiền" : undefined}>
+                                        <Truck size={12} className={isPaid ? "text-green-500" : "text-blue-500"} />
+                                        <span className={clsx("text-[11px] font-bold", isPaid ? "text-green-700 dark:text-green-500" : "text-blue-700 dark:text-blue-500")}>{dv.vehicles?.license_plate || '-'}</span>
+                                        <span className="text-[11px] font-black text-foreground ml-1">{formatNumber(dv.assigned_quantity)}</span>
+                                        {isPaid && <CheckCircle size={12} className="text-green-600 ml-0.5" />}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
                           </div>
 
                           {/* Bottom action bar */}
@@ -1398,7 +1421,7 @@ const DeliveryPage: React.FC = () => {
                                   Xác nhận
                                 </button>
                               )}
-                               {canShowAssignButton && statusFilter !== 'hang_o_sg' && remainingQty > 0 && (
+                              {canShowAssignButton && statusFilter !== 'hang_o_sg' && remainingQty > 0 && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1454,47 +1477,47 @@ const DeliveryPage: React.FC = () => {
                   </div>
                 </div>
               ))}
-              </div>
-            
-              {isPaginatedTab && totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card sticky bottom-0 z-20">
-                  <div className="text-[12px] text-muted-foreground font-medium hidden md:block">
-                    Hiển thị {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} trong {totalItems} đơn hàng
-                  </div>
-                  <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[13px] font-bold disabled:opacity-50 hover:bg-muted transition-colors"
-                    >
-                      <ChevronLeft size={16} />
-                      Trước
-                    </button>
-                    <span className="text-[13px] font-bold text-foreground">
-                      {currentPage} / {totalPages}
-                    </span>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[13px] font-bold disabled:opacity-50 hover:bg-muted transition-colors"
-                    >
-                      Sau
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
-          )}
+
+            {isPaginatedTab && totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card sticky bottom-0 z-20">
+                <div className="text-[12px] text-muted-foreground font-medium hidden md:block">
+                  Hiển thị {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} trong {totalItems} đơn hàng
+                </div>
+                <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[13px] font-bold disabled:opacity-50 hover:bg-muted transition-colors"
+                  >
+                    <ChevronLeft size={16} />
+                    Trước
+                  </button>
+                  <span className="text-[13px] font-bold text-foreground">
+                    {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[13px] font-bold disabled:opacity-50 hover:bg-muted transition-colors"
+                  >
+                    Sau
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-  
-        {isAdmin && selectedIds.size > 0 && (statusFilter !== 'all' || !isDriverOrLoader) && createPortal(
+        )}
+      </div>
+
+      {isAdmin && selectedIds.size > 0 && (statusFilter !== 'all' || !isDriverOrLoader) && createPortal(
         <div className="fixed bottom-0 md:bottom-6 left-0 right-0 md:left-1/2 md:-translate-x-1/2 bg-card md:rounded-2xl shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.15)] md:shadow-xl border-t md:border border-border p-3 z-[900] flex flex-col md:flex-row items-center gap-3 animate-in slide-in-from-bottom-10 md:min-w-[400px]">
           <div className="flex items-center gap-2 px-2 shrink-0 self-start md:self-auto w-full md:w-auto justify-between md:justify-start">
             <span className="text-[13px] font-bold text-foreground whitespace-nowrap">Đã chọn <strong className="text-primary">{selectedIds.size}</strong></span>
             <button onClick={() => setSelectedIds(new Set())} className="text-[12px] font-bold text-muted-foreground hover:text-foreground underline md:hidden">Bỏ chọn</button>
           </div>
-          
+
           <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto custom-scrollbar pb-1 md:pb-0">
             {statusFilter === 'hang_o_sg' && (
               <button
@@ -1531,7 +1554,7 @@ const DeliveryPage: React.FC = () => {
               Xóa
             </button>
           </div>
-          
+
           <button onClick={() => setSelectedIds(new Set())} className="hidden md:flex ml-auto p-2 text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted rounded-full transition-colors">
             <X size={16} />
           </button>
@@ -1592,6 +1615,7 @@ const DeliveryPage: React.FC = () => {
           setFilterReceiver([]);
           setFilterProduct([]);
           setFilterVehicleIds([]);
+          setFilterDeliveryDate('');
           setFilterHasExcess(false);
         }}
         showClearButton={
@@ -1599,12 +1623,22 @@ const DeliveryPage: React.FC = () => {
           filterReceiver.length > 0 ||
           filterProduct.length > 0 ||
           filterVehicleIds.length > 0 ||
+          !!filterDeliveryDate ||
           filterHasExcess
         }
         initialDateFrom={startDate}
         initialDateTo={endDate}
         dateLabel="Khoảng thời gian"
       >
+        <div className="space-y-1.5 z-35">
+          <label className="text-[13px] font-bold text-muted-foreground">Ngày giao</label>
+          <DatePicker
+            value={filterDeliveryDate}
+            onChange={setFilterDeliveryDate}
+            placeholder="Tất cả ngày..."
+            className="w-full bg-muted/10 h-10.5 border-border/80 rounded-xl"
+          />
+        </div>
         <div className="space-y-1.5 z-30">
           <label className="text-[13px] font-bold text-muted-foreground">Tên vựa / chủ</label>
           <MultiSearchableSelect

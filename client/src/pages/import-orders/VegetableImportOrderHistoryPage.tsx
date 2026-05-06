@@ -12,6 +12,7 @@ import PageHeader from '../../components/shared/PageHeader';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
+import { SearchInput } from '../../components/ui/SearchInput';
 import { ColumnSettings, type ColumnOption } from '../../components/shared/ColumnSettings';
 import AddEditVegetableImportOrderDialog from './dialogs/AddEditVegetableImportOrderDialog';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
@@ -156,6 +157,52 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
     );
   }, [apiResponse?.data, user, vehicles]);
   const deleteMutation = useDeleteImportOrder();
+
+  const dailyTaiRankMap = useMemo(() => {
+    const map = new Map<string, number>();
+    const byDate = new Map<string, ImportOrder[]>();
+    orders.forEach((order) => {
+      const orderDate = order.order_date || '';
+      const current = byDate.get(orderDate) || [];
+      current.push(order);
+      byDate.set(orderDate, current);
+    });
+    byDate.forEach((ordersOnDate) => {
+      const byDriver = new Map<string, ImportOrder[]>();
+      ordersOnDate.forEach((order) => {
+        const driverName = getOrderDriverName(order) || order.sender_name || '_';
+        const current = byDriver.get(driverName) || [];
+        current.push(order);
+        byDriver.set(driverName, current);
+      });
+
+      const driverFirstOrders: { driverName: string; firstOrder: ImportOrder }[] = [];
+      byDriver.forEach((driverOrders, driverName) => {
+        const sorted = [...driverOrders].sort((a, b) => {
+          const timeA = new Date(a.created_at || 0).getTime();
+          const timeB = new Date(b.created_at || 0).getTime();
+          if (timeA !== timeB) return timeA - timeB;
+          return a.id.localeCompare(b.id);
+        });
+        driverFirstOrders.push({ driverName, firstOrder: sorted[0] });
+      });
+
+      driverFirstOrders.sort((a, b) => {
+        const timeA = new Date(a.firstOrder.created_at || 0).getTime();
+        const timeB = new Date(b.firstOrder.created_at || 0).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        return a.firstOrder.id.localeCompare(b.firstOrder.id);
+      });
+
+      driverFirstOrders.forEach((item, idx) => {
+        const driverOrders = byDriver.get(item.driverName) || [];
+        driverOrders.forEach((order) => {
+          map.set(order.id, idx + 1);
+        });
+      });
+    });
+    return map;
+  }, [orders]);
 
   const { vuaOptions, taiOptions, nguoiNhapOptions } = useMemo(() => {
     if (!orders) return { vuaOptions: [], taiOptions: [], nguoiNhapOptions: [] };
@@ -310,26 +357,18 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
       <div className="bg-card rounded-2xl border border-border shadow-sm flex flex-col flex-1 min-h-0">
         <div className="p-3 border-b border-border flex flex-col md:flex-row items-stretch md:items-center gap-2">
           <div className="flex w-full md:flex-1 gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
-              <input
-                type="text"
+            <div className="flex-1">
+              <SearchInput
                 placeholder="Tìm kiếm theo mã đơn, người gửi, người nhận..."
-                value={searchText}
-                onChange={(e) => {
+                defaultValue={searchText}
+                onSearch={(val) => {
                   if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
                   searchTimeoutRef.current = setTimeout(() => {
-                    setSearchText(e.target.value);
+                    setSearchText(val);
                     setPage(1);
-                  }, 300);
+                  }, 500);
                 }}
-                className="w-full pl-9 pr-8 py-2 bg-muted/20 border border-border/80 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all font-medium"
               />
-              {searchText && (
-                <button onClick={() => setSearchText('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  <X size={14} />
-                </button>
-              )}
             </div>
             
             <button
@@ -505,7 +544,7 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
                                   case 'tai_rank': return (
                                     <td key={col.id} className="px-4 py-3 text-center">
                                       <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/10 text-amber-700 text-[12px] font-black">
-                                        {order.tai_rank || 1}
+                                        {dailyTaiRankMap.get(order.id) || 1}
                                       </span>
                                     </td>
                                   );
@@ -586,7 +625,7 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
 
                       {ordersInSupplier.map((order) => {
                         const orderImage = order.receipt_image_url || order.import_order_items?.[0]?.image_url;
-                        const taiRank = order.tai_rank || 1;
+                        const taiRank = dailyTaiRankMap.get(order.id) || 1;
                         
                         const totalQuantity = order.import_order_items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
                         const itemNames = order.import_order_items?.map(item => item.products?.name).filter(Boolean).join(', ') || '';

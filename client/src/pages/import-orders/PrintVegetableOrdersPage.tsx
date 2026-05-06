@@ -23,6 +23,21 @@ const formatNumber = (value?: number | null) => {
 const getSupplierName = (order: any) =>
   order.customers?.name || order.sender_name || '';
 
+const getOrderDriverName = (order: any) => {
+  const names = new Set<string>();
+  if (order.delivery_orders) {
+    order.delivery_orders.forEach((d: any) => {
+      d.delivery_vehicles?.forEach((dv: any) => {
+        if (dv.profiles?.full_name) names.add(dv.profiles.full_name);
+      });
+    });
+  }
+  if (names.size > 0) return Array.from(names).join(', ');
+  if (order.driver_name) return order.driver_name;
+  if (order.profiles?.role === 'driver') return order.profiles.full_name || '';
+  return '';
+};
+
 // ─── Constants ────────────────────────────────────────────
 const ROWS_PER_A4 = 35; // ~35 data rows fit on one A4 page
 const MAX_AMOUNT_PER_SHEET = 4_500_000; // 4.5 triệu
@@ -73,6 +88,52 @@ const PrintVegetableOrdersPage: React.FC = () => {
     }));
   }, [vehicles]);
 
+  const dailyTaiRankMap = useMemo(() => {
+    const map = new Map<string, number>();
+    const byDate = new Map<string, any[]>();
+    (orders || []).forEach((order) => {
+      const orderDate = order.order_date || '';
+      const current = byDate.get(orderDate) || [];
+      current.push(order);
+      byDate.set(orderDate, current);
+    });
+    byDate.forEach((ordersOnDate) => {
+      const byDriver = new Map<string, any[]>();
+      ordersOnDate.forEach((order: any) => {
+        const driverName = getOrderDriverName(order) || order.sender_name || '_';
+        const current = byDriver.get(driverName) || [];
+        current.push(order);
+        byDriver.set(driverName, current);
+      });
+
+      const driverFirstOrders: { driverName: string; firstOrder: any }[] = [];
+      byDriver.forEach((driverOrders, driverName) => {
+        const sorted = [...driverOrders].sort((a: any, b: any) => {
+          const timeA = new Date(a.created_at || 0).getTime();
+          const timeB = new Date(b.created_at || 0).getTime();
+          if (timeA !== timeB) return timeA - timeB;
+          return a.id.localeCompare(b.id);
+        });
+        driverFirstOrders.push({ driverName, firstOrder: sorted[0] });
+      });
+
+      driverFirstOrders.sort((a, b) => {
+        const timeA = new Date(a.firstOrder.created_at || 0).getTime();
+        const timeB = new Date(b.firstOrder.created_at || 0).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        return a.firstOrder.id.localeCompare(b.firstOrder.id);
+      });
+
+      driverFirstOrders.forEach((item, idx) => {
+        const driverOrders = byDriver.get(item.driverName) || [];
+        driverOrders.forEach((order: any) => {
+          map.set(order.id, idx + 1);
+        });
+      });
+    });
+    return map;
+  }, [orders]);
+
   // ─── Flatten & sort ABC ───────────────────────────────
   const flatItems: FlatItem[] = useMemo(() => {
     if (!orders) return [];
@@ -82,7 +143,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
       if ((order as any).deleted_at) return;
       const supplierName = getSupplierName(order);
       const senderName = order.sender_name || '';
-      const taiRank = order.tai_rank || 1;
+      const taiRank = dailyTaiRankMap.get(order.id) || 1;
 
       if (order.import_order_items && order.import_order_items.length > 0) {
         order.import_order_items.forEach((item) => {
@@ -131,7 +192,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
     });
 
     return items;
-  }, [orders]);
+  }, [orders, dailyTaiRankMap]);
 
   // ─── Split into sheets ────────────────────────────────
   const sheets: FlatItem[][] = useMemo(() => {

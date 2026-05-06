@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Truck, Package, User, AlertCircle, Trash2, CheckCircle, ImagePlus, Loader2, Camera } from 'lucide-react';
+import { X, Truck, Package, User, AlertCircle, Trash2, CheckCircle, ImagePlus, Camera } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -48,25 +48,6 @@ type FormValues = z.infer<typeof schema>;
 function mergeDeliveryImageUrls(global: string[], assignments: { image_urls?: string[] }[]): string[] {
   const fromRows = assignments.flatMap((a) => a.image_urls || []);
   return [...new Set([...(global || []), ...fromRows])];
-}
-
-function removeImageUrlFromForm(getValues: () => FormValues, setValue: (n: keyof FormValues | any, v: any, o?: any) => void, url: string) {
-  const data = getValues();
-  setValue(
-    'image_urls',
-    (data.image_urls || []).filter((u) => u !== url),
-    { shouldValidate: true },
-  );
-  (data.assignments || []).forEach((_, i) => {
-    const rowUrls = data.assignments[i]?.image_urls || [];
-    if (rowUrls.includes(url)) {
-      setValue(
-        `assignments.${i}.image_urls`,
-        rowUrls.filter((u) => u !== url),
-        { shouldValidate: true },
-      );
-    }
-  });
 }
 
 const vehicleSupportsGoodsCategory = (vehicle: Vehicle, category: 'grocery' | 'vegetable') => {
@@ -156,11 +137,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   const [assignmentBaselines, setAssignmentBaselines] = useState<number[]>([]);
 
   const watchAssignments = watch('assignments') || [];
-  const watchImageUrls = watch('image_urls') || [];
-  const allMergedImageUrls = React.useMemo(
-    () => mergeDeliveryImageUrls(watchImageUrls, watchAssignments),
-    [watchImageUrls, watchAssignments],
-  );
   const watchExportPaymentStatus = watch('export_payment_status');
   const projectedAssignedTotal = React.useMemo(
     () => {
@@ -489,7 +465,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           const baseline = assignmentBaselines[index] ?? 0;
           const delta = Number(assignment.quantity) || 0;
           const finalQty = baseline + delta;
-          const normalizedAmount = finalQty * normalizedPrice;
+          const normalizedAmount = finalQty * normalizedPrice * 1000;
           const srcImportPaid =
             (order.order_category ?? 'standard') === 'standard' &&
             order.import_orders?.payment_status === 'paid';
@@ -697,7 +673,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                 const baselineQty = assignmentBaselines[index] ?? 0;
                 const finalQtyForRow = baselineQty + currentDelta;
                 const rowUnitPrice = Number(watchAssignments[index]?.unit_price) || 0;
-                const rowOrderValue = finalQtyForRow * rowUnitPrice;
+                const rowOrderValue = finalQtyForRow * rowUnitPrice * 1000;
 
                 return (
                   <div key={field.id} className={clsx("relative flex flex-col md:flex-row flex-wrap gap-4 p-4 bg-card border border-border shadow-sm rounded-xl items-start md:items-end group transition-colors", isPaid ? "opacity-90 bg-muted/50" : "hover:border-primary/30")}>
@@ -808,7 +784,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                             const finalQty = baseline + delta;
                             const currentUnitPrice = Number(watchAssignments[index]?.unit_price) || 0;
                             if (!importPaid) {
-                              const expected = finalQty * currentUnitPrice;
+                              const expected = finalQty * currentUnitPrice * 1000;
                               setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
                             }
                           }
@@ -838,7 +814,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                               const baseline = assignmentBaselines[index] ?? 0;
                               const finalQty = baseline + delta;
                               if (!importPaid) {
-                                const expected = finalQty * vnd;
+                                const expected = finalQty * vnd * 1000;
                                 setValue(`assignments.${index}.expected_amount`, expected, { shouldValidate: true });
                               }
                             }}
@@ -926,11 +902,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                           return plate ? ` · ${plate}` : '';
                         })()}
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-3">
                         {(watchAssignments[index]?.image_urls || []).map((url, uidx) => (
                           <div
                             key={`row-${index}-${url}-${uidx}`}
-                            className="relative w-12 h-12 rounded-lg border border-border overflow-hidden shrink-0 group/rowimg bg-muted/20"
+                            className="relative w-20 h-20 rounded-xl border border-border overflow-hidden shrink-0 group/rowimg bg-muted/20"
                           >
                             <img src={url} alt="" className="w-full h-full object-cover" />
                             {!isRowDisabled && (
@@ -944,11 +920,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                                     { shouldValidate: true },
                                   );
                                 }}
-                                className="absolute top-0.5 right-0.5 z-10 w-[18px] h-[18px] rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
+                                className="absolute top-1 right-1 z-10 w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
                                 aria-label="Xóa ảnh"
                                 title="Xóa ảnh"
                               >
-                                <X size={10} />
+                                <X size={12} />
                               </button>
                             )}
                           </div>
@@ -962,10 +938,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                                 cameraInputRef.current?.click();
                               }}
                               disabled={isUploading}
-                              className="w-12 h-12 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:text-orange-500 hover:border-orange-400/50 hover:bg-orange-50/50 transition-all disabled:opacity-50"
+                              className="w-20 h-20 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:text-orange-500 hover:border-orange-400/50 hover:bg-orange-50/50 transition-all disabled:opacity-50"
                               title="Chụp ảnh cho xe này"
                             >
-                              <Camera size={16} className="text-orange-500" />
+                              <Camera size={20} className="text-orange-500 mb-1" />
+                              <span className="text-[10px] font-bold">Chụp ảnh</span>
                             </button>
                             <button
                               type="button"
@@ -974,10 +951,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                                 fileInputRef.current?.click();
                               }}
                               disabled={isUploading}
-                              className="w-12 h-12 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all disabled:opacity-50"
+                              className="w-20 h-20 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all disabled:opacity-50"
                               title="Chọn ảnh cho xe này"
                             >
-                              <ImagePlus size={16} className="text-primary" />
+                              <ImagePlus size={20} className="text-primary mb-1" />
+                              <span className="text-[10px] font-bold">Chọn ảnh</span>
                             </button>
                           </>
                         )}
@@ -1039,91 +1017,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               </div>
             )}
 
-            {!isViewMode && (
-            <div className="space-y-1.5 pt-4 border-t border-border mt-2">
-              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <Camera size={12} />
-                Ảnh xuất hàng / Giao hàng ({allMergedImageUrls.length})
-              </label>
-              <p className="text-[10px] text-muted-foreground leading-snug">
-                Ảnh thêm trong từng dòng xe hiển thị kèm biển số ở trên; tất cả ảnh vẫn xem và xóa tại đây.
-              </p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                {allMergedImageUrls.map((url, idx) => (
-                  <div key={`${url}-${idx}`} className="relative aspect-square rounded-xl border border-border overflow-hidden group bg-muted/20">
-                    <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => removeImageUrlFromForm(getValues, setValue, url)}
-                      className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
-                      aria-label="Xóa ảnh"
-                      title="Xóa ảnh"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
 
-                <div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    ref={cameraInputRef}
-                    className="hidden"
-                    onChange={handleImageUpload}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      imageUploadTargetRef.current = 'global';
-                      cameraInputRef.current?.click();
-                    }}
-                    disabled={isUploading}
-                    className="w-full aspect-square border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-orange-500 hover:border-orange-400/50 hover:bg-orange-50 transition-all bg-muted/5 disabled:opacity-50"
-                  >
-                    {isUploading ? (
-                      <Loader2 size={18} className="animate-spin text-primary" />
-                    ) : (
-                      <>
-                        <Camera size={20} className="mb-1 text-orange-500" />
-                        <span className="text-[10px] font-bold text-center px-1">Chụp ảnh</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    ref={fileInputRef}
-                    className="hidden"
-                    onChange={handleImageUpload}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      imageUploadTargetRef.current = 'global';
-                      fileInputRef.current?.click();
-                    }}
-                    disabled={isUploading}
-                    className="w-full aspect-square border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all bg-muted/5 disabled:opacity-50"
-                  >
-                    {isUploading ? (
-                      <Loader2 size={18} className="animate-spin text-primary" />
-                    ) : (
-                      <>
-                        <ImagePlus size={20} className="mb-1 text-primary" />
-                        <span className="text-[10px] font-bold text-center px-1">Chọn ảnh</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-            )}
 
           </div>
         </form>

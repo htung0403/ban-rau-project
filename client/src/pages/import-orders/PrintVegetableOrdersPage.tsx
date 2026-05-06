@@ -191,7 +191,25 @@ const PrintVegetableOrdersPage: React.FC = () => {
       return a.productName.localeCompare(b.productName, 'vi');
     });
 
-    return items;
+    const merged: FlatItem[] = [];
+    items.forEach((item) => {
+      const last = merged[merged.length - 1];
+      if (
+        last &&
+        last.senderName === item.senderName &&
+        last.supplierName === item.supplierName &&
+        last.taiRank === item.taiRank &&
+        last.productName === item.productName &&
+        last.priceK === item.priceK
+      ) {
+        last.quantity += item.quantity;
+        last.totalAmount += item.totalAmount;
+      } else {
+        merged.push({ ...item });
+      }
+    });
+
+    return merged;
   }, [orders, dailyTaiRankMap]);
 
   // ─── Split into sheets ────────────────────────────────
@@ -251,11 +269,11 @@ const PrintVegetableOrdersPage: React.FC = () => {
     try {
       setIsExporting(true);
       const toastId = toast.loading(index !== undefined ? `Đang tạo ảnh tờ ${index + 1}...` : 'Đang tạo ảnh các tờ...');
-      
+
       const exportSheet = async (idx: number) => {
         const element = document.getElementById(`print-sheet-${idx}`);
         if (!element) return;
-        
+
         const canvas = await html2canvas(element, {
           scale: 2, // 2x quality is sufficient and cleaner
           useCORS: true,
@@ -271,7 +289,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
             }
           }
         });
-        
+
         const link = document.createElement('a');
         link.download = `Phieu_Rau_${selectedDate}_To_${idx + 1}.png`;
         link.href = canvas.toDataURL('image/png', 1.0);
@@ -285,7 +303,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
           await exportSheet(i);
         }
       }
-      
+
       toast.success('Xuất ảnh thành công!', { id: toastId });
     } catch (error) {
       console.error('Export image error:', error);
@@ -391,21 +409,19 @@ const PrintVegetableOrdersPage: React.FC = () => {
             <div className="flex rounded-xl border border-border overflow-hidden">
               <button
                 onClick={() => setPrintMode('a4')}
-                className={`px-4 py-2 text-[12px] font-bold transition-colors ${
-                  printMode === 'a4'
+                className={`px-4 py-2 text-[12px] font-bold transition-colors ${printMode === 'a4'
                     ? 'bg-primary text-white'
                     : 'bg-muted/10 text-muted-foreground hover:bg-muted/30'
-                }`}
+                  }`}
               >
                 Kiểu 1: Đủ tờ A4
               </button>
               <button
                 onClick={() => setPrintMode('amount')}
-                className={`px-4 py-2 text-[12px] font-bold transition-colors border-l border-border ${
-                  printMode === 'amount'
+                className={`px-4 py-2 text-[12px] font-bold transition-colors border-l border-border ${printMode === 'amount'
                     ? 'bg-primary text-white'
                     : 'bg-muted/10 text-muted-foreground hover:bg-muted/30'
-                }`}
+                  }`}
               >
                 Kiểu 2: Dưới 4.5 triệu/tờ
               </button>
@@ -526,7 +542,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
                     <tr style={{ borderBottom: '2px solid #000' }}>
                       <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 700, border: '1px solid #000', fontSize: 14 }}>Người Gửi</th>
                       <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 700, border: '1px solid #000', fontSize: 14 }}>Tên Vựa</th>
-                      <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700, width: 40, border: '1px solid #000', fontSize: 14 }}>Tải</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700, width: 40, border: '1px solid #000', fontSize: 14 }}>Tài</th>
                       <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700, width: 45, border: '1px solid #000', fontSize: 14 }}>SL</th>
                       <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 700, border: '1px solid #000', fontSize: 14 }}>Tên Hàng</th>
                       <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700, width: 60, border: '1px solid #000', fontSize: 14 }}>Tiền(K)</th>

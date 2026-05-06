@@ -1020,6 +1020,23 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
 
           </div>
+
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            ref={cameraInputRef}
+            className="hidden"
+            onChange={handleImageUpload}
+          />
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            ref={fileInputRef}
+            className="hidden"
+            onChange={handleImageUpload}
+          />
         </form>
 
         {/* Footer Buttons */}

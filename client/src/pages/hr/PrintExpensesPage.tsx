@@ -6,7 +6,7 @@ import { useExpenses } from '../../hooks/queries/useHR';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 
 const VN_TZ = 'Asia/Ho_Chi_Minh';
@@ -59,24 +59,31 @@ const PrintExpensesPage: React.FC = () => {
   const navigate = useNavigate();
   const printRef = useRef<HTMLDivElement>(null);
 
+  const [searchParams] = useSearchParams();
+  const statusParam = searchParams.get('status');
+  const isUnconfirmed = statusParam === 'unconfirmed';
+
   const [dateFrom, setDateFrom] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [filterType, setFilterType] = useState('all');
 
   const { data: allExpenses, isLoading, isError, refetch } = useExpenses();
 
-  const confirmedExpenses = useMemo(() => {
+  const baseExpenses = useMemo(() => {
     if (!allExpenses) return [];
+    if (isUnconfirmed) {
+      return allExpenses.filter((e) => e.payment_status !== 'confirmed');
+    }
     return allExpenses.filter((e) => e.payment_status === 'confirmed');
-  }, [allExpenses]);
+  }, [allExpenses, isUnconfirmed]);
 
   const expenseTypes = useMemo(() => {
     const types = new Set<string>();
-    confirmedExpenses.forEach((e) => {
+    baseExpenses.forEach((e) => {
       if (e.expense_name) types.add(e.expense_name);
     });
     return Array.from(types).sort();
-  }, [confirmedExpenses]);
+  }, [baseExpenses]);
 
   const filterOptions = useMemo(() => {
     return [
@@ -86,7 +93,7 @@ const PrintExpensesPage: React.FC = () => {
   }, [expenseTypes]);
 
   const filteredExpenses = useMemo(() => {
-    let result = confirmedExpenses.filter((e) => {
+    let result = baseExpenses.filter((e) => {
       const fromBounds = vnDayBoundsMs(dateFrom);
       const toBounds = vnDayBoundsMs(dateTo);
       const ms = expenseInstantMs(e.expense_date);
@@ -103,7 +110,7 @@ const PrintExpensesPage: React.FC = () => {
       const msB = expenseInstantMs(b.expense_date) || 0;
       return msA - msB;
     });
-  }, [confirmedExpenses, dateFrom, dateTo, filterType]);
+  }, [baseExpenses, dateFrom, dateTo, filterType]);
 
   const totalAmount = useMemo(() => {
     return filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
@@ -169,7 +176,9 @@ const PrintExpensesPage: React.FC = () => {
             </button>
             <div>
               <h1 className="text-[18px] font-black text-foreground">In Chi Phí</h1>
-              <p className="text-[12px] text-muted-foreground">Lịch sử chi phí đã xác nhận</p>
+              <p className="text-[12px] text-muted-foreground">
+                {isUnconfirmed ? 'Danh sách chi phí chưa xác nhận' : 'Lịch sử chi phí đã xác nhận'}
+              </p>
             </div>
           </div>
 
@@ -227,10 +236,10 @@ const PrintExpensesPage: React.FC = () => {
         </div>
       ) : filteredExpenses.length === 0 ? (
         <div className="no-print">
-          <EmptyState
-            title="Không có dữ liệu"
-            description={`Không có chi phí nào${filterType !== 'all' ? ` thuộc loại "${filterType}"` : ''} được xác nhận trong khoảng ${formatOnlyDate(dateFrom)} - ${formatOnlyDate(dateTo)}`}
-          />
+            <EmptyState
+              title="Không có dữ liệu"
+              description={`Không có chi phí nào${filterType !== 'all' ? ` thuộc loại "${filterType}"` : ''} ${isUnconfirmed ? 'chưa xác nhận' : 'đã xác nhận'} trong khoảng ${formatOnlyDate(dateFrom)} - ${formatOnlyDate(dateTo)}`}
+            />
         </div>
       ) : (
         <div className="print-area" ref={printRef}>

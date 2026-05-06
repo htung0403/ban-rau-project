@@ -437,7 +437,7 @@ const ExpensesPage = () => {
           actions={
             <div className="flex items-center gap-3">
               <Link
-                to="/chi-phi/in-chi-phi"
+                to="/chi-phi/in-chi-phi?status=unconfirmed"
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted hover:bg-muted/80 text-foreground text-[13px] font-bold transition-all border border-border"
               >
                 <Printer size={16} />

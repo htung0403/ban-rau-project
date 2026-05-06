@@ -10,6 +10,9 @@ import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import html2canvas from 'html2canvas';
+import toast from 'react-hot-toast';
+import { Image as ImageIcon } from 'lucide-react';
 
 // ─── Helpers ──────────────────────────────────────────────
 const formatNumber = (value?: number | null) => {
@@ -47,6 +50,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [soXe, setSoXe] = useState('');
   const [printMode, setPrintMode] = useState<PrintMode>('a4');
+  const [isExporting, setIsExporting] = useState(false);
 
   // Fetch data
   const filters: ImportOrderFilters = {
@@ -181,6 +185,55 @@ const PrintVegetableOrdersPage: React.FC = () => {
     window.print();
   };
 
+  const exportAsImage = async (index?: number) => {
+    if (isExporting) return;
+    try {
+      setIsExporting(true);
+      const toastId = toast.loading(index !== undefined ? `Đang tạo ảnh tờ ${index + 1}...` : 'Đang tạo ảnh các tờ...');
+      
+      const exportSheet = async (idx: number) => {
+        const element = document.getElementById(`print-sheet-${idx}`);
+        if (!element) return;
+        
+        const canvas = await html2canvas(element, {
+          scale: 2, // 2x quality is sufficient and cleaner
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          onclone: (clonedDoc) => {
+            const el = clonedDoc.getElementById(`print-sheet-${idx}`);
+            if (el) {
+              el.style.boxShadow = 'none';
+              el.style.border = 'none';
+              el.style.borderRadius = '0';
+              el.style.margin = '0';
+            }
+          }
+        });
+        
+        const link = document.createElement('a');
+        link.download = `Phieu_Rau_${selectedDate}_To_${idx + 1}.png`;
+        link.href = canvas.toDataURL('image/png', 1.0);
+        link.click();
+      };
+
+      if (index !== undefined) {
+        await exportSheet(index);
+      } else {
+        for (let i = 0; i < sheets.length; i++) {
+          await exportSheet(i);
+        }
+      }
+      
+      toast.success('Xuất ảnh thành công!', { id: toastId });
+    } catch (error) {
+      console.error('Export image error:', error);
+      toast.error('Lỗi khi xuất ảnh');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <>
       {/* ═══ Print Styles ═══ */}
@@ -299,14 +352,24 @@ const PrintVegetableOrdersPage: React.FC = () => {
           </div>
 
           {/* Print button */}
-          <button
-            onClick={handlePrint}
-            disabled={sheets.length === 0}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
-          >
-            <Printer size={16} />
-            In ({sheets.length} tờ)
-          </button>
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={() => exportAsImage()}
+              disabled={sheets.length === 0 || isExporting}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-primary border border-primary text-[13px] font-bold hover:bg-primary/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ImageIcon size={16} />
+              Lưu {sheets.length} Ảnh
+            </button>
+            <button
+              onClick={handlePrint}
+              disabled={sheets.length === 0}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Printer size={16} />
+              In ({sheets.length} tờ)
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -352,7 +415,15 @@ const PrintVegetableOrdersPage: React.FC = () => {
             const showGrandTotal = isLastSheet && sheets.length > 1;
 
             return (
-              <div key={sheetIndex} className="print-sheet">
+              <div key={sheetIndex} className="print-sheet relative group" id={`print-sheet-${sheetIndex}`}>
+                {/* Export single image button (hover only) */}
+                <button
+                  onClick={() => exportAsImage(sheetIndex)}
+                  className="no-print absolute top-4 right-4 p-3 bg-white border border-border text-primary rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:scale-110 z-10"
+                  title="Tải ảnh tờ này"
+                >
+                  <ImageIcon size={20} />
+                </button>
                 {/* Header */}
                 <div style={{ textAlign: 'center', marginBottom: 8 }}>
                   <h2 style={{ fontSize: 18, fontWeight: 900, marginBottom: 4, fontFamily: 'serif' }}>
@@ -407,7 +478,6 @@ const PrintVegetableOrdersPage: React.FC = () => {
                       const groups: FlatItem[][] = [];
                       let currentGroup: FlatItem[] = [];
                       let currentSupplier = '';
-                      let currentSender = '';
                       sheetItems.forEach((item) => {
                         if (item.supplierName !== currentSupplier) {
                           if (currentGroup.length > 0) groups.push(currentGroup);
@@ -429,9 +499,6 @@ const PrintVegetableOrdersPage: React.FC = () => {
 
                             return group.map((item, idxInGroup) => {
                               const isLastInGroup = idxInGroup === group.length - 1;
-                              const isFirstInGroup = idxInGroup === 0;
-
-                              const groupBorderTop = isFirstInGroup ? '2px solid #000' : 'none';
                               const rowBorderBottom = isLastInGroup ? '2px solid #000' : '1px solid #ccc';
 
                               return (
@@ -442,7 +509,6 @@ const PrintVegetableOrdersPage: React.FC = () => {
                                     fontSize: 14,
                                     borderLeft: '2px solid #000',
                                     borderRight: '1px solid #000',
-                                    borderTop: groupBorderTop,
                                     borderBottom: rowBorderBottom,
                                   }}>
                                     {item.senderName}
@@ -452,7 +518,6 @@ const PrintVegetableOrdersPage: React.FC = () => {
                                     fontWeight: 500,
                                     fontSize: 14,
                                     borderRight: '1px solid #000',
-                                    borderTop: groupBorderTop,
                                     borderBottom: rowBorderBottom,
                                   }}>
                                     {item.supplierName}
@@ -462,7 +527,6 @@ const PrintVegetableOrdersPage: React.FC = () => {
                                     textAlign: 'center',
                                     fontSize: 14,
                                     borderRight: '1px solid #000',
-                                    borderTop: groupBorderTop,
                                     borderBottom: rowBorderBottom,
                                   }}>
                                     {item.taiRank}
@@ -473,7 +537,6 @@ const PrintVegetableOrdersPage: React.FC = () => {
                                     fontWeight: 600,
                                     fontSize: 14,
                                     borderRight: '1px solid #000',
-                                    borderTop: groupBorderTop,
                                     borderBottom: rowBorderBottom,
                                   }}>
                                     {item.quantity || ''}
@@ -482,7 +545,6 @@ const PrintVegetableOrdersPage: React.FC = () => {
                                     padding: '4px 6px',
                                     fontSize: 14,
                                     borderRight: '1px solid #000',
-                                    borderTop: groupBorderTop,
                                     borderBottom: rowBorderBottom,
                                   }}>
                                     {item.productName}
@@ -492,7 +554,6 @@ const PrintVegetableOrdersPage: React.FC = () => {
                                     textAlign: 'center',
                                     fontSize: 14,
                                     borderRight: '1px solid #000',
-                                    borderTop: groupBorderTop,
                                     borderBottom: rowBorderBottom,
                                   }}>
                                     {item.priceK > 0 ? item.priceK : ''}
@@ -503,7 +564,6 @@ const PrintVegetableOrdersPage: React.FC = () => {
                                     fontWeight: 600,
                                     fontSize: 14,
                                     borderRight: '1px solid #000',
-                                    borderTop: groupBorderTop,
                                     borderBottom: rowBorderBottom,
                                   }}>
                                     {item.totalAmount > 0 ? formatNumber(item.totalAmount) : ''}
@@ -514,7 +574,6 @@ const PrintVegetableOrdersPage: React.FC = () => {
                                     fontWeight: isLastInGroup ? 900 : 400,
                                     fontSize: 14,
                                     borderRight: '2px solid #000',
-                                    borderTop: groupBorderTop,
                                     borderBottom: rowBorderBottom,
                                   }}>
                                     {isLastInGroup ? formatNumber(groupTotal) : ''}

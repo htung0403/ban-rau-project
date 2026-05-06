@@ -116,18 +116,18 @@ const ExpensesPage = () => {
   const { data: expenses, isLoading, isError, refetch } = useExpenses();
   const { data: employees } = useEmployees(user?.role === 'admin');
   const { data: vehicles } = useVehicles();
-  
+
   const createMutation = useCreateExpense();
   const updateMutation = useUpdateExpense();
   const confirmMutation = useConfirmExpense();
   const confirmBulkMutation = useConfirmExpensesBulk();
-  
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [isFilterSheetClosing, setIsFilterSheetClosing] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  
+
   const [deleteConfirmIds, setDeleteConfirmIds] = useState<string[] | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -281,7 +281,7 @@ const ExpensesPage = () => {
   const openDialog = (expense?: Expense) => {
     if (expense) {
       setEditingExpense(expense);
-      
+
       const { date: ed, time: et } = parseExpenseToFormDateTime(expense.expense_date);
       setFormData({
         employee_id: expense.employee_id,
@@ -326,7 +326,7 @@ const ExpensesPage = () => {
 
     setIsUploading(true);
     const newUrls: string[] = [];
-    
+
     try {
       setUploadType(e.target.capture ? 'camera' : 'file');
       for (let i = 0; i < files.length; i++) {
@@ -559,8 +559,8 @@ const ExpensesPage = () => {
                   filterStatus ||
                   filterDateFrom ||
                   filterDateTo) && (
-                  <span className="text-muted-foreground/80"> · theo bộ lọc</span>
-                )}
+                    <span className="text-muted-foreground/80"> · theo bộ lọc</span>
+                  )}
               </span>
               <div className="flex items-baseline gap-2 flex-wrap justify-end">
                 <span className="text-[12px] font-bold text-emerald-700/80 dark:text-emerald-400/90 uppercase tracking-wide">
@@ -580,242 +580,242 @@ const ExpensesPage = () => {
                 <>
                   {/* Bảng danh sách (tablet/desktop); màn hẹp cuộn ngang */}
                   <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[1020px]">
-              <thead className="bg-muted/30 sticky top-0 z-10 backdrop-blur-xl">
-                <tr>
-                  <th className="w-12 pl-4 pr-2 py-4 border-b border-border/50">
-                    <input
-                      ref={selectAllCheckboxRef}
-                      type="checkbox"
-                      checked={allDeletableSelected}
-                      onChange={toggleSelectAllDeletable}
-                      disabled={deletableInView.length === 0}
-                      className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
-                      title="Chọn tất cả (theo bộ lọc hiện tại)"
-                    />
-                  </th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap min-w-[200px] border-b border-border/50">Tên chi phí</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider text-center whitespace-nowrap border-b border-l border-border/50 bg-muted/5">Ảnh</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap min-w-[150px] border-b border-l border-border/50">Người tạo</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-emerald-600 uppercase tracking-wider text-right whitespace-nowrap min-w-[150px] border-b border-l border-border/50 bg-emerald-50/30">Số tiền</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap border-b border-l border-border/50">Ngày giờ chi</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider text-center whitespace-nowrap border-b border-l border-border/50 bg-muted/10">Trạng thái thanh toán</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider text-center whitespace-nowrap border-b border-l border-border/50 bg-muted/5">Xác nhận</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap border-b border-l border-border/50 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                {filteredExpenses.map(e => (
-                  <tr key={e.id} className="group hover:bg-muted/10 transition-colors">
-                    <td className="w-12 pl-4 pr-2 py-4 align-middle border-b border-border/30">
-                      {canMutateExpense(e) ? (
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(e.id)}
-                          onChange={() => toggleSelectOne(e.id)}
-                          className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
-                        />
-                      ) : null}
-                    </td>
-                    <td className="px-6 py-4 border-r border-border/10">
-                      <div className="flex items-center gap-2">
-                        <div className="text-[14px] font-medium text-foreground">{e.expense_name}</div>
-                      </div>
-                      {e.vehicle && (
-                        <div className="text-[11px] text-muted-foreground mt-0.5">Xe: {e.vehicle.license_plate}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 border-r border-border/10 text-center bg-muted/5">
-                      {e.image_urls && e.image_urls.length > 0 ? (
-                        <button
-                          onClick={() => {
-                            setPreviewImages(e.image_urls);
-                            setCurrentImageIndex(0);
-                          }}
-                          className="relative w-10 h-10 rounded-lg border border-border overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all group"
-                        >
-                          <img src={e.image_urls[0]} alt="Receipt" className="w-full h-full object-cover" />
-                          {e.image_urls.length > 1 && (
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-[10px] text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                              +{e.image_urls.length - 1}
-                            </div>
+                    <table className="w-full text-left border-collapse min-w-[1020px]">
+                      <thead className="bg-muted/30 sticky top-0 z-10 backdrop-blur-xl">
+                        <tr>
+                          <th className="w-12 pl-4 pr-2 py-4 border-b border-border/50">
+                            <input
+                              ref={selectAllCheckboxRef}
+                              type="checkbox"
+                              checked={allDeletableSelected}
+                              onChange={toggleSelectAllDeletable}
+                              disabled={deletableInView.length === 0}
+                              className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                              title="Chọn tất cả (theo bộ lọc hiện tại)"
+                            />
+                          </th>
+                          <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap min-w-[200px] border-b border-border/50">Tên chi phí</th>
+                          <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider text-center whitespace-nowrap border-b border-l border-border/50 bg-muted/5">Ảnh</th>
+                          <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap min-w-[150px] border-b border-l border-border/50">Người tạo</th>
+                          <th className="px-6 py-4 text-[11px] font-bold text-emerald-600 uppercase tracking-wider text-right whitespace-nowrap min-w-[150px] border-b border-l border-border/50 bg-emerald-50/30">Số tiền</th>
+                          <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap border-b border-l border-border/50">Ngày giờ chi</th>
+                          <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider text-center whitespace-nowrap border-b border-l border-border/50 bg-muted/10">Trạng thái thanh toán</th>
+                          <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider text-center whitespace-nowrap border-b border-l border-border/50 bg-muted/5">Xác nhận</th>
+                          <th className="px-6 py-4 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-wider whitespace-nowrap border-b border-l border-border/50 text-right">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/30">
+                        {filteredExpenses.map(e => (
+                          <tr key={e.id} className="group hover:bg-muted/10 transition-colors">
+                            <td className="w-12 pl-4 pr-2 py-4 align-middle border-b border-border/30">
+                              {canMutateExpense(e) ? (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedIds.has(e.id)}
+                                  onChange={() => toggleSelectOne(e.id)}
+                                  className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                                />
+                              ) : null}
+                            </td>
+                            <td className="px-6 py-4 border-r border-border/10">
+                              <div className="flex items-center gap-2">
+                                <div className="text-[14px] font-medium text-foreground">{e.expense_name}</div>
+                              </div>
+                              {e.vehicle && (
+                                <div className="text-[11px] text-muted-foreground mt-0.5">Xe: {e.vehicle.license_plate}</div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 border-r border-border/10 text-center bg-muted/5">
+                              {e.image_urls && e.image_urls.length > 0 ? (
+                                <button
+                                  onClick={() => {
+                                    setPreviewImages(e.image_urls);
+                                    setCurrentImageIndex(0);
+                                  }}
+                                  className="relative w-10 h-10 rounded-lg border border-border overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all group"
+                                >
+                                  <img src={e.image_urls[0]} alt="Receipt" className="w-full h-full object-cover" />
+                                  {e.image_urls.length > 1 && (
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-[10px] text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                                      +{e.image_urls.length - 1}
+                                    </div>
+                                  )}
+                                </button>
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg border border-border border-dashed flex items-center justify-center text-muted-foreground/30 mx-auto">
+                                  <ImageIcon size={16} />
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 border-r border-border/10 text-[13px] text-muted-foreground">
+                              {e.employee?.full_name || 'Không xác định'}
+                            </td>
+                            <td className="px-6 py-4 text-right border-border/10 font-bold text-[14px] text-emerald-600 tabular-nums bg-emerald-50/20">
+                              {formatCurrency(e.amount)}
+                            </td>
+                            <td className="px-6 py-4 border-l border-border/10 text-[13px] text-muted-foreground whitespace-nowrap">
+                              {formatExpenseDateDisplay(e.expense_date)}
+                            </td>
+                            <td className="px-6 py-4 text-center border-l border-border/10 bg-muted/5">
+                              <StatusBadge
+                                status={e.payment_status === 'unpaid' ? 'unpaid' : 'paid'}
+                                label={e.payment_status === 'unpaid' ? 'Chưa thanh toán' : 'Đã thanh toán'}
+                              />
+                            </td>
+                            <td className="px-6 py-4 text-center border-l border-border/10 bg-muted/5">
+                              <div className="flex flex-col items-center gap-0.5">
+                                <StatusBadge
+                                  status={e.payment_status === 'confirmed' ? 'approved' : 'pending'}
+                                  label={e.payment_status === 'confirmed' ? 'Đã xác nhận' : 'Chưa xác nhận'}
+                                />
+                                {e.payment_status === 'confirmed' && e.confirmer?.full_name && (
+                                  <span className="text-[10px] text-muted-foreground max-w-[140px] truncate" title={e.confirmer.full_name}>
+                                    {e.confirmer.full_name}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-right border-l border-border/10">
+                              <div className="flex items-center justify-end gap-2">
+                                {(e.payment_status === 'paid' || e.payment_status === 'unpaid') && user?.role === 'admin' && (
+                                  <button
+                                    onClick={() => setConfirmId(e.id)}
+                                    className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                    title="Xác nhận đã thanh toán"
+                                  >
+                                    <CheckCircle2 size={16} />
+                                  </button>
+                                )}
+                                {canMutateExpense(e) && (
+                                  <>
+                                    <button
+                                      onClick={() => openDialog(e)}
+                                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                      title="Sửa"
+                                    >
+                                      <Edit2 size={16} />
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteConfirmIds([e.id])}
+                                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                      title="Xóa"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile: thẻ (dưới sm); có dòng trạng thái thanh toán dạng bảng nhỏ */}
+                  <div className="flex flex-col gap-3 p-3 sm:hidden bg-muted/50 min-h-full pb-20">
+                    {filteredExpenses.map(e => (
+                      <div key={e.id} className="bg-card rounded-xl border border-border/60 shadow-sm p-4 flex flex-col gap-3 relative overflow-hidden">
+                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${e.payment_status === 'confirmed' ? 'bg-emerald-500' : e.payment_status === 'unpaid' ? 'bg-red-500' : 'bg-amber-500'}`} />
+
+                        <div className="flex justify-between items-start pl-1 mb-1 gap-2">
+                          {canMutateExpense(e) ? (
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(e.id)}
+                              onChange={() => toggleSelectOne(e.id)}
+                              className="w-4 h-4 mt-1 rounded border-border text-primary focus:ring-primary shrink-0"
+                            />
+                          ) : (
+                            <span className="w-4 shrink-0" />
                           )}
-                        </button>
-                      ) : (
-                        <div className="w-10 h-10 rounded-lg border border-border border-dashed flex items-center justify-center text-muted-foreground/30 mx-auto">
-                          <ImageIcon size={16} />
+                          <div className="flex flex-col flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[14px] font-bold text-foreground">{e.expense_name}</span>
+                              {e.image_urls && e.image_urls.length > 0 && (
+                                <button
+                                  onClick={() => {
+                                    setPreviewImages(e.image_urls);
+                                    setCurrentImageIndex(0);
+                                  }}
+                                  className="p-1 bg-muted rounded-md text-primary"
+                                >
+                                  <ImageIcon size={14} />
+                                </button>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-muted-foreground mt-0.5">
+                              {e.employee?.full_name} {e.vehicle && `• Xe: ${e.vehicle.license_plate}`}
+                            </span>
+                          </div>
                         </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 border-r border-border/10 text-[13px] text-muted-foreground">
-                       {e.employee?.full_name || 'Không xác định'}
-                    </td>
-                    <td className="px-6 py-4 text-right border-border/10 font-bold text-[14px] text-emerald-600 tabular-nums bg-emerald-50/20">
-                      {formatCurrency(e.amount)}
-                    </td>
-                    <td className="px-6 py-4 border-l border-border/10 text-[13px] text-muted-foreground whitespace-nowrap">
-                       {formatExpenseDateDisplay(e.expense_date)}
-                    </td>
-                    <td className="px-6 py-4 text-center border-l border-border/10 bg-muted/5">
-                      <StatusBadge
-                        status={e.payment_status === 'unpaid' ? 'unpaid' : 'paid'}
-                        label={e.payment_status === 'unpaid' ? 'Chưa thanh toán' : 'Đã thanh toán'}
-                      />
-                    </td>
-                    <td className="px-6 py-4 text-center border-l border-border/10 bg-muted/5">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <StatusBadge
-                          status={e.payment_status === 'confirmed' ? 'approved' : 'pending'}
-                          label={e.payment_status === 'confirmed' ? 'Đã xác nhận' : 'Chưa xác nhận'}
-                        />
-                        {e.payment_status === 'confirmed' && e.confirmer?.full_name && (
-                          <span className="text-[10px] text-muted-foreground max-w-[140px] truncate" title={e.confirmer.full_name}>
-                            {e.confirmer.full_name}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right border-l border-border/10">
-                      <div className="flex items-center justify-end gap-2">
-                        {(e.payment_status === 'paid' || e.payment_status === 'unpaid') && user?.role === 'admin' && (
-                          <button
-                            onClick={() => setConfirmId(e.id)}
-                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                            title="Xác nhận đã thanh toán"
-                          >
-                            <CheckCircle2 size={16} />
-                          </button>
-                        )}
-                        {canMutateExpense(e) && (
-                          <>
+
+                        <div className="ml-1 rounded-lg border border-border/60 overflow-hidden text-[12px] bg-background">
+                          <div className="grid grid-cols-[1fr_auto] gap-x-3 items-center border-b border-border/50 bg-muted/15 px-3 py-2">
+                            <span className="text-muted-foreground font-semibold">Trạng thái thanh toán</span>
+                            <StatusBadge
+                              status={e.payment_status === 'unpaid' ? 'unpaid' : 'paid'}
+                              label={e.payment_status === 'unpaid' ? 'Chưa thanh toán' : 'Đã thanh toán'}
+                            />
+                          </div>
+                          <div className="grid grid-cols-[1fr_auto] gap-x-3 items-center border-b border-border/50 bg-muted/10 px-3 py-2">
+                            <span className="text-muted-foreground font-semibold">Xác nhận</span>
+                            <div className="flex flex-col items-end gap-0.5 min-w-0">
+                              <StatusBadge
+                                status={e.payment_status === 'confirmed' ? 'approved' : 'pending'}
+                                label={e.payment_status === 'confirmed' ? 'Đã xác nhận' : 'Chưa xác nhận'}
+                              />
+                              {e.payment_status === 'confirmed' && e.confirmer?.full_name && (
+                                <span className="text-[10px] text-muted-foreground text-right truncate max-w-[160px]">
+                                  {e.confirmer.full_name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 px-3 py-2.5 bg-muted/10">
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-[11px] text-muted-foreground font-medium">Ngày giờ chi</span>
+                              <span className="text-[13px] font-bold text-foreground tabular-nums">{formatExpenseDateDisplay(e.expense_date)}</span>
+                            </div>
+                            <div className="flex flex-col items-end min-w-0">
+                              <span className="text-[11px] text-emerald-600/80 font-medium">Số tiền</span>
+                              <span className="text-[14px] font-bold text-emerald-600 tabular-nums">{formatCurrency(e.amount)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 mt-1">
+                          {(e.payment_status === 'paid' || e.payment_status === 'unpaid') && user?.role === 'admin' && (
                             <button
-                              onClick={() => openDialog(e)}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Sửa"
+                              onClick={() => setConfirmId(e.id)}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[12px] font-bold"
                             >
-                              <Edit2 size={16} />
+                              <CheckCircle2 size={14} />
+                              Xác nhận
                             </button>
-                            <button
-                              onClick={() => setDeleteConfirmIds([e.id])}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Xóa"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </>
-                        )}
-                    </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-                  </div>
-
-            {/* Mobile: thẻ (dưới sm); có dòng trạng thái thanh toán dạng bảng nhỏ */}
-            <div className="flex flex-col gap-3 p-3 sm:hidden bg-muted/50 min-h-full pb-20">
-              {filteredExpenses.map(e => (
-                <div key={e.id} className="bg-card rounded-xl border border-border/60 shadow-sm p-4 flex flex-col gap-3 relative overflow-hidden">
-                  <div className={`absolute left-0 top-0 bottom-0 w-1 ${e.payment_status === 'confirmed' ? 'bg-emerald-500' : e.payment_status === 'unpaid' ? 'bg-red-500' : 'bg-amber-500'}`} />
-                  
-                  <div className="flex justify-between items-start pl-1 mb-1 gap-2">
-                     {canMutateExpense(e) ? (
-                       <input
-                         type="checkbox"
-                         checked={selectedIds.has(e.id)}
-                         onChange={() => toggleSelectOne(e.id)}
-                         className="w-4 h-4 mt-1 rounded border-border text-primary focus:ring-primary shrink-0"
-                       />
-                     ) : (
-                       <span className="w-4 shrink-0" />
-                     )}
-                     <div className="flex flex-col flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[14px] font-bold text-foreground">{e.expense_name}</span>
-                        {e.image_urls && e.image_urls.length > 0 && (
-                          <button
-                            onClick={() => {
-                              setPreviewImages(e.image_urls);
-                              setCurrentImageIndex(0);
-                            }}
-                            className="p-1 bg-muted rounded-md text-primary"
-                          >
-                            <ImageIcon size={14} />
-                          </button>
-                        )}
+                          )}
+                          {canMutateExpense(e) && (
+                            <>
+                              <button
+                                onClick={() => openDialog(e)}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[12px] font-bold"
+                              >
+                                <Edit2 size={14} />
+                                Sửa
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirmIds([e.id])}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[12px] font-bold"
+                              >
+                                <Trash2 size={14} />
+                                Xóa
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                       <span className="text-[11px] text-muted-foreground mt-0.5">
-                         {e.employee?.full_name} {e.vehicle && `• Xe: ${e.vehicle.license_plate}`}
-                       </span>
-                     </div>
+                    ))}
                   </div>
-
-                  <div className="ml-1 rounded-lg border border-border/60 overflow-hidden text-[12px] bg-background">
-                    <div className="grid grid-cols-[1fr_auto] gap-x-3 items-center border-b border-border/50 bg-muted/15 px-3 py-2">
-                      <span className="text-muted-foreground font-semibold">Trạng thái thanh toán</span>
-                      <StatusBadge
-                        status={e.payment_status === 'unpaid' ? 'unpaid' : 'paid'}
-                        label={e.payment_status === 'unpaid' ? 'Chưa thanh toán' : 'Đã thanh toán'}
-                      />
-                    </div>
-                    <div className="grid grid-cols-[1fr_auto] gap-x-3 items-center border-b border-border/50 bg-muted/10 px-3 py-2">
-                      <span className="text-muted-foreground font-semibold">Xác nhận</span>
-                      <div className="flex flex-col items-end gap-0.5 min-w-0">
-                        <StatusBadge
-                          status={e.payment_status === 'confirmed' ? 'approved' : 'pending'}
-                          label={e.payment_status === 'confirmed' ? 'Đã xác nhận' : 'Chưa xác nhận'}
-                        />
-                        {e.payment_status === 'confirmed' && e.confirmer?.full_name && (
-                          <span className="text-[10px] text-muted-foreground text-right truncate max-w-[160px]">
-                            {e.confirmer.full_name}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 px-3 py-2.5 bg-muted/10">
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-[11px] text-muted-foreground font-medium">Ngày giờ chi</span>
-                        <span className="text-[13px] font-bold text-foreground tabular-nums">{formatExpenseDateDisplay(e.expense_date)}</span>
-                      </div>
-                      <div className="flex flex-col items-end min-w-0">
-                        <span className="text-[11px] text-emerald-600/80 font-medium">Số tiền</span>
-                        <span className="text-[14px] font-bold text-emerald-600 tabular-nums">{formatCurrency(e.amount)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 mt-1">
-                    {(e.payment_status === 'paid' || e.payment_status === 'unpaid') && user?.role === 'admin' && (
-                      <button
-                        onClick={() => setConfirmId(e.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[12px] font-bold"
-                      >
-                        <CheckCircle2 size={14} />
-                        Xác nhận
-                      </button>
-                    )}
-                    {canMutateExpense(e) && (
-                      <>
-                        <button
-                          onClick={() => openDialog(e)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[12px] font-bold"
-                        >
-                          <Edit2 size={14} />
-                          Sửa
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirmIds([e.id])}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[12px] font-bold"
-                        >
-                          <Trash2 size={14} />
-                          Xóa
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
                 </>
               )}
             </div>
@@ -887,6 +887,8 @@ const ExpensesPage = () => {
                       onValueChange={(val) => setFormData({ ...formData, expense_name: val })}
                       options={[
                         { value: 'Dầu Phúc Sơn', label: 'Dầu Phúc Sơn' },
+                        { value: 'Dầu Quang Trung', label: 'Dầu Quang Trung' },
+                        { value: 'Dầu Petro', label: 'Dầu Petro' },
                         { value: 'Dầu Ngoài', label: 'Dầu Ngoài' },
                         { value: 'Phí Cầu Đường', label: 'Phí Cầu Đường' },
                         { value: 'Sửa xe', label: 'Sửa xe' }
@@ -912,14 +914,14 @@ const ExpensesPage = () => {
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-bold text-foreground">Số tiền <span className="text-red-500">*</span></label>
                     <div className="relative">
-                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">₫</span>
-                       <CurrencyInput
-                         required
-                         value={formData.amount}
-                         onChange={(val) => setFormData({ ...formData, amount: val })}
-                         className="flex h-11 w-full rounded-xl border border-border/80 bg-background pl-8 pr-3 py-2 text-[14px] ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all font-medium text-emerald-600"
-                         placeholder="Ví dụ: 30.000"
-                       />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">₫</span>
+                      <CurrencyInput
+                        required
+                        value={formData.amount}
+                        onChange={(val) => setFormData({ ...formData, amount: val })}
+                        className="flex h-11 w-full rounded-xl border border-border/80 bg-background pl-8 pr-3 py-2 text-[14px] ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all font-medium text-emerald-600"
+                        placeholder="Ví dụ: 30.000"
+                      />
                     </div>
                   </div>
 
@@ -982,71 +984,71 @@ const ExpensesPage = () => {
 
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-bold text-foreground">Hình ảnh / Hóa đơn</label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {formData.image_urls.map((url, idx) => (
-                            <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden group">
-                              <img src={url} alt="Receipt" className="w-full h-full object-cover" />
-                              <button
-                                type="button"
-                                onClick={() => removeImage(idx)}
-                                className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <X size={14} />
-                              </button>
-                            </div>
-                          ))}
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (fileInputRef.current) {
-                                  fileInputRef.current.removeAttribute('capture');
-                                  fileInputRef.current.click();
-                                }
-                              }}
-                              disabled={isUploading}
-                              className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-emerald-500/50 hover:bg-emerald-50/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {isUploading && uploadType === 'file' ? (
-                                <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                <>
-                                  <Upload size={20} />
-                                  <span className="text-[11px] font-medium text-center px-1 leading-tight">Tải ảnh lên</span>
-                                </>
-                              )}
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (fileInputRef.current) {
-                                  fileInputRef.current.setAttribute('capture', 'environment');
-                                  fileInputRef.current.click();
-                                }
-                              }}
-                              disabled={isUploading}
-                              className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-blue-500/50 hover:bg-blue-50/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed md:hidden"
-                            >
-                              {isUploading && uploadType === 'camera' ? (
-                                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                              ) : (
-                                <>
-                                  <Camera size={20} />
-                                  <span className="text-[11px] font-medium text-center px-1 leading-tight">Chụp ảnh</span>
-                                </>
-                              )}
-                            </button>
-                          </>
-                          <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            multiple
-                            accept="image/*"
-                            className="hidden"
-                          />
+                    <div className="grid grid-cols-3 gap-2">
+                      {formData.image_urls.map((url, idx) => (
+                        <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden group">
+                          <img src={url} alt="Receipt" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(idx)}
+                            className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X size={14} />
+                          </button>
                         </div>
+                      ))}
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (fileInputRef.current) {
+                              fileInputRef.current.removeAttribute('capture');
+                              fileInputRef.current.click();
+                            }
+                          }}
+                          disabled={isUploading}
+                          className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-emerald-500/50 hover:bg-emerald-50/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isUploading && uploadType === 'file' ? (
+                            <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <>
+                              <Upload size={20} />
+                              <span className="text-[11px] font-medium text-center px-1 leading-tight">Tải ảnh lên</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (fileInputRef.current) {
+                              fileInputRef.current.setAttribute('capture', 'environment');
+                              fileInputRef.current.click();
+                            }
+                          }}
+                          disabled={isUploading}
+                          className="aspect-square rounded-xl border-2 border-dashed border-border hover:border-blue-500/50 hover:bg-blue-50/50 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed md:hidden"
+                        >
+                          {isUploading && uploadType === 'camera' ? (
+                            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <>
+                              <Camera size={20} />
+                              <span className="text-[11px] font-medium text-center px-1 leading-tight">Chụp ảnh</span>
+                            </>
+                          )}
+                        </button>
+                      </>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        multiple
+                        accept="image/*"
+                        className="hidden"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1061,14 +1063,14 @@ const ExpensesPage = () => {
               >
                 Hủy
               </button>
-              <button 
+              <button
                 type="submit"
                 form="expense-form"
                 disabled={createMutation.isPending || updateMutation.isPending || isUploading}
                 className={clsx(
                   "flex items-center gap-2 px-8 py-2 rounded-xl text-[13px] font-bold shadow-lg transition-all group",
                   (createMutation.isPending || updateMutation.isPending || isUploading)
-                    ? "bg-emerald-500/50 text-white/60 cursor-wait" 
+                    ? "bg-emerald-500/50 text-white/60 cursor-wait"
                     : "bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/20"
                 )}
               >

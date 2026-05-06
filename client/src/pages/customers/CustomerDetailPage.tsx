@@ -170,8 +170,8 @@ const CustomerDetailPage: React.FC = () => {
               onClick={() => setActiveTab(tab.id)}
               className={clsx(
                 "flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-2 p-2 md:px-4 md:py-2 rounded-xl transition-all",
-                isActive 
-                  ? "bg-primary/10 md:bg-primary text-primary md:text-white shadow-sm md:shadow-md shadow-primary/5 md:shadow-primary/20" 
+                isActive
+                  ? "bg-primary/10 md:bg-primary text-primary md:text-white shadow-sm md:shadow-md shadow-primary/5 md:shadow-primary/20"
                   : "bg-transparent md:bg-white text-muted-foreground hover:bg-muted/50 md:border md:border-border"
               )}
             >
@@ -187,7 +187,7 @@ const CustomerDetailPage: React.FC = () => {
 
       {/* Tab Content */}
       <div className="flex-1 md:bg-white md:rounded-2xl md:border md:border-border md:shadow-sm flex flex-col min-h-0 md:overflow-hidden -mx-4 sm:mx-0 pt-2 md:pt-0">
-        
+
         {/* TAB: OVERVIEW */}
         {activeTab === 'overview' && (
           <div className="p-4 md:p-6 overflow-y-auto w-full max-w-4xl flex flex-col md:grid md:grid-cols-2 gap-4 md:gap-6 pb-24 md:pb-6">
@@ -202,15 +202,15 @@ const CustomerDetailPage: React.FC = () => {
                       <Building2 size={16} />
                     </div>
                     <span className="flex items-center gap-2">
-                       {customer.name}
-                       {(() => {
-                         const badge = getCustomerTypeBadge(customer.customer_type);
-                         return (
-                           <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold border ${badge.color}`}>
-                             {badge.label}
-                           </span>
-                         );
-                       })()}
+                      {customer.name}
+                      {(() => {
+                        const badge = getCustomerTypeBadge(customer.customer_type);
+                        return (
+                          <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold border ${badge.color}`}>
+                            {badge.label}
+                          </span>
+                        );
+                      })()}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-[14px] font-medium text-foreground">
@@ -236,35 +236,35 @@ const CustomerDetailPage: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-               <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5 flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white rounded-xl shadow-sm text-emerald-600 flex items-center justify-center shrink-0">
-                    <Receipt size={24} />
-                  </div>
-                   <div>
-                      <p className="text-[12px] font-bold text-emerald-800/60 uppercase tracking-widest mb-1">Dư nợ hiện tại</p>
-                      <p className="text-2xl font-black text-emerald-700 tabular-nums">{formatCurrency(calculatedDebt)}</p>
-                   </div>
-               </div>
+              <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5 flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-xl shadow-sm text-emerald-600 flex items-center justify-center shrink-0">
+                  <Receipt size={24} />
+                </div>
+                <div>
+                  <p className="text-[12px] font-bold text-emerald-800/60 uppercase tracking-widest mb-1">Dư nợ hiện tại</p>
+                  <p className="text-2xl font-black text-emerald-700 tabular-nums">{formatCurrency(calculatedDebt)}</p>
+                </div>
+              </div>
 
-               <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white rounded-xl shadow-sm text-blue-600 flex items-center justify-center shrink-0">
-                    <FileSpreadsheet size={24} />
-                  </div>
-                  <div>
-                     <p className="text-[12px] font-bold text-blue-800/60 uppercase tracking-widest mb-1">Tổng doanh thu mua hàng</p>
-                     <p className="text-2xl font-black text-blue-700 tabular-nums">{formatCurrency(customer.total_revenue)}</p>
-                  </div>
-               </div>
+              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-xl shadow-sm text-blue-600 flex items-center justify-center shrink-0">
+                  <FileSpreadsheet size={24} />
+                </div>
+                <div>
+                  <p className="text-[12px] font-bold text-blue-800/60 uppercase tracking-widest mb-1">Tổng doanh thu mua hàng</p>
+                  <p className="text-2xl font-black text-blue-700 tabular-nums">{formatCurrency(customer.total_revenue)}</p>
+                </div>
+              </div>
 
-               <div className="bg-muted/10 border border-border rounded-2xl p-5 flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-border text-foreground flex items-center justify-center shrink-0">
-                    <PackageCheck size={24} />
-                  </div>
-                  <div>
-                     <p className="text-[12px] font-bold text-muted-foreground/70 uppercase tracking-widest mb-1">Tổng số đơn nhập gửi</p>
-                     <p className="text-2xl font-black text-foreground tabular-nums">{customer.total_orders}</p>
-                  </div>
-               </div>
+              <div className="bg-muted/10 border border-border rounded-2xl p-5 flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-border text-foreground flex items-center justify-center shrink-0">
+                  <PackageCheck size={24} />
+                </div>
+                <div>
+                  <p className="text-[12px] font-bold text-muted-foreground/70 uppercase tracking-widest mb-1">Tổng số đơn nhập gửi</p>
+                  <p className="text-2xl font-black text-foreground tabular-nums">{customer.total_orders}</p>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -272,7 +272,7 @@ const CustomerDetailPage: React.FC = () => {
         {/* TAB: IMPORTS */}
         {activeTab === 'imports' && (
           <div className="flex-1 overflow-auto custom-scrollbar">
-            {isLoadingImports ? <div className="p-4"><LoadingSkeleton rows={5} columns={6}/></div> : !importOrders?.length ? <EmptyState title="Không có phiếu nhập" /> : (
+            {isLoadingImports ? <div className="p-4"><LoadingSkeleton rows={5} columns={6} /></div> : !importOrders?.length ? <EmptyState title="Không có phiếu nhập" /> : (
               <div className="h-full flex flex-col w-full min-h-0">
                 {/* Desktop View */}
                 <div className="hidden md:block">
@@ -334,7 +334,7 @@ const CustomerDetailPage: React.FC = () => {
         {/* TAB: EXPORTS */}
         {activeTab === 'exports' && (
           <div className="flex-1 overflow-auto custom-scrollbar">
-             {isLoadingExports ? <div className="p-4"><LoadingSkeleton rows={5} columns={6}/></div> : !exportOrders?.length ? <EmptyState title="Không có phiếu xuất" /> : (
+            {isLoadingExports ? <div className="p-4"><LoadingSkeleton rows={5} columns={6} /></div> : !exportOrders?.length ? <EmptyState title="Không có phiếu xuất" /> : (
               <div className="h-full flex flex-col w-full min-h-0">
                 {/* Desktop View */}
                 <div className="hidden md:block">
@@ -378,7 +378,7 @@ const CustomerDetailPage: React.FC = () => {
                         <StatusBadge status={o.payment_status} />
                       </div>
                       <div className="flex justify-between items-center bg-muted/5 p-2 px-3 rounded-lg border border-border">
-                         <span className="text-[12px] text-muted-foreground font-medium">Số lượng nhập: <span className="font-bold text-foreground">{o.quantity}</span></span>
+                        <span className="text-[12px] text-muted-foreground font-medium">Số lượng nhập: <span className="font-bold text-foreground">{o.quantity}</span></span>
                       </div>
                       <div className="flex flex-row justify-between pt-1">
                         <div className="flex flex-col">
@@ -401,7 +401,7 @@ const CustomerDetailPage: React.FC = () => {
         {/* TAB: RECEIPTS */}
         {activeTab === 'receipts' && (
           <div className="flex-1 overflow-auto custom-scrollbar">
-             {isLoadingReceipts ? <div className="p-4"><LoadingSkeleton rows={5} columns={5}/></div> : !receipts?.length ? <EmptyState title="Không có lịch sử thu tiền" /> : (
+            {isLoadingReceipts ? <div className="p-4"><LoadingSkeleton rows={5} columns={5} /></div> : !receipts?.length ? <EmptyState title="Không có lịch sử thu tiền" /> : (
               <div className="h-full flex flex-col w-full min-h-0">
                 {/* Desktop View */}
                 <div className="hidden md:block">
@@ -495,7 +495,7 @@ const CustomerDetailPage: React.FC = () => {
                 {/* Desktop Table */}
                 <div className="hidden md:block print:block flex-1 overflow-auto" data-print-area="loyal-orders">
                   <div className="print-header hidden">
-                    <p style={{ fontWeight: 'bold', fontSize: '20px' }}>Nhà xe Nam Sự</p>
+                    <p style={{ fontWeight: 'bold', fontSize: '20px' }}>Nhà xe Năm Sự</p>
                     <h2>PHIẾU GIAO HÀNG</h2>
                     <p>Khách hàng: {customer.name}</p>
                     <p>Điện thoại: {customer.phone || '-'} | Địa chỉ: {customer.address || '-'}</p>
@@ -539,9 +539,9 @@ const CustomerDetailPage: React.FC = () => {
                           o.delivery_time ? o.delivery_time.slice(0, 5) : '',
                         ].filter(Boolean).join(' ');
 
-                        const displayPrice = editingPrices[o.id] !== undefined 
-                           ? (editingPrices[o.id] || '')
-                           : (o.unit_price ? o.unit_price / 1000 : '');
+                        const displayPrice = editingPrices[o.id] !== undefined
+                          ? (editingPrices[o.id] || '')
+                          : (o.unit_price ? o.unit_price / 1000 : '');
 
                         return (
                           <tr
@@ -607,9 +607,9 @@ const CustomerDetailPage: React.FC = () => {
                       .filter(Boolean)
                       .join(', ') || '-';
 
-                    const displayPrice = editingPrices[o.id] !== undefined 
-                        ? (editingPrices[o.id] || '')
-                        : (o.unit_price ? o.unit_price / 1000 : '');
+                    const displayPrice = editingPrices[o.id] !== undefined
+                      ? (editingPrices[o.id] || '')
+                      : (o.unit_price ? o.unit_price / 1000 : '');
 
                     return (
                       <div key={o.id} className="bg-white p-4 rounded-2xl shadow-sm border border-border flex flex-col gap-3">
@@ -676,11 +676,11 @@ const CustomerDetailPage: React.FC = () => {
       />
 
       <CollectDebtDialog
-         isOpen={isCollectDebtOpen}
-         isClosing={isCollectDebtClosing}
-         onClose={closeCollectDebtDialog}
-         customer={customer}
-         debtAmount={calculatedDebt}
+        isOpen={isCollectDebtOpen}
+        isClosing={isCollectDebtClosing}
+        onClose={closeCollectDebtDialog}
+        customer={customer}
+        debtAmount={calculatedDebt}
       />
     </div>
   );

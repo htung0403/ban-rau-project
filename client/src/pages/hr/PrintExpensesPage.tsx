@@ -245,7 +245,7 @@ const PrintExpensesPage: React.FC = () => {
         <div className="print-area" ref={printRef}>
           <div className="print-sheet">
             <div style={{ textAlign: 'center', marginBottom: 20 }}>
-              <p style={{ fontWeight: 'bold', fontSize: 20, fontFamily: 'serif', marginBottom: 10 }}>NHÀ XE NAM SỰ</p>
+              <p style={{ fontWeight: 'bold', fontSize: 20, fontFamily: 'serif', marginBottom: 10 }}>NHÀ XE NĂM SỰ</p>
               <h2 style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 8, fontFamily: 'serif' }}>
                 BẢNG KÊ CHI PHÍ {filterType !== 'all' && `- ${filterType.toUpperCase()}`}
               </h2>

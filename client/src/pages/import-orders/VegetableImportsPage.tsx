@@ -10,7 +10,7 @@ import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
 import PageHeader from '../../components/shared/PageHeader';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
-import { DateRangePicker } from '../../components/shared/DateRangePicker';
+import { DatePicker } from '../../components/shared/DatePicker';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { ColumnSettings, type ColumnOption } from '../../components/shared/ColumnSettings';
@@ -118,8 +118,7 @@ const VegetableImportsPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [searchText, setSearchText] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState(getTodayVN());
-  const [filterDateTo, setFilterDateTo] = useState(getTodayVN());
+  const [filterDate, setFilterDate] = useState(getTodayVN());
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
   
   const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
@@ -144,30 +143,31 @@ const VegetableImportsPage: React.FC = () => {
 
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const filters: ImportOrderFilters = {};
-  if (filterDateFrom) filters.dateFrom = filterDateFrom;
-  if (filterDateTo) filters.dateTo = filterDateTo;
-  if (filterStatus.length > 0) filters.status = filterStatus.join(',');
-  if (searchText.trim()) filters.search = searchText.trim();
-  filters.order_category = 'vegetable';
-  filters.page = page;
-  filters.pageSize = pageSize;
+  const allFilters: ImportOrderFilters = {};
+  if (filterDate) {
+    allFilters.dateFrom = filterDate;
+    allFilters.dateTo = filterDate;
+  }
+  if (filterStatus.length > 0) allFilters.status = filterStatus.join(',');
+  if (searchText.trim()) allFilters.search = searchText.trim();
+  allFilters.order_category = 'vegetable';
+  allFilters.pageSize = 9999;
 
   const { data: vehicles } = useVehicles();
-  const { data: apiResponse, isLoading, isError, refetch } = useImportOrders(filters);
-  const orders = useMemo(() => {
-    const raw = apiResponse?.data || [];
+  const { data: allApiResponse, isLoading, isError, refetch } = useImportOrders(allFilters);
+  const allOrders = useMemo(() => {
+    const raw = allApiResponse?.data || [];
     if (!user || hasFullGoodsModuleAccess(user)) return raw;
     return raw.filter((o) =>
       importOrderVisibleToUser(o, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])
     );
-  }, [apiResponse?.data, user, vehicles]);
+  }, [allApiResponse?.data, user, vehicles]);
   const deleteMutation = useDeleteImportOrder();
 
   const dailyTaiRankMap = useMemo(() => {
     const map = new Map<string, number>();
     const byDate = new Map<string, ImportOrder[]>();
-    orders.forEach((order) => {
+    allOrders.forEach((order) => {
       const orderDate = order.order_date || '';
       const current = byDate.get(orderDate) || [];
       current.push(order);
@@ -208,15 +208,15 @@ const VegetableImportsPage: React.FC = () => {
       });
     });
     return map;
-  }, [orders]);
+  }, [allOrders]);
 
   const { vuaOptions, taiOptions, nguoiNhapOptions } = useMemo(() => {
-    if (!orders) return { vuaOptions: [], taiOptions: [], nguoiNhapOptions: [] };
+    if (!allOrders) return { vuaOptions: [], taiOptions: [], nguoiNhapOptions: [] };
     const vuaSet = new Set<string>();
     const taiSet = new Set<string>();
     const receiverSet = new Set<string>();
 
-    orders.forEach(order => {
+    allOrders.forEach(order => {
       const chuHang = order.customers?.name || order.sender_name;
       if (chuHang) vuaSet.add(chuHang);
 
@@ -234,10 +234,15 @@ const VegetableImportsPage: React.FC = () => {
       taiOptions: Array.from(taiSet).map(v => ({ label: v, value: v })),
       nguoiNhapOptions: Array.from(receiverSet).map(v => ({ label: v, value: v }))
     };
-  }, [orders]);
+  }, [allOrders]);
 
-  const totalItems = apiResponse?.total ?? 0;
+  // Pagination handled client-side so tai rank is computed across full day
+  const totalItems = allOrders.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const orders = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return allOrders.slice(start, start + pageSize);
+  }, [allOrders, page, pageSize]);
 
   const groupedByDateThenCustomer = useMemo(() => {
     const byDate = new Map<string, ImportOrder[]>();
@@ -264,8 +269,8 @@ const VegetableImportsPage: React.FC = () => {
       const customerGroups: [string, ImportOrder[]][] = [];
       byCustomer.forEach((customerOrders, customerName) => {
         const sorted = [...customerOrders].sort((a, b) => {
-          const rankA = a.tai_rank || 1;
-          const rankB = b.tai_rank || 1;
+          const rankA = dailyTaiRankMap.get(a.id) || 1;
+          const rankB = dailyTaiRankMap.get(b.id) || 1;
           if (rankA !== rankB) return rankA - rankB;
           const timeA = new Date(a.created_at || 0).getTime();
           const timeB = new Date(b.created_at || 0).getTime();
@@ -279,7 +284,7 @@ const VegetableImportsPage: React.FC = () => {
     });
 
     return result;
-  }, [orders]);
+  }, [orders, dailyTaiRankMap]);
 
   const openAddDialog = () => {
     setEditingOrder(null);
@@ -320,8 +325,7 @@ const VegetableImportsPage: React.FC = () => {
 
   const clearFilters = () => {
     setSearchText('');
-    setFilterDateFrom(getTodayVN());
-    setFilterDateTo(getTodayVN());
+    setFilterDate(getTodayVN());
     setFilterStatus([]);
     setFilterCustomer([]);
     setFilterVehicle([]);
@@ -329,7 +333,7 @@ const VegetableImportsPage: React.FC = () => {
     setPage(1);
   };
 
-  const hasActiveFilters = !!filterDateFrom || !!filterDateTo || filterStatus.length > 0 || !!searchText || filterCustomer.length > 0 || filterVehicle.length > 0 || filterReceiver.length > 0;
+  const hasActiveFilters = !!filterDate || filterStatus.length > 0 || !!searchText || filterCustomer.length > 0 || filterVehicle.length > 0 || filterReceiver.length > 0;
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
@@ -442,19 +446,11 @@ const VegetableImportsPage: React.FC = () => {
             <ColumnSettings columns={columns} onColumnsChange={setColumns} />
           </div>
 
-          <div className="hidden md:block relative z-20">
-            <DateRangePicker
-              initialDateFrom={filterDateFrom || undefined}
-              initialDateTo={filterDateTo || undefined}
-              onUpdate={({ range }) => {
-                const format = (d: Date) => {
-                  const local = new Date(d.getTime() - (d.getTimezoneOffset() * 60000));
-                  return local.toISOString().split('T')[0];
-                };
-                setFilterDateFrom(range.from ? format(range.from) : '');
-                setFilterDateTo(range.to ? format(range.to) : '');
-                setPage(1);
-              }}
+          <div className="hidden md:block w-[180px] relative z-20">
+            <DatePicker
+              value={filterDate}
+              onChange={(val) => { setFilterDate(val); setPage(1); }}
+              placeholder="Chọn ngày"
             />
           </div>
 
@@ -854,22 +850,31 @@ const VegetableImportsPage: React.FC = () => {
         isClosing={isFilterClosing}
         onClose={closeFilter}
         onApply={(filters) => {
-          setFilterDateFrom(filters.dateFrom);
-          setFilterDateTo(filters.dateTo);
           setFilterStatus(filters.status);
           setPage(1);
         }}
-        initialDateFrom={filterDateFrom}
-        initialDateTo={filterDateTo}
+        initialDateFrom={filterDate}
+        initialDateTo={filterDate}
+        hideDateFilter
         initialStatus={filterStatus}
         statusOptions={statusOptions}
         onClear={() => {
+          setFilterDate(getTodayVN());
           setFilterCustomer([]);
           setFilterVehicle([]);
           setFilterReceiver([]);
         }}
         showClearButton={filterCustomer.length > 0 || filterVehicle.length > 0 || filterReceiver.length > 0}
       >
+        <div className="space-y-1.5 z-40">
+          <label className="text-[13px] font-bold text-muted-foreground">Ngày nhập</label>
+          <DatePicker
+            value={filterDate}
+            onChange={(val) => { setFilterDate(val); setPage(1); }}
+            placeholder="Chọn ngày"
+            className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
+          />
+        </div>
         <div className="space-y-1.5 z-30">
           <label className="text-[13px] font-bold text-muted-foreground">Chủ hàng</label>
           <MultiSearchableSelect

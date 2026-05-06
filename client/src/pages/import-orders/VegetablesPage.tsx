@@ -111,6 +111,12 @@ const COL_DEF: Record<string, { thClass: string, tdClass: string, render: (item:
   actions: { thClass: 'text-center w-24', tdClass: 'text-center', render: () => null },
 };
 
+const getTodayVN = () => {
+  const now = new Date();
+  const vnTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  return vnTime.toISOString().split('T')[0];
+};
+
 const VegetablesPage: React.FC = () => {
   const [columns, setColumns] = useState([
     { id: 'nguoi_nhan', label: 'Người Nhận', isVisible: true },
@@ -126,8 +132,7 @@ const VegetablesPage: React.FC = () => {
 
   const visibleColumns = columns.filter(c => c.isVisible);
 
-  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
-  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterDate, setFilterDate] = useState<string>(getTodayVN());
   const [searchQuery, setSearchQuery] = useState('');
 
   const [filterCustomer, setFilterCustomer] = useState<string[]>([]);
@@ -177,8 +182,10 @@ const VegetablesPage: React.FC = () => {
   };
 
   const filters: any = {};
-  if (filterDateFrom) filters.dateFrom = filterDateFrom;
-  if (filterDateTo) filters.dateTo = filterDateTo;
+  if (filterDate) {
+    filters.dateFrom = filterDate;
+    filters.dateTo = filterDate;
+  }
   filters.order_category = 'vegetable';
 
   const { user } = useAuth();
@@ -338,9 +345,7 @@ const VegetablesPage: React.FC = () => {
     const ws = XLSX.utils.json_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Bảng Hàng Rau");
-    const fileNameDate = filterDateFrom && filterDateTo && filterDateFrom !== filterDateTo
-      ? `${filterDateFrom}_den_${filterDateTo}`
-      : filterDateFrom || 'Tat_Ca';
+    const fileNameDate = filterDate || 'Tat_Ca';
     XLSX.writeFile(wb, `BangHangRau_${fileNameDate}.xlsx`);
   };
 
@@ -399,18 +404,11 @@ const VegetablesPage: React.FC = () => {
         </div>
 
         {/* DESKTOP DATE FILTER */}
-        <div className="hidden md:block shrink-0">
-          <DateRangePicker
-            initialDateFrom={filterDateFrom}
-            initialDateTo={filterDateTo}
-            onUpdate={({ range }) => {
-              const f = range.from ? format(range.from, 'yyyy-MM-dd') : '';
-              const t = range.to ? format(range.to, 'yyyy-MM-dd') : f;
-              setFilterDateFrom(f);
-              setFilterDateTo(t);
-              setPage(1);
-            }}
-            icon={<CalendarDays size={15} />}
+        <div className="hidden md:block w-[180px] shrink-0 relative z-20">
+          <DatePicker
+            value={filterDate}
+            onChange={(val) => { setFilterDate(val); setPage(1); }}
+            placeholder="Chọn ngày"
           />
         </div>
 
@@ -650,21 +648,30 @@ const VegetablesPage: React.FC = () => {
         isClosing={isFilterClosing}
         onClose={closeFilter}
         onApply={(filters) => {
-          setFilterDateFrom(filters.dateFrom || '');
-          setFilterDateTo(filters.dateTo || '');
           setPage(1);
         }}
         onClear={() => {
+          setFilterDate(getTodayVN());
           setFilterCustomer([]);
           setFilterVehicle([]);
           setFilterReceiver([]);
           setPage(1);
         }}
         showClearButton={filterCustomer.length > 0 || filterVehicle.length > 0 || filterReceiver.length > 0}
-        initialDateFrom={filterDateFrom}
-        initialDateTo={filterDateTo}
-        dateLabel="Khoảng thời gian"
+        initialDateFrom={filterDate}
+        initialDateTo={filterDate}
+        hideDateFilter
+        dateLabel="Ngày nhập"
       >
+        <div className="space-y-1.5 z-40">
+          <label className="text-[13px] font-bold text-muted-foreground">Ngày nhập</label>
+          <DatePicker
+            value={filterDate}
+            onChange={(val) => { setFilterDate(val); setPage(1); }}
+            placeholder="Chọn ngày"
+            className="w-full bg-muted/10 h-[42px] border-border/80 rounded-xl"
+          />
+        </div>
         <div className="space-y-1.5 z-30">
           <label className="text-[13px] font-bold text-muted-foreground">Chủ hàng</label>
           <MultiSearchableSelect

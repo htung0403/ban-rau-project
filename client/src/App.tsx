@@ -49,6 +49,7 @@ import InvoiceGroceryPage from './pages/accounting/InvoiceGroceryPage';
 import InvoiceVegetablePage from './pages/accounting/InvoiceVegetablePage';
 import PrintVegetableOrdersPage from './pages/import-orders/PrintVegetableOrdersPage';
 import PrintDeliveryPage from './pages/delivery/PrintDeliveryPage';
+import PrintSgCashCollectionsPage from './pages/accounting/PrintSgCashCollectionsPage';
 import React from 'react';
 
 const queryClient = new QueryClient({
@@ -155,6 +156,7 @@ function AppRoutes() {
           <Route path="khach-hang/:id" element={<CustomerDetailPage />} />
           <Route path="cong-no" element={<CustomerDebtPage />} />
           <Route path="thu-tien-sg" element={<SgCashCollectionsPage />} />
+          <Route path="in-thu-tien-sg" element={<PrintSgCashCollectionsPage />} />
           <Route path="doanh-thu" element={<RevenueReportPage />} />
           <Route path="hoa-don-tap-hoa" element={<InvoiceGroceryPage />} />
           <Route path="hoa-don-rau" element={<InvoiceVegetablePage />} />

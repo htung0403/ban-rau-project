@@ -237,7 +237,7 @@ export class DeliveryService {
       let query = supabaseService
         .from('delivery_orders')
         .select(
-          '*, import_orders(order_code, sender_name, sender_id, receiver_name, receiver_phone, customer_id, selected_alias, license_plate, driver_name, received_by, customers:customers!import_orders_customer_id_fkey(name, phone), sender_customers:customers!import_orders_sender_id_fkey(name, phone), total_amount, payment_status, profiles:received_by(full_name), receipt_image_url, receipt_image_urls, import_order_items(id, image_url, image_urls, products(name)), deleted_at), vegetable_orders(order_code, sender_name, sender_id, receiver_name, receiver_phone, customer_id, selected_alias, license_plate, driver_name, received_by, customers:customers!vegetable_orders_customer_id_fkey(name, phone), sender_customers:customers!vegetable_orders_sender_id_fkey(name, phone), total_amount, payment_status, profiles:received_by(full_name), receipt_image_url, receipt_image_urls, vegetable_order_items(id, image_url, image_urls, products(name)), deleted_at), delivery_vehicles(*, vehicles(license_plate, in_charge_id)), payment_collections(id, status, vehicle_id, image_url)'
+          '*, import_orders(order_code, sender_name, sender_id, receiver_name, receiver_phone, customer_id, selected_alias, license_plate, driver_name, received_by, customers:customers!import_orders_customer_id_fkey(name, phone), sender_customers:customers!import_orders_sender_id_fkey(name, phone), total_amount, payment_status, profiles:profiles!received_by(full_name), receipt_image_url, receipt_image_urls, import_order_items(id, image_url, image_urls, products(name)), deleted_at), vegetable_orders(order_code, sender_name, sender_id, receiver_name, receiver_phone, customer_id, selected_alias, license_plate, driver_name, received_by, customers:customers!vegetable_orders_customer_id_fkey(name, phone), sender_customers:customers!vegetable_orders_sender_id_fkey(name, phone), total_amount, payment_status, profiles:profiles!received_by(full_name), receipt_image_url, receipt_image_urls, vegetable_order_items(id, image_url, image_urls, products(name)), deleted_at), delivery_vehicles(*, vehicles(license_plate, in_charge_id)), payment_collections(id, status, vehicle_id, image_url)'
         )
         .order('delivery_date', { ascending: false });
 
@@ -543,8 +543,8 @@ export class DeliveryService {
       .from('delivery_orders')
       .select(`
         *, 
-        import_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, import_order_items(id, image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
-        vegetable_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, vegetable_order_items(id, image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name))
+        import_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, import_order_items(id, image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:profiles!received_by(full_name)), 
+        vegetable_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, vegetable_order_items(id, image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:profiles!received_by(full_name))
       `)
       .in('id', ids)
       .eq('status', 'hang_o_sg');
@@ -685,10 +685,10 @@ export class DeliveryService {
        if (!isPaidGroup) {
          const { data: existingCandidates } = await supabaseService
            .from('delivery_orders')
-.select(`
+           .select(`
                *, 
-               import_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, import_order_items(id, image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
-               vegetable_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, vegetable_order_items(id, image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:received_by(full_name)), 
+               import_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, import_order_items(id, image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:profiles!received_by(full_name)), 
+               vegetable_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, vegetable_order_items(id, image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:profiles!received_by(full_name)), 
                delivery_vehicles(id, assigned_quantity)
              `)
            .eq('status', 'can_giao')
@@ -924,8 +924,7 @@ export class DeliveryService {
         const itemUpdate: any = {};
         if (payload.total_quantity !== undefined) itemUpdate.quantity = payload.total_quantity;
         if (payload.unit_price !== undefined) itemUpdate.unit_price = payload.unit_price;
-        if (payload.image_url !== undefined) itemUpdate.image_url = payload.image_url;
-        if (payload.image_urls !== undefined) itemUpdate.image_urls = payload.image_urls;
+        // Không đồng bộ ảnh từ delivery_orders sang import_order_items để tránh lẫn ảnh giao hàng vào nhập hàng.
         if (payload.product_name !== undefined && isVeg) itemUpdate.package_type = payload.product_name;
         if (payload.product_id !== undefined && !isVeg) itemUpdate.product_id = payload.product_id;
         

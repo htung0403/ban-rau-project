@@ -69,13 +69,11 @@ export class AccountingService {
     const senderJoin = isVeg
       ? 'sender_customers:customers!vegetable_orders_sender_id_fkey(id, name, phone)'
       : 'sender_customers:customers!import_orders_sender_id_fkey(id, name, phone)';
-    const receivedByJoin = isVeg
-      ? 'profiles(full_name, role)'
-      : 'profiles:profiles!import_orders_received_by_fkey(full_name, role)';
+    const receivedByJoin = 'profiles:profiles!received_by(full_name, role)';
 
     let q = supabaseService
       .from(tName)
-      .select(`id, order_code, order_date, order_time, sender_name, receiver_name, total_amount, invoice_exported, invoice_exported_at, payment_status, delivery_orders(delivery_date, delivery_time, created_at), ${customerJoin}, ${senderJoin}, ${receivedByJoin}`)
+      .select(`id, order_code, order_date, order_time, sender_name, receiver_name, total_amount, payment_status, delivery_orders(delivery_date, delivery_time, created_at), ${customerJoin}, ${senderJoin}, ${receivedByJoin}`)
       .is('deleted_at', null)
       .order('order_date', { ascending: false })
       .order('created_at', { ascending: false });
@@ -84,11 +82,12 @@ export class AccountingService {
     if (filters.dateTo) q = q.lte('order_date', filters.dateTo);
     if (filters.customer_id) q = q.eq('customer_id', filters.customer_id);
 
-    if (filters.invoice_status === 'exported') {
-      q = q.eq('invoice_exported', true);
-    } else if (filters.invoice_status === 'not_exported') {
-      q = q.eq('invoice_exported', false);
-    }
+    // Skip invoice_status filter as columns are missing in DB
+    // if (filters.invoice_status === 'exported') {
+    //   q = q.eq('invoice_exported', true);
+    // } else if (filters.invoice_status === 'not_exported') {
+    //   q = q.eq('invoice_exported', false);
+    // }
 
     const { data, error } = await q;
     if (error) throw error;
@@ -106,19 +105,27 @@ export class AccountingService {
     const tName = category === 'vegetable' ? 'vegetable_orders' : 'import_orders';
     const now = new Date().toISOString();
 
-    const updateData: Record<string, unknown> = {
-      invoice_exported: exported,
-      invoice_exported_at: exported ? now : null,
-      invoice_exported_by: exported ? userId : null,
-    };
+    // Check if columns exist (simplified check by catching error)
+    try {
+      const updateData: Record<string, unknown> = {
+        invoice_exported: exported,
+        invoice_exported_at: exported ? now : null,
+        invoice_exported_by: exported ? userId : null,
+      };
 
-    const { data, error } = await supabaseService
-      .from(tName)
-      .update(updateData)
-      .in('id', ids)
-      .select('id');
+      const { data, error } = await supabaseService
+        .from(tName)
+        .update(updateData)
+        .in('id', ids)
+        .select('id');
 
-    if (error) throw error;
-    return { updated: data?.length || 0 };
+      if (error) throw error;
+      return { updated: data?.length || 0 };
+    } catch (err: any) {
+      if (err.message?.includes('column') && err.message?.includes('does not exist')) {
+        throw new Error('Tính năng này yêu cầu cập nhật cơ sở dữ liệu. Vui lòng liên hệ quản trị viên.');
+      }
+      throw err;
+    }
   }
 }

@@ -45,11 +45,6 @@ const UUID_REGEX =
 
 type FormValues = z.infer<typeof schema>;
 
-function mergeDeliveryImageUrls(global: string[], assignments: { image_urls?: string[] }[]): string[] {
-  const fromRows = assignments.flatMap((a) => a.image_urls || []);
-  return [...new Set([...(global || []), ...fromRows])];
-}
-
 const vehicleSupportsGoodsCategory = (vehicle: Vehicle, category: 'grocery' | 'vegetable') => {
   if (!vehicle.goods_categories || vehicle.goods_categories.length === 0) return true;
   return vehicle.goods_categories.includes(category);
@@ -548,10 +543,11 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         /** Một mốc cho cả lần lưu (sau khi chụp/tải ảnh) — trùng nhau khi phân nhiều đơn cùng lúc */
         delivered_at: new Date().toISOString(),
       };
-      const mergedImageUrls = mergeDeliveryImageUrls(data.image_urls || [], data.assignments);
-      if (mergedImageUrls.length > 0) {
-        payload.image_urls = mergedImageUrls;
-        payload.image_url = mergedImageUrls[0];
+      /** Chỉ gửi ảnh chung (global) ở cấp đơn. Ảnh từng xe được lưu riêng trong assignments → delivery_vehicles. */
+      const globalImageUrls = data.image_urls || [];
+      if (globalImageUrls.length > 0) {
+        payload.image_urls = globalImageUrls;
+        payload.image_url = globalImageUrls[0];
       } else {
         payload.image_urls = [];
         payload.image_url = null;

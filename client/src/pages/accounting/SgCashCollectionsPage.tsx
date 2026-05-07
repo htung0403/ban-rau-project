@@ -12,11 +12,12 @@ import { useCustomers } from '../../hooks/queries/useCustomers';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { useEmployees } from '../../hooks/queries/useHR';
 import { format, subMonths } from 'date-fns';
-import { CheckCircle2, Clock, Store, Truck, User, Filter } from 'lucide-react';
+import { CheckCircle2, Clock, Store, Truck, User, Filter, Printer } from 'lucide-react';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { matchesSearch } from '../../lib/str-utils';
 import toast from 'react-hot-toast';
 import SgImportOrderDetailPanel from './SgImportOrderDetailPanel';
+import { useNavigate } from 'react-router-dom';
 
 const formatCurrency = (value?: number | null) => {
   if (value == null) return '-';
@@ -75,6 +76,7 @@ const getRowUnitPrice = (row: SgRow): number | null => {
 };
 
 const SgCashCollectionsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const role = user?.role || '';
   const r = role.toLowerCase();
@@ -261,6 +263,15 @@ const SgCashCollectionsPage: React.FC = () => {
           title="Thu tiền SG"
           description="Phiếu nhập tạp hóa đã trả tiền tại SG — theo dõi và xác nhận NV đã nộp tiền về."
           backPath="/ke-toan"
+          actions={
+            <button
+              onClick={() => navigate('/ke-toan/in-thu-tien-sg')}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-card border border-border text-foreground text-[13px] font-bold hover:bg-muted transition-colors shadow-sm"
+            >
+              <Printer size={16} />
+              In danh sách
+            </button>
+          }
         />
       </div>
 

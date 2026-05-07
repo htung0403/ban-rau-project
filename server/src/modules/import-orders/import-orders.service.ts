@@ -52,8 +52,8 @@ export class ImportOrderService {
       // import_orders có 2 FK tới profiles (received_by, sg_cash_handover_confirmed_by) → bắt buộc chỉ rõ quan hệ
       const receivedByProfile =
         tName === 'import_orders'
-          ? 'profiles:profiles!import_orders_received_by_fkey(full_name, role)'
-          : 'profiles(full_name, role)';
+          ? 'profiles:profiles!received_by(full_name, role)'
+          : 'profiles:profiles!received_by(full_name, role)';
       const senderCustomerJoin =
         tName === 'import_orders'
           ? 'sender_customers:customers!import_orders_sender_id_fkey(id, name, phone)'
@@ -68,7 +68,7 @@ export class ImportOrderService {
         ? supabaseService.from(tName).select('*', { count: 'exact', head: true })
         : supabaseService
             .from(tName)
-            .select(`*, ${receivedByProfile}, warehouses(name), ${customerJoin}, ${senderCustomerJoin}, ${iName}(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))`);
+            .select(`*, ${receivedByProfile}, warehouses(name), ${customerJoin}, ${senderCustomerJoin}, ${iName}(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles!driver_id(full_name)))`);
 
       q = q.is('deleted_at', null);
       
@@ -240,22 +240,22 @@ export class ImportOrderService {
   static async getById(id: string, actor?: UserPayload) {
     let { data, error } = await supabaseService
       .from('import_orders')
-      .select('*, profiles:profiles!import_orders_received_by_fkey(full_name, role), warehouses(name), customers:customers!import_orders_customer_id_fkey(id, name, phone, address, aliases), sender_customers:customers!import_orders_sender_id_fkey(id, name, phone), import_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))')
+      .select('*, profiles:profiles!received_by(full_name, role), warehouses(name), customers:customers!import_orders_customer_id_fkey(id, name, phone, address, aliases), sender_customers:customers!import_orders_sender_id_fkey(id, name, phone), import_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles!driver_id(full_name)))')
       .eq('id', id)
       .is('deleted_at', null)
       .maybeSingle();
 
     let isVeg = false;
     if (!data) {
-      // Try vegetable_orders
-      const veg = await supabaseService
+      // Try vegetable_orders fallback
+      const { data: vegData, error: vegError } = await supabaseService
         .from('vegetable_orders')
-        .select('*, profiles(full_name, role), warehouses(name), customers:customers!vegetable_orders_customer_id_fkey(id, name, phone, address, aliases), sender_customers:customers!vegetable_orders_sender_id_fkey(id, name, phone), vegetable_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles(full_name)))')
+        .select('*, profiles:profiles!received_by(full_name, role), warehouses(name), customers:customers!vegetable_orders_customer_id_fkey(id, name, phone, address, aliases), sender_customers:customers!vegetable_orders_sender_id_fkey(id, name, phone), vegetable_order_items(*, products(*)), delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles!driver_id(full_name)))')
         .eq('id', id)
         .is('deleted_at', null)
         .maybeSingle();
-      data = veg.data;
-      error = veg.error;
+      data = vegData;
+      error = vegError;
       isVeg = true;
     }
 

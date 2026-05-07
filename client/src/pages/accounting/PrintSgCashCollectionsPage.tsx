@@ -14,8 +14,6 @@ import { format, subMonths } from 'date-fns';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { matchesSearch } from '../../lib/str-utils';
 
-const VN_TZ = 'Asia/Ho_Chi_Minh';
-
 const formatNumber = (value?: number | null) => {
   if (value == null) return '';
   return new Intl.NumberFormat('vi-VN').format(value);

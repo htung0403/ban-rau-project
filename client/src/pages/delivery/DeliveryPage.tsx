@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
-import { Calendar, PlusCircle, Truck, CheckCircle, Check, Store, Package, User, Image as ImageIcon, Eye, Trash2, Pencil, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, PlusCircle, Truck, CheckCircle, Check, Store, Package, User, Image as ImageIcon, Eye, Trash2, Pencil, RotateCcw, ChevronLeft, ChevronRight, Phone, PhoneCall } from 'lucide-react';
 
 import { DatePicker } from '../../components/shared/DatePicker';
 import { DateRangePicker } from '../../components/shared/DateRangePicker';
@@ -92,6 +92,29 @@ const getImportReceivedByStaffName = (order: DeliveryOrder) => {
   const src = pickRelation<any>(order.import_orders) || pickRelation<any>(order.vegetable_orders);
   const name = src?.profiles?.full_name?.trim();
   return name || '—';
+};
+
+const extractPhoneDigits = (phone?: string | null) => (phone || '').replace(/\D/g, '');
+
+const toWhatsappPhone = (digits: string) => {
+  if (!digits) return '';
+  if (digits.startsWith('84')) return digits;
+  if (digits.startsWith('0')) return `84${digits.slice(1)}`;
+  return digits;
+};
+
+const getCustomerPhone = (order: DeliveryOrder) => {
+  const src = pickRelation<any>(order.import_orders) || pickRelation<any>(order.vegetable_orders);
+  return src?.customers?.phone || src?.receiver_phone || '';
+};
+
+const isRevertAllowed = (order: DeliveryOrder) => {
+  const now = Date.now();
+  return (order.delivery_vehicles || []).some((dv) => {
+    if ((dv.assigned_quantity || 0) <= 0) return false;
+    const assignedTime = dv.assigned_at ? new Date(dv.assigned_at).getTime() : 0;
+    return now - assignedTime < 24 * 60 * 60 * 1000;
+  });
 };
 
 const getOrderPreviewImage = (order: any) => {
@@ -259,6 +282,8 @@ const DeliveryPage: React.FC = () => {
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
+
+  const [callDialog, setCallDialog] = useState<{ name: string; phone: string } | null>(null);
 
   const isLoading = ordersLoading;
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
@@ -461,6 +486,26 @@ const DeliveryPage: React.FC = () => {
     } catch {
       // Error handled by mutation
     }
+  };
+
+  const handleOpenCallDialog = (name: string, phone?: string) => {
+    const digits = extractPhoneDigits(phone);
+    if (!digits) return;
+    setCallDialog({ name, phone: digits });
+  };
+
+  const handleCallViaPhone = () => {
+    if (!callDialog) return;
+    window.open(`tel:${callDialog.phone}`);
+    setCallDialog(null);
+  };
+
+  const handleCallViaWhatsApp = () => {
+    if (!callDialog) return;
+    const whatsappPhone = toWhatsappPhone(callDialog.phone);
+    if (!whatsappPhone) return;
+    window.open(`https://wa.me/${whatsappPhone}`, '_blank', 'noopener,noreferrer');
+    setCallDialog(null);
   };
 
   let filteredOrders = orders || [];
@@ -1012,7 +1057,7 @@ const DeliveryPage: React.FC = () => {
                                     </button>
                                   </>
                                 )}
-                                {statusFilter === 'da_giao' && (isAdmin || (isDriver && myVehicleIds.length > 0) || isLoader) && totalAssigned > 0 && (
+                                {statusFilter === 'da_giao' && (isAdmin || (isDriver && myVehicleIds.length > 0) || isLoader) && totalAssigned > 0 && isRevertAllowed(o) && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1478,7 +1523,7 @@ const DeliveryPage: React.FC = () => {
                                   </button>
                                 </>
                               )}
-                              {statusFilter === 'da_giao' && (isAdmin || (isDriver && myVehicleIds.length > 0) || isLoader) && totalAssigned > 0 && (
+                              {statusFilter === 'da_giao' && (isAdmin || (isDriver && myVehicleIds.length > 0) || isLoader) && totalAssigned > 0 && isRevertAllowed(o) && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1490,6 +1535,21 @@ const DeliveryPage: React.FC = () => {
                                   Hoàn tác
                                 </button>
                               )}
+                              {(() => {
+                                const phone = getCustomerPhone(o);
+                                return phone ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenCallDialog(getReceiverDisplayName(o), phone);
+                                    }}
+                                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-emerald-600 dark:text-emerald-500 hover:bg-emerald-500/10 text-[12px] font-bold transition-colors"
+                                  >
+                                    <Phone size={14} strokeWidth={2.5} />
+                                    Gọi
+                                  </button>
+                                ) : null;
+                              })()}
                             </div>
                           ) : null}
                         </div>
@@ -1756,6 +1816,47 @@ const DeliveryPage: React.FC = () => {
         onConfirm={executeDelete}
         onCancel={closeDeleteConfirm}
       />
+
+      {callDialog && createPortal(
+        <div className="fixed inset-0 z-99999 flex items-center justify-center">
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in" onClick={() => setCallDialog(null)} />
+          <div className="relative bg-card rounded-2xl shadow-2xl border border-border w-full max-w-95 mx-4 animate-in zoom-in-95 fade-in duration-200">
+            <div className="p-6 border-b border-border">
+              <h3 className="text-[17px] font-bold text-foreground">Chọn cách gọi</h3>
+              <p className="text-[13px] text-muted-foreground mt-1">
+                Khách hàng: <span className="font-bold text-foreground">{callDialog.name}</span>
+              </p>
+              <p className="text-[13px] text-muted-foreground mt-1">
+                Số điện thoại: <span className="font-bold text-foreground">{callDialog.phone}</span>
+              </p>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 gap-3">
+              <button
+                onClick={handleCallViaPhone}
+                className="w-full px-4 py-3 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 transition-all shadow-md flex items-center justify-center gap-2"
+              >
+                <Phone size={16} />
+                Gọi bằng điện thoại
+              </button>
+              <button
+                onClick={handleCallViaWhatsApp}
+                className="w-full px-4 py-3 rounded-xl bg-emerald-600 text-white text-[13px] font-bold hover:bg-emerald-700 transition-all shadow-md flex items-center justify-center gap-2"
+              >
+                <PhoneCall size={16} />
+                Gọi qua WhatsApp
+              </button>
+              <button
+                onClick={() => setCallDialog(null)}
+                className="w-full px-4 py-2.5 rounded-xl border border-border hover:bg-muted text-foreground text-[13px] font-bold transition-all"
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

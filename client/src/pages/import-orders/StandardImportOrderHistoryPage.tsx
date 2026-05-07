@@ -20,6 +20,7 @@ import { SearchInput } from '../../components/ui/SearchInput';
 import { useAuth } from '../../context/AuthContext';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { hasFullGoodsModuleAccess, importOrderVisibleToUser } from '../../utils/goodsModuleScope';
+import { matchesSearch } from '../../lib/str-utils';
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'Chờ xử lý',
@@ -102,35 +103,89 @@ const StandardImportOrderHistoryPage: React.FC = () => {
     }, 300);
   }, []);
 
-  const filters: ImportOrderFilters = {};
-  if (filterDateFrom) filters.dateFrom = filterDateFrom;
-  if (filterDateTo) filters.dateTo = filterDateTo;
-  if (filterStatus.length > 0) filters.status = filterStatus.join(',');
-  if (searchText.trim()) filters.search = searchText.trim();
-  filters.order_category = 'standard';
-  filters.page = page;
-  filters.pageSize = pageSize;
+  const allFilters: ImportOrderFilters = {
+    order_category: 'standard',
+    pageSize: 5000,
+  };
+  if (filterDateFrom) allFilters.dateFrom = filterDateFrom;
+  if (filterDateTo) allFilters.dateTo = filterDateTo;
+  if (filterStatus.length > 0) allFilters.status = filterStatus.join(',');
 
   const { user } = useAuth();
   const { data: vehicles } = useVehicles();
-  const { data: apiResponse, isLoading, isError, refetch } = useImportOrders(filters);
-  const orders = useMemo(() => {
+  const { data: apiResponse, isLoading, isError, refetch } = useImportOrders(allFilters);
+
+  const allOrders = useMemo(() => {
     const raw = apiResponse?.data || [];
     if (!user || hasFullGoodsModuleAccess(user)) return raw;
     return raw.filter((o) =>
       importOrderVisibleToUser(o, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])
     );
   }, [apiResponse?.data, user, vehicles]);
+
+  const filteredOrders = useMemo(() => {
+    return allOrders.filter((o) => {
+      // Search filter (accent-insensitive)
+      if (searchText.trim()) {
+        const orderCode = o.order_code || '';
+        const senderName = o.selected_alias || o.customers?.name || o.sender_name || '';
+        const receiverName = (o as any).profiles?.full_name || o.receiver_name || o.received_by || '';
+        const items = o.import_order_items || [];
+        const itemNames = items.map((i: any) => i.products?.name).filter(Boolean).join(', ');
+
+        if (
+          !matchesSearch(orderCode, searchText) &&
+          !matchesSearch(senderName, searchText) &&
+          !matchesSearch(receiverName, searchText) &&
+          !matchesSearch(itemNames, searchText)
+        ) {
+          return false;
+        }
+      }
+
+      // Customer filter
+      if (filterCustomer.length > 0) {
+        const senderName = o.selected_alias || o.customers?.name || o.sender_name;
+        if (!senderName || !filterCustomer.includes(senderName)) return false;
+      }
+
+      // Vehicle filter
+      if (filterVehicle.length > 0) {
+        const plates = getOrderVehicles(o);
+        if (!plates) return false;
+        const plateList = plates.split(', ');
+        const hasMatch = filterVehicle.some((v) => plateList.includes(v));
+        if (!hasMatch) return false;
+      }
+
+      // Receiver filter
+      if (filterReceiver.length > 0) {
+        const receiver = (o as any).profiles?.full_name || o.receiver_name || o.received_by;
+        if (!receiver || !filterReceiver.includes(receiver)) return false;
+      }
+
+      return true;
+    });
+  }, [allOrders, searchText, filterCustomer, filterVehicle, filterReceiver]);
+
+  const totalItems = filteredOrders.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  const orders = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredOrders.slice(start, start + pageSize);
+  }, [filteredOrders, page, pageSize]);
+
   const deleteMutation = useDeleteImportOrder();
 
   const { vuaOptions, taiOptions, nguoiNhapOptions } = useMemo(() => {
-    if (!orders) return { vuaOptions: [], taiOptions: [], nguoiNhapOptions: [] };
+    if (!allOrders) return { vuaOptions: [], taiOptions: [], nguoiNhapOptions: [] };
     const vuaSet = new Set<string>();
     const taiSet = new Set<string>();
     const receiverSet = new Set<string>();
 
-    orders.forEach(order => {
-      const senderName = order.sender_name;
+    allOrders.forEach(order => {
+      const senderName = order.selected_alias || order.customers?.name || order.sender_name;
       if (senderName) vuaSet.add(senderName);
 
       const tai = getOrderVehicles(order);
@@ -147,10 +202,8 @@ const StandardImportOrderHistoryPage: React.FC = () => {
       taiOptions: Array.from(taiSet).map(v => ({ label: v, value: v })),
       nguoiNhapOptions: Array.from(receiverSet).map(v => ({ label: v, value: v }))
     };
-  }, [orders]);
+  }, [allOrders]);
 
-  const totalItems = apiResponse?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
   const openAddDialog = () => {
     setEditingOrder(null);
@@ -228,6 +281,7 @@ const StandardImportOrderHistoryPage: React.FC = () => {
             <div className="flex-1">
               <SearchInput
                 placeholder="Tìm kiếm theo mã đơn, người gửi, người nhận..."
+                defaultValue={searchText}
                 onSearch={handleSearch}
               />
             </div>

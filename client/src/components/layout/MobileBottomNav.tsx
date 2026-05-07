@@ -2,12 +2,15 @@ import React from 'react';
 import { ArrowLeft, Home, Bell, ClipboardList } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { useAttendanceGate } from '../../hooks/useAttendanceGate';
 
-const MobileBottomNav: React.FC = () => {
+interface MobileBottomNavProps {
+  mustCheckIn: boolean;
+  isLocked: boolean;
+}
+
+const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ mustCheckIn, isLocked }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { mustCheckIn, isLocked } = useAttendanceGate();
 
   const isHome = location.pathname === '/';
   const isAttendancePage = location.pathname === '/hanh-chinh-nhan-su/cham-cong';

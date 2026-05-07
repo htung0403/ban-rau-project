@@ -87,5 +87,7 @@ export function useMyPermissions(enabled = true) {
     queryKey: rolesKeys.myPermissions(),
     queryFn: rolesApi.getMyPermissions,
     enabled,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }

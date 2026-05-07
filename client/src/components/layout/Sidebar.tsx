@@ -8,17 +8,18 @@ import { useAuth } from '../../context/AuthContext';
 import { moduleData } from '../../data/moduleData';
 import { buildAllowedRouteSet, canAccessModuleRoute, canAccessRoute } from '../../utils/routePermissions';
 import { useMyPermissions } from '../../hooks/queries/useRoles';
-import { useAttendanceGate, isPathAllowedBeforeCheckin } from '../../hooks/useAttendanceGate';
+import { isPathAllowedBeforeCheckin } from '../../hooks/useAttendanceGate';
 
 interface SidebarProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
+  mustCheckIn: boolean;
+  isLocked: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, mustCheckIn, isLocked }) => {
   const { user } = useAuth();
   const { data: myPermissionsData, isSuccess: permissionsReady } = useMyPermissions(!!user);
-  const { mustCheckIn, isLocked } = useAttendanceGate();
   const allowedPaths = permissionsReady
     ? new Set(myPermissionsData?.page_paths || [])
     : buildAllowedRouteSet(user?.role);

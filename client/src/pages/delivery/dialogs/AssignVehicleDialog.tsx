@@ -1058,18 +1058,18 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                 <button
                   type="submit"
                   form="assign-vehicle-form"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isUploading}
                   className={clsx(
                     "flex-2 py-3 rounded-xl bg-primary text-white text-[14px] font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2",
-                    isSubmitting && "opacity-70 cursor-not-allowed pointer-events-none"
+                    (isSubmitting || isUploading) && "opacity-70 cursor-not-allowed pointer-events-none"
                   )}
                 >
-                  {isSubmitting ? (
+                  {isSubmitting || isUploading ? (
                     <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
                     <Truck size={18} />
                   )}
-                  {isStandardOrder ? 'Xác nhận thông tin' : 'Xuất hàng'}
+                  {isUploading ? 'Đang tải ảnh...' : (isSubmitting ? 'Đang xử lý...' : (isStandardOrder ? 'Xác nhận thông tin' : 'Xuất hàng'))}
                 </button>
               </>
             )}

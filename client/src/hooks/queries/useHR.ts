@@ -135,6 +135,7 @@ export function useAttendance(date: string, startDate?: string, endDate?: string
     queryKey: startDate && endDate ? [...hrKeys.attendance(date), startDate, endDate] : hrKeys.attendance(date),
     queryFn: () => hrApi.getAttendanceByDate(date, startDate, endDate),
     enabled: !!date,
+    staleTime: 60 * 1000,
   });
 }
 

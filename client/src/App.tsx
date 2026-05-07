@@ -55,7 +55,10 @@ import React from 'react';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: (failureCount, error: any) => {
+        if (error?.response?.status === 429) return false;
+        return failureCount < 1;
+      },
       refetchOnWindowFocus: false,
       staleTime: 30_000, // 30s
     },

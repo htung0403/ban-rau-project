@@ -18,10 +18,10 @@ const MainLayout: React.FC = () => {
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
       {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} mustCheckIn={mustCheckIn} isLocked={isLocked} />
 
       {/* Main Content Area */}
-      <div 
+      <div
         className={clsx(
           "flex-1 flex flex-col w-full min-w-0 transition-all duration-300",
           sidebarOpen ? "lg:ml-64" : "lg:ml-[72px]"
@@ -36,7 +36,7 @@ const MainLayout: React.FC = () => {
         </main>
 
         {/* Mobile Bottom Navigation */}
-        <MobileBottomNav />
+        <MobileBottomNav mustCheckIn={mustCheckIn} isLocked={isLocked} />
       </div>
     </div>
   );

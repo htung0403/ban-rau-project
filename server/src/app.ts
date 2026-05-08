@@ -85,4 +85,9 @@ app.listen(PORT, () => {
   console.log(`Environment: ${env.NODE_ENV}`);
 });
 
+import { initZaloScheduler } from './modules/notifications/zalo.scheduler';
+
+// Initialize schedulers
+initZaloScheduler();
+
 export default app;

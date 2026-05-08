@@ -179,7 +179,7 @@ export class ZaloService {
               // Clean up temp file
               try {
                 require('node:fs').unlinkSync(qrPath);
-              } catch (e) {}
+              } catch (e) { }
             } else if (event?.type === 2) {
               this.qrLoginState.status = 'waiting';
             } else if (event?.type === 4) {
@@ -387,7 +387,7 @@ export class ZaloService {
 
       const noteAttachments: ZcaAttachmentSource[] = deliveryNoteBuffers.map((buf, i) => ({
         data: buf,
-        filename: `phieu-giao-hang-${deliveryId}-${i}.png`,
+        filename: `phieu-giao-hang-${deliveryId}-${Date.now()}-${i}.png`,
         metadata: {
           totalSize: buf.length,
         },
@@ -481,6 +481,117 @@ export class ZaloService {
     if (contentType.includes('webp')) return 'webp';
     if (contentType.includes('gif')) return 'gif';
     return 'jpg';
+  }
+
+  async sendDailySummaries(supabaseService: any, logger: any, normalizePhoneForAuth: (phone: string) => string | null): Promise<void> {
+    try {
+      if (process.env.ZALO_ENABLE_SENDS !== 'true') return;
+
+      const today = format(new Date(), 'yyyy-MM-dd');
+      logger.info(`[ZaloService] Starting daily summary generation for ${today}`);
+
+      // 1. Fetch shop name
+      const { data: shopNameSetting } = await supabaseService
+        .from('general_settings')
+        .select('setting_value')
+        .eq('setting_key', 'SHOP_NAME')
+        .maybeSingle();
+      const shopName = shopNameSetting?.setting_value || 'Năm Sự';
+
+      // 2. Fetch all assignments for today with full details
+      const { data: assignments, error } = await supabaseService
+        .from('delivery_vehicles')
+        .select(`
+          *,
+          delivery_orders (
+            id, product_name, delivery_date,
+            import_orders (
+              receiver_phone, selected_alias, customers:customers!import_orders_customer_id_fkey (id, phone, name)
+            ),
+            vegetable_orders (
+              receiver_phone, selected_alias, customers:customers!vegetable_orders_customer_id_fkey (id, phone, name)
+            )
+          ),
+          profiles (full_name),
+          vehicles (license_plate)
+        `)
+        .eq('delivery_date', today);
+
+      if (error) throw error;
+      if (!assignments || assignments.length === 0) {
+        logger.info(`[ZaloService] No assignments found for ${today}, skipping summary.`);
+        return;
+      }
+
+      // 3. Group by customer phone
+      const customerGroups: Record<string, { customerName: string; phone: string; items: any[] }> = {};
+
+      for (const dv of assignments) {
+        const order = dv.delivery_orders;
+        if (!order) continue;
+
+        const phone = this.buildRecipientPhoneForDelivery(order);
+        if (!phone) continue;
+
+        const customerName =
+          order.import_orders?.customers?.name ||
+          order.import_orders?.selected_alias ||
+          order.vegetable_orders?.customers?.name ||
+          order.vegetable_orders?.selected_alias ||
+          'Khách hàng';
+
+        if (!customerGroups[phone]) {
+          customerGroups[phone] = { customerName, phone, items: [] };
+        }
+
+        customerGroups[phone].items.push({
+          deliveryTime: dv.delivery_time || format(new Date(), 'HH:mm'),
+          licensePlate: dv.vehicles?.license_plate || '-',
+          staffName: dv.profiles?.full_name || 'NV Giao hàng',
+          quantity: dv.assigned_quantity || 0,
+          productName: order.product_name || '-',
+          price: dv.unit_price || order.unit_price || 0,
+          total: dv.expected_amount || 0,
+        });
+      }
+
+      // 4. Generate and send for each group
+      for (const phone of Object.keys(customerGroups)) {
+        const group = customerGroups[phone];
+        const normalizedPhone = normalizePhoneForAuth(group.phone);
+        if (!normalizedPhone) continue;
+
+        try {
+          const noteBuffer = await DeliveryNoteGenerator.generateSummaryPng({
+            shopName,
+            customerName: group.customerName,
+            deliveryDate: format(new Date(), 'dd/MM/yyyy'),
+            items: group.items,
+          });
+
+          const result = await this.sendImageMessage({
+            recipientPhone: normalizedPhone,
+            imageUrls: [],
+            attachments: [{
+              data: noteBuffer,
+              filename: `phieu-tong-${today}-${Date.now()}.png`,
+              metadata: { totalSize: noteBuffer.length },
+            }],
+            caption: `Phiếu tổng kết giao hàng ngày ${format(new Date(), 'dd/MM/yyyy')}`,
+          });
+
+          if (result.success) {
+            logger.info(`[ZaloService] Daily summary sent to ${group.customerName} (${normalizedPhone})`);
+          } else {
+            logger.error(`[ZaloService] Failed to send summary to ${normalizedPhone}: ${result.error}`);
+          }
+        } catch (err) {
+          logger.error(`[ZaloService] Error processing summary for ${group.customerName}:`, err);
+        }
+      }
+    } catch (err) {
+      logger.error(`[ZaloService] Exception in sendDailySummaries:`, err);
+    }
   }
 
   private buildRecipientPhoneForDelivery(delivery: any): string | null {

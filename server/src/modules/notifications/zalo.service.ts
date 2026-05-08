@@ -234,6 +234,23 @@ export class ZaloService {
     return this.qrLoginState;
   }
 
+  /**
+   * Proactively checks if the current/saved credentials are valid.
+   */
+  async checkConnection(): Promise<{ connected: boolean; error?: string }> {
+    try {
+      const api = await this.ensureApi();
+      // Try a lightweight API call to verify session
+      await api.getSelfInfo();
+      return { connected: true };
+    } catch (err) {
+      // If check fails, we might want to clear the broken API instance
+      this.api = null;
+      this.loginPromise = null;
+      return { connected: false, error: String(err) };
+    }
+  }
+
   private async ensureApi(): Promise<ZcaApi> {
     if (this.api) return this.api;
     if (this.loginPromise) return this.loginPromise;

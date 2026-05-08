@@ -26,6 +26,25 @@ const ZaloConfig: React.FC = () => {
     }
   };
 
+  const checkInitialStatus = async () => {
+    try {
+      const res = await fetch('/api/notifications/zalo/status');
+      const data = await res.json();
+      if (data.connected) {
+        setStatus('success');
+      } else if (data.status === 'waiting') {
+        setStatus('waiting');
+        setQrBase64(data.qrBase64);
+      }
+    } catch (err) {
+      console.error('Lỗi khi kiểm tra trạng thái ban đầu:', err);
+    }
+  };
+
+  useEffect(() => {
+    checkInitialStatus();
+  }, []);
+
   useEffect(() => {
     let interval: any;
     if (status === 'waiting') {

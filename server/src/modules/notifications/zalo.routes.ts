@@ -17,9 +17,20 @@ router.get('/qr', async (req, res) => {
 });
 
 // GET /api/notifications/zalo/status
-router.get('/status', (req, res) => {
-  const status = zaloService.getQRStatus();
-  res.json(status);
+router.get('/status', async (req, res) => {
+  const qrState = zaloService.getQRStatus();
+  
+  // If not in QR flow, check the actual connection status
+  if (qrState.status === 'idle' || qrState.status === 'success') {
+    const connection = await zaloService.checkConnection();
+    res.json({
+      ...qrState,
+      connected: connection.connected,
+      connectionError: connection.error
+    });
+  } else {
+    res.json(qrState);
+  }
 });
 
 export default router;

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Truck, Package, User, AlertCircle, Trash2, CheckCircle, ImagePlus, Camera } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAssignVehicle } from '../../../hooks/queries/useDelivery';
@@ -131,7 +131,8 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   /** SL hiện tại theo từng dòng xe (baseline luôn 0, quantity = tổng SL trực tiếp). */
   const [assignmentBaselines, setAssignmentBaselines] = useState<number[]>([]);
 
-  const watchAssignments = watch('assignments') || [];
+  const watchAssignments = useWatch({ control, name: 'assignments' }) || [];
+  const watchGlobalImages = useWatch({ control, name: 'image_urls' }) || [];
   const watchExportPaymentStatus = watch('export_payment_status');
   const projectedAssignedTotal = React.useMemo(
     () => {
@@ -168,10 +169,10 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
   const isImageMissingForDriver = React.useMemo(() => {
     if (!isDriver || !isStandardOrder) return false;
-    const hasGlobalImages = (watch('image_urls') || []).length > 0;
-    const hasAssignmentImages = watchAssignments.some(a => (a.image_urls || []).length > 0);
+    const hasGlobalImages = (watchGlobalImages || []).length > 0;
+    const hasAssignmentImages = (watchAssignments || []).some(a => (a?.image_urls || []).length > 0);
     return !hasGlobalImages && !hasAssignmentImages;
-  }, [isDriver, isStandardOrder, watchAssignments, watch('image_urls')]);
+  }, [isDriver, isStandardOrder, watchAssignments, watchGlobalImages]);
 
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);

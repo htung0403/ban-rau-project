@@ -521,17 +521,9 @@ const DeliveryPage: React.FC = () => {
   filteredOrders = filteredOrders.filter(o => {
     const cName = o.import_orders?.sender_name || o.import_orders?.customers?.name;
     const rName = o.import_orders?.customers?.name || o.import_orders?.receiver_name?.trim() || o.import_orders?.profiles?.full_name;
-    const pName = getDisplayProductName(o);
-    const staffRecv = getImportReceivedByStaffName(o);
 
     if (searchQuery) {
-      if (
-        !matchesSearch(cName || '', searchQuery) &&
-        !matchesSearch(rName || '', searchQuery) &&
-        !matchesSearch(pName || '', searchQuery) &&
-        !matchesSearch(o.import_orders?.order_code || '', searchQuery) &&
-        !matchesSearch(staffRecv === '—' ? '' : staffRecv, searchQuery)
-      ) {
+      if (!matchesSearch(rName || '', searchQuery)) {
         return false;
       }
     }

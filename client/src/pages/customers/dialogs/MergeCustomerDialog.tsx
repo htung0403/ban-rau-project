@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, GitMerge, Search, ChevronRight, Check, AlertTriangle, User, ArrowRight } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useMergeCustomers, useCustomers } from '../../../hooks/queries/useCustomers';
+import { matchesSearch } from '../../../lib/str-utils';
 import type { Customer } from '../../../types';
 
 type Step = 1 | 2 | 3;
@@ -41,8 +42,9 @@ const MergeCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, onSu
         c.id !== sourceCustomer.id &&
         !c.deleted_at &&
         (searchTerm
-          ? c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (c.phone && c.phone.includes(searchTerm))
+          ? matchesSearch(c.name, searchTerm) ||
+            (c.phone && c.phone.includes(searchTerm)) ||
+            matchesSearch(c.address || '', searchTerm)
           : true),
     );
   }, [allCustomers, sourceCustomer.id, searchTerm]);

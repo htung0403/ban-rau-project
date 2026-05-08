@@ -166,6 +166,13 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
   /** Phiếu nhập tạp hóa đã trả tại SG — không thu lại trên đơn giao. */
   const importPaid = isStandardOrder && order?.import_orders?.payment_status === 'paid';
 
+  const isImageMissingForDriver = React.useMemo(() => {
+    if (!isDriver || !isStandardOrder) return false;
+    const hasGlobalImages = (watch('image_urls') || []).length > 0;
+    const hasAssignmentImages = watchAssignments.some(a => (a.image_urls || []).length > 0);
+    return !hasGlobalImages && !hasAssignmentImages;
+  }, [isDriver, isStandardOrder, watchAssignments, watch('image_urls')]);
+
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -981,6 +988,13 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               </div>
             )}
 
+            {isImageMissingForDriver && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-100 flex items-start gap-2 text-red-700 mt-2 animate-in fade-in slide-in-from-top-2">
+                <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                <p className="text-[12px] font-bold">Vui lòng chụp ảnh hoặc tải ảnh lên trước khi xác nhận giao hàng.</p>
+              </div>
+            )}
+
             {isStandardOrder && (
               <div className="space-y-2 pt-4 border-t border-border mt-2">
                 <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Trạng thái thanh toán phiếu xuất</label>
@@ -1058,10 +1072,10 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                 <button
                   type="submit"
                   form="assign-vehicle-form"
-                  disabled={isSubmitting || isUploading}
+                  disabled={isSubmitting || isUploading || isImageMissingForDriver}
                   className={clsx(
                     "flex-2 py-3 rounded-xl bg-primary text-white text-[14px] font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 hover:shadow-primary/30 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2",
-                    (isSubmitting || isUploading) && "opacity-70 cursor-not-allowed pointer-events-none"
+                    (isSubmitting || isUploading || isImageMissingForDriver) && "opacity-70 cursor-not-allowed pointer-events-none"
                   )}
                 >
                   {isSubmitting || isUploading ? (

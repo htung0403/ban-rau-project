@@ -1484,19 +1484,24 @@ const DeliveryPage: React.FC = () => {
                                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-green-50 text-green-700 dark:text-green-500 hover:bg-green-100 text-[12px] font-bold transition-colors disabled:opacity-50"
                                 >
                                   <Check size={14} strokeWidth={2.5} />
-                                  Xác nhận
+                                  <span className="hidden min-[400px]:inline">Xác nhận</span>
                                 </button>
                               )}
-                              {canShowAssignButton && statusFilter !== 'hang_o_sg' && remainingQty > 0 && (
+                              {canShowAssignButton && statusFilter !== 'hang_o_sg' && (remainingQty > 0 || isAdmin) && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleOrderClick(o, undefined, 'add-new');
                                   }}
-                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-orange-600 dark:text-orange-500 hover:bg-orange-500/10 text-[12px] font-bold transition-colors"
+                                  className={clsx(
+                                    "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-[12px] font-bold transition-colors",
+                                    remainingQty > 0
+                                      ? "text-orange-600 dark:text-orange-500 hover:bg-orange-500/10"
+                                      : "text-muted-foreground hover:bg-muted/50"
+                                  )}
                                 >
                                   <Truck size={14} strokeWidth={2.5} />
-                                  Phân xe
+                                  <span className="hidden min-[400px]:inline">{remainingQty > 0 ? 'Phân xe' : 'Sửa PX'}</span>
                                 </button>
                               )}
                               {isAdmin && (statusFilter !== 'all' || !isDriverOrLoader) && (
@@ -1509,7 +1514,7 @@ const DeliveryPage: React.FC = () => {
                                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-blue-600 dark:text-blue-500 hover:bg-blue-500/10 text-[12px] font-bold transition-colors"
                                   >
                                     <Pencil size={14} strokeWidth={2.5} />
-                                    Sửa
+                                    <span className="hidden min-[400px]:inline">Sửa</span>
                                   </button>
                                   <button
                                     onClick={(e) => {
@@ -1519,7 +1524,7 @@ const DeliveryPage: React.FC = () => {
                                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-red-600 dark:text-red-500 hover:bg-red-500/10 text-[12px] font-bold transition-colors"
                                   >
                                     <Trash2 size={14} strokeWidth={2.5} />
-                                    Xóa
+                                    <span className="hidden min-[400px]:inline">Xóa</span>
                                   </button>
                                 </>
                               )}
@@ -1532,7 +1537,7 @@ const DeliveryPage: React.FC = () => {
                                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-amber-600 dark:text-amber-500 hover:bg-amber-500/10 text-[12px] font-bold transition-colors"
                                 >
                                   <RotateCcw size={14} strokeWidth={2.5} />
-                                  Hoàn tác
+                                  <span className="hidden min-[400px]:inline">Hoàn tác</span>
                                 </button>
                               )}
                               {(() => {
@@ -1546,7 +1551,7 @@ const DeliveryPage: React.FC = () => {
                                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-emerald-600 dark:text-emerald-500 hover:bg-emerald-500/10 text-[12px] font-bold transition-colors"
                                   >
                                     <Phone size={14} strokeWidth={2.5} />
-                                    Gọi
+                                    <span className="hidden min-[400px]:inline">Gọi</span>
                                   </button>
                                 ) : null;
                               })()}

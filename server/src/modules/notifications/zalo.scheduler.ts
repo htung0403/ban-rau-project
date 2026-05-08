@@ -20,7 +20,7 @@ const normalizePhoneForAuth = (phone: string): string | null => {
 
 export const initZaloScheduler = () => {
   // Schedule daily summary at 17:00 VN time
-  cron.schedule('0 16 * * *', async () => {
+  cron.schedule('0 17 * * *', async () => {
     logger.info('[ZaloScheduler] Running daily summary job at 17:00 VN');
     try {
       await zaloService.sendDailySummaries(supabaseService, logger, normalizePhoneForAuth);

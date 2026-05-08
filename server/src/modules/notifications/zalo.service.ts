@@ -325,10 +325,10 @@ export class ZaloService {
           `
           *,
           import_orders (
-            id, receiver_phone, customer_id, customers:customers!import_orders_customer_id_fkey (id, phone, name), selected_alias
+            id, receiver_phone, unit_price, customer_id, customers:customers!import_orders_customer_id_fkey (id, phone, name), selected_alias
           ),
           vegetable_orders (
-            id, receiver_phone, customer_id, customers:customers!vegetable_orders_customer_id_fkey (id, phone, name), selected_alias
+            id, receiver_phone, unit_price, customer_id, customers:customers!vegetable_orders_customer_id_fkey (id, phone, name), selected_alias
           ),
           delivery_vehicles (
             id, assigned_quantity, expected_amount, delivery_time, delivery_date, image_urls,
@@ -370,7 +370,7 @@ export class ZaloService {
               dv.delivery_time || delivery.delivery_time || format(new Date(), 'HH:mm'),
             quantity: dv.assigned_quantity || 0,
             productName: delivery.product_name || '-',
-            price: dv.unit_price || delivery.unit_price || 0,
+            price: dv.unit_price || delivery.unit_price || delivery.import_orders?.unit_price || delivery.vegetable_orders?.unit_price || 0,
             total: dv.expected_amount || 0,
             deliveryDate:
               dv.delivery_date ||
@@ -488,6 +488,26 @@ export class ZaloService {
       if (process.env.ZALO_ENABLE_SENDS !== 'true') return;
 
       const today = format(new Date(), 'yyyy-MM-dd');
+      
+      // 0. Distributed Lock: Check if already run today to avoid double sending from multiple instances
+      const { data: lastRun } = await supabaseService
+        .from('general_settings')
+        .select('setting_value')
+        .eq('setting_key', 'ZALO_LAST_SUMMARY_RUN')
+        .maybeSingle();
+
+      if (lastRun?.setting_value === today) {
+        logger.info(`[ZaloService] Daily summary already processed for ${today}, skipping.`);
+        return;
+      }
+
+      // Mark as run immediately (best-effort lock)
+      await supabaseService.from('general_settings').upsert({
+        setting_key: 'ZALO_LAST_SUMMARY_RUN',
+        setting_value: today,
+        updated_at: new Date().toISOString(),
+      });
+
       logger.info(`[ZaloService] Starting daily summary generation for ${today}`);
 
       // 1. Fetch shop name
@@ -504,12 +524,12 @@ export class ZaloService {
         .select(`
           *,
           delivery_orders (
-            id, product_name, delivery_date,
+            id, product_name, delivery_date, unit_price,
             import_orders (
-              receiver_phone, selected_alias, customers:customers!import_orders_customer_id_fkey (id, phone, name)
+              unit_price, receiver_phone, selected_alias, customers:customers!import_orders_customer_id_fkey (id, phone, name)
             ),
             vegetable_orders (
-              receiver_phone, selected_alias, customers:customers!vegetable_orders_customer_id_fkey (id, phone, name)
+              unit_price, receiver_phone, selected_alias, customers:customers!vegetable_orders_customer_id_fkey (id, phone, name)
             )
           ),
           profiles (full_name),
@@ -550,7 +570,7 @@ export class ZaloService {
           staffName: dv.profiles?.full_name || 'NV Giao hàng',
           quantity: dv.assigned_quantity || 0,
           productName: order.product_name || '-',
-          price: dv.unit_price || order.unit_price || 0,
+          price: dv.unit_price || order.unit_price || order.import_orders?.unit_price || order.vegetable_orders?.unit_price || 0,
           total: dv.expected_amount || 0,
         });
       }

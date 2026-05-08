@@ -10,6 +10,9 @@ import {
   importOrderRowMatchesGoodsScope,
   type DriverScope,
 } from '../../utils/goodsScope';
+import { zaloService } from '../notifications/zalo.service';
+import { normalizePhoneForAuth } from '../../utils/phoneAuth';
+import { logger } from '../../utils/logger';
 
 export class DeliveryService {
   /** TIME / chuỗi từ DB → "HH:mm" cho phiếu xuất */
@@ -498,6 +501,15 @@ export class DeliveryService {
       assignments
     );
 
+    // Trigger immediate Zalo send asynchronously (fire-and-forget)
+    if (image_urls && image_urls.length > 0) {
+      zaloService
+        .sendDeliveryImagesImmediate(deliveryId, supabaseService, logger, normalizePhoneForAuth)
+        .catch((err) => {
+          logger.error('[assignVehicles] Async Zalo send error (non-blocking):', err);
+        });
+    }
+
     return data;
   }
 
@@ -551,6 +563,16 @@ export class DeliveryService {
 
     if (sourceError) throw sourceError;
     if (!sourceOrders || sourceOrders.length === 0) return [];
+
+    // Clear selected_alias in source orders (conversion to original name)
+    const allImportIds = sourceOrders.map(o => o.import_order_id).filter(Boolean);
+    const allVegIds = sourceOrders.map(o => o.vegetable_order_id).filter(Boolean);
+    if (allImportIds.length > 0) {
+      await supabaseService.from('import_orders').update({ selected_alias: null }).in('id', allImportIds);
+    }
+    if (allVegIds.length > 0) {
+      await supabaseService.from('vegetable_orders').update({ selected_alias: null }).in('id', allVegIds);
+    }
 
     const getReceiverName = (o: any) => {
        const io = o.import_orders || o.vegetable_orders;

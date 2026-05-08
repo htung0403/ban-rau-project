@@ -156,6 +156,31 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
     return list;
   }, [customers, defaultCategory, editingOrder]);
 
+  const customerOptions = React.useMemo(() => {
+    const options: any[] = [];
+    filteredCustomers.forEach((c: any) => {
+      // Main option
+      options.push({
+        value: c.id,
+        label: c.name,
+        selectedLabel: c.phone ? `${c.name} (${c.phone})` : c.name,
+        searchText: [c.name, c.phone, ...(c.aliases || [])].filter(Boolean).join(' ')
+      });
+      // Alias options
+      if (c.aliases && c.aliases.length > 0) {
+        c.aliases.forEach((alias: string) => {
+          options.push({
+            value: `${c.id}:${alias}`,
+            label: alias,
+            selectedLabel: alias,
+            searchText: [alias, c.name, c.phone].filter(Boolean).join(' ')
+          });
+        });
+      }
+    });
+    return options;
+  }, [filteredCustomers]);
+
   const filteredSenders = React.useMemo(() => {
     const list: any[] = customers?.filter((c: any) =>
       defaultCategory === 'vegetable' ? c.customer_type === 'vegetable_sender' : c.customer_type === 'grocery_sender'
@@ -254,8 +279,6 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
   const watchReceivedBy = watch('received_by');
   const watchPaymentStatus = watch('payment_status');
   const watchSelectedAlias = watch('selected_alias');
-  const selectedCustomer = filteredCustomers.find((c: any) => c.id === watchCustomerId);
-  const hasAliases = selectedCustomer?.aliases && selectedCustomer.aliases.length > 0;
   useEffect(() => {
     if (editingOrder) {
       let receiptUrls = [...(editingOrder.receipt_image_urls || [])];
@@ -638,33 +661,22 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           </button>
                         </div>
                         <SearchableSelect
-                          options={filteredCustomers.map((c: any) => ({
-                            value: c.id,
-                            label: c.phone ? `${c.name} (${c.phone})` : c.name,
-                            selectedLabel: watchCustomerId === c.id && watchSelectedAlias ? watchSelectedAlias : (c.phone ? `${c.name} (${c.phone})` : c.name),
-                            searchText: [c.name, c.phone, ...(c.aliases || [])].filter(Boolean).join(' ')
-                          }))}
-                          value={watchCustomerId}
-                          onValueChange={(val) => { setValue('customer_id', val, { shouldValidate: true }); setValue('selected_alias', '', { shouldValidate: true }); }}
-                          placeholder="Nhập tên ngưởi nhận hàng"
+                          options={customerOptions}
+                          value={watchSelectedAlias ? `${watchCustomerId}:${watchSelectedAlias}` : watchCustomerId}
+                          onValueChange={(val) => {
+                            if (val.includes(':')) {
+                              const [id, alias] = val.split(':');
+                              setValue('customer_id', id, { shouldValidate: true });
+                              setValue('selected_alias', alias, { shouldValidate: true });
+                            } else {
+                              setValue('customer_id', val, { shouldValidate: true });
+                              setValue('selected_alias', '', { shouldValidate: true });
+                            }
+                          }}
+                          placeholder="Nhập tên người nhận hàng"
                           disabled={showNewCustomerForm}
                         />
                         {errors.customer_id && <p className="text-red-500 text-[11px] font-medium">{errors.customer_id.message as string}</p>}
-
-                        {hasAliases && (
-                          <div className="mt-2">
-                            <label className="text-[12px] font-bold text-muted-foreground">Tên khác (Tùy chọn)</label>
-                            <SearchableSelect
-                              options={[
-                                { value: '', label: selectedCustomer.name },
-                                ...selectedCustomer.aliases.map((alias: string) => ({ value: alias, label: alias }))
-                              ]}
-                              value={watch('selected_alias') || ''}
-                              onValueChange={(val) => setValue('selected_alias', val, { shouldValidate: true })}
-                              placeholder="Chọn biệt danh hoặc để trống"
-                            />
-                          </div>
-                        )}
 
                         {/* Inline Add Customer Form */}
                         {showNewCustomerForm && (
@@ -909,33 +921,23 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                           </button>
                         </div>
                         <SearchableSelect
-                          options={filteredCustomers.map((c: any) => ({
-                            value: c.id,
-                            label: c.phone ? `${c.name} (${c.phone})` : c.name,
-                            selectedLabel: watchCustomerId === c.id && watchSelectedAlias ? watchSelectedAlias : (c.phone ? `${c.name} (${c.phone})` : c.name),
-                            searchText: [c.name, c.phone, ...(c.aliases || [])].filter(Boolean).join(' ')
-                          }))}
-                          value={watchCustomerId}
-                          onValueChange={(val) => { setValue('customer_id', val, { shouldValidate: true }); setValue('selected_alias', '', { shouldValidate: true }); }}
+                          options={customerOptions}
+                          value={watchSelectedAlias ? `${watchCustomerId}:${watchSelectedAlias}` : watchCustomerId}
+                          onValueChange={(val) => {
+                            if (val.includes(':')) {
+                              const [id, alias] = val.split(':');
+                              setValue('customer_id', id, { shouldValidate: true });
+                              setValue('selected_alias', alias, { shouldValidate: true });
+                            } else {
+                              setValue('customer_id', val, { shouldValidate: true });
+                              setValue('selected_alias', '', { shouldValidate: true });
+                            }
+                          }}
                           placeholder="Tìm vựa rau hoặc KH Rau..."
                           disabled={showNewCustomerForm}
                         />
                         {errors.customer_id && <p className="text-red-500 text-[11px] font-medium">{errors.customer_id.message as string}</p>}
 
-                        {hasAliases && (
-                          <div className="mt-2">
-                            <label className="text-[12px] font-bold text-muted-foreground">Tên khác (tùy chọn)</label>
-                            <SearchableSelect
-                              options={[
-                                { value: '', label: selectedCustomer.name },
-                                ...selectedCustomer.aliases.map((alias: string) => ({ value: alias, label: alias }))
-                              ]}
-                              value={watch('selected_alias') || ''}
-                              onValueChange={(val) => setValue('selected_alias', val, { shouldValidate: true })}
-                              placeholder="Chọn biệt danh hoặc để trống"
-                            />
-                          </div>
-                        )}
 
                         {/* Inline Add Customer Form */}
                         {showNewCustomerForm && (

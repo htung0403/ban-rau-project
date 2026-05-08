@@ -58,61 +58,61 @@ export class DeliveryNoteGenerator {
         
         <!-- Header -->
         <rect x="10" y="10" width="${width - 20}" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
-        <text x="${width / 2}" y="${10 + rowHeight / 2 + 6}" font-family="Arial, sans-serif" font-size="${boldFontSize}" font-weight="bold" text-anchor="middle">
+        <text x="${width / 2}" y="${10 + rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${boldFontSize}" font-weight="bold" text-anchor="middle">
           phiếu giao hàng ${d.shopName}
         </text>
 
         <!-- Customer -->
         <rect x="10" y="${10 + rowHeight}" width="${width - 20}" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
-        <text x="${width / 2}" y="${10 + rowHeight + rowHeight / 2 + 6}" font-family="Arial, sans-serif" font-size="${fontSize}" text-anchor="middle">
+        <text x="${width / 2}" y="${10 + rowHeight + rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">
           Khách Hàng : ${d.customerName}
         </text>
 
         <!-- Date & Staff -->
         <rect x="10" y="${10 + 2 * rowHeight}" width="${(width - 20) / 2}" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
-        <text x="20" y="${10 + 2 * rowHeight + rowHeight / 2 + 6}" font-family="Arial, sans-serif" font-size="${fontSize}">
+        <text x="20" y="${10 + 2 * rowHeight + rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}">
           Ngày Giao: ${d.deliveryDate}
         </text>
 
         <rect x="${10 + (width - 20) / 2}" y="${10 + 2 * rowHeight}" width="${(width - 20) / 2}" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
-        <text x="${20 + (width - 20) / 2}" y="${10 + 2 * rowHeight + rowHeight / 2 + 6}" font-family="Arial, sans-serif" font-size="${fontSize}">
+        <text x="${20 + (width - 20) / 2}" y="${10 + 2 * rowHeight + rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}">
           Tên NV: ${d.staffName}    SỐ Xe ${d.licensePlate}
         </text>
 
         <!-- Table Header -->
         <g transform="translate(10, ${10 + 3 * rowHeight})">
           <rect x="0" y="0" width="100" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
-          <text x="50" y="${rowHeight / 2 + 6}" font-family="Arial, sans-serif" font-size="${fontSize}" text-anchor="middle">Giờ Giao</text>
+          <text x="50" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">Giờ Giao</text>
 
           <rect x="100" y="0" width="100" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
-          <text x="150" y="${rowHeight / 2 + 6}" font-family="Arial, sans-serif" font-size="${fontSize}" text-anchor="middle">Số Lượng</text>
+          <text x="150" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">Số Lượng</text>
 
           <rect x="200" y="0" width="200" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
-          <text x="300" y="${rowHeight / 2 + 6}" font-family="Arial, sans-serif" font-size="${fontSize}" text-anchor="middle">Tên Hàng</text>
+          <text x="300" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">Tên Hàng</text>
 
           <rect x="400" y="0" width="150" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
-          <text x="475" y="${rowHeight / 2 + 6}" font-family="Arial, sans-serif" font-size="${fontSize}" text-anchor="middle">Giá</text>
+          <text x="475" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">Giá</text>
 
           <rect x="550" y="0" width="${width - 20 - 550}" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
-          <text x="${550 + (width - 20 - 550) / 2}" y="${rowHeight / 2 + 6}" font-family="Arial, sans-serif" font-size="${fontSize}" text-anchor="middle">Thành Tiền</text>
+          <text x="${550 + (width - 20 - 550) / 2}" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">Thành Tiền</text>
         </g>
 
         <!-- Table Row -->
         <g transform="translate(10, ${10 + 4 * rowHeight})">
           <rect x="0" y="0" width="100" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
-          <text x="50" y="${rowHeight / 2 + 6}" font-family="Arial, sans-serif" font-size="${fontSize}" text-anchor="middle">${d.deliveryTime}</text>
+          <text x="50" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${d.deliveryTime}</text>
 
           <rect x="100" y="0" width="100" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
-          <text x="150" y="${rowHeight / 2 + 6}" font-family="Arial, sans-serif" font-size="${fontSize}" text-anchor="middle">${d.quantity}</text>
+          <text x="150" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${d.quantity}</text>
 
           <rect x="200" y="0" width="200" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
-          <text x="300" y="${rowHeight / 2 + 6}" font-family="Arial, sans-serif" font-size="${fontSize}" text-anchor="middle">${d.productName}</text>
+          <text x="300" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${d.productName}</text>
 
           <rect x="400" y="0" width="150" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
-          <text x="475" y="${rowHeight / 2 + 6}" font-family="Arial, sans-serif" font-size="${fontSize}" text-anchor="middle">${d.price}</text>
+          <text x="475" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${d.price}</text>
 
           <rect x="550" y="0" width="${width - 20 - 550}" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
-          <text x="${550 + (width - 20 - 550) / 2}" y="${rowHeight / 2 + 6}" font-family="Arial, sans-serif" font-size="${fontSize}" text-anchor="middle">${d.total}</text>
+          <text x="${550 + (width - 20 - 550) / 2}" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${d.total}</text>
         </g>
       </svg>
     `;

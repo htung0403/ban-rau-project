@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useTheme, THEME_COLORS, THEME_FONTS, THEME_SIZES } from '../context/ThemeContext';
+import ZaloConfig from '../components/shared/ZaloConfig';
 
 
 const SettingsPage: React.FC = () => {
@@ -251,6 +252,11 @@ const SettingsPage: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Zalo Notification Settings */}
+        <div className="lg:col-span-2">
+          <ZaloConfig />
         </div>
 
         {/* Regional Settings */}

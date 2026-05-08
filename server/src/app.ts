@@ -23,6 +23,7 @@ import accountingRoutes from './modules/accounting/accounting.routes';
 import productRoutes from './modules/products/products.routes';
 import uploadRoutes from './modules/upload/upload.routes';
 import rolesRoutes from './modules/roles/roles.routes';
+import zaloRoutes from './modules/notifications/zalo.routes';
 
 const app = express();
 
@@ -66,6 +67,7 @@ app.use('/api/accounting', accountingRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/roles', rolesRoutes);
+app.use('/api/notifications/zalo', zaloRoutes);
 
 
 // 5. Health Check

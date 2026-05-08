@@ -47,6 +47,15 @@ const createAccountSchema = z.object({
   customer_id: z.string().uuid(),
 });
 
+const mergeCustomerSchema = z.object({
+  source_id: z.string().uuid(),
+  target_id: z.string().uuid(),
+});
+
+const undoMergeSchema = z.object({
+  mergeId: z.string().uuid(),
+});
+
 export class CustomerController {
   static async getAll(req: Request, res: Response) {
     try {
@@ -194,6 +203,29 @@ export class CustomerController {
         validated.customer_id
       );
       return res.status(201).json(successResponse(data, 'Account created'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async merge(req: Request, res: Response) {
+    try {
+      const validated = mergeCustomerSchema.parse(req.body);
+      if (validated.source_id === validated.target_id) {
+        return res.status(400).json(errorResponse('Không thể gộp khách hàng với chính mình'));
+      }
+      const data = await CustomerService.merge(validated.source_id, validated.target_id, req.user!.id);
+      return res.status(200).json(successResponse(data, 'Gộp khách hàng thành công'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async undoMerge(req: Request, res: Response) {
+    try {
+      const validated = undoMergeSchema.parse({ mergeId: req.params.mergeId });
+      const data = await CustomerService.undoMerge(validated.mergeId, req.user!.id);
+      return res.status(200).json(successResponse(data, 'Hoàn tác gộp khách hàng thành công'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
     }

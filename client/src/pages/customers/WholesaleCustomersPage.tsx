@@ -5,8 +5,9 @@ import { useCustomers, useDeleteCustomer } from '../../hooks/queries/useCustomer
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, GitMerge } from 'lucide-react';
 import AddEditCustomerDialog from './dialogs/AddEditCustomerDialog';
+import MergeCustomerDialog from './dialogs/MergeCustomerDialog';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { SearchInput } from '../../components/ui/SearchInput';
@@ -46,6 +47,12 @@ const WholesaleCustomersPage: React.FC<Props> = ({ type = 'vegetable_receiver' }
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const [isMergeOpen, setIsMergeOpen] = useState(false);
+  const [isMergeClosing, setIsMergeClosing] = useState(false);
+  const [sourceCustomerForMerge, setSourceCustomerForMerge] = useState<Customer | null>(null);
 
   const closeAddDialog = () => {
     setIsAddClosing(true);
@@ -98,6 +105,47 @@ const WholesaleCustomersPage: React.FC<Props> = ({ type = 'vegetable_receiver' }
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }));
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredAndSortedCustomers.length && filteredAndSortedCustomers.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredAndSortedCustomers.map(c => c.id)));
+    }
+  };
+
+  const openMergeDialog = () => {
+    const selectedArray = Array.from(selectedIds);
+    if (selectedArray.length !== 2) return;
+    const customer = customers?.find(c => c.id === selectedArray[0]);
+    if (customer) {
+      setSourceCustomerForMerge(customer);
+      setIsMergeOpen(true);
+    }
+  };
+
+  const closeMergeDialog = () => {
+    setIsMergeClosing(true);
+    setTimeout(() => {
+      setIsMergeOpen(false);
+      setIsMergeClosing(false);
+      setSourceCustomerForMerge(null);
+    }, 350);
+  };
+
+  const handleMergeSuccess = () => {
+    setSelectedIds(new Set());
+    closeMergeDialog();
+  };
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
       <div className="hidden md:block">
@@ -128,9 +176,29 @@ const WholesaleCustomersPage: React.FC<Props> = ({ type = 'vegetable_receiver' }
       <div className="md:hidden px-4 mb-3">
         <SearchInput
           placeholder="Tìm kiếm vựa..."
-          onSearch={(raw) => setSearchTerm(raw)}
+          onSearch={(raw) => {
+            setSearchTerm(raw);
+            setSelectedIds(new Set());
+          }}
         />
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl mb-2 mx-0 sm:mx-0">
+          <span className="text-[13px] font-bold text-amber-800">
+            Đã chọn {selectedIds.size} khách hàng
+          </span>
+          {selectedIds.size === 2 && (
+            <button
+              onClick={openMergeDialog}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500 text-white text-[13px] font-bold hover:bg-orange-600 shadow-sm transition-all"
+            >
+              <GitMerge size={14} />
+              Gộp KH
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="md:bg-white md:rounded-2xl md:border md:border-border md:shadow-sm flex flex-col flex-1 min-h-0 md:overflow-hidden -mx-4 sm:mx-0">
         {isLoading ? (
@@ -146,6 +214,14 @@ const WholesaleCustomersPage: React.FC<Props> = ({ type = 'vegetable_receiver' }
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-muted/30 border-b border-border">
+                    <th className="px-4 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.size > 0 && selectedIds.size === filteredAndSortedCustomers.length}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
+                      />
+                    </th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">Tên KH</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-42">Loại KH</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-left">SDT</th>
@@ -162,9 +238,17 @@ const WholesaleCustomersPage: React.FC<Props> = ({ type = 'vegetable_receiver' }
                       key={c.id}
                       className="hover:bg-muted/20 transition-colors cursor-pointer"
                       onClick={() => {
-                        if (c.id) navigate(`/ke-toan/khach-hang/${c.id}`);
+                        if (c.id) navigate(c.id);
                       }}
                     >
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(c.id)}
+                          onChange={() => toggleSelect(c.id)}
+                          className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <div>
                           <span className="text-[13px] font-bold text-foreground hover:underline decoration-primary/30">
@@ -229,7 +313,7 @@ const WholesaleCustomersPage: React.FC<Props> = ({ type = 'vegetable_receiver' }
                   key={c.id}
                   className="p-4 flex flex-col gap-3 bg-white rounded-2xl border border-border shadow-sm active:scale-[0.98] transition-transform cursor-pointer"
                   onClick={() => {
-                    if (c.id) navigate(`/ke-toan/khach-hang/${c.id}`);
+                    if (c.id) navigate(c.id);
                   }}
                 >
                   <div className="flex justify-between items-start gap-2">
@@ -325,6 +409,16 @@ const WholesaleCustomersPage: React.FC<Props> = ({ type = 'vegetable_receiver' }
         onConfirm={confirmSoftDelete}
         onCancel={closeDeleteConfirm}
       />
+
+      {sourceCustomerForMerge && (
+        <MergeCustomerDialog
+          isOpen={isMergeOpen}
+          isClosing={isMergeClosing}
+          onClose={closeMergeDialog}
+          onSuccess={handleMergeSuccess}
+          sourceCustomer={sourceCustomerForMerge}
+        />
+      )}
     </div>
   );
 };

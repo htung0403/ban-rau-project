@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { CustomerController } from './customers.controller';
 import { authMiddleware } from '../../middlewares/auth';
 import { requirePolicy } from '../../middlewares/role';
+import { requireRolesOnly } from '../../middlewares/role';
 
 const router = Router();
 
@@ -17,6 +18,18 @@ router.post(
 	'/',
 	requirePolicy('CUSTOMERS_SHARED_LOOKUP'),
 	CustomerController.create
+);
+
+router.post(
+	'/merge',
+	requireRolesOnly('admin', 'manager'),
+	CustomerController.merge
+);
+
+router.post(
+	'/merge/undo/:mergeId',
+	requireRolesOnly('admin', 'manager'),
+	CustomerController.undoMerge
 );
 
 router.put(

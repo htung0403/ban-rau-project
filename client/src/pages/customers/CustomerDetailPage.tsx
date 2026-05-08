@@ -5,9 +5,10 @@ import { useCustomer, useCustomerOrders, useCustomerExportOrders, useCustomerRec
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
 import EmptyState from '../../components/shared/EmptyState';
-import { Phone, MapPin, Building2, PackageCheck, FileSpreadsheet, Receipt, Clock, Wallet, Printer, ShoppingBag, Save } from 'lucide-react';
+import { Phone, MapPin, Building2, PackageCheck, FileSpreadsheet, Receipt, Clock, Wallet, Printer, ShoppingBag, Save, GitMerge } from 'lucide-react';
 import StatusBadge from '../../components/shared/StatusBadge';
 import CollectDebtDialog from './dialogs/CollectDebtDialog';
+import MergeCustomerDialog from './dialogs/MergeCustomerDialog';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { useBreadcrumbs } from '../../context/BreadcrumbContext';
@@ -45,6 +46,8 @@ const CustomerDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [isCollectDebtOpen, setIsCollectDebtOpen] = useState(false);
   const [isCollectDebtClosing, setIsCollectDebtClosing] = useState(false);
+  const [isMergeOpen, setIsMergeOpen] = useState(false);
+  const [isMergeClosing, setIsMergeClosing] = useState(false);
 
   const { data: customer, isLoading: isLoadingCustomer, isError: isErrorCustomer } = useCustomer(id!);
   const { data: importOrders, isLoading: isLoadingImports } = useCustomerOrders(id!);
@@ -91,6 +94,20 @@ const CustomerDetailPage: React.FC = () => {
     }, 350);
   };
 
+  const closeMergeDialog = () => {
+    setIsMergeClosing(true);
+    setTimeout(() => {
+      setIsMergeOpen(false);
+      setIsMergeClosing(false);
+    }, 350);
+  };
+
+  const handleMergeSuccess = () => {
+    closeMergeDialog();
+    // Refresh page after successful merge
+    window.location.reload();
+  };
+
   const handleSavePrices = async () => {
     if (selectedOrderIds.size === 0 || !id) return;
     const updates = Array.from(selectedOrderIds)
@@ -123,18 +140,16 @@ const CustomerDetailPage: React.FC = () => {
   };
 
   if (isLoadingCustomer) return <div className="p-6"><LoadingSkeleton rows={5} /></div>;
-  if (isErrorCustomer || !customer) return <ErrorState onRetry={() => navigate('/ke-toan')} />;
+  if (isErrorCustomer || !customer) return <ErrorState onRetry={() => navigate('/khach-hang')} />;
 
-  const getBackPath = (type?: string) => {
-    if (customer?.is_loyal) return '/khach-hang/khach-hang-than-thiet';
-    switch (type) {
-      case 'wholesale': return '/khach-hang/vua-rau';
-      case 'grocery': return '/khach-hang/nguoi-gui-tap-hoa';
-      case 'vegetable': return '/khach-hang/nguoi-gui-rau';
-      default: return '/khach-hang';
+  const getBackPath = () => {
+    const segments = location.pathname.split('/').filter(Boolean);
+    if (segments.length > 1) {
+      return `/${segments.slice(0, segments.length - 1).join('/')}`;
     }
+    return '/khach-hang';
   };
-  const backPath = getBackPath(customer?.customer_type);
+  const backPath = getBackPath();
 
   return (
     <div className="animate-in fade-in flex-1 flex flex-col min-h-0 relative z-0 print:static">
@@ -145,13 +160,24 @@ const CustomerDetailPage: React.FC = () => {
           description="Theo dõi lịch sử giao dịch và công nợ"
           backPath={backPath}
           actions={
-            <button
-              onClick={() => setIsCollectDebtOpen(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-[13px] font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all font-inter"
-            >
-              <Wallet size={16} />
-              Thu Nợ
-            </button>
+            <div className="flex items-center gap-2">
+              {!customer.deleted_at && (
+                <button
+                  onClick={() => setIsMergeOpen(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 text-white text-[13px] font-bold hover:bg-amber-700 shadow-lg shadow-amber-600/20 transition-all font-inter"
+                >
+                  <GitMerge size={16} />
+                  Gộp KH
+                </button>
+              )}
+              <button
+                onClick={() => setIsCollectDebtOpen(true)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-[13px] font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all font-inter"
+              >
+                <Wallet size={16} />
+                Thu Nợ
+              </button>
+            </div>
           }
         />
       </div>
@@ -681,6 +707,13 @@ const CustomerDetailPage: React.FC = () => {
         onClose={closeCollectDebtDialog}
         customer={customer}
         debtAmount={calculatedDebt}
+      />
+
+      <MergeCustomerDialog
+        isOpen={isMergeOpen}
+        isClosing={isMergeClosing}
+        onClose={handleMergeSuccess}
+        sourceCustomer={customer}
       />
     </div>
   );

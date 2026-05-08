@@ -241,4 +241,25 @@ export class CustomerService {
 
     return { id };
   }
+
+  static async merge(sourceId: string, targetId: string, mergedBy: string) {
+    const { data, error } = await supabaseService.rpc('merge_customers_atomic', {
+      p_source_id: sourceId,
+      p_target_id: targetId,
+      p_merged_by: mergedBy,
+    });
+
+    if (error) throw error;
+    return data;
+  }
+
+  static async undoMerge(mergeId: string, undoneBy: string) {
+    const { data, error } = await supabaseService.rpc('undo_customer_merge', {
+      p_merge_id: mergeId,
+      p_undone_by: undoneBy,
+    });
+
+    if (error) throw error;
+    return data;
+  }
 }

@@ -403,7 +403,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       }
 
       setAssignmentBaselines(baselines);
-      
+
       reset({
         assignments: initialAssignments,
         image_urls: formGlobalImageUrls,
@@ -730,7 +730,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       />
                       {errors.assignments?.[index]?.driver_id && <p className="text-red-500 text-[10px] font-medium absolute -bottom-4">{errors.assignments[index]?.driver_id?.message}</p>}
                     </div>
-                    
+
                     <div className="w-full md:w-auto flex gap-2 items-end mt-2 md:mt-0">
                       <div className="flex-1 min-w-0 md:w-36 space-y-1.5">
                         <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
@@ -836,7 +836,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                     </div>
 
                     {/* Tiền thu (chỉ đơn tạp hóa/standard) */}
-            {!isViewMode && isStandardOrder && (
+                    {!isViewMode && isStandardOrder && (
                       <div className="w-full md:w-52 space-y-1.5 mt-2 md:mt-0">
                         <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Tiền thu (VND)</label>
                         {importPaid ? (

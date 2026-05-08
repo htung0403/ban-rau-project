@@ -5,8 +5,9 @@ import { useCustomers, useDeleteCustomer, useBulkSetLoyal } from '../../hooks/qu
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Plus, Pencil, Trash2, Heart } from 'lucide-react';
+import { Plus, Pencil, Trash2, Heart, GitMerge } from 'lucide-react';
 import AddEditCustomerDialog from './dialogs/AddEditCustomerDialog';
+import MergeCustomerDialog from './dialogs/MergeCustomerDialog';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { SearchInput } from '../../components/ui/SearchInput';
@@ -50,6 +51,11 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const bulkSetLoyal = useBulkSetLoyal();
   const showLoyalCheckbox = true;
+
+  // Merge dialog state
+  const [isMergeOpen, setIsMergeOpen] = useState(false);
+  const [isMergeClosing, setIsMergeClosing] = useState(false);
+  const [sourceCustomerForMerge, setSourceCustomerForMerge] = useState<Customer | null>(null);
 
   const closeAddDialog = () => {
     setIsAddClosing(true);
@@ -129,6 +135,30 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
     }
   };
 
+  const openMergeDialog = () => {
+    const selectedArray = Array.from(selectedIds);
+    if (selectedArray.length !== 2) return;
+    const customer = customers?.find(c => c.id === selectedArray[0]);
+    if (customer) {
+      setSourceCustomerForMerge(customer);
+      setIsMergeOpen(true);
+    }
+  };
+
+  const closeMergeDialog = () => {
+    setIsMergeClosing(true);
+    setTimeout(() => {
+      setIsMergeOpen(false);
+      setIsMergeClosing(false);
+      setSourceCustomerForMerge(null);
+    }, 350);
+  };
+
+  const handleMergeSuccess = () => {
+    setSelectedIds(new Set());
+    closeMergeDialog();
+  };
+
   const pageTitle = type === 'grocery_sender' ? "DS người gửi hàng tạp hóa" : 
                     type === 'grocery_receiver' ? "DS người nhận hàng tạp hóa" : 
                     "Danh sách KH Tạp hóa";
@@ -178,6 +208,15 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
           <span className="text-[13px] font-bold text-amber-800">
             Đã chọn {selectedIds.size} khách hàng
           </span>
+          {selectedIds.size === 2 && (
+            <button
+              onClick={openMergeDialog}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500 text-white text-[13px] font-bold hover:bg-orange-600 shadow-sm transition-all"
+            >
+              <GitMerge size={14} />
+              Gộp KH
+            </button>
+          )}
           <button
             onClick={handleBulkLoyal}
             disabled={bulkSetLoyal.isPending}
@@ -229,7 +268,7 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
                         key={c.id}
                         className="hover:bg-muted/20 transition-colors cursor-pointer"
                         onClick={() => {
-                          if (c.id) navigate(`/ke-toan/khach-hang/${c.id}`);
+                    if (c.id) navigate(c.id);
                         }}
                       >
                         {showLoyalCheckbox && (
@@ -306,7 +345,7 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
                   key={c.id}
                   className="p-4 flex flex-col gap-3 bg-white rounded-2xl border border-border shadow-sm active:scale-[0.98] transition-transform cursor-pointer"
                   onClick={() => {
-                    if (c.id) navigate(`/ke-toan/khach-hang/${c.id}`);
+                    if (c.id) navigate(c.id);
                   }}
                 >
                   <div className="flex justify-between items-start gap-2">
@@ -402,6 +441,16 @@ const GroceryCustomersPage: React.FC<Props> = ({ type = 'grocery_sender' }) => {
         onConfirm={confirmSoftDelete}
         onCancel={closeDeleteConfirm}
       />
+
+      {sourceCustomerForMerge && (
+        <MergeCustomerDialog
+          isOpen={isMergeOpen}
+          isClosing={isMergeClosing}
+          onClose={closeMergeDialog}
+          onSuccess={handleMergeSuccess}
+          sourceCustomer={sourceCustomerForMerge}
+        />
+      )}
     </div>
   );
 };

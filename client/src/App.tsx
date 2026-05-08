@@ -87,6 +87,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
+
 function AppRoutes() {
   return (
     <Routes>
@@ -140,23 +141,45 @@ function AppRoutes() {
         <Route path="/chi-phi/lich-su" element={<ExpenseHistoryPage />} />
         <Route path="/chi-phi/in-chi-phi" element={<PrintExpensesPage />} />
 
-        {/* Khách hàng module */}
         <Route path="/khach-hang">
           <Route index element={<ModulePage />} />
-          <Route path="nguoi-gui-rau" element={<VegetableCustomersPage type="vegetable_sender" />} />
-          <Route path="vua-rau" element={<WholesaleCustomersPage type="vegetable_receiver" />} />
-          <Route path="nguoi-gui-tap-hoa" element={<GroceryCustomersPage type="grocery_sender" />} />
-          <Route path="nguoi-nhan-tap-hoa" element={<GroceryCustomersPage type="grocery_receiver" />} />
-          <Route path="khach-hang-than-thiet" element={<LoyalCustomersPage />} />
+          <Route path="nguoi-gui-rau">
+            <Route index element={<VegetableCustomersPage type="vegetable_sender" />} />
+            <Route path=":id" element={<CustomerDetailPage />} />
+          </Route>
+          <Route path="vua-rau">
+            <Route index element={<WholesaleCustomersPage type="vegetable_receiver" />} />
+            <Route path=":id" element={<CustomerDetailPage />} />
+          </Route>
+          <Route path="nguoi-gui-tap-hoa">
+            <Route index element={<GroceryCustomersPage type="grocery_sender" />} />
+            <Route path=":id" element={<CustomerDetailPage />} />
+          </Route>
+          <Route path="nguoi-nhan-tap-hoa">
+            <Route index element={<GroceryCustomersPage type="grocery_receiver" />} />
+            <Route path=":id" element={<CustomerDetailPage />} />
+          </Route>
+          <Route path="khach-hang-than-thiet">
+            <Route index element={<LoyalCustomersPage />} />
+            <Route path=":id" element={<CustomerDetailPage />} />
+          </Route>
         </Route>
 
         {/* Ke toan module */}
         <Route path="/ke-toan">
           <Route index element={<ModulePage />} />
-          <Route path="khach-hang-tap-hoa" element={<GroceryCustomersPage type="grocery_sender" />} />
-          <Route path="khach-hang-rau" element={<VegetableCustomersPage type="vegetable_sender" />} />
-          <Route path="vua-rau" element={<WholesaleCustomersPage type="vegetable_receiver" />} />
-          <Route path="khach-hang/:id" element={<CustomerDetailPage />} />
+          <Route path="khach-hang-tap-hoa">
+            <Route index element={<GroceryCustomersPage type="grocery_sender" />} />
+            <Route path=":id" element={<CustomerDetailPage />} />
+          </Route>
+          <Route path="khach-hang-rau">
+            <Route index element={<VegetableCustomersPage type="vegetable_sender" />} />
+            <Route path=":id" element={<CustomerDetailPage />} />
+          </Route>
+          <Route path="vua-rau">
+            <Route index element={<WholesaleCustomersPage type="vegetable_receiver" />} />
+            <Route path=":id" element={<CustomerDetailPage />} />
+          </Route>
           <Route path="cong-no" element={<CustomerDebtPage />} />
           <Route path="thu-tien-sg" element={<SgCashCollectionsPage />} />
           <Route path="in-thu-tien-sg" element={<PrintSgCashCollectionsPage />} />

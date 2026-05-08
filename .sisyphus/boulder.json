@@ -1,23 +1,33 @@
 {
-  "active_plan": "D:\\job-banrau\\.sisyphus\\plans\\customer-alias-feature.md",
-  "started_at": "2026-04-30T08:39:54.522Z",
+  "active_plan": "D:\\job-banrau\\.sisyphus\\plans\\customer-merge-feature.md",
+  "started_at": "2026-05-08T03:31:22.195Z",
   "session_ids": [
-    "ses_222b13ec6ffePSlkExn5cOj0K1"
+    "ses_222b13ec6ffePSlkExn5cOj0K1",
+    "ses_1fa98ea51ffesP9wvlSJECR1JU",
+    "ses_1fa2e2fddffeFx2qYTXvMDCx0R",
+    "ses_1fa2e1d71ffegd7BQPvDkhvtg6",
+    "ses_1fa2e15d5ffev4kngjmvNdaot6",
+    "ses_1fa2e06cdffeQGo4ddXiy7S01w"
   ],
   "session_origins": {
-    "ses_222b13ec6ffePSlkExn5cOj0K1": "direct"
+    "ses_222b13ec6ffePSlkExn5cOj0K1": "direct",
+    "ses_1fa98ea51ffesP9wvlSJECR1JU": "direct",
+    "ses_1fa2e2fddffeFx2qYTXvMDCx0R": "appended",
+    "ses_1fa2e1d71ffegd7BQPvDkhvtg6": "appended",
+    "ses_1fa2e15d5ffev4kngjmvNdaot6": "appended",
+    "ses_1fa2e06cdffeQGo4ddXiy7S01w": "appended"
   },
-  "plan_name": "customer-alias-feature",
+  "plan_name": "customer-merge-feature",
   "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "Database Migration + TypeScript Types",
-      "session_id": "ses_222730c2dffedm9oBGrZVJgSIG",
+      "task_title": "Migration 73 — Create `customer_merges` table",
+      "session_id": "ses_1fa5718c1ffea0jP7zUXKMBYia",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-04-30T08:45:55.199Z"
+      "updated_at": "2026-05-08T04:00:15.000Z"
     },
     "todo:2": {
       "task_key": "todo:2",
@@ -49,11 +59,38 @@
     "todo:5": {
       "task_key": "todo:5",
       "task_label": "5",
-      "task_title": "Display Logic — All Pages (Alias/Main Name Switching)",
-      "session_id": "ses_22221f3b2ffe7hZA54ndTwuiRL",
+      "task_title": "Backend merge API — route + controller + service (TDD: RED first)",
+      "session_id": "ses_1fa3f326effe5RTxSk1fpXaUlp",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-04-30T10:15:09.192Z"
+      "updated_at": "2026-05-08T04:08:59.856Z"
+    },
+    "todo:6": {
+      "task_key": "todo:6",
+      "task_label": "6",
+      "task_title": "Backend undo API — route + controller + service (TDD: RED first)",
+      "session_id": "ses_1fa387d38ffepG2lOlStUX2VRq",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-05-08T04:12:25.625Z"
+    },
+    "todo:7": {
+      "task_key": "todo:7",
+      "task_label": "7",
+      "task_title": "Server integration tests — merge RPC behavior verification",
+      "session_id": "ses_1fa32121affekVe1HPPUU6Sdu5",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-05-08T04:20:05.512Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** — `oracle`",
+      "session_id": "ses_1fa2e06cdffeQGo4ddXiy7S01w",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-05-08T04:21:47.619Z"
     }
   }
 }

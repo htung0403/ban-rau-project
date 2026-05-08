@@ -81,4 +81,14 @@ export const customersApi = {
     const { data } = await axiosClient.put(`/customers/${customerId}/delivery-order-prices`, { updates });
     return data;
   },
+
+  merge: async (payload: { source_id: string; target_id: string }) => {
+    const { data } = await axiosClient.post('/customers/merge', payload);
+    return data;
+  },
+
+  undoMerge: async (mergeId: string) => {
+    const { data } = await axiosClient.post(`/customers/merge/undo/${mergeId}`);
+    return data;
+  },
 };

@@ -16,6 +16,7 @@ export const PAGE_POLICIES = {
     '/hang-hoa/nhap-hang',
     '/hang-hoa/nhap-hang-rau',
   ],
+  MERGE_CUSTOMERS: ['/ke-toan/khach-hang-tap-hoa', '/ke-toan/khach-hang-rau', '/ke-toan/vua-rau'],
   ACCOUNTING_DEBT_MANAGE: ['/ke-toan/cong-no'],
   ACCOUNTING_REVENUE_VIEW: ['/ke-toan/doanh-thu'],
   ACCOUNTING_REPORTS_VIEW: ['/ke-toan/cong-no', '/ke-toan/doanh-thu'],

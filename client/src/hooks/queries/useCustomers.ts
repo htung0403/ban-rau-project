@@ -158,3 +158,23 @@ export function useUpdateDeliveryOrderPrices() {
     onError: () => toast.error('Lỗi khi cập nhật giá'),
   });
 }
+
+export function useMergeCustomers() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: customersApi.merge,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+    },
+  });
+}
+
+export function useUndoMerge() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: customersApi.undoMerge,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+    },
+  });
+}

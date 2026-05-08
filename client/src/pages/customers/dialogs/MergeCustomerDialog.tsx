@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { X, GitMerge, Search, ChevronRight, Check, AlertTriangle, User, ArrowRight } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useMergeCustomers, useCustomers } from '../../../hooks/queries/useCustomers';
@@ -30,6 +31,7 @@ const MergeCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, onSu
   const [error, setError] = useState<string | null>(null);
 
   const mergeMutation = useMergeCustomers();
+  const navigate = useNavigate();
   const { data: allCustomers, isLoading: customersLoading } = useCustomers(
     sourceCustomer.customer_type,
     !!sourceCustomer.customer_type,
@@ -72,6 +74,7 @@ const MergeCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, onSu
         target_id: selectedTarget.id,
       });
       onSuccess?.();
+      navigate(selectedTarget.id);
       onClose();
     } catch {
       setError('Gộp khách hàng thất bại. Vui lòng thử lại.');

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MessageSquare, RefreshCw, CheckCircle2, AlertCircle, Loader2, QrCode } from 'lucide-react';
 import { clsx } from 'clsx';
+import axiosClient from '../../api/axiosClient';
 
 const ZaloConfig: React.FC = () => {
   const [status, setStatus] = useState<'idle' | 'generating' | 'waiting' | 'success' | 'failed'>('idle');
@@ -11,25 +12,25 @@ const ZaloConfig: React.FC = () => {
     try {
       setStatus('generating');
       setError(null);
-      const res = await fetch('/api/notifications/zalo/qr');
-      const data = await res.json();
+      const res = await axiosClient.get('/notifications/zalo/qr');
+      const data = res.data;
       if (data.qrBase64) {
         setQrBase64(data.qrBase64);
         setStatus('waiting');
       } else {
         throw new Error(data.error || 'Không thể tạo mã QR');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Lỗi khi lấy mã QR:', err);
-      setError(String(err));
+      setError(err.response?.data?.error || String(err));
       setStatus('failed');
     }
   };
 
   const checkInitialStatus = async () => {
     try {
-      const res = await fetch('/api/notifications/zalo/status');
-      const data = await res.json();
+      const res = await axiosClient.get('/notifications/zalo/status');
+      const data = res.data;
       if (data.connected) {
         setStatus('success');
       } else if (data.status === 'waiting') {
@@ -50,8 +51,8 @@ const ZaloConfig: React.FC = () => {
     if (status === 'waiting') {
       interval = setInterval(async () => {
         try {
-          const res = await fetch('/api/notifications/zalo/status');
-          const data = await res.json();
+          const res = await axiosClient.get('/notifications/zalo/status');
+          const data = res.data;
           if (data.status === 'success') {
             setStatus('success');
             clearInterval(interval);

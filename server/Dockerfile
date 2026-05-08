@@ -6,6 +6,11 @@ FROM node:${NODE_VERSION}-slim AS base
 
 LABEL fly_launch_runtime="Node.js"
 
+# Install system fonts and tools in base so they persist
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y fonts-dejavu-core fontconfig && \
+    rm -rf /var/lib/apt/lists/*
+
 # Node.js app lives here
 WORKDIR /app
 
@@ -22,7 +27,7 @@ FROM base AS build
 
 # Install packages needed to build node modules
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3 fonts-dejavu-core
+    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
 
 # Install node modules
 COPY package-lock.json package.json pnpm-lock.yaml ./

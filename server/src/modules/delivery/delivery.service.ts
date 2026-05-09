@@ -431,6 +431,7 @@ export class DeliveryService {
       image_urls: Array.isArray(a.image_urls) && a.image_urls.length > 0 ? a.image_urls : [],
       delivery_date: a.delivery_date || delivery_date || undefined,
       delivery_time: a.delivery_time || delivery_time || undefined,
+      export_payment_status: a.export_payment_status || 'unpaid',
     }));
 
     const { data, error } = await supabaseService

@@ -1151,23 +1151,10 @@ const DeliveryPage: React.FC = () => {
                               const isEditableByMe = myVehicleIdSet.has(v.id);
                               const canEdit = isEditableByMe || isAdmin;
 
-                              const isPaid = (o.payment_collections || []).some(
+                              const isExportPaid = dvs.length > 0 && dvs.some(dv => dv.export_payment_status === 'paid');
+                              const isCollectionPaid = (o.payment_collections || []).some(
                                 (pc) => pc.vehicle_id === v.id && isPaidCollectionStatus(pc.status)
                               );
-
-                              const today = new Date();
-                              const deliveryDate = o.delivery_date ? new Date(o.delivery_date) : null;
-                              const isTodayDelivery = deliveryDate &&
-                                deliveryDate.getDate() === today.getDate() &&
-                                deliveryDate.getMonth() === today.getMonth() &&
-                                deliveryDate.getFullYear() === today.getFullYear();
-
-                              const textColorClass = totalQty > 0
-                                ? (isTodayDelivery ? "text-blue-600 dark:text-blue-500" : "text-black dark:text-black")
-                                : "text-muted-foreground/30";
-                              const bgColorClass = totalQty > 0 && isTodayDelivery
-                                ? "bg-blue-500/10"
-                                : "";
 
                               return (
                                 <td
@@ -1179,33 +1166,37 @@ const DeliveryPage: React.FC = () => {
                                   }}
                                   className={clsx(
                                     "px-1 py-1 text-[13px] text-center tabular-nums border-r border-border last:border-r-0 transition-all relative group/cell",
-                                    totalQty > 0 && (isTodayDelivery ? "font-bold" : "font-bold"),
-                                    textColorClass,
-                                    bgColorClass,
+                                    totalQty > 0 ? "font-bold" : "text-muted-foreground/30",
                                     canEdit && statusFilter !== 'hang_o_sg' && totalQty === 0 && remainingQty > 0 && "cursor-pointer hover:bg-primary/5 active:scale-95"
                                   )}
                                 >
                                   {dvs.length > 0 ? (
                                     <div className="flex flex-col items-center justify-center">
                                       <div className="flex flex-wrap items-center justify-center gap-x-1">
-                                        {dvs.map((dvItem, idx) => (
-                                          <React.Fragment key={dvItem.id || idx}>
-                                            {idx > 0 && <span className="text-[10px] text-muted-foreground/50">+</span>}
-                                            <VehicleCellTooltip dv={dvItem} vehicle={v} qty={dvItem.assigned_quantity || 0} isPaid={isPaid}>
-                                              <span
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  if (canEdit && statusFilter !== 'hang_o_sg') {
-                                                    handleOrderClick(o, v.id, 'view');
-                                                  }
-                                                }}
-                                                className={clsx("cursor-pointer underline decoration-dotted underline-offset-2", isTodayDelivery ? "hover:text-blue-700 decoration-blue-500/30" : "hover:text-gray-900 decoration-black/30")}
-                                              >
-                                                {formatNumber(dvItem.assigned_quantity)}
-                                              </span>
-                                            </VehicleCellTooltip>
-                                          </React.Fragment>
-                                        ))}
+                                        {dvs.map((dvItem, idx) => {
+                                          const isDvExportPaid = dvItem.export_payment_status === 'paid';
+                                          return (
+                                            <React.Fragment key={dvItem.id || idx}>
+                                              {idx > 0 && <span className="text-[10px] text-muted-foreground/50">+</span>}
+                                              <VehicleCellTooltip dv={dvItem} vehicle={v} qty={dvItem.assigned_quantity || 0} isPaid={isCollectionPaid} exportPaid={isDvExportPaid}>
+                                                <span
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (canEdit && statusFilter !== 'hang_o_sg') {
+                                                      handleOrderClick(o, v.id, 'view');
+                                                    }
+                                                  }}
+                                                  className={clsx(
+                                                    "cursor-pointer underline decoration-dotted underline-offset-2",
+                                                    isDvExportPaid ? "text-emerald-600 dark:text-emerald-500 hover:text-emerald-700 decoration-emerald-500/30" : "text-red-600 dark:text-red-500 hover:text-red-700 decoration-red-500/30"
+                                                  )}
+                                                >
+                                                  {formatNumber(dvItem.assigned_quantity)}
+                                                </span>
+                                              </VehicleCellTooltip>
+                                            </React.Fragment>
+                                          );
+                                        })}
                                       </div>
                                       {canEdit && statusFilter !== 'hang_o_sg' && (
                                         <button
@@ -1215,14 +1206,14 @@ const DeliveryPage: React.FC = () => {
                                           }}
                                           className={clsx(
                                             "absolute top-0.5 right-0.5 opacity-0 group-hover/cell:opacity-100 p-0.5 rounded transition-opacity",
-                                            isTodayDelivery ? "text-blue-600 hover:bg-blue-500/20" : "text-black hover:bg-gray-500/20"
+                                            isExportPaid ? "text-emerald-600 hover:bg-emerald-500/20" : "text-red-600 hover:bg-red-500/20"
                                           )}
                                           title="Chỉnh sửa phân xe"
                                         >
                                           <Pencil size={11} strokeWidth={2.5} />
                                         </button>
                                       )}
-                                      {isPaid && (
+                                      {isCollectionPaid && (
                                         <div className="mt-0.5 flex items-center justify-center gap-0.5 text-green-600 bg-green-500/10 rounded-sm px-1" title="Đã xác nhận thu tiền">
                                           <CheckCircle size={8} strokeWidth={3} />
                                           <span className="text-[9px] font-black leading-none pb-px">Thu</span>

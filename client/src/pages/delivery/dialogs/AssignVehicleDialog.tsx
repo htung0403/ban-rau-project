@@ -25,19 +25,17 @@ const assignmentSchema = z.object({
   driver_id: z.string().min(1, 'Vui lòng chọn tài xế'),
   loader_name: z.string().optional().nullable(),
   unit_price: z.coerce.number().min(0).optional().default(0),
-  /** SL giao thêm (incremental); khi lưu sẽ cộng với SL đã gán cho xe. */
   quantity: z.coerce.number().min(0, 'SL không được âm'),
   expected_amount: z.coerce.number().min(0).optional().default(0),
-  /** Ảnh gắn với xe dòng này (phiếu thu / chứng từ theo xe); khi lưu gộp vào image_urls đơn. */
   image_urls: z.array(z.string()).default([]),
   delivery_date: z.string().optional().nullable(),
   delivery_time: z.string().optional().nullable(),
+  export_payment_status: z.enum(['unpaid', 'paid']).default('unpaid'),
 });
 
 const schema = z.object({
   assignments: z.array(assignmentSchema).min(1, 'Cần ít nhất một sự phân bổ'),
   image_urls: z.array(z.string()).default([]),
-  export_payment_status: z.enum(['unpaid', 'paid']).default('unpaid'),
 });
 
 const UUID_REGEX =
@@ -109,7 +107,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
     register,
     handleSubmit,
     setValue,
-    watch,
     getValues,
     reset,
     control,
@@ -119,7 +116,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
     defaultValues: {
       assignments: [],
       image_urls: [],
-      export_payment_status: 'unpaid',
     },
   });
 
@@ -133,7 +129,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
   const watchAssignments = useWatch({ control, name: 'assignments' }) || [];
   const watchGlobalImages = useWatch({ control, name: 'image_urls' }) || [];
-  const watchExportPaymentStatus = watch('export_payment_status');
   const projectedAssignedTotal = React.useMemo(
     () => {
       const visibleSum = watchAssignments.reduce((acc, row, i) => {
@@ -268,6 +263,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             image_urls: [],
             delivery_date: format(now, 'yyyy-MM-dd'),
             delivery_time: format(now, 'HH:mm'),
+            export_payment_status: 'unpaid',
           });
         }
       } else {
@@ -304,6 +300,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
               image_urls: rowImageUrls,
               delivery_date: rowDeliveryDate,
               delivery_time: rowDeliveryTime,
+              export_payment_status: dv.export_payment_status || 'unpaid',
             });
           });
         }
@@ -324,6 +321,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             image_urls: [],
             delivery_date: format(now, 'yyyy-MM-dd'),
             delivery_time: format(now, 'HH:mm'),
+            export_payment_status: 'unpaid',
           });
         }
       }
@@ -341,26 +339,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           a.expected_amount = 0;
         });
       }
-
-      const existingAssignedVehicleIds = initialAssignments
-        .map((assignment, i) => {
-          const final = (baselines[i] ?? 0) + (Number(assignment.quantity) || 0);
-          return final > 0 ? assignment.vehicle_id : null;
-        })
-        .filter(Boolean);
-
-      const paidVehicleIds = new Set(
-        (order.payment_collections || [])
-          .filter((pc: any) => pc.status === 'confirmed' || pc.status === 'self_confirmed')
-          .map((pc: any) => pc.vehicle_id)
-          .filter(Boolean)
-      );
-
-      const defaultExportPaymentStatus: 'unpaid' | 'paid' = order.export_order_payment_status
-        ? (order.export_order_payment_status === 'paid' ? 'paid' : 'unpaid')
-        : (existingAssignedVehicleIds.length > 0 && existingAssignedVehicleIds.every((id) => paidVehicleIds.has(id))
-          ? 'paid'
-          : 'unpaid');
 
       const existingImages = (order as any).image_urls || [];
       const legacyImage = (order as any).image_url;
@@ -407,7 +385,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       reset({
         assignments: initialAssignments,
         image_urls: formGlobalImageUrls,
-        export_payment_status: defaultExportPaymentStatus,
       });
     }
   }, [order, initialVehicleId, isOpen, reset, eligibleVehicles, isDriver, myVehicle, myEmployeeId, allOrders, mode]);
@@ -519,6 +496,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
             image_urls: Array.isArray(dv.image_urls) ? dv.image_urls : [],
             delivery_date: dv.delivery_date,
             delivery_time: dv.delivery_time,
+            export_payment_status: dv.export_payment_status || 'unpaid',
           }));
         finalAssignmentsToSubmit.push(...existingAssignments);
       } else if (initialVid) {
@@ -534,6 +512,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
           image_urls: Array.isArray(dv.image_urls) ? dv.image_urls : [],
           delivery_date: dv.delivery_date,
           delivery_time: dv.delivery_time,
+          export_payment_status: dv.export_payment_status || 'unpaid',
         }));
 
         finalAssignmentsToSubmit.push(...hiddenAssignments);
@@ -546,9 +525,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
       const payload: any = {
         assignments: finalAssignmentsToSubmit,
-        export_payment_status: data.export_payment_status,
         unit_price: finalAssignmentsToSubmit[0]?.unit_price || 0,
-        /** Một mốc cho cả lần lưu (sau khi chụp/tải ảnh) — trùng nhau khi phân nhiều đơn cùng lúc */
         delivered_at: new Date().toISOString(),
       };
       /** Chỉ gửi ảnh chung (global) ở cấp đơn. Ảnh từng xe được lưu riêng trong assignments → delivery_vehicles. */
@@ -872,6 +849,47 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                       </div>
                     )}
 
+                    {/* Trạng thái thanh toán phiếu xuất (theo từng xe) */}
+                    {!isViewMode && isStandardOrder && (
+                      <div className="w-full md:w-44 space-y-1.5 mt-2 md:mt-0">
+                        <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Thanh toán PX</label>
+                        <div className="grid grid-cols-2 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isRowDisabled) return;
+                              setValue(`assignments.${index}.export_payment_status` as any, 'unpaid', { shouldValidate: true });
+                            }}
+                            className={clsx(
+                              'h-9 rounded-lg border text-[11px] font-bold transition-all',
+                              (watchAssignments[index]?.export_payment_status || 'unpaid') === 'unpaid'
+                                ? 'border-red-300 bg-red-50 text-red-700'
+                                : 'border-border bg-card text-muted-foreground hover:bg-muted/40',
+                              isRowDisabled && 'opacity-70 cursor-not-allowed'
+                            )}
+                          >
+                            Chưa TT
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isRowDisabled) return;
+                              setValue(`assignments.${index}.export_payment_status` as any, 'paid', { shouldValidate: true });
+                            }}
+                            className={clsx(
+                              'h-9 rounded-lg border text-[11px] font-bold transition-all',
+                              watchAssignments[index]?.export_payment_status === 'paid'
+                                ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                                : 'border-border bg-card text-muted-foreground hover:bg-muted/40',
+                              isRowDisabled && 'opacity-70 cursor-not-allowed'
+                            )}
+                          >
+                            Đã TT
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Giá trị đơn hàng (read-only) */}
                     <div className="w-full md:w-52 space-y-1.5 mt-2 md:mt-0">
                       <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Giá trị đơn hàng</label>
@@ -995,41 +1013,6 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
                 <p className="text-[12px] font-bold">Vui lòng chụp ảnh hoặc tải ảnh lên trước khi xác nhận giao hàng.</p>
               </div>
             )}
-
-            {isStandardOrder && (
-              <div className="space-y-2 pt-4 border-t border-border mt-2">
-                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Trạng thái thanh toán phiếu xuất</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setValue('export_payment_status', 'unpaid', { shouldValidate: true })}
-                    className={clsx(
-                      'h-10 rounded-xl border text-[13px] font-bold transition-all',
-                      watchExportPaymentStatus === 'unpaid'
-                        ? 'border-red-300 bg-red-50 text-red-700'
-                        : 'border-border bg-card text-muted-foreground hover:bg-muted/40'
-                    )}
-                  >
-                    Chưa thanh toán
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setValue('export_payment_status', 'paid', { shouldValidate: true })}
-                    className={clsx(
-                      'h-10 rounded-xl border text-[13px] font-bold transition-all',
-                      watchExportPaymentStatus === 'paid'
-                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                        : 'border-border bg-card text-muted-foreground hover:bg-muted/40'
-                    )}
-                  >
-                    Đã thanh toán
-                  </button>
-                </div>
-              </div>
-            )}
-
-
-
           </div>
 
           <input

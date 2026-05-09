@@ -81,6 +81,7 @@ export class DeliveryController {
         image_urls: z.array(z.string()).optional(),
         delivery_date: z.string().optional().nullable(),
         delivery_time: z.string().optional().nullable(),
+        export_payment_status: z.enum(['unpaid', 'paid']).optional(),
       });
 
       const body = req.body;
@@ -140,6 +141,7 @@ export class DeliveryController {
         image_urls: Array.isArray(a.image_urls) ? a.image_urls.filter(Boolean) : [],
         delivery_date: a.delivery_date,
         delivery_time: a.delivery_time,
+        export_payment_status: a.export_payment_status,
       }));
 
       const data = await DeliveryService.assignVehicles(

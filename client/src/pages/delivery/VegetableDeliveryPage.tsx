@@ -900,7 +900,7 @@ const VegetableDeliveryPage: React.FC = () => {
                                         {dvs.map((dvItem, idx) => (
                                           <React.Fragment key={dvItem.id || idx}>
                                             {idx > 0 && <span className="text-[10px] text-muted-foreground/50">+</span>}
-                                            <VehicleCellTooltip dv={dvItem} vehicle={v} qty={dvItem.assigned_quantity || 0} isPaid={isPaid}>
+                                            <VehicleCellTooltip dv={dvItem} vehicle={v} qty={dvItem.assigned_quantity || 0} isPaid={isPaid} exportPaid={dvItem.export_payment_status === 'paid'}>
                                               <span className="cursor-help hover:text-blue-700 underline decoration-dotted decoration-blue-500/30 underline-offset-2">
                                                 {formatNumber(dvItem.assigned_quantity)}
                                               </span>

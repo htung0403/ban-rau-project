@@ -14,11 +14,12 @@ interface Props {
   vehicle: Vehicle;
   qty: number;
   isPaid: boolean;
+  exportPaid?: boolean;
   children: React.ReactNode;
 }
 
-const TooltipContent: React.FC<{ dv: DeliveryVehicle; vehicle: Vehicle; qty: number; isPaid: boolean; style: React.CSSProperties }> = ({
-  dv, vehicle, qty, isPaid, style,
+const TooltipContent: React.FC<{ dv: DeliveryVehicle; vehicle: Vehicle; qty: number; isPaid: boolean; exportPaid?: boolean; style: React.CSSProperties }> = ({
+  dv, vehicle, qty, isPaid, exportPaid, style,
 }) => (
   <div
     className="fixed z-[9999] pointer-events-none"
@@ -63,8 +64,19 @@ const TooltipContent: React.FC<{ dv: DeliveryVehicle; vehicle: Vehicle; qty: num
             </span>
           </div>
         )}
+        {exportPaid != null && (
+          <div className="flex items-center justify-between gap-3 mt-0.5">
+            <span className="text-[10px] text-muted-foreground font-medium">Thanh toán PX</span>
+            <span className={clsx(
+              "text-[10px] font-black px-1.5 py-0.5 rounded-md",
+              exportPaid ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-red-500/10 text-red-700 dark:text-red-400"
+            )}>
+              {exportPaid ? 'Đã TT' : 'Chưa TT'}
+            </span>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-3 mt-0.5">
-          <span className="text-[10px] text-muted-foreground font-medium">Thanh toán</span>
+          <span className="text-[10px] text-muted-foreground font-medium">Thu tiền</span>
           <span className={clsx(
             "text-[10px] font-black px-1.5 py-0.5 rounded-md",
             isPaid ? "bg-green-500/10 text-green-700 dark:text-green-400" : "bg-red-500/10 text-red-700 dark:text-red-400"
@@ -78,7 +90,7 @@ const TooltipContent: React.FC<{ dv: DeliveryVehicle; vehicle: Vehicle; qty: num
   </div>
 );
 
-export const VehicleCellTooltip: React.FC<Props> = ({ dv, vehicle, qty, isPaid, children }) => {
+export const VehicleCellTooltip: React.FC<Props> = ({ dv, vehicle, qty, isPaid, exportPaid, children }) => {
   const [visible, setVisible] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -124,6 +136,7 @@ export const VehicleCellTooltip: React.FC<Props> = ({ dv, vehicle, qty, isPaid, 
           vehicle={vehicle}
           qty={qty}
           isPaid={isPaid}
+          exportPaid={exportPaid}
           style={{
             top: pos.top,
             left: pos.left,

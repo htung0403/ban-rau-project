@@ -1178,4 +1178,105 @@ export class DeliveryService {
     if (error) throw error;
     return { success: true, confirmed: (data || []).length };
   }
+
+  /**
+   * Public endpoint: returns delivery order info for customer-facing page.
+   * No auth required. Only returns non-sensitive data.
+   */
+  static async getPublicById(id: string) {
+    const { data: delivery, error } = await supabaseService
+      .from('delivery_orders')
+      .select(`
+        id, product_name, total_quantity, unit_price, delivery_date, delivery_time, status, image_url, image_urls, created_at, order_category,
+        import_orders (
+          order_code, receiver_name, selected_alias, receipt_image_url, receipt_image_urls,
+          customers:customers!import_orders_customer_id_fkey (name),
+          import_order_items (id, quantity, unit_price, image_url, image_urls, products(name))
+        ),
+        vegetable_orders (
+          order_code, receiver_name, selected_alias, receipt_image_url, receipt_image_urls,
+          customers:customers!vegetable_orders_customer_id_fkey (name),
+          vegetable_order_items (id, quantity, unit_price, image_url, image_urls, products(name))
+        ),
+        delivery_vehicles (
+          id, assigned_quantity, expected_amount, delivery_time, delivery_date, image_urls,
+          profiles (full_name),
+          vehicles (license_plate)
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error || !delivery) return null;
+
+    // Global images (Order images, not assignment-specific)
+    const globalImages: string[] = [];
+    const addGlobalImage = (url: string | null | undefined) => {
+      if (url && typeof url === 'string') {
+        url.split(',').forEach(u => { if (u.trim()) globalImages.push(u.trim()); });
+      }
+    };
+    const addGlobalImages = (urls: string[] | null | undefined) => {
+      if (Array.isArray(urls)) urls.forEach(u => addGlobalImage(u));
+    };
+
+    // Delivery order images (global)
+    addGlobalImage(delivery.image_url);
+    addGlobalImages(delivery.image_urls);
+
+    // Source order images (global)
+    const source: any = delivery.import_orders || delivery.vegetable_orders;
+    if (source) {
+      addGlobalImage(source.receipt_image_url);
+      addGlobalImages(source.receipt_image_urls);
+      const items = source.import_order_items || source.vegetable_order_items || [];
+      for (const item of items) {
+        addGlobalImage(item.image_url);
+        addGlobalImages(item.image_urls);
+      }
+    }
+
+    const uniqueGlobalImages = [...new Set(globalImages)];
+
+    const customerName =
+      source?.customers?.name ||
+      source?.selected_alias ||
+      source?.receiver_name ||
+      'Khách hàng';
+
+    const orderCode = source?.order_code || delivery.id.slice(0, 8).toUpperCase();
+
+    // Get shop name
+    const { data: shopNameSetting } = await supabaseService
+      .from('general_settings')
+      .select('setting_value')
+      .eq('setting_key', 'SHOP_NAME')
+      .maybeSingle();
+    const shopName = shopNameSetting?.setting_value || 'Năm Sự';
+
+    return {
+      id: delivery.id,
+      orderCode,
+      shopName,
+      customerName,
+      productName: delivery.product_name,
+      totalQuantity: delivery.total_quantity,
+      unitPrice: delivery.unit_price,
+      deliveryDate: delivery.delivery_date,
+      deliveryTime: delivery.delivery_time,
+      status: delivery.status,
+      orderCategory: delivery.order_category,
+      createdAt: delivery.created_at,
+      images: uniqueGlobalImages,
+      vehicles: (delivery.delivery_vehicles || []).map((dv: any) => ({
+        staffName: dv.profiles?.full_name || 'NV Giao hàng',
+        licensePlate: dv.vehicles?.license_plate || '-',
+        quantity: dv.assigned_quantity || 0,
+        expectedAmount: dv.expected_amount || 0,
+        deliveryTime: dv.delivery_time,
+        deliveryDate: dv.delivery_date,
+        images: Array.isArray(dv.image_urls) ? [...new Set(dv.image_urls.filter(Boolean))] : [],
+      })),
+    };
+  }
 }

@@ -76,7 +76,7 @@ export class DeliveryNoteGenerator {
         <!-- Header -->
         <rect x="10" y="10" width="${width - 20}" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
         <text x="${width / 2}" y="${10 + rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${boldFontSize}" font-weight="bold" text-anchor="middle">
-          phiếu giao hàng ${d.shopName}
+          Phiếu giao hàng Nhà xe ${d.shopName}
         </text>
 
         <!-- Customer -->
@@ -93,7 +93,10 @@ export class DeliveryNoteGenerator {
 
         <rect x="${10 + (width - 20) / 2}" y="${10 + 2 * rowHeight}" width="${(width - 20) / 2}" height="${rowHeight}" fill="none" stroke="black" stroke-width="1" />
         <text x="${20 + (width - 20) / 2}" y="${10 + 2 * rowHeight + rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}">
-          Tên NV: ${d.staffName}    SỐ Xe ${d.licensePlate}
+          Tên NV: ${d.staffName}
+        </text>
+        <text x="${width - 20}" y="${10 + 2 * rowHeight + rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="end">
+          Xe ${d.licensePlate}
         </text>
 
         <!-- Table Header -->
@@ -197,7 +200,7 @@ export class DeliveryNoteGenerator {
         
         <!-- Header -->
         <rect x="10" y="10" width="${width - 20}" height="40" fill="none" stroke="black" />
-        <text x="${width / 2}" y="35" font-family="'DejaVu Sans', sans-serif" font-size="20" font-weight="bold" text-anchor="middle">${d.shopName}</text>
+        <text x="${width / 2}" y="35" font-family="'DejaVu Sans', sans-serif" font-size="20" font-weight="bold" text-anchor="middle">Nhà xe ${d.shopName}</text>
         
         <rect x="10" y="50" width="${width - 20}" height="40" fill="none" stroke="black" />
         <text x="${width / 2}" y="75" font-family="'DejaVu Sans', sans-serif" font-size="18" font-weight="bold" text-anchor="middle">Phiếu Tổng hàng đã giao trong ngày</text>

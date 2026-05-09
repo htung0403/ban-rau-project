@@ -25,6 +25,7 @@ import uploadRoutes from './modules/upload/upload.routes';
 import rolesRoutes from './modules/roles/roles.routes';
 import zaloRoutes from './modules/notifications/zalo.routes';
 import notificationsRoutes from './modules/notifications/notifications.routes';
+import publicDeliveryRoutes from './modules/delivery/public.routes';
 
 const app = express();
 
@@ -52,7 +53,10 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
-// 4. API Routes
+// 4. Public API Routes (no auth)
+app.use('/api/public/delivery', publicDeliveryRoutes);
+
+// 5. API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/warehouses', warehouseRoutes);
 app.use('/api/settings', settingRoutes);
@@ -70,6 +74,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/notifications/zalo', zaloRoutes);
 app.use('/api/notifications', notificationsRoutes);
+
 
 
 // 5. Health Check

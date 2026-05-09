@@ -223,7 +223,7 @@ const SalarySettingsPage: React.FC = () => {
           />
           
           {/* Panel */}
-          <div className={`relative w-full max-w-[500px] bg-background shadow-2xl flex flex-col h-screen border-l border-border transition-transform duration-300 ${isClosing ? 'translate-x-full' : 'translate-x-0 animate-in slide-in-from-right'}`}>
+          <div className={`relative w-full max-w-[500px] bg-background shadow-2xl flex flex-col md:h-screen h-[100dvh] border-l border-border transition-transform duration-300 ${isClosing ? 'translate-x-full' : 'translate-x-0 animate-in slide-in-from-right'}`}>
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
               <div className="flex items-center gap-3">

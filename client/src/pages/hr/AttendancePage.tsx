@@ -513,7 +513,7 @@ const AttendancePage: React.FC = () => {
                         <TimePicker24h
                           value={attTime}
                           onChange={(val) => setAttTime(val)}
-                          className="w-full !h-[48px] !px-4 !bg-white border-border/80 rounded-xl text-[14px] font-bold text-foreground focus:ring-2 focus:ring-primary/10 transition-all"
+                          className="w-full !h-[48px] !px-4 bg-muted border-border/80 rounded-xl text-[14px] font-bold text-foreground focus:ring-2 focus:ring-primary/10 transition-all"
                         />
                         <button
                           onClick={() => setAttTime(getVietnamNowTimeStr())}

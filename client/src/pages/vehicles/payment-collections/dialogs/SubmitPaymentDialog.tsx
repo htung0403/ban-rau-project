@@ -64,7 +64,7 @@ const SubmitPaymentDialog: React.FC<Props> = ({ isOpen, onClose, payment }) => {
       />
 
       {/* Panel */}
-      <div className="relative w-full max-w-[500px] bg-background shadow-2xl flex flex-col h-screen border-l border-border dialog-slide-in">
+      <div className="relative w-full max-w-[500px] bg-background shadow-2xl flex flex-col md:h-screen h-[100dvh] border-l border-border dialog-slide-in">
         <div className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">

@@ -518,7 +518,7 @@ const CustomerDebtPage: React.FC = () => {
           />
           <div
             className={clsx(
-              'relative w-full max-w-[500px] bg-background shadow-2xl flex flex-col h-screen border-l border-border',
+              'relative w-full max-w-[500px] bg-background shadow-2xl flex flex-col md:h-screen h-[100dvh] border-l border-border',
               isCollectClosing ? 'dialog-slide-out' : 'dialog-slide-in',
             )}
           >

@@ -35,7 +35,7 @@ const VehicleDetailsDialog: React.FC<Props> = ({ vehicle, isOpen, isClosing, onC
       {/* Panel */}
       <div
         className={clsx(
-          'relative w-full max-w-[550px] bg-background shadow-2xl flex flex-col h-screen border-l border-border',
+          'relative w-full max-w-[550px] bg-background shadow-2xl flex flex-col md:h-screen h-[100dvh] border-l border-border',
           isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
         )}
       >

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { BreadcrumbProvider } from './context/BreadcrumbContext';
+import { NotificationProvider } from './context/NotificationContext';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
 import ModulePage from './pages/ModulePage';
@@ -211,11 +212,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <BreadcrumbProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-          <Toaster
+        <NotificationProvider>
+          <BreadcrumbProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+            <Toaster
             position="top-right"
             containerStyle={{ zIndex: 100000 }}
             toastOptions={{
@@ -238,6 +240,7 @@ function App() {
             }}
           />
         </BreadcrumbProvider>
+        </NotificationProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -283,8 +283,8 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
           </div>
         </div>
 
-        {/* Notifications */}
-        <div className="relative" ref={notificationDropdownRef}>
+        {/* Notifications - Hidden on mobile, shown on mobile via MobileBottomNav */}
+        <div className="relative hidden lg:block" ref={notificationDropdownRef}>
           <button
             onClick={() => {
               setShowNotifications(!showNotifications);

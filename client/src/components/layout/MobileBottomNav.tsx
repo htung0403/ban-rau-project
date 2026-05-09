@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Home, Bell, ClipboardList } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
+import { useNotifications } from '../../context/NotificationContext';
+import MobileNotificationsModal from '../shared/MobileNotificationsModal';
 
 interface MobileBottomNavProps {
   mustCheckIn: boolean;
@@ -11,6 +13,12 @@ interface MobileBottomNavProps {
 const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ mustCheckIn, isLocked }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { unreadCount, refreshNotifications } = useNotifications();
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  useEffect(() => {
+    refreshNotifications();
+  }, [refreshNotifications]);
 
   const isHome = location.pathname === '/';
   const isAttendancePage = location.pathname === '/hanh-chinh-nhan-su/cham-cong';
@@ -78,12 +86,22 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ mustCheckIn, isLocked
         <Home size={24} />
       </button>
 
-      <button className="relative p-2 text-muted-foreground hover:text-foreground transition-colors">
+      <button
+        onClick={() => setShowNotifications(true)}
+        className="relative p-2 text-muted-foreground hover:text-foreground transition-colors"
+      >
         <Bell size={24} />
-        <span className="absolute top-1 right-1 w-4 h-4 bg-primary text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-background">
-          4
-        </span>
+        {unreadCount > 0 && (
+          <span className="absolute top-1 right-1 w-4 h-4 bg-primary text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-background">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
       </button>
+
+      <MobileNotificationsModal
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+      />
     </div>
   );
 };

@@ -240,11 +240,11 @@ export class ZaloService {
   async checkConnection(): Promise<{ connected: boolean; error?: string }> {
     try {
       const api = await this.ensureApi();
-      // Try a lightweight API call to verify session
-      await api.getSelfInfo();
-      return { connected: true };
+      if (api && typeof api === 'object') {
+        return { connected: true };
+      }
+      return { connected: false, error: 'API not initialized' };
     } catch (err) {
-      // If check fails, we might want to clear the broken API instance
       this.api = null;
       this.loginPromise = null;
       return { connected: false, error: String(err) };
@@ -285,9 +285,29 @@ export class ZaloService {
           throw new Error('No Zalo credentials found in DB, ENV, or File. Please login via QR.');
         }
 
-        const api = await this.zaloClient.login(credentials);
-        this.api = api;
-        return api;
+        try {
+          const api = await this.zaloClient.login(credentials);
+          this.api = api;
+          return api;
+        } catch (loginErr: any) {
+          // Credentials exist in DB but are invalid/expired - clear them so user can re-login
+          const errorMsg = String(loginErr?.message || loginErr);
+          logger.warn(`[ZaloService] Stored credentials invalid: ${errorMsg}. Clearing from DB.`);
+
+          if (dbCreds?.setting_value) {
+            try {
+              await supabaseService
+                .from('general_settings')
+                .delete()
+                .eq('setting_key', 'ZCA_CREDENTIALS');
+              logger.info('[ZaloService] Cleared invalid ZCA_CREDENTIALS from database');
+            } catch (deleteErr) {
+              logger.error('[ZaloService] Failed to clear invalid credentials:', deleteErr);
+            }
+          }
+
+          throw new Error(`Zalo session expired or invalid. Please login via QR code. (${errorMsg})`);
+        }
       } catch (err) {
         this.loginPromise = null;
         throw err;

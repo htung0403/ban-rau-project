@@ -18,6 +18,69 @@ const normalizePhoneForAuth = (phone: string): string | null => {
   return '+' + clean;
 };
 
+/**
+ * Creates a system notification for admins
+ */
+const createAdminNotification = async (
+  title: string,
+  description: string,
+  type: 'info' | 'warning' | 'success' = 'warning'
+) => {
+  try {
+    const { data: admins } = await supabaseService
+      .from('profiles')
+      .select('id')
+      .eq('role', 'admin');
+
+    if (!admins || admins.length === 0) {
+      logger.warn('[ZaloScheduler] No admin users found to notify');
+      return;
+    }
+
+    const notifications = admins.map(admin => ({
+      user_id: admin.id,
+      title,
+      description,
+      type,
+      is_read: false,
+      created_at: new Date().toISOString()
+    }));
+
+    await supabaseService.from('notifications').insert(notifications);
+    logger.info(`[ZaloScheduler] Admin notification created: ${title}`);
+  } catch (err) {
+    logger.error('[ZaloScheduler] Failed to create admin notification:', err);
+  }
+};
+
+/**
+ * Check Zalo connection status every 30 minutes
+ */
+const checkZaloConnection = async () => {
+  logger.info('[ZaloScheduler] Checking Zalo connection status...');
+  try {
+    const connection = await zaloService.checkConnection();
+
+    if (!connection.connected) {
+      logger.warn('[ZaloScheduler] Zalo connection failed. Sending alert to admins.');
+      await createAdminNotification(
+        '⚠️ Zalo Notification mất kết nối',
+        connection.error || 'Phiên Zalo đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại qua QR code trong trang Cài đặt.',
+        'warning'
+      );
+    } else {
+      logger.info('[ZaloScheduler] Zalo connection is healthy');
+    }
+  } catch (err) {
+    logger.error('[ZaloScheduler] Failed to check Zalo connection:', err);
+    await createAdminNotification(
+      '❌ Lỗi kiểm tra Zalo',
+      `Không thể kiểm tra kết nối Zalo: ${String(err)}`,
+      'warning'
+    );
+  }
+};
+
 export const initZaloScheduler = () => {
   // Schedule daily summary at 17:00 VN time
   cron.schedule('0 17 * * *', async () => {
@@ -31,5 +94,11 @@ export const initZaloScheduler = () => {
     timezone: "Asia/Ho_Chi_Minh"
   });
 
+  // Check Zalo connection every 30 minutes
+  cron.schedule('*/30 * * * *', async () => {
+    await checkZaloConnection();
+  });
+
   logger.info('[ZaloScheduler] Daily summary job scheduled for 17:00 Asia/Ho_Chi_Minh');
+  logger.info('[ZaloScheduler] Zalo connection check scheduled every 30 minutes');
 };

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Bell, Clock, Calendar, CheckCheck, Trash2, ChevronRight, 
-  Info, AlertTriangle, CheckCircle2, Home, PanelLeft, 
-  PanelLeftClose, User, Settings, LogOut, ChevronDown 
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Bell, Clock, Calendar, CheckCheck, Trash2, ChevronRight,
+  Info, AlertTriangle, CheckCircle2, Home, PanelLeft,
+  PanelLeftClose, User, Settings, LogOut, ChevronDown
 } from 'lucide-react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { sidebarMenu, extraMenuItems } from '../../data/sidebarMenu';
@@ -11,82 +11,17 @@ import { clsx } from 'clsx';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useBreadcrumbs } from '../../context/BreadcrumbContext';
+import axiosClient from '../../api/axiosClient';
 
 interface Notification {
   id: string;
   title: string;
   description: string;
-  time: string;
+  time?: string;
   type: 'info' | 'warning' | 'success';
-  isRead: boolean;
+  is_read: boolean;
+  created_at: string;
 }
-
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    title: 'Chào mừng trở lại',
-    description: 'Đây là thông báo mẫu. Bạn có thể thêm, đánh dấu đã đọc hoặc xóa từng thông báo.',
-    time: '2 phút trước',
-    type: 'info',
-    isRead: false,
-  },
-  {
-    id: '2',
-    title: 'Cập nhật hệ thống',
-    description: 'Phiên bản mới đã sẵn sàng. Vui lòng làm mới trang khi thuận tiện.',
-    time: '1 giờ trước',
-    type: 'success',
-    isRead: false,
-  },
-  {
-    id: '3',
-    title: 'Đơn nghỉ phép đã duyệt',
-    description: 'Đơn xin nghỉ phép từ 12/02 đến 14/02 đã được phê duyệt.',
-    time: '3 giờ trước',
-    type: 'success',
-    isRead: false,
-  },
-  {
-    id: '4',
-    title: 'Bảo trì định kỳ',
-    description: 'Hệ thống sẽ bảo trì từ 23:00 ngày 15/02 đến 02:00 ngày 16/02. Vui lòng lưu dữ liệu trước...',
-    time: '5 giờ trước',
-    type: 'warning',
-    isRead: false,
-  },
-  {
-    id: '5',
-    title: 'Nhắc nhở nộp báo cáo',
-    description: 'Báo cáo tháng 1 chưa được nộp. Hạn chót: 15/02.',
-    time: '1 ngày trước',
-    type: 'warning',
-    isRead: true,
-  },
-  {
-    id: '6',
-    title: 'Lương tháng 1 đã sẵn sàng',
-    description: 'Phiếu lương tháng 1/2026 đã được cập nhật trên hệ thống.',
-    time: '2 ngày trước',
-    type: 'success',
-    isRead: true,
-  },
-  {
-    id: '7',
-    title: 'Nội quy công ty mới',
-    description: 'Vui lòng đọc và xác nhận nội quy làm việc mới áp dụng từ tháng sau.',
-    time: '3 ngày trước',
-    type: 'info',
-    isRead: true,
-  },
-  {
-    id: '8',
-    title: 'Thông báo cũ',
-    description: 'Đây là một thông báo cũ để kiểm tra tính năng xem tất cả.',
-    time: '1 tuần trước',
-    type: 'info',
-    isRead: true,
-  }
-];
 
 interface TopbarProps {
   sidebarOpen: boolean;
@@ -95,7 +30,7 @@ interface TopbarProps {
 
 const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const [time, setTime] = useState(new Date());
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -113,14 +48,33 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random&color=random`;
   const userAvatar = avatar || defaultAvatar;
 
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await axiosClient.get('/notifications');
+      if (res.data?.notifications) {
+        setNotifications(res.data.notifications);
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    }
+  }, []);
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [user, fetchNotifications]);
+
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
   const displayNotifications = isExpanded ? notifications : notifications.slice(0, 5);
   const hasMore = notifications.length > 5;
 
   // Enhanced breadcrumb logic
   const pathSegments = location.pathname.split('/').filter(Boolean);
-  
+
   const getLabel = (path: string) => {
     // Check specific module items in moduleData first
     for (const mainPath in moduleData) {
@@ -129,7 +83,7 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
         if (found) return found.title;
       }
     }
-    
+
     // Check sidebar and extra menu items
     const menuItems = [...sidebarMenu, ...extraMenuItems, { path: '/ho-so', label: 'Hồ sơ cá nhân' }];
     const staticFound = menuItems.find(item => item.path === path);
@@ -137,7 +91,7 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
     // Check dynamic labels from context
     if (dynamicLabels[path]) return dynamicLabels[path];
-    
+
     // Fallback labels for segments
     const segmentLabels: Record<string, string> = {
       'nhan-su': 'Nhân sự',
@@ -158,7 +112,7 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       'chi-phi': 'Chi phí',
       'khach-hang-than-thiet': 'KH thân thiết'
     };
-    
+
     const segment = path.split('/').pop() || '';
     return segmentLabels[segment] || segment;
   };
@@ -203,16 +157,48 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     return `${dayName}, ${date.toLocaleDateString('vi-VN')}`;
   };
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Vừa xong';
+    if (diffMins < 60) return `${diffMins} phút trước`;
+    if (diffHours < 24) return `${diffHours} giờ trước`;
+    if (diffDays < 7) return `${diffDays} ngày trước`;
+    return date.toLocaleDateString('vi-VN');
   };
 
-  const clearAll = () => {
-    setNotifications([]);
+  const markAllAsRead = async () => {
+    try {
+      await axiosClient.patch('/notifications/read-all');
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch (err) {
+      console.error('Failed to mark all as read:', err);
+    }
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications(notifications.map(n => n.id === id ? { ...n, isRead: true } : n));
+  const clearAll = async () => {
+    try {
+      for (const notification of notifications) {
+        await axiosClient.delete(`/notifications/${notification.id}`);
+      }
+      setNotifications([]);
+    } catch (err) {
+      console.error('Failed to clear notifications:', err);
+    }
+  };
+
+  const markAsRead = async (id: string) => {
+    try {
+      await axiosClient.patch(`/notifications/${id}/read`);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    } catch (err) {
+      console.error('Failed to mark as read:', err);
+    }
   };
 
   const getIcon = (type: Notification['type']) => {
@@ -362,7 +348,7 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                         onClick={() => markAsRead(notification.id)}
                         className={clsx(
                           "p-3 transition-colors cursor-pointer hover:bg-muted/30 relative",
-                          getTypeStyles(notification.type, notification.isRead)
+                          getTypeStyles(notification.type, notification.is_read)
                         )}
                       >
                         <div className="flex gap-2.5">
@@ -378,18 +364,18 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                             <div className="flex items-start justify-between gap-2 mb-0.5">
                               <h4 className={clsx(
                                 "font-bold text-[13px] leading-tight transition-colors truncate",
-                                notification.isRead ? "text-foreground/70" : "text-primary"
+                                notification.is_read ? "text-foreground/70" : "text-primary"
                               )}>
                                 {notification.title}
                               </h4>
-                              {!notification.isRead && (
+                              {!notification.is_read && (
                                 <span className="w-1.5 h-1.5 bg-primary rounded-full shrink-0 mt-1" />
                               )}
                             </div>
                             <p className="text-[12px] text-muted-foreground leading-snug mb-0.5 line-clamp-1">
                               {notification.description}
                             </p>
-                            <span className="text-[10px] text-muted-foreground/50">{notification.time}</span>
+                            <span className="text-[10px] text-muted-foreground/50">{formatRelativeTime(notification.created_at)}</span>
                           </div>
                         </div>
                       </div>
@@ -419,7 +405,7 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
         {/* User Profile */}
         <div className="relative" ref={userDropdownRef}>
-          <div 
+          <div
             onClick={() => {
               setShowUserDropdown(!showUserDropdown);
               setShowNotifications(false);
@@ -431,8 +417,8 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
           >
             <div className="relative">
               <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shadow-sm shadow-primary/5">
-                <img 
-                  src={userAvatar} 
+                <img
+                  src={userAvatar}
                   alt="Avatar"
                   className="w-full h-full object-cover"
                 />
@@ -452,7 +438,7 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
           {showUserDropdown && (
             <div className="absolute right-0 mt-3 w-56 bg-card rounded-xl shadow-2xl border border-border overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
               <div className="p-1.5 space-y-0.5">
-                <button 
+                <button
                   onClick={() => {
                     navigate('/ho-so');
                     setShowUserDropdown(false);
@@ -464,8 +450,8 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                   </div>
                   <span className="text-[13px] font-semibold">Hồ sơ cá nhân</span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={() => {
                     navigate('/cai-dat');
                     setShowUserDropdown(false);
@@ -480,7 +466,7 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
                 <div className="my-1 border-t border-border/50" />
 
-                <button 
+                <button
                   onClick={async () => { setShowUserDropdown(false); await logout(); navigate('/login'); }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-all duration-200"
                 >

@@ -428,7 +428,7 @@ const AttendancePage: React.FC = () => {
           {/* Panel */}
           <div
             className={clsx(
-              'relative w-full max-w-[500px] bg-background shadow-2xl flex flex-col h-screen border-l border-border',
+              'relative w-full max-w-[500px] bg-background shadow-2xl flex flex-col md:h-screen h-[100dvh] border-l border-border',
               isClosing ? 'dialog-slide-out' : 'dialog-slide-in',
             )}
           >
@@ -541,7 +541,7 @@ const AttendancePage: React.FC = () => {
             </div>
 
             {/* Footer */}
-            <div className="p-6 bg-card border-t border-border flex items-center gap-3 shrink-0">
+            <div className="p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-card border-t border-border flex items-center gap-3 shrink-0">
               <button
                 onClick={handleClose}
                 className="flex-1 py-3 border border-border bg-card text-foreground rounded-2xl text-[13px] font-bold hover:bg-muted transition-all active:scale-95"

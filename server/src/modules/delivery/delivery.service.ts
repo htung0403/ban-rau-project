@@ -1200,7 +1200,7 @@ export class DeliveryService {
         ),
         delivery_vehicles (
           id, assigned_quantity, expected_amount, delivery_time, delivery_date, image_urls,
-          profiles (full_name),
+          profiles (full_name, phone),
           vehicles (license_plate)
         )
       `)
@@ -1270,6 +1270,7 @@ export class DeliveryService {
       images: uniqueGlobalImages,
       vehicles: (delivery.delivery_vehicles || []).map((dv: any) => ({
         staffName: dv.profiles?.full_name || 'NV Giao hàng',
+        staffPhone: dv.profiles?.phone || '',
         licensePlate: dv.vehicles?.license_plate || '-',
         quantity: dv.assigned_quantity || 0,
         expectedAmount: dv.expected_amount || 0,

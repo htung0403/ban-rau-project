@@ -540,34 +540,81 @@ export class ZaloService {
         .maybeSingle();
       const shopName = shopNameSetting?.setting_value || 'Năm Sự';
 
-      // 2. Fetch all assignments for today with full details
-      const { data: assignments, error } = await supabaseService
-        .from('delivery_vehicles')
-        .select(`
-          *,
-          delivery_orders (
-            id, product_name, delivery_date, unit_price,
+      // 2. Fetch all assignments and orders for today
+      const [assignmentsRes, ordersRes] = await Promise.all([
+        supabaseService
+          .from('delivery_vehicles')
+          .select(`
+            *,
+            delivery_orders (
+              id, product_name, delivery_date, unit_price, total_quantity,
+              import_orders (
+                receiver_phone, selected_alias, customers:customers!import_orders_customer_id_fkey (id, phone, name)
+              ),
+              vegetable_orders (
+                receiver_phone, selected_alias, customers:customers!vegetable_orders_customer_id_fkey (id, phone, name)
+              )
+            ),
+            profiles (full_name),
+            vehicles (license_plate)
+          `)
+          .eq('delivery_date', today),
+        supabaseService
+          .from('delivery_orders')
+          .select(`
+            id, product_name, delivery_date, unit_price, total_quantity,
             import_orders (
               receiver_phone, selected_alias, customers:customers!import_orders_customer_id_fkey (id, phone, name)
             ),
             vegetable_orders (
               receiver_phone, selected_alias, customers:customers!vegetable_orders_customer_id_fkey (id, phone, name)
-            )
-          ),
-          profiles (full_name),
-          vehicles (license_plate)
-        `)
-        .eq('delivery_date', today);
+            ),
+            delivery_vehicles ( assigned_quantity )
+          `)
+          .eq('delivery_date', today)
+      ]);
 
-      if (error) throw error;
-      if (!assignments || assignments.length === 0) {
-        logger.info(`[ZaloService] No assignments found for ${today}, skipping summary.`);
+      const assignments = assignmentsRes.data || [];
+      const ordersToday = ordersRes.data || [];
+
+      if (assignments.length === 0 && ordersToday.length === 0) {
+        logger.info(`[ZaloService] No assignments or orders found for ${today}, skipping summary.`);
         return;
       }
 
       // 3. Group by customer phone
-      const customerGroups: Record<string, { customerName: string; phone: string; items: any[] }> = {};
+      const customerGroups: Record<string, { customerName: string; phone: string; items: any[]; undeliveredOrderIds: Set<string>; undeliveredQuantity: number }> = {};
 
+      const processOrderForUndelivered = (order: any, phone: string, customerName: string) => {
+        if (!customerGroups[phone]) {
+          customerGroups[phone] = { customerName, phone, items: [], undeliveredOrderIds: new Set(), undeliveredQuantity: 0 };
+        }
+        if (!customerGroups[phone].undeliveredOrderIds.has(order.id)) {
+           const totalAssigned = (order.delivery_vehicles || []).reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
+           const undelivered = (order.total_quantity || 0) - totalAssigned;
+           if (undelivered > 0) {
+             customerGroups[phone].undeliveredQuantity += undelivered;
+             customerGroups[phone].undeliveredOrderIds.add(order.id);
+           }
+        }
+      };
+
+      // Process all orders for today (to catch unassigned quantities)
+      for (const order of ordersToday) {
+        const phone = this.buildRecipientPhoneForDelivery(order);
+        if (!phone) continue;
+
+        const customerName =
+          order.import_orders?.customers?.name ||
+          order.import_orders?.selected_alias ||
+          order.vegetable_orders?.customers?.name ||
+          order.vegetable_orders?.selected_alias ||
+          'Khách hàng';
+
+        processOrderForUndelivered(order, phone, customerName);
+      }
+
+      // Process assignments for today (builds items list)
       for (const dv of assignments) {
         const order = dv.delivery_orders;
         if (!order) continue;
@@ -583,7 +630,7 @@ export class ZaloService {
           'Khách hàng';
 
         if (!customerGroups[phone]) {
-          customerGroups[phone] = { customerName, phone, items: [] };
+          customerGroups[phone] = { customerName, phone, items: [], undeliveredOrderIds: new Set(), undeliveredQuantity: 0 };
         }
 
         customerGroups[phone].items.push({
@@ -604,6 +651,15 @@ export class ZaloService {
         if (!normalizedPhone) continue;
 
         try {
+          if (group.items.length === 0 && group.undeliveredQuantity === 0) continue;
+
+          let caption = `Phiếu tổng kết giao hàng ngày ${format(new Date(), 'dd/MM/yyyy')}`;
+          if (group.undeliveredQuantity > 0) {
+            caption += `\n\nXin lỗi quý khách, hiện số kiện chưa được giao là ${group.undeliveredQuantity}. Mong quý khách thông cảm. Hẹn gặp lại vào ngày mai.`;
+          } else {
+            caption += `\n\nQuý khách đã được giao đủ hàng. Cảm ơn quý khách đã sử dụng dịch vụ.`;
+          }
+
           const noteBuffer = await DeliveryNoteGenerator.generateSummaryPng({
             shopName,
             customerName: group.customerName,
@@ -619,7 +675,7 @@ export class ZaloService {
               filename: `phieu-tong-${today}-${Date.now()}.png`,
               metadata: { totalSize: noteBuffer.length },
             }],
-            caption: `Phiếu tổng kết giao hàng ngày ${format(new Date(), 'dd/MM/yyyy')}`,
+            caption,
           });
 
           if (result.success) {

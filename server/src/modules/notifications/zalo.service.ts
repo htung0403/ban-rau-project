@@ -431,7 +431,7 @@ export class ZaloService {
         recipientPhone: normalizedPhone,
         imageUrls: [],
         attachments: noteAttachments,
-        caption: `Thông tin giao hàng đơn #${delivery.id}\nXem chi tiết: ${clientUrl}/don-giao/${delivery.id}`,
+        caption: `Xem chi tiết: ${clientUrl}/don-giao/${delivery.id}`,
       });
 
       if (result.success) {

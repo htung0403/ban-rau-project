@@ -11,6 +11,7 @@ import { useCustomers } from '../../../hooks/queries/useCustomers';
 import { importOrdersApi } from '../../../api/importOrdersApi';
 import toast from 'react-hot-toast';
 import { collectDeliveryOrderImageUrlsForEdit } from '../../../lib/deliveryOrderImages';
+import { cloudinaryThumb } from '../../../lib/cloudinaryUrl';
 
 interface Props {
   isOpen: boolean;
@@ -390,7 +391,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                           <div className="flex items-center gap-1 overflow-x-auto max-w-[120px] custom-scrollbar pb-1">
                             {displayImages.map((url, idx) => (
                               <div key={idx} className="relative shrink-0 w-10 h-10 rounded-lg border border-border overflow-hidden group bg-muted/20">
-                                <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
+                                <img src={cloudinaryThumb(url)} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -509,7 +510,7 @@ const BulkEditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, orders, hi
                           <div className="flex flex-col gap-1 overflow-y-auto max-h-[100px] custom-scrollbar pr-1">
                             {displayImages.map((url, idx) => (
                               <div key={idx} className="relative shrink-0 w-16 h-16 rounded-lg border border-border overflow-hidden group bg-muted/20">
-                                <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
+                                <img src={cloudinaryThumb(url)} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
                                 <button
                                   type="button"
                                   onClick={() => {

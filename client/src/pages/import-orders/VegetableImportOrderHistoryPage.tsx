@@ -23,6 +23,7 @@ import { useVehicles } from '../../hooks/queries/useVehicles';
 import { hasFullGoodsModuleAccess, importOrderVisibleToUser } from '../../utils/goodsModuleScope';
 
 import { removeAccents } from '../../lib/str-utils';
+import { cloudinarySmall } from '../../lib/cloudinaryUrl';
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'Chờ xử lý',
@@ -641,7 +642,7 @@ const VegetableImportOrderHistoryPage: React.FC = () => {
                           >
                             <div className="w-[64px] h-[64px] shrink-0 bg-muted/20 rounded-lg overflow-hidden">
                               {orderImage ? (
-                                <img src={orderImage} alt={supplierName} className="w-full h-full object-cover" />
+                                <img src={cloudinarySmall(orderImage)} alt={supplierName} className="w-full h-full object-cover" />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center">
                                   <ImageIcon size={22} className="text-muted-foreground/30" />

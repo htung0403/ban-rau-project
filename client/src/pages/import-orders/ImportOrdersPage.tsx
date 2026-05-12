@@ -20,6 +20,7 @@ import { SearchInput } from '../../components/ui/SearchInput';
 import { useAuth } from '../../context/AuthContext';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { hasFullGoodsModuleAccess, importOrderVisibleToUser } from '../../utils/goodsModuleScope';
+import { cloudinarySmall } from '../../lib/cloudinaryUrl';
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'Chờ xử lý',
@@ -408,7 +409,7 @@ const ImportOrdersPage: React.FC = () => {
                                   }}
                                 >
                                   {orderImage ? (
-                                    <img src={orderImage} alt={order.order_code} className="w-full h-full object-cover" />
+                                    <img src={cloudinarySmall(orderImage)} alt={order.order_code} className="w-full h-full object-cover" />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center">
                                       <ImageIcon size={14} className="text-muted-foreground/30" />
@@ -543,7 +544,7 @@ const ImportOrdersPage: React.FC = () => {
                         }}
                       >
                         {orderImage ? (
-                          <img src={orderImage} alt={order.order_code} className="w-full h-full object-cover" />
+                          <img src={cloudinarySmall(orderImage)} alt={order.order_code} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <ImageIcon size={22} className="text-muted-foreground/30" />

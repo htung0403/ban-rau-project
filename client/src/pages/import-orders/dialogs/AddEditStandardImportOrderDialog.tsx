@@ -19,6 +19,7 @@ import { TimePicker24h } from '../../../components/shared/TimePicker24h';
 import { DatePicker } from '../../../components/shared/DatePicker';
 import { useAuth } from '../../../context/AuthContext';
 import toast from 'react-hot-toast';
+import { cloudinaryThumb } from '../../../lib/cloudinaryUrl';
 
 const importOrderItemSchema = z.object({
   product_id: z.string().min(1, 'Chọn hàng hóa'),
@@ -1068,7 +1069,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                         {watchReceiptImageUrls.map((url: string, idx: number) => (
                           <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden bg-muted/20">
-                            <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
+                            <img src={cloudinaryThumb(url)} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
                             <button
                               type="button"
                               onClick={() => {
@@ -1432,7 +1433,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                                   <div className="flex gap-3 overflow-x-auto pb-1 custom-scrollbar w-full">
                                     {(watch(`items.${index}.image_urls`) || []).map((url: string, imgIdx: number) => (
                                       <div key={imgIdx} className="relative w-12 h-12 rounded-lg border border-border overflow-hidden shrink-0">
-                                        <img src={url} alt="item" className="w-full h-full object-cover" />
+                                        <img src={cloudinaryThumb(url)} alt="item" className="w-full h-full object-cover" />
                                         <button
                                           type="button"
                                           onClick={(e) => {
@@ -1470,7 +1471,7 @@ const AddEditStandardImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing, 
                                   <div className="flex items-center gap-1 flex-wrap w-[110px]">
                                     {(watch(`items.${index}.image_urls`) || []).map((url: string, imgIdx: number) => (
                                       <div key={imgIdx} className="relative w-8 h-8 rounded-md border border-border overflow-hidden shrink-0">
-                                        <img src={url} alt="item" className="w-full h-full object-cover" />
+                                        <img src={cloudinaryThumb(url)} alt="item" className="w-full h-full object-cover" />
                                         <button
                                           type="button"
                                           onClick={(e) => {

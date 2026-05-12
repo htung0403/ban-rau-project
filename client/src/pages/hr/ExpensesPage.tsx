@@ -22,6 +22,7 @@ import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import MobileFilterSheet from '../../components/shared/MobileFilterSheet';
 import { uploadApi } from '../../api/uploadApi';
 import { matchesSearch } from '../../lib/str-utils';
+import { cloudinaryThumb } from '../../lib/cloudinaryUrl';
 import { format } from 'date-fns';
 import { Plus, Receipt, X, ChevronRight, Upload, Trash2, Edit2, CheckCircle2, Image as ImageIcon, ChevronLeft, ChevronRight as ChevronRightIcon, Camera, Filter, CalendarDays, Printer } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -634,7 +635,7 @@ const ExpensesPage = () => {
                                   }}
                                   className="relative w-10 h-10 rounded-lg border border-border overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all group"
                                 >
-                                  <img src={e.image_urls[0]} alt="Receipt" className="w-full h-full object-cover" />
+                                  <img src={cloudinaryThumb(e.image_urls[0])} alt="Receipt" className="w-full h-full object-cover" />
                                   {e.image_urls.length > 1 && (
                                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-[10px] text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity">
                                       +{e.image_urls.length - 1}
@@ -987,7 +988,7 @@ const ExpensesPage = () => {
                     <div className="grid grid-cols-3 gap-2">
                       {formData.image_urls.map((url, idx) => (
                         <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden group">
-                          <img src={url} alt="Receipt" className="w-full h-full object-cover" />
+                          <img src={cloudinaryThumb(url)} alt="Receipt" className="w-full h-full object-cover" />
                           <button
                             type="button"
                             onClick={() => removeImage(idx)}

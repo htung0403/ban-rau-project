@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Image as ImageIcon, Package, Truck, ZoomIn } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { DeliveryOrder, ImportOrder, ExportOrder } from '../../../types';
+import { cloudinaryMedium, cloudinaryFull } from '../../../lib/cloudinaryUrl';
 
 interface Props {
   isOpen: boolean;
@@ -445,7 +446,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
                     className="relative bg-muted/50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
                     onClick={() => setFullscreenImage(img)}
                   >
-                    <img src={img} alt={`Nhập hàng ${idx + 1}`} className="w-full h-full object-cover" />
+                    <img src={cloudinaryMedium(img)} alt={`Nhập hàng ${idx + 1}`} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <ZoomIn size={24} className="text-white drop-shadow-lg" />
                     </div>
@@ -473,7 +474,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
                     className="relative bg-muted/50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
                     onClick={() => setFullscreenImage(img)}
                   >
-                    <img src={img} alt={`Nhận hàng ${idx + 1}`} className="w-full h-full object-cover" />
+                    <img src={cloudinaryMedium(img)} alt={`Nhận hàng ${idx + 1}`} className="w-full h-full object-cover" />
                     {(() => {
                       const meta = nhanHangImageMetaMap.get(img);
                       if (!meta) return null;
@@ -570,7 +571,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
             <X size={20} />
           </button>
           <img
-            src={fullscreenImage}
+            src={cloudinaryFull(fullscreenImage)}
             alt="View full"
             className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"
             onClick={(e) => e.stopPropagation()}

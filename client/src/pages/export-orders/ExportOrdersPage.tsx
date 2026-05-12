@@ -16,6 +16,7 @@ import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { useAuth } from '../../context/AuthContext';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { matchesSearch } from '../../lib/str-utils';
+import { cloudinarySmall, cloudinaryFull } from '../../lib/cloudinaryUrl';
 
 const paymentLabels: Record<string, string> = {
   unpaid: 'Chưa thanh toán',
@@ -245,7 +246,7 @@ const ExportOrdersPage: React.FC = () => {
                             className="w-10 h-10 rounded-lg bg-muted/30 overflow-hidden cursor-pointer mx-auto border border-border group relative flex items-center justify-center"
                             onClick={(e) => { e.stopPropagation(); setViewingImage(o.image_url!); }}
                           >
-                            <img src={o.image_url} alt="Receipt" className="w-full h-full object-cover" />
+                            <img src={cloudinarySmall(o.image_url)} alt="Receipt" className="w-full h-full object-cover" />
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                               <Eye size={16} className="text-white" />
                             </div>
@@ -319,11 +320,11 @@ const ExportOrdersPage: React.FC = () => {
                     >
                       {o.image_url ? (
                         <div className="w-full h-full relative group cursor-pointer">
-                          <img
-                            src={o.image_url}
-                            alt="Receipt"
-                            className="w-full h-full object-cover"
-                          />
+                            <img
+                              src={cloudinarySmall(o.image_url)}
+                              alt="Receipt"
+                              className="w-full h-full object-cover"
+                            />
                           <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
                             <Eye size={20} className="text-white drop-shadow-md" />
                           </div>
@@ -480,7 +481,7 @@ const ExportOrdersPage: React.FC = () => {
           </button>
 
           <img
-            src={viewingImage}
+            src={cloudinaryFull(viewingImage)}
             alt="View full"
             className="max-w-[95vw] max-h-[85vh] object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}

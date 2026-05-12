@@ -22,6 +22,7 @@ import { translateRole } from '../lib/utils';
 import { uploadApi } from '../api/uploadApi';
 import { authApi } from '../api/authApi';
 import toast from 'react-hot-toast';
+import { cloudinaryThumb } from '../lib/cloudinaryUrl';
 
 type ProfileFormState = {
   full_name: string;
@@ -417,7 +418,7 @@ const ProfilePage: React.FC = () => {
                   <div className="relative group">
                     <div className="w-24 h-24 rounded-full border-4 border-card bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary overflow-hidden shadow-md">
                       <img
-                        src={displayAvatar}
+                        src={cloudinaryThumb(displayAvatar)}
                         alt="Avatar"
                         className="w-full h-full object-cover"
                       />
@@ -926,7 +927,7 @@ const ProfilePage: React.FC = () => {
               <div className="relative">
                 <div className="w-48 h-48 rounded-full border-4 border-card bg-primary/10 flex items-center justify-center text-6xl font-bold text-primary overflow-hidden shadow-inner">
                   <img
-                    src={previewAvatar || defaultAvatar}
+                    src={cloudinaryThumb(previewAvatar || defaultAvatar)}
                     alt="Preview"
                     className="w-full h-full object-cover"
                   />

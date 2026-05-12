@@ -13,6 +13,7 @@ import VnUnitPriceInput from '../../../components/shared/VnUnitPriceInput';
 import type { DeliveryOrder, Product } from '../../../types';
 import { deliveryTimeToInputValue } from '../../../lib/deliveryDisplay';
 import { collectDeliveryOrderImageUrlsForEdit } from '../../../lib/deliveryOrderImages';
+import { cloudinaryThumb } from '../../../lib/cloudinaryUrl';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -296,7 +297,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                 {formData.image_urls.map((url, idx) => (
                   <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden group bg-muted/20">
-                    <img src={url} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
+                    <img src={cloudinaryThumb(url)} alt={`Receipt ${idx + 1}`} className="w-full h-full object-cover" />
                     <button
                       type="button"
                       onClick={() => {

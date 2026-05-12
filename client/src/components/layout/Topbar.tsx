@@ -12,6 +12,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useBreadcrumbs } from '../../context/BreadcrumbContext';
 import axiosClient from '../../api/axiosClient';
+import { cloudinaryThumb } from '../../lib/cloudinaryUrl';
 
 interface Notification {
   id: string;
@@ -418,7 +419,7 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
             <div className="relative">
               <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shadow-sm shadow-primary/5">
                 <img
-                  src={userAvatar}
+                  src={cloudinaryThumb(userAvatar)}
                   alt="Avatar"
                   className="w-full h-full object-cover"
                 />

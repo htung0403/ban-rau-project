@@ -10,6 +10,7 @@ import StatusBadge from '../../components/shared/StatusBadge';
 import { CustomSelect } from '../../components/shared/CustomSelect';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { matchesSearch } from '../../lib/str-utils';
+import { cloudinaryThumb } from '../../lib/cloudinaryUrl';
 import { format } from 'date-fns';
 import { Receipt, X, ChevronLeft, Image as ImageIcon, CalendarDays, User, Car, Banknote, CheckCircle2, ChevronRight as ChevronRightIcon, Printer } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -405,7 +406,7 @@ const ExpenseHistoryPage = () => {
                         }}
                         className="relative aspect-[4/3] rounded-xl border border-border overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all group"
                       >
-                        <img src={url} alt="Receipt" className="w-full h-full object-cover" />
+                        <img src={cloudinaryThumb(url)} alt="Receipt" className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </button>
                     ))}

@@ -34,6 +34,7 @@ import type { DeliveryOrder, Vehicle } from '../../types';
 import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 import { deliveryOrderVisibleToUser, hasFullGoodsModuleAccess } from '../../utils/goodsModuleScope';
 import { VehicleCellTooltip } from './components/VehicleCellTooltip';
+import { cloudinarySmall } from '../../lib/cloudinaryUrl';
 
 const formatNumber = (val?: number) => {
   if (val == null) return '0';
@@ -1092,7 +1093,7 @@ const DeliveryPage: React.FC = () => {
                             }}>
                               {getOrderPreviewImage(o) ? (
                                 <div className="w-8 h-8 rounded-md bg-muted/30 overflow-hidden mx-auto border border-border group relative flex items-center justify-center">
-                                  <img src={getOrderPreviewImage(o) || undefined} alt="Receipt" className="w-full h-full object-cover" />
+                                  <img src={cloudinarySmall(getOrderPreviewImage(o) || undefined)} alt="Receipt" className="w-full h-full object-cover" />
                                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Eye size={12} className="text-white" />
                                   </div>
@@ -1350,7 +1351,7 @@ const DeliveryPage: React.FC = () => {
                                 {getOrderPreviewImage(o) ? (
                                   <div className="w-full h-full relative group cursor-pointer">
                                     <img
-                                      src={getOrderPreviewImage(o) || undefined}
+                                      src={cloudinarySmall(getOrderPreviewImage(o) || undefined)}
                                       alt="Receipt"
                                       className="w-full h-full object-cover"
                                     />

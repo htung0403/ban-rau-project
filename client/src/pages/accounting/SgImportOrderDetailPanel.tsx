@@ -4,6 +4,7 @@ import { clsx } from 'clsx';
 import { X, Package } from 'lucide-react';
 import type { ImportOrder, ImportOrderItem } from '../../types';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
+import { cloudinaryThumb } from '../../lib/cloudinaryUrl';
 
 const formatCurrency = (value?: number | null) => {
   if (value == null || Number.isNaN(Number(value))) return '—';
@@ -151,7 +152,7 @@ const SgImportOrderDetailPanel: React.FC<Props> = ({ isOpen, isClosing, onClose,
                         rel="noreferrer"
                         className="block rounded-lg border border-border overflow-hidden w-24 h-24 bg-muted shrink-0 hover:opacity-90"
                       >
-                        <img src={url} alt="" className="w-full h-full object-cover" />
+                        <img src={cloudinaryThumb(url)} alt="" className="w-full h-full object-cover" />
                       </a>
                     ))}
                   </div>

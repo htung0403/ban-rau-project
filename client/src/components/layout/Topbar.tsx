@@ -111,7 +111,8 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       'hang-hoa': 'Hàng hóa',
       'quan-ly-xe': 'Quản lý xe',
       'chi-phi': 'Chi phí',
-      'khach-hang-than-thiet': 'KH thân thiết'
+      'khach-hang-than-thiet': 'KH thân thiết',
+      'cai-dat-he-thong': 'Cài đặt hệ thống'
     };
 
     const segment = path.split('/').pop() || '';

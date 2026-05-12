@@ -1,7 +1,7 @@
 import {
   Users,
   Warehouse, Download, Upload, Truck as DeliveryIcon,
-  Banknote, Car, CalendarDays, ClipboardList, ClipboardCheck, DollarSign, FileText, Settings2, MapPin,
+  Banknote, Car, CalendarDays, ClipboardList, ClipboardCheck, DollarSign, FileText, Settings, Settings2, MapPin,
   Send, Store, Receipt, History, Heart,
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
@@ -102,6 +102,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
       section: 'Quản trị',
       items: [
         { icon: Settings2, title: 'Phân quyền', description: 'Tạo quyền và cấp quyền theo trang cho nhân sự.', colorScheme: 'slate', path: '/hanh-chinh-nhan-su/phan-quyen' },
+        { icon: Settings, title: 'Cài đặt hệ thống', description: 'Quản lý khung giờ truy cập, quy tắc chuyển hàng và cấu hình Zalo.', colorScheme: 'slate', path: '/cai-dat-he-thong' },
       ]
     },
   ],

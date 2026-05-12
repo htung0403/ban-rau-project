@@ -42,6 +42,7 @@ import WholesaleCustomersPage from './pages/customers/WholesaleCustomersPage';
 import LoyalCustomersPage from './pages/customers/LoyalCustomersPage';
 import SalarySettingsPage from './pages/hr/SalarySettingsPage';
 import RolePermissionsPage from './pages/hr/RolePermissionsPage';
+import SystemSettingsPage from './pages/admin/SystemSettingsPage';
 import CustomerDetailPage from './pages/customers/CustomerDetailPage';
 import CustomerDebtPage from './pages/customers/CustomerDebtPage';
 import RevenueReportPage from './pages/customers/RevenueReportPage';
@@ -137,6 +138,7 @@ function AppRoutes() {
         <Route path="/hanh-chinh-nhan-su/ung-luong" element={<SalaryAdvancesPage />} />
         <Route path="/hanh-chinh-nhan-su/duyet-don" element={<ApprovalsPage />} />
         <Route path="/hanh-chinh-nhan-su/phan-quyen" element={<RolePermissionsPage />} />
+        <Route path="/cai-dat-he-thong" element={<SystemSettingsPage />} />
         <Route path="/hanh-chinh-nhan-su/chi-phi" element={<Navigate to="/chi-phi/phieu" replace />} />
 
         <Route path="/chi-phi" element={<ModulePage />} />

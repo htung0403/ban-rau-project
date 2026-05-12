@@ -1,8 +1,8 @@
 import React from 'react';
-import { optimizeCloudinaryUrl, CloudinarySize } from '../../lib/cloudinaryUrl';
+import { optimizeCloudinaryUrl, type CloudinarySize } from '../../lib/cloudinaryUrl';
 
-interface CloudinaryImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
-  src: string | null | undefined;
+interface CloudinaryImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
+  src?: string | null;
   size?: CloudinarySize | number;
   fallbackSrc?: string;
 }

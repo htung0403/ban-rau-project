@@ -15,6 +15,7 @@ interface Props {
 type OrderImageRef = {
   image_url?: string | null;
   image_urls?: string[] | null;
+  quantity?: number;
   products?: { name?: string };
 };
 
@@ -22,6 +23,13 @@ type MaybeArray<T> = T | T[] | null | undefined;
 
 type LinkedImportOrder = {
   order_code?: string;
+  order_date?: string;
+  order_time?: string | null;
+  quantity?: number | null;
+  receiver_name?: string;
+  received_by?: string | null;
+  created_at?: string | null;
+  profiles?: { full_name?: string };
   receipt_image_url?: string | null;
   receipt_image_urls?: string[] | null;
   import_order_items?: OrderImageRef[];
@@ -45,7 +53,7 @@ type DeliveryOrderLike = DeliveryOrder & {
 };
 
 type ImportOrderLike = ImportOrder & {
-  delivery_orders?: OrderImageRef[];
+  delivery_orders?: DeliveryOrderLike[];
 };
 
 type ExportOrderLike = ExportOrder & {
@@ -71,7 +79,45 @@ const pickRelation = <T,>(relation: MaybeArray<T>): T | undefined => {
   return relation || undefined;
 };
 
+const formatDateTime = (date?: string | null, time?: string | null, createdAt?: string | null): string => {
+  if (date) {
+    const datePart = (() => {
+      const chunks = date.split('-');
+      if (chunks.length === 3) {
+        const [y, m, d] = chunks;
+        return `${d}-${m}-${y}`;
+      }
+      return date;
+    })();
+    if (time) return `${time.slice(0, 5)} ${datePart}`;
+    return datePart;
+  }
 
+  if (createdAt) {
+    const d = new Date(createdAt);
+    if (!Number.isNaN(d.getTime())) {
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${hh}:${min} ${dd}-${mm}-${yyyy}`;
+    }
+  }
+
+  return '--';
+};
+
+const isUuidLike = (value?: string | null): boolean => {
+  if (!value) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
+};
+
+const sumItemQuantity = (items?: OrderImageRef[] | null): number | null => {
+  if (!items || items.length === 0) return null;
+  const total = items.reduce((acc, item) => acc + (item.quantity ?? 0), 0);
+  return total > 0 ? total : null;
+};
 
 const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose }) => {
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
@@ -95,8 +141,12 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     driverDeliveredAt?: string | null;
     createdAt?: string | null;
   }> = [];
+  const nhapHangImageMeta: Array<{ url: string; displayDateTime: string; quantity: string; receiverName: string }> = [];
   let orderCode = 'N/A';
   let orderLabel = '';
+  let iOrder: ImportOrderLike | undefined;
+  let linkedNhapOrder: LinkedImportOrder | undefined;
+  let dOrderForNhapMeta: DeliveryOrderLike | undefined;
 
   const collectImages = (refs: MaybeArray<OrderImageRef> | OrderImageRef[]): string[] => {
     const list = Array.isArray(refs) ? refs : (refs ? [refs] : []);
@@ -113,8 +163,10 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
 
   if (isDelivery) {
     const dOrder = order;
+    dOrderForNhapMeta = dOrder;
     const linkedImportOrder = pickRelation(dOrder?.import_orders);
     const linkedVegetableOrder = pickRelation(dOrder?.vegetable_orders);
+    linkedNhapOrder = linkedImportOrder || linkedVegetableOrder;
 
     receiptImages = [];
     if (linkedImportOrder?.receipt_image_url) {
@@ -287,7 +339,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     orderCode = linkedImportOrder?.order_code || linkedVegetableOrder?.order_code || 'N/A';
     orderLabel = dOrder?.product_name || orderCode;
   } else if (isImport) {
-    const iOrder = order;
+    iOrder = order;
     receiptImages = [];
     if (iOrder.receipt_image_url) {
       if (iOrder.receipt_image_url.includes(',')) {
@@ -308,7 +360,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     const pushImportDeliveryMeta = (
       url: string | null | undefined,
       source: 'vehicle' | 'payment' | 'delivery',
-      delivery: any
+      delivery: DeliveryOrderLike
     ) => {
       if (!url || typeof url !== 'string' || !url.trim()) return;
       const plate = delivery.delivery_vehicles?.[0]?.vehicles?.license_plate;
@@ -346,16 +398,16 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
       }
     };
 
-    (iOrder.delivery_orders || []).forEach((doItem: any) => {
+    (iOrder.delivery_orders || []).forEach((doItem) => {
       if (doItem.image_url) pushImportDeliveryMeta(doItem.image_url, 'delivery', doItem);
       if (doItem.image_urls && Array.isArray(doItem.image_urls)) {
         doItem.image_urls.forEach((u: string) => pushImportDeliveryMeta(u, 'delivery', doItem));
       }
       // Also collect from vehicles and payments if they are joined
-      (doItem.delivery_vehicles || []).forEach((dv: any) => {
+      (doItem.delivery_vehicles || []).forEach((dv) => {
         (dv.image_urls || []).forEach((u: string) => pushImportDeliveryMeta(u, 'vehicle', doItem));
       });
-      (doItem.payment_collections || []).forEach((pc: any) => {
+      (doItem.payment_collections || []).forEach((pc) => {
         if (pc.image_url) pushImportDeliveryMeta(pc.image_url, 'payment', doItem);
         if (pc.image_urls && Array.isArray(pc.image_urls)) {
           pc.image_urls.forEach((u: string) => pushImportDeliveryMeta(u, 'payment', doItem));
@@ -387,6 +439,58 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
   const nhapHangImages = [...new Set([...receiptImages, ...importImages])];
   const nhanHangImages = deliveryImages;
   const nhanHangImageMetaMap = new Map(deliveryImageMeta.map((item) => [item.url, item]));
+
+  if (isImport && iOrder) {
+    const rawReceiver = iOrder.receiver_name || iOrder.profiles?.full_name || iOrder.received_by || null;
+    const receiverName = rawReceiver && !isUuidLike(rawReceiver) ? rawReceiver : '--';
+    const quantity = iOrder.quantity ?? sumItemQuantity(iOrder.import_order_items) ?? null;
+    const displayDateTime = formatDateTime(iOrder.order_date, iOrder.order_time, iOrder.created_at);
+
+    nhapHangImages.forEach((url) => {
+      nhapHangImageMeta.push({
+        url,
+        displayDateTime,
+        quantity: quantity != null ? String(quantity) : '--',
+        receiverName
+      });
+    });
+  }
+
+  if (isDelivery && dOrderForNhapMeta) {
+    const importOrderMeta = pickRelation(dOrderForNhapMeta.import_orders);
+    const vegetableOrderMeta = pickRelation(dOrderForNhapMeta.vegetable_orders);
+
+    const rawReceiver = linkedNhapOrder?.receiver_name
+      || linkedNhapOrder?.profiles?.full_name
+      || linkedNhapOrder?.received_by
+      || importOrderMeta?.receiver_name
+      || importOrderMeta?.profiles?.full_name
+      || vegetableOrderMeta?.receiver_name
+      || vegetableOrderMeta?.profiles?.full_name
+      || null;
+    const receiverName = rawReceiver && !isUuidLike(rawReceiver) ? rawReceiver : '--';
+
+    const quantityValue = linkedNhapOrder?.quantity
+      ?? sumItemQuantity(linkedNhapOrder?.import_order_items)
+      ?? sumItemQuantity(linkedNhapOrder?.vegetable_order_items)
+      ?? dOrderForNhapMeta.total_quantity
+      ?? null;
+
+    const displayDateTime = formatDateTime(
+      linkedNhapOrder?.order_date || dOrderForNhapMeta.delivery_date,
+      linkedNhapOrder?.order_time || dOrderForNhapMeta.delivery_time,
+      linkedNhapOrder?.created_at || dOrderForNhapMeta.created_at
+    );
+
+    nhapHangImages.forEach((url) => {
+      nhapHangImageMeta.push({
+        url,
+        displayDateTime,
+        quantity: quantityValue != null ? String(quantityValue) : '--',
+        receiverName
+      });
+    });
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4">
@@ -445,12 +549,26 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
                     key={`${img}-${idx}`}
                     className="relative bg-muted/50 border border-border rounded-xl overflow-hidden flex flex-col group cursor-pointer aspect-video sm:aspect-square"
                     onClick={() => setFullscreenImage(img)}
-                  >
-                    <img src={cloudinaryMedium(img)} alt={`Nhập hàng ${idx + 1}`} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ZoomIn size={24} className="text-white drop-shadow-lg" />
+                    >
+                      <img src={cloudinaryMedium(img)} alt={`Nhập hàng ${idx + 1}`} className="w-full h-full object-cover" />
+                      {(() => {
+                        const meta = nhapHangImageMeta[idx] || nhapHangImageMeta.find((m) => m.url === img);
+                        const displayDateTime = meta?.displayDateTime || '--';
+                        const quantity = meta?.quantity || '--';
+                        const receiverName = meta?.receiverName || '--';
+
+                        return (
+                          <div className="absolute inset-x-0 bottom-0 p-2 bg-black/60 backdrop-blur-[2px] text-white flex flex-col gap-0.5">
+                            <div className="text-[11px] font-bold leading-tight">{displayDateTime}</div>
+                            <div className="text-[11px] font-bold leading-tight">SL: {quantity}</div>
+                            <div className="text-[11px] font-bold leading-tight">NV Nhận: {receiverName}</div>
+                          </div>
+                        );
+                      })()}
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ZoomIn size={24} className="text-white drop-shadow-lg" />
+                      </div>
                     </div>
-                  </div>
                 ))}
               </div>
             ) : (

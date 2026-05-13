@@ -75,7 +75,7 @@ export class ZaloService {
     if (!this.enableSends) {
       return {
         success: false,
-        error: 'Zalo send is disabled by config (ZALO_ENABLE_SENDS=true)',
+        error: 'Zalo send is disabled by config (ZALO_ENABLE_SENDS !== true)',
         recipientPhone,
         timestamp: new Date().toISOString(),
       };
@@ -505,7 +505,7 @@ export class ZaloService {
     return 'jpg';
   }
 
-  async sendDailySummaries(supabaseService: any, logger: any, normalizePhoneForAuth: (phone: string) => string | null): Promise<void> {
+  async sendDailySummaries(supabaseService: any, logger: any, normalizePhoneForAuth: (phone: string) => string | null, targetCustomerId?: string): Promise<void> {
     try {
       if (process.env.ZALO_ENABLE_SENDS !== 'true') return;
 
@@ -518,17 +518,19 @@ export class ZaloService {
         .eq('setting_key', 'ZALO_LAST_SUMMARY_RUN')
         .maybeSingle();
 
-      if (lastRun?.setting_value === today) {
+      if (!targetCustomerId && lastRun?.setting_value === today) {
         logger.info(`[ZaloService] Daily summary already processed for ${today}, skipping.`);
         return;
       }
 
       // Mark as run immediately (best-effort lock)
-      await supabaseService.from('general_settings').upsert({
-        setting_key: 'ZALO_LAST_SUMMARY_RUN',
-        setting_value: today,
-        updated_at: new Date().toISOString(),
-      });
+      if (!targetCustomerId) {
+        await supabaseService.from('general_settings').upsert({
+          setting_key: 'ZALO_LAST_SUMMARY_RUN',
+          setting_value: today,
+          updated_at: new Date().toISOString(),
+        });
+      }
 
       logger.info(`[ZaloService] Starting daily summary generation for ${today}`);
 
@@ -547,7 +549,7 @@ export class ZaloService {
           .select(`
             *,
             delivery_orders (
-              id, product_name, delivery_date, unit_price, total_quantity,
+              id, product_name, delivery_date, unit_price, total_quantity, status,
               import_orders (
                 receiver_phone, selected_alias, customers:customers!import_orders_customer_id_fkey (id, phone, name)
               ),
@@ -562,7 +564,7 @@ export class ZaloService {
         supabaseService
           .from('delivery_orders')
           .select(`
-            id, product_name, delivery_date, unit_price, total_quantity,
+            id, product_name, delivery_date, unit_price, total_quantity, status,
             import_orders (
               receiver_phone, selected_alias, customers:customers!import_orders_customer_id_fkey (id, phone, name)
             ),
@@ -572,6 +574,7 @@ export class ZaloService {
             delivery_vehicles ( assigned_quantity )
           `)
           .eq('delivery_date', today)
+          .neq('status', 'hang_o_sg')
       ]);
 
       const assignments = assignmentsRes.data || [];
@@ -583,11 +586,11 @@ export class ZaloService {
       }
 
       // 3. Group by customer phone
-      const customerGroups: Record<string, { customerName: string; phone: string; items: any[]; undeliveredOrderIds: Set<string>; undeliveredQuantity: number }> = {};
+      const customerGroups: Record<string, { customerId: string; customerName: string; phone: string; items: any[]; undeliveredOrderIds: Set<string>; undeliveredQuantity: number }> = {};
 
-      const processOrderForUndelivered = (order: any, phone: string, customerName: string) => {
+      const processOrderForUndelivered = (order: any, phone: string, customerName: string, customerId: string) => {
         if (!customerGroups[phone]) {
-          customerGroups[phone] = { customerName, phone, items: [], undeliveredOrderIds: new Set(), undeliveredQuantity: 0 };
+          customerGroups[phone] = { customerId, customerName, phone, items: [], undeliveredOrderIds: new Set(), undeliveredQuantity: 0 };
         }
         if (!customerGroups[phone].undeliveredOrderIds.has(order.id)) {
            const totalAssigned = (order.delivery_vehicles || []).reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
@@ -601,6 +604,8 @@ export class ZaloService {
 
       // Process all orders for today (to catch unassigned quantities)
       for (const order of ordersToday) {
+        if (order.status === 'hang_o_sg') continue;
+
         const phone = this.buildRecipientPhoneForDelivery(order);
         if (!phone) continue;
 
@@ -611,13 +616,16 @@ export class ZaloService {
           order.vegetable_orders?.selected_alias ||
           'Khách hàng';
 
-        processOrderForUndelivered(order, phone, customerName);
+        const customerId = order.import_orders?.customers?.id || order.vegetable_orders?.customers?.id;
+        if (!customerId) continue;
+
+        processOrderForUndelivered(order, phone, customerName, customerId);
       }
 
       // Process assignments for today (builds items list)
       for (const dv of assignments) {
         const order = dv.delivery_orders;
-        if (!order) continue;
+        if (!order || order.status === 'hang_o_sg') continue;
 
         const phone = this.buildRecipientPhoneForDelivery(order);
         if (!phone) continue;
@@ -629,8 +637,11 @@ export class ZaloService {
           order.vegetable_orders?.selected_alias ||
           'Khách hàng';
 
+        const customerId = order.import_orders?.customers?.id || order.vegetable_orders?.customers?.id;
+        if (!customerId) continue;
+
         if (!customerGroups[phone]) {
-          customerGroups[phone] = { customerName, phone, items: [], undeliveredOrderIds: new Set(), undeliveredQuantity: 0 };
+          customerGroups[phone] = { customerId, customerName, phone, items: [], undeliveredOrderIds: new Set(), undeliveredQuantity: 0 };
         }
 
         customerGroups[phone].items.push({
@@ -647,6 +658,10 @@ export class ZaloService {
       // 4. Generate and send for each group
       for (const phone of Object.keys(customerGroups)) {
         const group = customerGroups[phone];
+
+        // Filter by targetCustomerId if provided
+        if (targetCustomerId && group.customerId !== targetCustomerId) continue;
+
         const normalizedPhone = normalizePhoneForAuth(group.phone);
         if (!normalizedPhone) continue;
 

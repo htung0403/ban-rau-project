@@ -93,6 +93,7 @@ export class DeliveryController {
       let delivered_at: string | undefined = undefined;
       let delivery_date: string | undefined = undefined;
       let delivery_time: string | undefined = undefined;
+      let source_order_ids: string[] | undefined = undefined;
 
       const extractExtras = (src: any) => {
         if (Object.prototype.hasOwnProperty.call(src, 'image_url')) {
@@ -119,6 +120,9 @@ export class DeliveryController {
           const v = (src as any).delivery_time;
           delivery_time = v == null || v === '' ? undefined : String(v);
         }
+        if (Object.prototype.hasOwnProperty.call(src, 'source_order_ids')) {
+          source_order_ids = z.array(z.string().uuid()).parse((src as any).source_order_ids);
+        }
       };
 
       if (Array.isArray(body)) {
@@ -144,18 +148,29 @@ export class DeliveryController {
         export_payment_status: a.export_payment_status,
       }));
 
-      const data = await DeliveryService.assignVehicles(
-        req.params.id as string,
-        normalized,
-        image_url,
-        req.user?.id,
-        export_payment_status,
-        unit_price,
-        image_urls,
-        delivered_at,
-        delivery_date,
-        delivery_time
-      );
+      const data = source_order_ids && source_order_ids.length > 0
+        ? await DeliveryService.assignVehiclesByGroup(
+            source_order_ids,
+            normalized,
+            req.user?.id,
+            export_payment_status,
+            unit_price,
+            delivered_at,
+            delivery_date,
+            delivery_time
+          )
+        : await DeliveryService.assignVehicles(
+            req.params.id as string,
+            normalized,
+            image_url,
+            req.user?.id,
+            export_payment_status,
+            unit_price,
+            image_urls,
+            delivered_at,
+            delivery_date,
+            delivery_time
+          );
       return res.status(200).json(successResponse(data, 'Vehicles assigned'));
     } catch (err: any) {
       console.error('Assign vehicle error:', err);

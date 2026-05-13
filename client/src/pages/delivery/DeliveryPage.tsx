@@ -33,7 +33,6 @@ import { formatNgayGioGiaoVI } from '../../lib/deliveryDisplay';
 import type { DeliveryOrder, Vehicle } from '../../types';
 import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 import { deliveryOrderVisibleToUser, hasFullGoodsModuleAccess } from '../../utils/goodsModuleScope';
-import { VehicleCellTooltip } from './components/VehicleCellTooltip';
 import { cloudinarySmall } from '../../lib/cloudinaryUrl';
 
 const formatNumber = (val?: number) => {
@@ -81,6 +80,21 @@ const getReceiverDisplayName = (order: DeliveryOrder) => {
   }
 
   return orderObj.customers?.name || orderObj.receiver_name?.trim() || orderObj.profiles?.full_name || '-';
+};
+
+const getSourcePaymentStatus = (order: DeliveryOrder) => {
+  const sourceOrder = Array.isArray(order.import_orders) ? order.import_orders[0] : order.import_orders
+    || (Array.isArray(order.vegetable_orders) ? order.vegetable_orders[0] : order.vegetable_orders);
+  return sourceOrder?.payment_status || 'unpaid';
+};
+
+const getDeliveryGroupKey = (order: DeliveryOrder) => {
+  const deliveryDate = order.delivery_date || 'N/A';
+  const category = order.order_category || 'standard';
+  const receiver = getReceiverDisplayName(order);
+  const product = (order.product_name || '').trim();
+  const paymentStatus = getSourcePaymentStatus(order);
+  return `${deliveryDate}|${category}|${receiver}|${product}|${paymentStatus}`;
 };
 
 const pickRelation = <T,>(relation: any): T | undefined => {
@@ -255,6 +269,55 @@ const DeliveryPage: React.FC = () => {
     }
     return base;
   }, [ordersRaw, user, vehicles]);
+
+  const groupedOrdersView = React.useMemo(() => {
+    const map = new Map<string, DeliveryOrder[]>();
+    (orders || []).forEach((order) => {
+      const key = order.status === 'hang_o_sg' ? `single:${order.id}` : getDeliveryGroupKey(order);
+      const list = map.get(key) || [];
+      list.push(order);
+      map.set(key, list);
+    });
+
+    return Array.from(map.values()).map((group) => {
+      const ordered = [...group].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      const first = ordered[0];
+      const totalQuantity = ordered.reduce((sum, order) => sum + (Number(order.total_quantity) || 0), 0);
+      const mergedDeliveryVehicles = ordered.flatMap((order) => order.delivery_vehicles || []);
+      const mergedPaymentCollections = ordered.flatMap((order) => order.payment_collections || []);
+      const sourceIds = ordered.map((order) => order.id);
+      const allHangOsg = ordered.every((order) => order.status === 'hang_o_sg');
+      const hasDaGiao = ordered.some((order) => order.status === 'da_giao');
+
+      return {
+        ...first,
+        total_quantity: totalQuantity,
+        delivery_vehicles: mergedDeliveryVehicles,
+        payment_collections: mergedPaymentCollections,
+        source_order_ids: sourceIds,
+        source_orders: ordered,
+        status: allHangOsg ? 'hang_o_sg' : (hasDaGiao ? 'da_giao' : 'can_giao'),
+      } as DeliveryOrder;
+    });
+  }, [orders]);
+
+  const groupToSourceIdsMap = React.useMemo(() => {
+    const map = new Map<string, string[]>();
+    groupedOrdersView.forEach((order) => {
+      map.set(order.id, order.source_order_ids && order.source_order_ids.length > 0 ? order.source_order_ids : [order.id]);
+    });
+    return map;
+  }, [groupedOrdersView]);
+
+  const expandGroupedIds = React.useCallback((ids: string[]) => {
+    const expanded = new Set<string>();
+    ids.forEach((id) => {
+      const sourceIds = groupToSourceIdsMap.get(id) || [id];
+      sourceIds.forEach((sourceId) => expanded.add(sourceId));
+    });
+    return Array.from(expanded);
+  }, [groupToSourceIdsMap]);
+
   const confirmMutation = useConfirmDelivery();
   const deleteMutation = useDeleteDeliveryOrders();
 
@@ -439,7 +502,7 @@ const DeliveryPage: React.FC = () => {
 
   const handleConfirm = async (orderIds: string[]) => {
     try {
-      await confirmMutation.mutateAsync(orderIds);
+      await confirmMutation.mutateAsync(expandGroupedIds(orderIds));
     } catch {
       // Error handled by mutation
     }
@@ -473,10 +536,10 @@ const DeliveryPage: React.FC = () => {
   const executeDelete = async () => {
     try {
       if (orderToDelete === 'bulk') {
-        await deleteMutation.mutateAsync(Array.from(selectedIds));
+        await deleteMutation.mutateAsync(expandGroupedIds(Array.from(selectedIds)));
         setSelectedIds(new Set());
       } else if (orderToDelete) {
-        await deleteMutation.mutateAsync([orderToDelete]);
+        await deleteMutation.mutateAsync(expandGroupedIds([orderToDelete]));
         setSelectedIds(prev => {
           const next = new Set(prev);
           next.delete(orderToDelete);
@@ -509,7 +572,7 @@ const DeliveryPage: React.FC = () => {
     setCallDialog(null);
   };
 
-  let filteredOrders = orders || [];
+  let filteredOrders = groupedOrdersView || [];
 
   const anchorStr = getDeliveryAnchorDateString();
   if (ageFilter === 'new') {
@@ -578,10 +641,10 @@ const DeliveryPage: React.FC = () => {
   }, [filteredOrders]);
 
   const { customerOptions, receiverOptions } = React.useMemo(() => {
-    if (!orders) return { customerOptions: [], receiverOptions: [] };
+    if (!groupedOrdersView) return { customerOptions: [], receiverOptions: [] };
     const cSet = new Set<string>();
     const rSet = new Set<string>();
-    orders.forEach(o => {
+    groupedOrdersView.forEach(o => {
       const cName = o.import_orders?.sender_name || o.import_orders?.customers?.name;
       if (cName) cSet.add(cName);
 
@@ -592,7 +655,7 @@ const DeliveryPage: React.FC = () => {
       customerOptions: Array.from(cSet).map(c => ({ label: c, value: c })),
       receiverOptions: Array.from(rSet).map(c => ({ label: c, value: c })),
     };
-  }, [orders]);
+  }, [groupedOrdersView]);
 
   const vehicleFilterOptions = React.useMemo(
     () =>
@@ -664,6 +727,16 @@ const DeliveryPage: React.FC = () => {
   }, {});
 
   const sortedDates = Object.keys(groupedOrders).sort((a, b) => b.localeCompare(a)); // Newest first
+
+  const selectedSourceOrderIds = React.useMemo(
+    () => expandGroupedIds(Array.from(selectedIds)),
+    [selectedIds, expandGroupedIds]
+  );
+
+  const selectedSourceOrders = React.useMemo(
+    () => (orders || []).filter((o) => selectedSourceOrderIds.includes(o.id)),
+    [orders, selectedSourceOrderIds]
+  );
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
@@ -1153,6 +1226,21 @@ const DeliveryPage: React.FC = () => {
                               const canEdit = isEditableByMe || isAdmin;
 
                               const isExportPaid = dvs.length > 0 && dvs.some(dv => dv.export_payment_status === 'paid');
+                              const dvBatches = dvs.reduce<Array<{ key: string; qty: number; exportPaid: boolean }>>((acc, dv) => {
+                                const batchKey = `${dv.vehicle_id || ''}|${dv.driver_id || ''}|${dv.delivery_date || ''}|${(dv.delivery_time || '').slice(0, 5)}`;
+                                const found = acc.find((item) => item.key === batchKey);
+                                if (found) {
+                                  found.qty += Number(dv.assigned_quantity || 0);
+                                  found.exportPaid = found.exportPaid || dv.export_payment_status === 'paid';
+                                } else {
+                                  acc.push({
+                                    key: batchKey,
+                                    qty: Number(dv.assigned_quantity || 0),
+                                    exportPaid: dv.export_payment_status === 'paid',
+                                  });
+                                }
+                                return acc;
+                              }, []);
                               const isCollectionPaid = (o.payment_collections || []).some(
                                 (pc) => pc.vehicle_id === v.id && isPaidCollectionStatus(pc.status)
                               );
@@ -1173,31 +1261,28 @@ const DeliveryPage: React.FC = () => {
                                 >
                                   {dvs.length > 0 ? (
                                     <div className="flex flex-col items-center justify-center">
-                                      <div className="flex flex-wrap items-center justify-center gap-x-1">
-                                        {dvs.map((dvItem, idx) => {
-                                          const isDvExportPaid = dvItem.export_payment_status === 'paid';
-                                          return (
-                                            <React.Fragment key={dvItem.id || idx}>
-                                              {idx > 0 && <span className="text-[10px] text-muted-foreground/50">+</span>}
-                                              <VehicleCellTooltip dv={dvItem} vehicle={v} qty={dvItem.assigned_quantity || 0} isPaid={isCollectionPaid} exportPaid={isDvExportPaid}>
-                                                <span
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (canEdit && statusFilter !== 'hang_o_sg') {
-                                                      handleOrderClick(o, v.id, 'view');
-                                                    }
-                                                  }}
-                                                  className={clsx(
-                                                    "cursor-pointer underline decoration-dotted underline-offset-2",
-                                                    isDvExportPaid ? "text-emerald-600 dark:text-emerald-500 hover:text-emerald-700 decoration-emerald-500/30" : "text-red-600 dark:text-red-500 hover:text-red-700 decoration-red-500/30"
-                                                  )}
-                                                >
-                                                  {formatNumber(dvItem.assigned_quantity)}
-                                                </span>
-                                              </VehicleCellTooltip>
-                                            </React.Fragment>
-                                          );
-                                        })}
+                                      <div
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (canEdit && statusFilter !== 'hang_o_sg') {
+                                            handleOrderClick(o, v.id, 'view');
+                                          }
+                                        }}
+                                        className="cursor-pointer"
+                                      >
+                                        {dvBatches.map((batch, idx) => (
+                                          <React.Fragment key={batch.key}>
+                                            {idx > 0 && <span className="text-[10px] text-muted-foreground/50 mx-0.5">+</span>}
+                                            <span
+                                              className={clsx(
+                                                "underline decoration-dotted underline-offset-2",
+                                                batch.exportPaid ? "text-emerald-600 dark:text-emerald-500 hover:text-emerald-700 decoration-emerald-500/30" : "text-red-600 dark:text-red-500 hover:text-red-700 decoration-red-500/30"
+                                              )}
+                                            >
+                                              {formatNumber(batch.qty)}
+                                            </span>
+                                          </React.Fragment>
+                                        ))}
                                       </div>
                                       {canEdit && statusFilter !== 'hang_o_sg' && (
                                         <button
@@ -1659,7 +1744,7 @@ const DeliveryPage: React.FC = () => {
       <BulkEditDeliveryDialog
         isOpen={isBulkEditOpen}
         isClosing={isBulkEditClosing}
-        orders={displayedOrders.filter(o => selectedIds.has(o.id))}
+        orders={selectedSourceOrders}
         onClose={closeBulkEdit}
       />
 

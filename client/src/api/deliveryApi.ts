@@ -57,6 +57,7 @@ export const deliveryApi = {
       delivered_at?: string;
       delivery_date?: string;
       delivery_time?: string;
+      source_order_ids?: string[];
     }
   ) => {
     const { data } = await axiosClient.put(`/delivery/${id}/assign-vehicle`, payload);

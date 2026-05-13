@@ -44,10 +44,14 @@ type DeliveryOrderLike = DeliveryOrder & {
   payment_collections?: Array<{ vehicle_id?: string | null; image_url?: string | null; image_urls?: string[] | null }>;
   delivery_vehicles?: Array<{
     vehicle_id?: string | null;
+    driver_id?: string | null;
     assigned_quantity?: number | null;
     image_urls?: string[] | null;
+    delivery_date?: string | null;
+    delivery_time?: string | null;
     vehicles?: { license_plate?: string | null } | null;
   }>;
+  source_orders?: DeliveryOrderLike[];
   driver_delivered_at?: string | null;
   created_at?: string | null;
 };
@@ -163,54 +167,13 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
 
   if (isDelivery) {
     const dOrder = order;
-    dOrderForNhapMeta = dOrder;
-    const linkedImportOrder = pickRelation(dOrder?.import_orders);
-    const linkedVegetableOrder = pickRelation(dOrder?.vegetable_orders);
-    linkedNhapOrder = linkedImportOrder || linkedVegetableOrder;
-
-    receiptImages = [];
-    if (linkedImportOrder?.receipt_image_url) {
-      if (linkedImportOrder.receipt_image_url.includes(',')) receiptImages.push(...linkedImportOrder.receipt_image_url.split(',').map(s => s.trim()));
-      else receiptImages.push(linkedImportOrder.receipt_image_url);
-    }
-    if (linkedImportOrder?.receipt_image_urls) receiptImages.push(...linkedImportOrder.receipt_image_urls);
-    if (linkedVegetableOrder?.receipt_image_url) {
-      if (linkedVegetableOrder.receipt_image_url.includes(',')) receiptImages.push(...linkedVegetableOrder.receipt_image_url.split(',').map(s => s.trim()));
-      else receiptImages.push(linkedVegetableOrder.receipt_image_url);
-    }
-    if (linkedVegetableOrder?.receipt_image_urls) receiptImages.push(...linkedVegetableOrder.receipt_image_urls);
-
-    const targetProductName = dOrder?.product_name ? (
-      dOrder.product_name.includes(' - ') 
-        ? dOrder.product_name.split(' - ').slice(1).join(' - ').trim().toLowerCase()
-        : dOrder.product_name.trim().toLowerCase()
-    ) : null;
-
-    const filterItemImages = (items: MaybeArray<OrderImageRef> | OrderImageRef[]) => {
-      const list = Array.isArray(items) ? items : (items ? [items] : []);
-      const filtered = targetProductName 
-        ? list.filter(item => {
-            const itemName = item.products?.name?.trim().toLowerCase();
-            return !itemName || itemName === targetProductName;
-          })
-        : list;
-      return collectImages(filtered);
-    };
-
-    importImages = [];
-    importImages.push(...filterItemImages(linkedImportOrder?.import_order_items));
-    importImages.push(...filterItemImages(linkedVegetableOrder?.vegetable_order_items));
+    const sourceOrders: DeliveryOrderLike[] = ((dOrder.source_orders && dOrder.source_orders.length > 0 ? dOrder.source_orders : [dOrder]) as DeliveryOrderLike[]).filter(Boolean) as DeliveryOrderLike[];
+    dOrderForNhapMeta = sourceOrders[0] || dOrder;
 
     deliveryImages = [];
     deliveryImageMeta = [];
-
-    // Map to link vehicle IDs to plates for payment images
-    const vehiclePlateMap = new Map<string, string>();
-    (dOrder?.delivery_vehicles || []).forEach(dv => {
-      if (dv.vehicle_id && dv.vehicles?.license_plate) {
-        vehiclePlateMap.set(dv.vehicle_id, dv.vehicles.license_plate);
-      }
-    });
+    receiptImages = [];
+    importImages = [];
 
     const pushDeliveryMeta = (
       url: string | null | undefined,
@@ -224,13 +187,13 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     ) => {
       if (!url || typeof url !== 'string' || !url.trim()) return;
       if (url.includes(',')) {
-        url.split(',').forEach(u => {
+        url.split(',').forEach((u: string) => {
           const t = u.trim();
           if (t) {
             deliveryImages.push(t);
-            deliveryImageMeta.push({ 
-              url: t, 
-              source, 
+            deliveryImageMeta.push({
+              url: t,
+              source,
               vehicleLabel,
               deliveryDate,
               deliveryTime,
@@ -242,9 +205,9 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
         });
       } else {
         deliveryImages.push(url);
-        deliveryImageMeta.push({ 
-          url, 
-          source, 
+        deliveryImageMeta.push({
+          url,
+          source,
           vehicleLabel,
           deliveryDate,
           deliveryTime,
@@ -255,95 +218,203 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
       }
     };
 
-    // 1) Ảnh gắn theo xe (ưu tiên gắn nhãn biển số + số lượng)
-    (dOrder?.delivery_vehicles || []).forEach((dv) => {
-      const plate = dv?.vehicles?.license_plate?.trim();
-      const qty = dv?.assigned_quantity;
-      const pName = dOrder.product_name.includes(' - ') ? dOrder.product_name.split(' - ').slice(1).join(' - ') : dOrder.product_name;
-      const vehicleLabel = plate 
-        ? (qty ? `Xe: ${plate} (${pName}: SL ${qty})` : `Xe: ${plate}`) 
-        : undefined;
+    sourceOrders.forEach((currentOrder, sourceIndex) => {
+      const linkedImportOrder = pickRelation(currentOrder?.import_orders);
+      const linkedVegetableOrder = pickRelation(currentOrder?.vegetable_orders);
 
-      (dv?.image_urls || []).forEach((u) => pushDeliveryMeta(
-        u, 
-        'vehicle', 
-        vehicleLabel,
-        dOrder.delivery_date,
-        dOrder.delivery_time,
-        dOrder.product_name,
-        dOrder.driver_delivered_at,
-        dOrder.created_at
-      ));
-    });
+      if (sourceIndex === 0) {
+        linkedNhapOrder = linkedImportOrder || linkedVegetableOrder;
+      }
 
-    // 2) Ảnh thu tiền/nhận tiền (liên kết với xe qua vehicle_id)
-    dOrder?.payment_collections?.forEach(pc => {
-      const plate = pc.vehicle_id ? vehiclePlateMap.get(pc.vehicle_id) : undefined;
-      const vehicleLabel = plate ? `Thu tiền - Xe: ${plate}` : 'Thu tiền';
+      const sourceRawReceiver = linkedImportOrder?.receiver_name
+        || linkedImportOrder?.profiles?.full_name
+        || linkedImportOrder?.received_by
+        || linkedVegetableOrder?.receiver_name
+        || linkedVegetableOrder?.profiles?.full_name
+        || linkedVegetableOrder?.received_by
+        || null;
+      const sourceReceiverName = sourceRawReceiver && !isUuidLike(sourceRawReceiver) ? sourceRawReceiver : '--';
 
-      if (pc.image_url) pushDeliveryMeta(
-        pc.image_url, 
-        'payment', 
-        vehicleLabel,
-        dOrder.delivery_date,
-        dOrder.delivery_time,
-        dOrder.product_name,
-        dOrder.driver_delivered_at,
-        dOrder.created_at
+      const sourceQuantity = linkedImportOrder?.quantity
+        ?? sumItemQuantity(linkedImportOrder?.import_order_items)
+        ?? linkedVegetableOrder?.quantity
+        ?? sumItemQuantity(linkedVegetableOrder?.vegetable_order_items)
+        ?? currentOrder.total_quantity
+        ?? null;
+
+      const sourceDisplayDateTime = formatDateTime(
+        linkedImportOrder?.order_date || linkedVegetableOrder?.order_date || currentOrder.delivery_date,
+        linkedImportOrder?.order_time || linkedVegetableOrder?.order_time || currentOrder.delivery_time,
+        linkedImportOrder?.created_at || linkedVegetableOrder?.created_at || currentOrder.created_at
       );
-      if (pc.image_urls && Array.isArray(pc.image_urls)) {
-        pc.image_urls.forEach((u) => pushDeliveryMeta(
-          u, 
-          'payment', 
+
+      const sourceReceiptImages: string[] = [];
+      if (linkedImportOrder?.receipt_image_url) {
+        const urls = linkedImportOrder.receipt_image_url.includes(',')
+          ? linkedImportOrder.receipt_image_url.split(',').map((s: string) => s.trim())
+          : [linkedImportOrder.receipt_image_url];
+        sourceReceiptImages.push(...urls);
+        receiptImages.push(...urls);
+      }
+      if (linkedImportOrder?.receipt_image_urls) {
+        sourceReceiptImages.push(...linkedImportOrder.receipt_image_urls);
+        receiptImages.push(...linkedImportOrder.receipt_image_urls);
+      }
+      if (linkedVegetableOrder?.receipt_image_url) {
+        const urls = linkedVegetableOrder.receipt_image_url.includes(',')
+          ? linkedVegetableOrder.receipt_image_url.split(',').map((s: string) => s.trim())
+          : [linkedVegetableOrder.receipt_image_url];
+        sourceReceiptImages.push(...urls);
+        receiptImages.push(...urls);
+      }
+      if (linkedVegetableOrder?.receipt_image_urls) {
+        sourceReceiptImages.push(...linkedVegetableOrder.receipt_image_urls);
+        receiptImages.push(...linkedVegetableOrder.receipt_image_urls);
+      }
+
+      const targetProductName = currentOrder?.product_name ? (
+        currentOrder.product_name.includes(' - ')
+          ? currentOrder.product_name.split(' - ').slice(1).join(' - ').trim().toLowerCase()
+          : currentOrder.product_name.trim().toLowerCase()
+      ) : null;
+
+      const filterItemImages = (items: MaybeArray<OrderImageRef> | OrderImageRef[]) => {
+        const list = Array.isArray(items) ? items : (items ? [items] : []);
+        const filtered = targetProductName
+          ? list.filter(item => {
+              const itemName = item.products?.name?.trim().toLowerCase();
+              return !itemName || itemName === targetProductName;
+            })
+          : list;
+        return collectImages(filtered);
+      };
+
+      const sourceImportImages = [
+        ...filterItemImages(linkedImportOrder?.import_order_items),
+        ...filterItemImages(linkedVegetableOrder?.vegetable_order_items)
+      ];
+      importImages.push(...sourceImportImages);
+
+      const sourceNhapSeen = new Set<string>();
+      [...sourceReceiptImages, ...sourceImportImages].forEach((url) => {
+        const normalizedUrl = typeof url === 'string' ? url.trim() : '';
+        if (!normalizedUrl || sourceNhapSeen.has(normalizedUrl)) return;
+        sourceNhapSeen.add(normalizedUrl);
+        nhapHangImageMeta.push({
+          url: normalizedUrl,
+          displayDateTime: sourceDisplayDateTime,
+          quantity: sourceQuantity != null ? String(sourceQuantity) : '--',
+          receiverName: sourceReceiverName,
+        });
+      });
+
+      const vehiclePlateMap = new Map<string, string>();
+      const vehicleBatchTotals = new Map<string, number>();
+      (currentOrder?.delivery_vehicles || []).forEach(dv => {
+        if (dv.vehicle_id && dv.vehicles?.license_plate) {
+          vehiclePlateMap.set(dv.vehicle_id, dv.vehicles.license_plate);
+        }
+
+        const batchKey = `${dv.vehicle_id || ''}|${dv.driver_id || ''}|${dv.delivery_date || ''}|${(dv.delivery_time || '').slice(0, 5)}`;
+        vehicleBatchTotals.set(batchKey, (vehicleBatchTotals.get(batchKey) || 0) + (Number(dv.assigned_quantity) || 0));
+      });
+
+      (currentOrder?.delivery_vehicles || []).forEach((dv) => {
+        const plate = dv?.vehicles?.license_plate?.trim();
+        const batchKey = `${dv.vehicle_id || ''}|${dv.driver_id || ''}|${dv.delivery_date || ''}|${(dv.delivery_time || '').slice(0, 5)}`;
+        const qty = vehicleBatchTotals.get(batchKey) ?? (Number(dv?.assigned_quantity) || 0);
+        const pName = currentOrder.product_name.includes(' - ') ? currentOrder.product_name.split(' - ').slice(1).join(' - ') : currentOrder.product_name;
+        const vehicleLabel = plate
+          ? (qty ? `Xe: ${plate} (${pName}: SL ${qty})` : `Xe: ${plate}`)
+          : undefined;
+
+        (dv?.image_urls || []).forEach((u) => pushDeliveryMeta(
+          u,
+          'vehicle',
           vehicleLabel,
-          dOrder.delivery_date,
-          dOrder.delivery_time,
-          dOrder.product_name,
-          dOrder.driver_delivered_at,
-          dOrder.created_at
+          dv.delivery_date || currentOrder.delivery_date,
+          dv.delivery_time || currentOrder.delivery_time,
+          currentOrder.product_name,
+          currentOrder.driver_delivered_at,
+          currentOrder.created_at
+        ));
+      });
+
+      currentOrder?.payment_collections?.forEach(pc => {
+        const plate = pc.vehicle_id ? vehiclePlateMap.get(pc.vehicle_id) : undefined;
+        const vehicleLabel = plate ? `Thu tiền - Xe: ${plate}` : 'Thu tiền';
+
+        if (pc.image_url) pushDeliveryMeta(
+          pc.image_url,
+          'payment',
+          vehicleLabel,
+          currentOrder.delivery_date,
+          currentOrder.delivery_time,
+          currentOrder.product_name,
+          currentOrder.driver_delivered_at,
+          currentOrder.created_at
+        );
+        if (pc.image_urls && Array.isArray(pc.image_urls)) {
+          pc.image_urls.forEach((u) => pushDeliveryMeta(
+            u,
+            'payment',
+            vehicleLabel,
+            currentOrder.delivery_date,
+            currentOrder.delivery_time,
+            currentOrder.product_name,
+            currentOrder.driver_delivered_at,
+            currentOrder.created_at
+          ));
+        }
+      });
+
+      if (currentOrder?.image_url) pushDeliveryMeta(
+        currentOrder.image_url,
+        'delivery',
+        undefined,
+        currentOrder.delivery_date,
+        currentOrder.delivery_time,
+        currentOrder.product_name,
+        currentOrder.driver_delivered_at,
+        currentOrder.created_at
+      );
+      if (currentOrder?.image_urls && Array.isArray(currentOrder.image_urls)) {
+        currentOrder.image_urls.forEach((u) => pushDeliveryMeta(
+          u,
+          'delivery',
+          undefined,
+          currentOrder.delivery_date,
+          currentOrder.delivery_time,
+          currentOrder.product_name,
+          currentOrder.driver_delivered_at,
+          currentOrder.created_at
         ));
       }
     });
 
-    // 3) Ảnh chung của delivery order (legacy/global)
-    if (dOrder?.image_url) pushDeliveryMeta(
-      dOrder.image_url, 
-      'delivery', 
-      undefined,
-      dOrder.delivery_date,
-      dOrder.delivery_time,
-      dOrder.product_name,
-      dOrder.driver_delivered_at,
-      dOrder.created_at
-    );
-    if (dOrder?.image_urls && Array.isArray(dOrder.image_urls)) {
-      dOrder.image_urls.forEach((u) => pushDeliveryMeta(
-        u, 
-        'delivery', 
-        undefined,
-        dOrder.delivery_date,
-        dOrder.delivery_time,
-        dOrder.product_name,
-        dOrder.driver_delivered_at,
-        dOrder.created_at
-      ));
-    }
-
     receiptImages = [...new Set(receiptImages)];
     importImages = [...new Set(importImages)];
-    deliveryImages = [...new Set(deliveryImages)];
     deliveryImageMeta = deliveryImageMeta.filter(
-      (item, idx, arr) => arr.findIndex((x) => x.url === item.url) === idx
+      (item, idx, arr) => arr.findIndex((x) =>
+        x.url === item.url
+        && x.source === item.source
+        && x.vehicleLabel === item.vehicleLabel
+        && x.deliveryDate === item.deliveryDate
+        && x.deliveryTime === item.deliveryTime
+      ) === idx
     );
+    deliveryImages = deliveryImageMeta.map((item) => item.url);
 
-    orderCode = linkedImportOrder?.order_code || linkedVegetableOrder?.order_code || 'N/A';
+    const firstImport = pickRelation(sourceOrders[0]?.import_orders);
+    const firstVeg = pickRelation(sourceOrders[0]?.vegetable_orders);
+    orderCode = firstImport?.order_code || firstVeg?.order_code || 'N/A';
     orderLabel = dOrder?.product_name || orderCode;
   } else if (isImport) {
     iOrder = order;
     receiptImages = [];
     if (iOrder.receipt_image_url) {
       if (iOrder.receipt_image_url.includes(',')) {
-        receiptImages.push(...iOrder.receipt_image_url.split(',').map(s => s.trim()));
+        receiptImages.push(...iOrder.receipt_image_url.split(',').map((s: string) => s.trim()));
       } else {
         receiptImages.push(iOrder.receipt_image_url);
       }
@@ -367,7 +438,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
       const vehicleLabel = plate ? `Xe: ${plate}` : undefined;
       
       if (url.includes(',')) {
-        url.split(',').forEach(u => {
+        url.split(',').forEach((u: string) => {
           const t = u.trim();
           if (t) {
             deliveryImages.push(t);
@@ -426,7 +497,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     const eOrder = order;
     deliveryImages = [];
     if (eOrder?.image_url) {
-      if (eOrder.image_url.includes(',')) deliveryImages.push(...eOrder.image_url.split(',').map(s => s.trim()));
+      if (eOrder.image_url.includes(',')) deliveryImages.push(...eOrder.image_url.split(',').map((s: string) => s.trim()));
       else deliveryImages.push(eOrder.image_url);
     }
     if (eOrder?.image_urls && Array.isArray(eOrder.image_urls)) deliveryImages.push(...eOrder.image_urls);
@@ -436,9 +507,11 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
   }
 
   /** Ảnh từ phiếu nhập: biên nhận trước, sau đó ảnh từng dòng hàng (trùng URL chỉ giữ lần đầu). */
-  const nhapHangImages = [...new Set([...receiptImages, ...importImages])];
+  const nhapHangImages = isDelivery
+    ? nhapHangImageMeta.map((item) => item.url)
+    : [...new Set([...receiptImages, ...importImages])];
   const nhanHangImages = deliveryImages;
-  const nhanHangImageMetaMap = new Map(deliveryImageMeta.map((item) => [item.url, item]));
+  const nhanHangImageMeta = deliveryImageMeta;
 
   if (isImport && iOrder) {
     const rawReceiver = iOrder.receiver_name || iOrder.profiles?.full_name || iOrder.received_by || null;
@@ -456,7 +529,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     });
   }
 
-  if (isDelivery && dOrderForNhapMeta) {
+  if (isDelivery && dOrderForNhapMeta && nhapHangImageMeta.length === 0) {
     const importOrderMeta = pickRelation(dOrderForNhapMeta.import_orders);
     const vegetableOrderMeta = pickRelation(dOrderForNhapMeta.vegetable_orders);
 
@@ -594,7 +667,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
                   >
                     <img src={cloudinaryMedium(img)} alt={`Nhận hàng ${idx + 1}`} className="w-full h-full object-cover" />
                     {(() => {
-                      const meta = nhanHangImageMetaMap.get(img);
+                      const meta = nhanHangImageMeta[idx];
                       if (!meta) return null;
                       
                       const showMeta = meta.vehicleLabel || meta.deliveryDate || meta.productName;

@@ -24,8 +24,7 @@ const RevertVehicleDialog: React.FC<Props> = ({
   onClose,
 }) => {
   const revertMutation = useRevertVehicle();
-  // Track selection by delivery_vehicle.id (specific trip) instead of vehicle_id
-  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [selectedBatchKey, setSelectedBatchKey] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
 
   if (!isOpen && !isClosing) return null;
@@ -35,16 +34,52 @@ const RevertVehicleDialog: React.FC<Props> = ({
     (dv) => (dv.assigned_quantity || 0) > 0
   );
 
-  const revertableTrips = isAdmin
+  const candidateTrips = isAdmin
     ? assignedVehicles
     : assignedVehicles.filter((dv) => dv.vehicle_id && myVehicleIds.includes(dv.vehicle_id));
 
-  const handleRevert = async (trip: DeliveryVehicle) => {
+  const revertableTrips = Array.from(candidateTrips.reduce((map, dv) => {
+    const key = `${dv.delivery_order_id || order.id}|${dv.vehicle_id || ''}|${dv.driver_id || ''}|${dv.delivery_date || ''}|${(dv.delivery_time || '').slice(0, 5)}`;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, {
+        key,
+        delivery_order_id: dv.delivery_order_id || order.id,
+        vehicle_id: dv.vehicle_id,
+        delivery_date: dv.delivery_date,
+        delivery_time: dv.delivery_time,
+        assigned_quantity: Number(dv.assigned_quantity) || 0,
+        vehicles: dv.vehicles,
+        tripIds: dv.id ? [dv.id] : [],
+      });
+      return map;
+    }
+
+    existing.assigned_quantity += Number(dv.assigned_quantity) || 0;
+    if (!existing.delivery_time && dv.delivery_time) existing.delivery_time = dv.delivery_time;
+    if (dv.id) existing.tripIds.push(dv.id);
+    return map;
+  }, new Map<string, {
+    key: string;
+    delivery_order_id: string;
+    vehicle_id?: string;
+    delivery_date?: string;
+    delivery_time?: string;
+    assigned_quantity: number;
+    vehicles?: DeliveryVehicle['vehicles'];
+    tripIds: string[];
+  }>()).values());
+
+  const handleRevert = async (trip: {
+    delivery_order_id: string;
+    vehicle_id?: string;
+    delivery_date?: string;
+  }) => {
     if (!trip.vehicle_id) return;
     setConfirming(true);
     try {
       await revertMutation.mutateAsync({
-        id: order.id,
+        id: trip.delivery_order_id || order.id,
         vehicleId: trip.vehicle_id,
         deliveryDate: trip.delivery_date,
       });
@@ -55,7 +90,7 @@ const RevertVehicleDialog: React.FC<Props> = ({
   };
 
   const handleAdminConfirm = async () => {
-    const selectedTrip = revertableTrips.find((dv) => dv.id === selectedTripId);
+    const selectedTrip = revertableTrips.find((dv) => dv.key === selectedBatchKey);
     if (!selectedTrip) return;
     await handleRevert(selectedTrip);
   };
@@ -131,22 +166,22 @@ const RevertVehicleDialog: React.FC<Props> = ({
               <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Chọn chuyến muốn hoàn tác</span>
               {revertableTrips.map((dv) => (
                 <button
-                  key={dv.id}
-                  onClick={() => setSelectedTripId(dv.id)}
+                  key={dv.key}
+                  onClick={() => setSelectedBatchKey(dv.key)}
                   className={clsx(
                     'flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left',
-                    selectedTripId === dv.id
+                    selectedBatchKey === dv.key
                       ? 'border-amber-500/50 bg-amber-500/10'
                       : 'border-border bg-muted/20 hover:bg-muted/40'
                   )}
                 >
                   <div className={clsx(
                     'w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0',
-                    selectedTripId === dv.id
+                    selectedBatchKey === dv.key
                       ? 'border-amber-500 bg-amber-500'
                       : 'border-border'
                   )}>
-                    {selectedTripId === dv.id && (
+                    {selectedBatchKey === dv.key && (
                       <div className="w-1.5 h-1.5 rounded-full bg-white" />
                     )}
                   </div>
@@ -176,7 +211,7 @@ const RevertVehicleDialog: React.FC<Props> = ({
               <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Chuyến sẽ hoàn tác</span>
               {revertableTrips.map((dv) => (
                 <div
-                  key={dv.id}
+                  key={dv.key}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/5"
                 >
                   <Truck size={14} className="text-amber-600 shrink-0" />
@@ -216,7 +251,7 @@ const RevertVehicleDialog: React.FC<Props> = ({
               revertMutation.isPending ||
               confirming ||
               revertableTrips.length === 0 ||
-              (isAdmin && !selectedTripId)
+              (isAdmin && !selectedBatchKey)
             }
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 text-white text-[13px] font-bold hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >

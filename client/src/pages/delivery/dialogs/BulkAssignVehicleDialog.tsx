@@ -87,7 +87,11 @@ const BulkAssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, orders, o
 
           await assignMutation.mutateAsync({
             id: order.id,
-            payload: { assignments: existingAssignments, delivered_at: deliveredAt }
+            payload: {
+              assignments: existingAssignments,
+              delivered_at: deliveredAt,
+              ...(order.source_order_ids && order.source_order_ids.length > 0 ? { source_order_ids: order.source_order_ids } : {})
+            }
           });
         })
       );

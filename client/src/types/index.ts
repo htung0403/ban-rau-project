@@ -305,6 +305,8 @@ export interface DeliveryOrder {
   warehouse_confirmed_at?: string | null;
   export_order_payment_status?: PaymentStatus;
   price_confirmed?: boolean;
+  image_url?: string | null;
+  image_urls?: string[];
   created_at: string;
   updated_at: string;
   // Nested
@@ -325,6 +327,20 @@ export interface DeliveryOrder {
       payment_status?: 'paid' | 'unpaid' | 'partial';
       profiles?: { full_name: string };
       selected_alias?: string | null;
+      receipt_image_url?: string | null;
+      receipt_image_urls?: string[];
+      import_order_items?: Array<{
+        id?: string;
+        image_url?: string | null;
+        image_urls?: string[];
+        products?: { name?: string };
+      }>;
+      vegetable_order_items?: Array<{
+        id?: string;
+        image_url?: string | null;
+        image_urls?: string[];
+        products?: { name?: string };
+      }>;
       deleted_at?: string | null;
     };
     vegetable_orders?: {
@@ -343,6 +359,20 @@ export interface DeliveryOrder {
       payment_status?: 'paid' | 'unpaid' | 'partial';
       profiles?: { full_name: string };
       selected_alias?: string | null;
+      receipt_image_url?: string | null;
+      receipt_image_urls?: string[];
+      import_order_items?: Array<{
+        id?: string;
+        image_url?: string | null;
+        image_urls?: string[];
+        products?: { name?: string };
+      }>;
+      vegetable_order_items?: Array<{
+        id?: string;
+        image_url?: string | null;
+        image_urls?: string[];
+        products?: { name?: string };
+      }>;
       deleted_at?: string | null;
     };
   payment_collections?: {
@@ -352,6 +382,8 @@ export interface DeliveryOrder {
     image_url?: string;
     image_urls?: string[];
   }[];
+  source_order_ids?: string[];
+  source_orders?: DeliveryOrder[];
 }
 
 // --- Vehicles ---

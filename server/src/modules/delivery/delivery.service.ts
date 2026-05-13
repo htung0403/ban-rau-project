@@ -551,6 +551,142 @@ export class DeliveryService {
     return data;
   }
 
+  static async assignVehiclesByGroup(
+    sourceOrderIds: string[],
+    assignments: any[],
+    userId?: string,
+    exportPaymentStatus?: 'unpaid' | 'paid',
+    unit_price?: number,
+    clientDeliveredAtIso?: string | null,
+    delivery_date?: string,
+    delivery_time?: string
+  ) {
+    const uniqueSourceIds = Array.from(new Set((sourceOrderIds || []).filter(Boolean)));
+    if (uniqueSourceIds.length === 0) {
+      throw new Error('Thiếu source_order_ids để phân xe theo nhóm.');
+    }
+
+    const { data: sourceOrders, error: sourceError } = await supabaseService
+      .from('delivery_orders')
+      .select('id, total_quantity, created_at')
+      .in('id', uniqueSourceIds);
+
+    if (sourceError) throw sourceError;
+    if (!sourceOrders || sourceOrders.length === 0) {
+      throw new Error('Không tìm thấy đơn nguồn để phân xe theo nhóm.');
+    }
+
+    const sourceById = new Map<string, any>();
+    sourceOrders.forEach((order: any) => sourceById.set(order.id, order));
+
+    const orderedSources = uniqueSourceIds
+      .map((id) => sourceById.get(id))
+      .filter(Boolean)
+      .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+    const totalCapacity = orderedSources.reduce((sum: number, order: any) => sum + (Number(order.total_quantity) || 0), 0);
+    const totalRequested = assignments.reduce((sum: number, row: any) => sum + (Number(row.quantity) || 0), 0);
+
+    if (totalRequested > totalCapacity) {
+      logger.warn(`[assignVehiclesByGroup] Over-assignment allowed: requested=${totalRequested}, capacity=${totalCapacity}`);
+    }
+
+    const perOrderAssignments = new Map<string, any[]>();
+    orderedSources.forEach((order: any) => perOrderAssignments.set(order.id, []));
+
+    const getUsedOfOrder = (orderId: string) => {
+      const rows = perOrderAssignments.get(orderId) || [];
+      return rows.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
+    };
+
+    for (const row of assignments) {
+      const rowQty = Number(row.quantity) || 0;
+      if (rowQty <= 0) continue;
+
+      let remainingQty = rowQty;
+      const rowExpectedAmount = Math.max(0, Number(row.expected_amount || 0));
+      let allocatedExpected = 0;
+
+      for (const source of orderedSources) {
+        if (remainingQty <= 0) break;
+
+        const sourceId = source.id as string;
+        const sourceTotal = Number(source.total_quantity) || 0;
+        const used = getUsedOfOrder(sourceId);
+        const available = Math.max(0, sourceTotal - used);
+        if (available <= 0) continue;
+
+        const allocatedQty = Math.min(available, remainingQty);
+        if (allocatedQty <= 0) continue;
+
+        let allocatedAmount = 0;
+        if (rowExpectedAmount > 0) {
+          if (remainingQty === allocatedQty) {
+            allocatedAmount = Math.max(0, rowExpectedAmount - allocatedExpected);
+          } else {
+            allocatedAmount = Math.round((rowExpectedAmount * allocatedQty) / rowQty);
+            allocatedExpected += allocatedAmount;
+          }
+        }
+
+        const sourceRows = perOrderAssignments.get(sourceId) || [];
+        sourceRows.push({
+          ...row,
+          quantity: allocatedQty,
+          expected_amount: allocatedAmount,
+        });
+        perOrderAssignments.set(sourceId, sourceRows);
+
+        remainingQty -= allocatedQty;
+      }
+
+      if (remainingQty > 0) {
+        const fallbackSource = orderedSources[orderedSources.length - 1];
+        if (!fallbackSource) {
+          throw new Error('Không tìm thấy đơn nguồn để ghi nhận phần vượt số lượng.');
+        }
+
+        const fallbackSourceId = fallbackSource.id as string;
+        const overflowExpectedAmount = rowExpectedAmount > 0
+          ? Math.max(0, rowExpectedAmount - allocatedExpected)
+          : 0;
+
+        const sourceRows = perOrderAssignments.get(fallbackSourceId) || [];
+        sourceRows.push({
+          ...row,
+          quantity: remainingQty,
+          expected_amount: overflowExpectedAmount,
+        });
+        perOrderAssignments.set(fallbackSourceId, sourceRows);
+
+        logger.warn(`[assignVehiclesByGroup] Overflow quantity allocated to fallback source order: source=${fallbackSourceId}, overflow=${remainingQty}`);
+      }
+    }
+
+    const result: Record<string, any> = {};
+    for (const source of orderedSources) {
+      const sourceId = source.id as string;
+      const sourceRows = perOrderAssignments.get(sourceId) || [];
+      if (sourceRows.length === 0) continue;
+
+      const saved = await this.assignVehicles(
+        sourceId,
+        sourceRows,
+        undefined,
+        userId,
+        exportPaymentStatus,
+        unit_price,
+        undefined,
+        clientDeliveredAtIso,
+        delivery_date,
+        delivery_time
+      );
+      result[sourceId] = saved;
+    }
+
+    return { success: true, updated_orders: Object.keys(result).length, details: result };
+  }
+
   static async updateQuantity(id: string, deliveredQty: number) {
     // 1. Get current data
     const { data: order, error: fetchError } = await supabaseService
@@ -588,23 +724,18 @@ export class DeliveryService {
   }
 
   static async confirmOrders(ids: string[]) {
-    // 1. Fetch the delivery orders being confirmed
     const { data: sourceOrders, error: sourceError } = await supabaseService
       .from('delivery_orders')
-      .select(`
-        *, 
-        import_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, import_order_items(id, image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:profiles!received_by(full_name)), 
-        vegetable_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, vegetable_order_items(id, image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:profiles!received_by(full_name))
-      `)
+      .select('id, import_order_id, vegetable_order_id')
       .in('id', ids)
       .eq('status', 'hang_o_sg');
 
     if (sourceError) throw sourceError;
-    if (!sourceOrders || sourceOrders.length === 0) return [];
+    if (!sourceOrders || sourceOrders.length === 0) return { success: true, updated: 0 };
 
-    // Clear selected_alias in source orders (conversion to original name)
-    const allImportIds = sourceOrders.map(o => o.import_order_id).filter(Boolean);
-    const allVegIds = sourceOrders.map(o => o.vegetable_order_id).filter(Boolean);
+    const allImportIds = sourceOrders.map((o: any) => o.import_order_id).filter(Boolean);
+    const allVegIds = sourceOrders.map((o: any) => o.vegetable_order_id).filter(Boolean);
+
     if (allImportIds.length > 0) {
       await supabaseService.from('import_orders').update({ selected_alias: null }).in('id', allImportIds);
     }
@@ -612,297 +743,15 @@ export class DeliveryService {
       await supabaseService.from('vegetable_orders').update({ selected_alias: null }).in('id', allVegIds);
     }
 
-    const getReceiverName = (o: any) => {
-      const io = o.import_orders || o.vegetable_orders;
-      if (!io) return '-';
-      return io.customers?.name || io.receiver_name?.trim() || io.profiles?.full_name || '-';
-    };
+    const targetIds = sourceOrders.map((o: any) => o.id);
+    const { error: updateError } = await supabaseService
+      .from('delivery_orders')
+      .update({ status: 'can_giao', confirmed_at: new Date().toISOString() })
+      .in('id', targetIds);
 
-    const getSourcePaymentStatus = (o: any): string => {
-      const io = o.import_orders || o.vegetable_orders;
-      if (!io) return 'unpaid';
-      return io.payment_status || 'unpaid';
-    };
+    if (updateError) throw updateError;
 
-    const collectCategorizedImages = (orders: any[]) => {
-      const receiptImages = new Set<string>();
-      const deliveryImages = new Set<string>();
-      const itemImages = new Set<string>();
-
-      const pushReceipts = (refs: any) => {
-        const list = Array.isArray(refs) ? refs : refs ? [refs] : [];
-        for (const ref of list) {
-          if (!ref) continue;
-          if (ref.receipt_image_url) {
-            if (typeof ref.receipt_image_url === 'string' && ref.receipt_image_url.includes(',')) {
-              ref.receipt_image_url.split(',').forEach((u: string) => receiptImages.add(u.trim()));
-            } else if (typeof ref.receipt_image_url === 'string') {
-              receiptImages.add(ref.receipt_image_url);
-            }
-          }
-          if (ref.receipt_image_urls && Array.isArray(ref.receipt_image_urls)) {
-            ref.receipt_image_urls.forEach((u: string) => {
-              if (typeof u === 'string') receiptImages.add(u);
-            });
-          }
-        }
-      };
-
-      const pushItems = (refs: any) => {
-        const list = Array.isArray(refs) ? refs : refs ? [refs] : [];
-        for (const ref of list) {
-          if (!ref) continue;
-          if (ref.image_url) {
-            if (typeof ref.image_url === 'string' && ref.image_url.includes(',')) {
-              ref.image_url.split(',').forEach((u: string) => itemImages.add(u.trim()));
-            } else if (typeof ref.image_url === 'string') {
-              itemImages.add(ref.image_url);
-            }
-          }
-          if (ref.image_urls && Array.isArray(ref.image_urls)) {
-            ref.image_urls.forEach((u: string) => {
-              if (typeof u === 'string') itemImages.add(u);
-            });
-          }
-        }
-      };
-
-      const pushDeliveries = (refs: any) => {
-        const list = Array.isArray(refs) ? refs : refs ? [refs] : [];
-        for (const ref of list) {
-          if (!ref) continue;
-          if (ref.image_url) {
-            if (typeof ref.image_url === 'string' && ref.image_url.includes(',')) {
-              ref.image_url.split(',').forEach((u: string) => deliveryImages.add(u.trim()));
-            } else if (typeof ref.image_url === 'string') {
-              deliveryImages.add(ref.image_url);
-            }
-          }
-          if (ref.image_urls && Array.isArray(ref.image_urls)) {
-            ref.image_urls.forEach((u: string) => {
-              if (typeof u === 'string') deliveryImages.add(u);
-            });
-          }
-        }
-      };
-
-      for (const o of orders) {
-        if (!o) continue;
-
-        pushDeliveries(o);
-
-        const linkedImports = Array.isArray(o.import_orders) ? o.import_orders : o.import_orders ? [o.import_orders] : [];
-        pushReceipts(linkedImports);
-
-        const linkedVegs = Array.isArray(o.vegetable_orders) ? o.vegetable_orders : o.vegetable_orders ? [o.vegetable_orders] : [];
-        pushReceipts(linkedVegs);
-
-        const targetProductName = o.product_name ? (
-          o.product_name.includes(' - ')
-            ? o.product_name.split(' - ').slice(1).join(' - ').trim().toLowerCase()
-            : o.product_name.trim().toLowerCase()
-        ) : null;
-
-        const filterItems = (items: any) => {
-          if (!items || !Array.isArray(items)) return [];
-          return items.filter((i: any) => {
-            const iName = i.products?.name?.toLowerCase() || '';
-            return !targetProductName || iName === targetProductName || targetProductName.includes(iName) || iName.includes(targetProductName);
-          });
-        };
-
-        linkedImports.forEach((io: any) => pushItems(filterItems(io?.import_order_items)));
-        linkedVegs.forEach((vo: any) => pushItems(filterItems(vo?.vegetable_order_items)));
-      }
-      return {
-        receiptImages: Array.from(receiptImages).filter(Boolean),
-        deliveryImages: Array.from(deliveryImages).filter(Boolean),
-        itemImages: Array.from(itemImages).filter(Boolean)
-      };
-    };
-
-    // Group source orders by Key (paid orders are never merged with unpaid)
-    const groups: Record<string, any[]> = {};
-    for (const order of sourceOrders) {
-      const receiverName = getReceiverName(order);
-      const productName = (order.product_name || '').trim();
-      const paymentStatus = getSourcePaymentStatus(order);
-      const key = `${order.delivery_date}|${order.order_category || 'standard'}|${receiverName}|${productName}|${paymentStatus}`;
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(order);
-    }
-
-    // Process each group
-    for (const key of Object.keys(groups)) {
-      const groupOrders = groups[key];
-      const firstOrder = groupOrders[0];
-      const receiverName = getReceiverName(firstOrder);
-      const groupPaymentStatus = getSourcePaymentStatus(firstOrder);
-      const isPaidGroup = groupPaymentStatus === 'paid';
-
-      let targetOrder = null;
-
-      if (!isPaidGroup) {
-        const { data: existingCandidates } = await supabaseService
-          .from('delivery_orders')
-          .select(`
-               *, 
-               import_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, import_order_items(id, image_url, image_urls, products(name)), customers:customers!import_orders_customer_id_fkey(name), profiles:profiles!received_by(full_name)), 
-               vegetable_orders(customer_id, receiver_name, selected_alias, payment_status, receipt_image_url, receipt_image_urls, vegetable_order_items(id, image_url, image_urls, products(name)), customers:customers!vegetable_orders_customer_id_fkey(name), profiles:profiles!received_by(full_name)), 
-               delivery_vehicles(id, assigned_quantity)
-             `)
-          .eq('status', 'can_giao')
-          .eq('delivery_date', firstOrder.delivery_date)
-          .eq('order_category', firstOrder.order_category || 'standard')
-          .eq('product_name', firstOrder.product_name);
-
-        if (existingCandidates && existingCandidates.length > 0) {
-          targetOrder = existingCandidates.find(o => {
-            const matchName = getReceiverName(o) === receiverName;
-            const assignedQty = (o.delivery_vehicles || []).reduce((sum: number, dv: any) => sum + Number(dv.assigned_quantity || 0), 0);
-            const candidatePaymentStatus = getSourcePaymentStatus(o);
-            return matchName && assignedQty === 0 && candidatePaymentStatus !== 'paid';
-          });
-        }
-      }
-
-      if (targetOrder) {
-        // Merge all groupOrders into targetOrder
-        const addedQuantity = groupOrders.reduce((sum, o) => sum + (Number(o.total_quantity) || 0), 0);
-        const newTotal = Number(targetOrder.total_quantity || 0) + addedQuantity;
-
-        const allImages = collectCategorizedImages([targetOrder, ...groupOrders]);
-
-        await supabaseService
-          .from('delivery_orders')
-          .update({
-            total_quantity: newTotal,
-            image_urls: allImages.deliveryImages.length > 0 ? allImages.deliveryImages : targetOrder.image_urls,
-            image_url: allImages.deliveryImages.length > 0 ? allImages.deliveryImages[0] : targetOrder.image_url
-          })
-          .eq('id', targetOrder.id);
-
-        if (allImages.receiptImages.length > 0) {
-          if (targetOrder.import_order_id) {
-            await supabaseService.from('import_orders')
-              .update({ receipt_image_urls: allImages.receiptImages, receipt_image_url: allImages.receiptImages[0] })
-              .eq('id', targetOrder.import_order_id);
-          } else if (targetOrder.vegetable_order_id) {
-            await supabaseService.from('vegetable_orders')
-              .update({ receipt_image_urls: allImages.receiptImages, receipt_image_url: allImages.receiptImages[0] })
-              .eq('id', targetOrder.vegetable_order_id);
-          }
-        }
-
-        if (allImages.itemImages.length > 0) {
-          const targetProductName = targetOrder.product_name ? (
-            targetOrder.product_name.includes(' - ')
-              ? targetOrder.product_name.split(' - ').slice(1).join(' - ').trim().toLowerCase()
-              : targetOrder.product_name.trim().toLowerCase()
-          ) : null;
-
-          const orderObj = targetOrder.import_orders || targetOrder.vegetable_orders;
-          const isVeg = !!targetOrder.vegetable_order_id;
-          const items = isVeg ? orderObj?.vegetable_order_items : orderObj?.import_order_items;
-
-          if (items && Array.isArray(items)) {
-            const matchingItem = items.find((i: any) => {
-              const iName = i.products?.name?.toLowerCase() || '';
-              return !targetProductName || iName === targetProductName || targetProductName.includes(iName) || iName.includes(targetProductName);
-            });
-
-            if (matchingItem && matchingItem.id) {
-              const table = isVeg ? 'vegetable_order_items' : 'import_order_items';
-              await supabaseService.from(table)
-                .update({ image_urls: allImages.itemImages, image_url: allImages.itemImages[0] })
-                .eq('id', matchingItem.id);
-            }
-          }
-        }
-
-        // Delete the groupOrders
-        const idsToDelete = groupOrders.map(o => o.id);
-        await supabaseService.from('delivery_orders').delete().in('id', idsToDelete);
-      } else if (isPaidGroup) {
-        // Paid orders: confirm each individually, never merge
-        const allIds = groupOrders.map(o => o.id);
-        await supabaseService
-          .from('delivery_orders')
-          .update({ status: 'can_giao', confirmed_at: new Date().toISOString() })
-          .in('id', allIds);
-      } else {
-        // Merge groupOrders into the firstOrder
-        const targetId = firstOrder.id;
-        const remainingOrders = groupOrders.slice(1);
-
-        if (remainingOrders.length > 0) {
-          const addedQuantity = remainingOrders.reduce((sum, o) => sum + (Number(o.total_quantity) || 0), 0);
-          const newTotal = Number(firstOrder.total_quantity || 0) + addedQuantity;
-
-          const allImages = collectCategorizedImages(groupOrders);
-
-          await supabaseService
-            .from('delivery_orders')
-            .update({
-              total_quantity: newTotal,
-              status: 'can_giao',
-              confirmed_at: new Date().toISOString(),
-              image_urls: allImages.deliveryImages.length > 0 ? allImages.deliveryImages : firstOrder.image_urls,
-              image_url: allImages.deliveryImages.length > 0 ? allImages.deliveryImages[0] : firstOrder.image_url
-            })
-            .eq('id', targetId);
-
-          if (allImages.receiptImages.length > 0) {
-            if (firstOrder.import_order_id) {
-              await supabaseService.from('import_orders')
-                .update({ receipt_image_urls: allImages.receiptImages, receipt_image_url: allImages.receiptImages[0] })
-                .eq('id', firstOrder.import_order_id);
-            } else if (firstOrder.vegetable_order_id) {
-              await supabaseService.from('vegetable_orders')
-                .update({ receipt_image_urls: allImages.receiptImages, receipt_image_url: allImages.receiptImages[0] })
-                .eq('id', firstOrder.vegetable_order_id);
-            }
-          }
-
-          if (allImages.itemImages.length > 0) {
-            const targetProductName = firstOrder.product_name ? (
-              firstOrder.product_name.includes(' - ')
-                ? firstOrder.product_name.split(' - ').slice(1).join(' - ').trim().toLowerCase()
-                : firstOrder.product_name.trim().toLowerCase()
-            ) : null;
-
-            const orderObj = firstOrder.import_orders || firstOrder.vegetable_orders;
-            const isVeg = !!firstOrder.vegetable_order_id;
-            const items = isVeg ? orderObj?.vegetable_order_items : orderObj?.import_order_items;
-
-            if (items && Array.isArray(items)) {
-              const matchingItem = items.find((i: any) => {
-                const iName = i.products?.name?.toLowerCase() || '';
-                return !targetProductName || iName === targetProductName || targetProductName.includes(iName) || iName.includes(targetProductName);
-              });
-
-              if (matchingItem && matchingItem.id) {
-                const table = isVeg ? 'vegetable_order_items' : 'import_order_items';
-                await supabaseService.from(table)
-                  .update({ image_urls: allImages.itemImages, image_url: allImages.itemImages[0] })
-                  .eq('id', matchingItem.id);
-              }
-            }
-          }
-
-          const idsToDelete = remainingOrders.map(o => o.id);
-          await supabaseService.from('delivery_orders').delete().in('id', idsToDelete);
-        } else {
-          // Just update its status to 'can_giao'
-          await supabaseService
-            .from('delivery_orders')
-            .update({ status: 'can_giao', confirmed_at: new Date().toISOString() })
-            .eq('id', targetId);
-        }
-      }
-    }
-
-    return { success: true };
+    return { success: true, updated: targetIds.length };
   }
 
 

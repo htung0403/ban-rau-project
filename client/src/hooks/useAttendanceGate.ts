@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAttendance } from './queries/useHR';
+import { useLockSchedule } from './queries/useSystemSettings';
+import type { LockSchedule } from '../types/systemSettings';
 
 /**
  * Gets current date string in Vietnam timezone (YYYY-MM-DD)
@@ -39,6 +41,53 @@ export function getVietnamCurrentHour(): number {
   );
 }
 
+function getVietnamCurrentDay(): number {
+  const weekday = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    weekday: 'short'
+  }).format(new Date());
+
+  const map: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  };
+
+  return map[weekday] ?? 0;
+}
+
+function parseTimeToMinutes(time: string): number | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(time);
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+
+  return hours * 60 + minutes;
+}
+
+function isWithinRoleSchedule(roleSchedule: LockSchedule['schedules'][number]): boolean {
+  const start = parseTimeToMinutes(roleSchedule.start_time);
+  const end = parseTimeToMinutes(roleSchedule.end_time);
+
+  if (start === null || end === null || start >= end) return true;
+
+  const currentDay = getVietnamCurrentDay();
+  if (!roleSchedule.days.includes(currentDay)) return false;
+
+  const nowMinutes = parseTimeToMinutes(getVietnamNowTimeStr());
+  if (nowMinutes === null) return true;
+
+  return nowMinutes >= start && nowMinutes < end;
+}
+
 const ALLOWED_PATHS_BEFORE_CHECKIN = new Set([
   '/hanh-chinh-nhan-su',
   '/hanh-chinh-nhan-su/cham-cong',
@@ -53,17 +102,30 @@ export function useAttendanceGate() {
   const isNhanVienNhanHang = user?.role === 'nhan_vien_nhan_hang';
 
   const { data: attendanceData, isLoading } = useAttendance(todayStr, todayStr, todayStr);
+  const { data: lockSchedule, isLoading: isLockScheduleLoading } = useLockSchedule();
 
   const hasCheckedIn = useMemo(() => {
     if (!user || !attendanceData) return false;
     return attendanceData.some((a) => a.employee_id === user.id && a.is_present);
   }, [user, attendanceData]);
 
-  const isAfterHours = currentHour >= 19;
-  const isLocked = !!user && !isAdmin && !isNhanVienNhanHang && isAfterHours;
-  const mustCheckIn = !!user && !isAdmin && !isLoading && !hasCheckedIn && !isLocked;
+  const roleSchedule = useMemo(() => {
+    if (!user || !lockSchedule?.schedules?.length) return null;
+    return lockSchedule.schedules.find((item) => item.role_key === user.role) || null;
+  }, [user, lockSchedule]);
 
-  return { mustCheckIn, isLoading, hasCheckedIn, isLocked };
+  const lockedByRoleSchedule = useMemo(() => {
+    if (!user || isAdmin || !roleSchedule) return false;
+    return !isWithinRoleSchedule(roleSchedule);
+  }, [user, isAdmin, roleSchedule]);
+
+  const isAfterHours = currentHour >= 19;
+  const lockedByLegacyRule = !!user && !isAdmin && !isNhanVienNhanHang && !roleSchedule && isAfterHours;
+  const isLocked = lockedByRoleSchedule || lockedByLegacyRule;
+  const gateLoading = isLoading || isLockScheduleLoading;
+  const mustCheckIn = !!user && !isAdmin && !gateLoading && !hasCheckedIn && !isLocked;
+
+  return { mustCheckIn, isLoading: gateLoading, hasCheckedIn, isLocked };
 }
 
 export function isPathAllowedBeforeCheckin(path: string): boolean {

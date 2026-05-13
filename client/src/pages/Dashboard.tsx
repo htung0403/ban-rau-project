@@ -116,10 +116,10 @@ const Dashboard: React.FC = () => {
               <h2 className="text-xl lg:text-2xl font-black text-white tracking-tight uppercase">
                 Hệ thống đã khóa
               </h2>
-              <p className="text-slate-400 max-w-md text-[14px] lg:text-[15px] leading-relaxed">
-                Ứng dụng tự động đóng cửa sau <span className="text-primary font-bold">19:00</span> để đảm bảo an toàn dữ liệu. 
-                Vui lòng quay lại vào ngày làm việc tiếp theo.
-              </p>
+                <p className="text-slate-400 max-w-md text-[14px] lg:text-[15px] leading-relaxed">
+                  Bạn đang ngoài khung giờ truy cập được cấu hình cho vai trò hiện tại.
+                  Vui lòng thử lại trong khung giờ cho phép.
+                </p>
             </div>
             <div className="pt-4 flex flex-col items-center gap-4 relative z-10">
               <div className="px-4 py-2 bg-slate-800/50 rounded-full border border-slate-700/50 flex items-center gap-2">

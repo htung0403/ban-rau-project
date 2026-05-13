@@ -150,7 +150,6 @@ const VegetableImportsPage: React.FC = () => {
     allFilters.dateTo = filterDate;
   }
   if (filterStatus.length > 0) allFilters.status = filterStatus.join(',');
-  if (searchText.trim()) allFilters.search = searchText.trim();
   allFilters.order_category = 'vegetable';
   allFilters.pageSize = 9999;
 
@@ -164,6 +163,18 @@ const VegetableImportsPage: React.FC = () => {
     );
   }, [allApiResponse?.data, user, vehicles]);
   const deleteMutation = useDeleteImportOrder();
+
+  const normalizedSearchText = useMemo(
+    () => removeAccents(searchText || '').toLowerCase().trim(),
+    [searchText]
+  );
+
+  const filteredOrders = useMemo(() => {
+    if (!normalizedSearchText) return allOrders;
+    return allOrders.filter((order) =>
+      removeAccents(getSupplierName(order)).toLowerCase().includes(normalizedSearchText)
+    );
+  }, [allOrders, normalizedSearchText]);
 
   const dailyTaiRankMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -238,12 +249,12 @@ const VegetableImportsPage: React.FC = () => {
   }, [allOrders]);
 
   // Pagination handled client-side so tai rank is computed across full day
-  const totalItems = allOrders.length;
+  const totalItems = filteredOrders.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const orders = useMemo(() => {
     const start = (page - 1) * pageSize;
-    return allOrders.slice(start, start + pageSize);
-  }, [allOrders, page, pageSize]);
+    return filteredOrders.slice(start, start + pageSize);
+  }, [filteredOrders, page, pageSize]);
 
   const groupedByDateThenCustomer = useMemo(() => {
     const byDate = new Map<string, ImportOrder[]>();
@@ -370,7 +381,7 @@ const VegetableImportsPage: React.FC = () => {
           <div className="flex w-full md:flex-1 gap-2">
             <div className="flex-1">
               <SearchInput
-                placeholder="Tìm kiếm theo mã đơn, người gửi, người nhận..."
+                placeholder="Tìm kiếm tên vựa (không dấu)..."
                 defaultValue={searchText}
                 onSearch={(val) => {
                   if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);

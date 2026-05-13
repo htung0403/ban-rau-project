@@ -114,6 +114,8 @@ export function useAttendanceGate() {
     return lockSchedule.schedules.find((item) => item.role_key === user.role) || null;
   }, [user, lockSchedule]);
 
+  const forcedTimeLocked = typeof window !== 'undefined' && localStorage.getItem('time_locked') === '1';
+
   const lockedByRoleSchedule = useMemo(() => {
     if (!user || isAdmin || !roleSchedule) return false;
     return !isWithinRoleSchedule(roleSchedule);
@@ -121,7 +123,7 @@ export function useAttendanceGate() {
 
   const isAfterHours = currentHour >= 19;
   const lockedByLegacyRule = !!user && !isAdmin && !isNhanVienNhanHang && !roleSchedule && isAfterHours;
-  const isLocked = lockedByRoleSchedule || lockedByLegacyRule;
+  const isLocked = forcedTimeLocked || lockedByRoleSchedule || lockedByLegacyRule;
   const gateLoading = isLoading || isLockScheduleLoading;
   const mustCheckIn = !!user && !isAdmin && !gateLoading && !hasCheckedIn && !isLocked;
 

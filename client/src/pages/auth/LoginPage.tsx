@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -17,6 +17,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,6 +42,13 @@ const LoginPage: React.FC = () => {
       setValue('rememberMe', true);
     }
   }, [setValue]);
+
+  useEffect(() => {
+    const reason = new URLSearchParams(location.search).get('reason');
+    if (reason === 'time-locked') {
+      setServerError('Ngoài khung giờ truy cập hệ thống');
+    }
+  }, [location.search]);
 
   const onSubmit = async (data: LoginFormData) => {
     setIsSubmitting(true);

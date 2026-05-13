@@ -1,15 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation, Navigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import MobileBottomNav from './MobileBottomNav';
 import { clsx } from 'clsx';
 import { useAttendanceGate, isPathAllowedBeforeCheckin } from '../../hooks/useAttendanceGate';
+import { authApi } from '../../api/authApi';
 
 const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { mustCheckIn, isLocked } = useAttendanceGate();
   const location = useLocation();
+
+  useEffect(() => {
+    authApi.getMe().catch(() => undefined);
+  }, []);
 
   if ((mustCheckIn || isLocked) && !isPathAllowedBeforeCheckin(location.pathname)) {
     return <Navigate to="/" replace />;

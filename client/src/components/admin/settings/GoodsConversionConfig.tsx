@@ -5,6 +5,7 @@ import { useInventoryTransferRule, useUpsertSystemSetting } from '../../../hooks
 import { SETTING_KEYS, DEFAULT_INVENTORY_TRANSFER } from '../../../constants/systemSettings';
 import LoadingSkeleton from '../../shared/LoadingSkeleton';
 import ErrorState from '../../shared/ErrorState';
+import { TimePicker24h } from '../../shared/TimePicker24h';
 import type { InventoryTransferRule } from '../../../types/systemSettings';
 
 type Mode = 'hours_after_confirm' | 'fixed_time';
@@ -194,14 +195,13 @@ const GoodsConversionConfig: React.FC = () => {
             <label className="text-[12px] font-semibold text-foreground">
               Mốc giờ cố định
             </label>
-            <input
-              type="time"
+            <TimePicker24h
               value={form.fixed_time}
-              onChange={(e) => {
-                setForm((prev) => ({ ...prev, fixed_time: e.target.value }));
+              onChange={(value) => {
+                setForm((prev) => ({ ...prev, fixed_time: value }));
                 setValidationError(null);
               }}
-              className="h-10 px-3 rounded-xl border border-border bg-card text-[13px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+              className="h-10"
             />
             {validationError && (
               <p className="text-[11px] font-medium text-red-500 mt-1">{validationError}</p>

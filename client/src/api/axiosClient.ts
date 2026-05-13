@@ -27,27 +27,38 @@ axiosClient.interceptors.request.use(
 // Response interceptor — handle ApiResponse structure and 401 errors
 axiosClient.interceptors.response.use(
   (response) => {
-    // If the response follows our ApiResponse structure, unwrap the nested data
+    localStorage.removeItem('time_locked');
     if (response.data && typeof response.data === 'object' && 'success' in response.data) {
       const apiResponse = response.data;
       return {
         ...response,
         data: apiResponse.data,
-        meta: apiResponse.meta, // Attach meta to the response object just in case
+        meta: apiResponse.meta,
       } as any;
     }
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
+    const isUnauthorized = error.response?.status === 401;
+    const isTimeLocked =
+      error.response?.status === 403 &&
+      (error.response?.data?.code === 'TIME_LOCKED' || error.response?.data?.error === 'Ngoài khung giờ truy cập hệ thống');
+
+    if (isUnauthorized) {
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
-      // Only redirect if not already on login page
+      localStorage.removeItem('time_locked');
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
     }
-    // Diagnostic: log all error responses
+
+    if (isTimeLocked) {
+      localStorage.setItem('time_locked', '1');
+      if (window.location.pathname !== '/') {
+        window.location.href = '/';
+      }
+    }
     console.error('[axiosClient] Error response:', {
       status: error.response?.status,
       data: error.response?.data,

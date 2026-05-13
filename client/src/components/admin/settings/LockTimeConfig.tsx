@@ -5,6 +5,7 @@ import { useLockSchedule, useUpsertSystemSetting } from '../../../hooks/queries/
 import { SETTING_KEYS } from '../../../constants/systemSettings';
 import LoadingSkeleton from '../../shared/LoadingSkeleton';
 import ErrorState from '../../shared/ErrorState';
+import { TimePicker24h } from '../../shared/TimePicker24h';
 import type { AppRole } from '../../../types';
 import type { LockSchedule } from '../../../types/systemSettings';
 
@@ -198,19 +199,17 @@ const LockTimeConfig: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <input
-                        type="time"
+                      <TimePicker24h
                         value={schedule.start_time}
-                        onChange={(e) => handleTimeChange(role.role_key, 'start_time', e.target.value)}
-                        className="w-full px-3 py-2 text-[13px] font-medium rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                        onChange={(value) => handleTimeChange(role.role_key, 'start_time', value)}
+                        className="w-full"
                       />
                     </td>
                     <td className="px-5 py-4">
-                      <input
-                        type="time"
+                      <TimePicker24h
                         value={schedule.end_time}
-                        onChange={(e) => handleTimeChange(role.role_key, 'end_time', e.target.value)}
-                        className="w-full px-3 py-2 text-[13px] font-medium rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                        onChange={(value) => handleTimeChange(role.role_key, 'end_time', value)}
+                        className="w-full"
                       />
                     </td>
                     <td className="px-5 py-4">
@@ -256,20 +255,18 @@ const LockTimeConfig: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Giờ bắt đầu</label>
-                    <input
-                      type="time"
+                    <TimePicker24h
                       value={schedule.start_time}
-                      onChange={(e) => handleTimeChange(role.role_key, 'start_time', e.target.value)}
-                      className="w-full px-3 py-2 text-[13px] font-medium rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                      onChange={(value) => handleTimeChange(role.role_key, 'start_time', value)}
+                      className="w-full"
                     />
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Giờ kết thúc</label>
-                    <input
-                      type="time"
+                    <TimePicker24h
                       value={schedule.end_time}
-                      onChange={(e) => handleTimeChange(role.role_key, 'end_time', e.target.value)}
-                      className="w-full px-3 py-2 text-[13px] font-medium rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                      onChange={(value) => handleTimeChange(role.role_key, 'end_time', value)}
+                      className="w-full"
                     />
                   </div>
                 </div>

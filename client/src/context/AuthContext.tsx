@@ -83,6 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
+      localStorage.removeItem('time_locked');
       setUser(null);
     }
   }, []);

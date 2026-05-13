@@ -77,6 +77,7 @@ const importOrderSchema = z.object({
   selected_alias: z.string().optional(),
   items: z.array(importOrderItemSchema).min(1, 'Vui lòng thêm ít nhất 1 mặt hàng'),
   total_amount: z.coerce.number().min(0, 'Tổng tiền không hợp lệ').catch(0),
+  notes: z.string().optional().nullable().catch(''),
   receipt_image_url: z.string().optional().nullable().catch(null),
   receipt_image_urls: z.array(z.string()).optional().catch([]),
 });
@@ -244,7 +245,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
         ? c.customer_type === 'vegetable_receiver'
         : c.customer_type === 'grocery_receiver'
     ) || [];
-    
+
     if (editingOrder?.customers && !list.find((c: any) => c.id === editingOrder.customer_id)) {
       list.push(editingOrder.customers);
     }
@@ -283,6 +284,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
       selected_alias: '',
       received_by: '',
       total_amount: 0,
+      notes: '',
       receipt_image_url: null,
       receipt_image_urls: [],
     } as any,
@@ -408,6 +410,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
           item_note: item.item_note || item.package_type || '',
         })) || [],
         total_amount: editingOrder.total_amount || 0,
+        notes: editingOrder.notes || '',
         receipt_image_url: editingOrder.receipt_image_url || null,
         receipt_image_urls: editingOrder.receipt_image_urls || (editingOrder.receipt_image_url ? [editingOrder.receipt_image_url] : []),
       });
@@ -423,6 +426,7 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
         selected_alias: '',
         received_by: user?.id || employees?.[0]?.id || '',
         total_amount: 0,
+        notes: '',
         receipt_image_url: null,
         receipt_image_urls: [],
       });
@@ -451,15 +455,15 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
       const uploadPromises = files.map(file => uploadApi.uploadFile(file, 'import-orders', 'orders'));
       const results = await Promise.all(uploadPromises);
       const newUrls = results.map(r => r.url);
-      
+
       const currentUrls = getValues('receipt_image_urls') || [];
       const updatedUrls = [...currentUrls, ...newUrls];
-      
+
       setValue('receipt_image_urls', updatedUrls, { shouldValidate: true });
       if (!getValues('receipt_image_url') && updatedUrls.length > 0) {
         setValue('receipt_image_url', updatedUrls[0], { shouldValidate: true });
       }
-      
+
       toast.success(`Tải lên ${newUrls.length} ảnh thành công!`);
     } catch (error) {
       console.error('File upload error:', error);
@@ -490,10 +494,10 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
       const uploadPromises = files.map(file => uploadApi.uploadFile(file, 'import-orders', 'items'));
       const results = await Promise.all(uploadPromises);
       const newUrls = results.map(r => r.url);
-      
+
       const currentUrls = getValues(`items.${index}.image_urls`) || [];
       const updatedUrls = [...currentUrls, ...newUrls];
-      
+
       setValue(`items.${index}.image_urls`, updatedUrls, { shouldValidate: true });
       if (!getValues(`items.${index}.image_url`) && updatedUrls.length > 0) {
         setValue(`items.${index}.image_url`, updatedUrls[0], { shouldValidate: true });
@@ -539,15 +543,15 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
       console.log('--- FORM SUBMIT DATA BEGIN ---', data);
       const payload = { ...data };
       if (payload.items) {
-          payload.items = payload.items.map((item: any, index: number) => {
-            const trimmedNote = item.item_note?.trim() || null;
-            return {
-              ...item,
-              item_note: trimmedNote,
-              image_urls: getValues(`items.${index}.image_urls`) || [],
-              image_url: getValues(`items.${index}.image_url`) || null,
-            };
-          });
+        payload.items = payload.items.map((item: any, index: number) => {
+          const trimmedNote = item.item_note?.trim() || null;
+          return {
+            ...item,
+            item_note: trimmedNote,
+            image_urls: getValues(`items.${index}.image_urls`) || [],
+            image_url: getValues(`items.${index}.image_url`) || null,
+          };
+        });
       }
       payload.order_category = defaultCategory;
 
@@ -983,6 +987,16 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                         />
                         {errors.customer_id && <p className="text-red-500 text-[11px] font-medium">{errors.customer_id.message as string}</p>}
 
+                        <div className="mt-2 space-y-1">
+                          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Chú thích</label>
+                          <input
+                            type="text"
+                            {...register('notes')}
+                            placeholder="Nhập chú thích (hiển thị trên bản in)..."
+                            className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                          />
+                        </div>
+
                         {hasAliases && (
                           <div className="mt-2">
                             <label className="text-[12px] font-bold text-muted-foreground">Tên khác (tùy chọn)</label>
@@ -1092,73 +1106,73 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                   )}
 
                   {defaultCategory !== 'vegetable' && (
-                  <div className="space-y-1.5 pt-2">
-                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ảnh biên nhận/Sản phẩm</label>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                      {(watch('receipt_image_urls') || []).map((url: string, idx: number) => (
-                        <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden">
-                          <img src={cloudinaryThumb(url)} alt="Receipt" className="w-full h-full object-cover" />
+                    <div className="space-y-1.5 pt-2">
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ảnh biên nhận/Sản phẩm</label>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {(watch('receipt_image_urls') || []).map((url: string, idx: number) => (
+                          <div key={idx} className="relative aspect-square rounded-xl border border-border overflow-hidden">
+                            <img src={cloudinaryThumb(url)} alt="Receipt" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newUrls = (watch('receipt_image_urls') || []).filter((_: any, i: number) => i !== idx);
+                                setValue('receipt_image_urls', newUrls, { shouldValidate: true });
+                                setValue('receipt_image_url', newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
+                              }}
+                              className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
+                              aria-label="Xóa ảnh"
+                              title="Xóa ảnh"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                        <div className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/50 overflow-hidden flex flex-col">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            ref={fileInputRef}
+                            className="hidden"
+                            onChange={handleImageUpload}
+                          />
                           <button
                             type="button"
-                            onClick={() => {
-                              const newUrls = (watch('receipt_image_urls') || []).filter((_: any, i: number) => i !== idx);
-                              setValue('receipt_image_urls', newUrls, { shouldValidate: true });
-                              setValue('receipt_image_url', newUrls.length > 0 ? newUrls[0] : null, { shouldValidate: true });
-                            }}
-                            className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center shadow-sm hover:bg-red-700 active:scale-95 transition-all"
-                            aria-label="Xóa ảnh"
-                            title="Xóa ảnh"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploading}
+                            className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 px-1 py-2 touch-manipulation active:scale-[0.99]"
                           >
-                            <X size={14} />
+                            {isUploading ? (
+                              <Loader2 size={20} className="animate-spin text-primary" />
+                            ) : (
+                              <>
+                                <ImagePlus size={22} className="text-primary" />
+                                <span className="text-[10px] font-bold text-center px-0.5 leading-tight">Chọn ảnh</span>
+                              </>
+                            )}
                           </button>
                         </div>
-                      ))}
-                      <div className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/50 overflow-hidden flex flex-col">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          ref={fileInputRef}
-                          className="hidden"
-                          onChange={handleImageUpload}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={isUploading}
-                          className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 px-1 py-2 touch-manipulation active:scale-[0.99]"
-                        >
-                          {isUploading ? (
-                            <Loader2 size={20} className="animate-spin text-primary" />
-                          ) : (
-                            <>
-                              <ImagePlus size={22} className="text-primary" />
-                              <span className="text-[10px] font-bold text-center px-0.5 leading-tight">Chọn ảnh</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      <div className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/50 overflow-hidden flex flex-col">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          ref={receiptCameraInputRef}
-                          className="hidden"
-                          onChange={handleImageUpload}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => receiptCameraInputRef.current?.click()}
-                          disabled={isUploading}
-                          className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 px-1 py-2 touch-manipulation active:scale-[0.99]"
-                        >
-                          <Camera size={22} className="text-primary" />
-                          <span className="text-[10px] font-bold text-center px-0.5 leading-tight">Chụp ảnh</span>
-                        </button>
+                        <div className="aspect-square rounded-xl border-2 border-dashed border-border bg-muted/50 overflow-hidden flex flex-col">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            ref={receiptCameraInputRef}
+                            className="hidden"
+                            onChange={handleImageUpload}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => receiptCameraInputRef.current?.click()}
+                            disabled={isUploading}
+                            className="flex-1 min-h-0 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all disabled:opacity-50 px-1 py-2 touch-manipulation active:scale-[0.99]"
+                          >
+                            <Camera size={22} className="text-primary" />
+                            <span className="text-[10px] font-bold text-center px-0.5 leading-tight">Chụp ảnh</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
                   )}
                 </div>
               </div>
@@ -1208,8 +1222,8 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                         return (
                           <div key={field.id} className={clsx(
                             "grid gap-2 md:gap-3 p-3 md:px-4 md:py-2 md:items-center bg-card rounded-xl md:rounded-none border border-border md:border-none shadow-sm md:shadow-none hover:bg-muted/50/50 transition-all group relative",
-                            defaultCategory === 'standard' 
-                              ? "grid-cols-1 md:grid-cols-[1fr_80px_80px_36px]" 
+                            defaultCategory === 'standard'
+                              ? "grid-cols-1 md:grid-cols-[1fr_80px_80px_36px]"
                               : "grid-cols-1 md:grid-cols-[60px_minmax(150px,3fr)_100px_36px]"
                           )}>
 
@@ -1480,18 +1494,53 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
 
                             {/* Desktop Image Button - only for standard */}
                             {defaultCategory === 'standard' && (
-                            <div className="hidden md:flex items-center justify-center w-full">
-                              <div className={clsx("relative", "w-12 h-12")}>
-                                {watch(`items.${index}.image_urls`)?.length > 0 ? (
-                                  <div className="relative w-full h-full rounded-lg border border-border overflow-hidden group/imgDesk">
-                                    <img src={cloudinaryThumb(watch(`items.${index}.image_urls`)[0])} alt="item" className="w-full h-full object-cover" />
-                                    {watch(`items.${index}.image_urls`).length > 1 && (
-                                      <div className="absolute top-0 right-0 bg-primary text-white text-[9px] font-bold px-1 rounded-bl-lg">
-                                        +{watch(`items.${index}.image_urls`).length - 1}
+                              <div className="hidden md:flex items-center justify-center w-full">
+                                <div className={clsx("relative", "w-12 h-12")}>
+                                  {watch(`items.${index}.image_urls`)?.length > 0 ? (
+                                    <div className="relative w-full h-full rounded-lg border border-border overflow-hidden group/imgDesk">
+                                      <img src={cloudinaryThumb(watch(`items.${index}.image_urls`)[0])} alt="item" className="w-full h-full object-cover" />
+                                      {watch(`items.${index}.image_urls`).length > 1 && (
+                                        <div className="absolute top-0 right-0 bg-primary text-white text-[9px] font-bold px-1 rounded-bl-lg">
+                                          +{watch(`items.${index}.image_urls`).length - 1}
+                                        </div>
+                                      )}
+                                      <div className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/imgDesk:opacity-100 transition-opacity gap-1">
+                                        <label className="cursor-pointer p-1 hover:text-primary transition-colors" title="Thêm ảnh">
+                                          <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            className="hidden"
+                                            onChange={(e) => handleItemImageUpload(index, e)}
+                                          />
+                                          <Plus size={14} />
+                                        </label>
+                                        <label className="cursor-pointer p-1 hover:text-primary transition-colors" title="Chụp ảnh">
+                                          <input
+                                            type="file"
+                                            accept="image/*"
+                                            capture="environment"
+                                            className="hidden"
+                                            onChange={(e) => handleItemImageUpload(index, e)}
+                                          />
+                                          <Camera size={14} />
+                                        </label>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setValue(`items.${index}.image_urls`, [], { shouldValidate: true });
+                                            setValue(`items.${index}.image_url`, null, { shouldValidate: true });
+                                          }}
+                                          className="p-1 hover:text-red-400 transition-colors"
+                                          title="Xoá tất cả ảnh"
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
                                       </div>
-                                    )}
-                                    <div className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover/imgDesk:opacity-100 transition-opacity gap-1">
-                                      <label className="cursor-pointer p-1 hover:text-primary transition-colors" title="Thêm ảnh">
+                                    </div>
+                                  ) : (
+                                    <div className="w-full h-full flex flex-col gap-1 overflow-hidden rounded-lg border border-border bg-muted/50 p-1">
+                                      <label className="flex-1 min-h-[1.75rem] flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/5 cursor-pointer transition-all rounded-md touch-manipulation active:scale-[0.98]" title="Chọn ảnh">
                                         <input
                                           type="file"
                                           accept="image/*"
@@ -1499,9 +1548,9 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                           className="hidden"
                                           onChange={(e) => handleItemImageUpload(index, e)}
                                         />
-                                        <Plus size={14} />
+                                        {uploadingItemIndex === index ? <Loader2 size={15} className="animate-spin text-primary" /> : <ImagePlus size={15} />}
                                       </label>
-                                      <label className="cursor-pointer p-1 hover:text-primary transition-colors" title="Chụp ảnh">
+                                      <label className="flex-1 min-h-[1.75rem] flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/5 cursor-pointer transition-all rounded-md touch-manipulation active:scale-[0.98]" title="Chụp ảnh">
                                         <input
                                           type="file"
                                           accept="image/*"
@@ -1509,61 +1558,26 @@ const AddEditVegetableImportOrderDialog: React.FC<Props> = ({ isOpen, isClosing,
                                           className="hidden"
                                           onChange={(e) => handleItemImageUpload(index, e)}
                                         />
-                                        <Camera size={14} />
+                                        {uploadingItemIndex === index ? <Loader2 size={15} className="animate-spin text-primary" /> : <Camera size={15} />}
                                       </label>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setValue(`items.${index}.image_urls`, [], { shouldValidate: true });
-                                          setValue(`items.${index}.image_url`, null, { shouldValidate: true });
-                                        }}
-                                        className="p-1 hover:text-red-400 transition-colors"
-                                        title="Xoá tất cả ảnh"
-                                      >
-                                        <Trash2 size={14} />
-                                      </button>
                                     </div>
-                                  </div>
-                                ) : (
-                                  <div className="w-full h-full flex flex-col gap-1 overflow-hidden rounded-lg border border-border bg-muted/50 p-1">
-                                    <label className="flex-1 min-h-[1.75rem] flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/5 cursor-pointer transition-all rounded-md touch-manipulation active:scale-[0.98]" title="Chọn ảnh">
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        multiple
-                                        className="hidden"
-                                        onChange={(e) => handleItemImageUpload(index, e)}
-                                      />
-                                      {uploadingItemIndex === index ? <Loader2 size={15} className="animate-spin text-primary" /> : <ImagePlus size={15} />}
-                                    </label>
-                                    <label className="flex-1 min-h-[1.75rem] flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/5 cursor-pointer transition-all rounded-md touch-manipulation active:scale-[0.98]" title="Chụp ảnh">
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        capture="environment"
-                                        className="hidden"
-                                        onChange={(e) => handleItemImageUpload(index, e)}
-                                      />
-                                      {uploadingItemIndex === index ? <Loader2 size={15} className="animate-spin text-primary" /> : <Camera size={15} />}
-                                    </label>
-                                  </div>
-                                )}
+                                  )}
+                                </div>
                               </div>
-                            </div>
                             )}
 
                             {/* Desktop Delete Button - only for standard */}
                             {defaultCategory === 'standard' && (
-                            <div className="hidden md:flex items-center justify-center">
-                              <button
-                                type="button"
-                                onClick={() => remove(index)}
-                                className="p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-md transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                title="Xóa dòng"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
+                              <div className="hidden md:flex items-center justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => remove(index)}
+                                  className="p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-md transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                  title="Xóa dòng"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
                             )}
                           </div>
                         );

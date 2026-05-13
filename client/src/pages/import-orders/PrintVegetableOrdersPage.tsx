@@ -54,6 +54,7 @@ interface FlatItem {
   priceK: number;
   totalAmount: number;
   orderId: string;
+  supplierNote: string;
 }
 
 // ─── Component ────────────────────────────────────────────
@@ -65,6 +66,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [soXe, setSoXe] = useState('');
   const [printMode, setPrintMode] = useState<PrintMode>('a4');
+  const [hideSender, setHideSender] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   // Fetch data
@@ -143,6 +145,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
       if ((order as any).deleted_at) return;
       const supplierName = getSupplierName(order);
       const senderName = order.sender_name || '';
+      const supplierNote = order.notes || '';
       const taiRank = dailyTaiRankMap.get(order.id) || 1;
 
       if (order.import_order_items && order.import_order_items.length > 0) {
@@ -164,6 +167,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
             priceK,
             totalAmount,
             orderId: order.id,
+            supplierNote,
           });
         });
       } else {
@@ -177,6 +181,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
           priceK: 0,
           totalAmount: Number(order.total_amount) || 0,
           orderId: order.id,
+          supplierNote,
         });
       }
     });
@@ -186,6 +191,8 @@ const PrintVegetableOrdersPage: React.FC = () => {
       const cmp = a.supplierName.localeCompare(b.supplierName, 'vi');
       if (cmp !== 0) return cmp;
       if (a.taiRank !== b.taiRank) return a.taiRank - b.taiRank;
+      const cmpN = a.supplierNote.localeCompare(b.supplierNote, 'vi');
+      if (cmpN !== 0) return cmpN;
       const cmpS = a.senderName.localeCompare(b.senderName, 'vi');
       if (cmpS !== 0) return cmpS;
       return a.productName.localeCompare(b.productName, 'vi');
@@ -199,6 +206,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
         last.senderName === item.senderName &&
         last.supplierName === item.supplierName &&
         last.taiRank === item.taiRank &&
+        last.supplierNote === item.supplierNote &&
         last.productName === item.productName &&
         last.priceK === item.priceK
       ) {
@@ -428,6 +436,20 @@ const PrintVegetableOrdersPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Hide Sender Toggle */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Tùy chọn</label>
+            <label className="flex items-center gap-2 px-4 py-2 bg-muted/10 border border-border rounded-xl cursor-pointer hover:bg-muted/30 transition-colors">
+              <input
+                type="checkbox"
+                checked={hideSender}
+                onChange={(e) => setHideSender(e.target.checked)}
+                className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+              />
+              <span className="text-[12px] font-bold text-muted-foreground">Bỏ người gửi</span>
+            </label>
+          </div>
+
           {/* Print button */}
           <div className="flex items-center gap-2 ml-auto">
             <button
@@ -540,14 +562,25 @@ const PrintVegetableOrdersPage: React.FC = () => {
                 >
                   <thead>
                     <tr style={{ borderBottom: '2px solid #000' }}>
-                      <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 700, border: '1px solid #000', fontSize: 14 }}>Người Gửi</th>
-                      <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 700, border: '1px solid #000', fontSize: 14 }}>Tên Vựa</th>
+                      {!hideSender && (
+                        <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 700, border: '1px solid #000', borderLeft: '2px solid #000', fontSize: 14 }}>Người Gửi</th>
+                      )}
+                      <th style={{
+                        padding: '4px 6px',
+                        textAlign: 'left',
+                        fontWeight: 700,
+                        border: '1px solid #000',
+                        borderLeft: hideSender ? '2px solid #000' : '1px solid #000',
+                        fontSize: 14
+                      }}>
+                        Tên Vựa
+                      </th>
                       <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700, width: 40, border: '1px solid #000', fontSize: 14 }}>Tài</th>
                       <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700, width: 45, border: '1px solid #000', fontSize: 14 }}>SL</th>
                       <th style={{ padding: '4px 6px', textAlign: 'left', fontWeight: 700, border: '1px solid #000', fontSize: 14 }}>Tên Hàng</th>
                       <th style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 700, width: 60, border: '1px solid #000', fontSize: 14 }}>Tiền(K)</th>
                       <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700, width: 100, border: '1px solid #000', fontSize: 14 }}>Thành Tiền</th>
-                      <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700, width: 100, border: '1px solid #000', fontSize: 14 }}>Tổng Vựa</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 700, width: 100, border: '1px solid #000', borderRight: '2px solid #000', fontSize: 14 }}>Tổng Vựa</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -580,24 +613,27 @@ const PrintVegetableOrdersPage: React.FC = () => {
 
                               return (
                                 <tr key={`${groupIdx}-${idxInGroup}`}>
+                                  {!hideSender && (
+                                    <td style={{
+                                      padding: '4px 6px',
+                                      fontWeight: 500,
+                                      fontSize: 14,
+                                      borderLeft: '2px solid #000',
+                                      borderRight: '1px solid #000',
+                                      borderBottom: rowBorderBottom,
+                                    }}>
+                                      {item.senderName}
+                                    </td>
+                                  )}
                                   <td style={{
                                     padding: '4px 6px',
                                     fontWeight: 500,
                                     fontSize: 14,
-                                    borderLeft: '2px solid #000',
+                                    borderLeft: hideSender ? '2px solid #000' : 'none',
                                     borderRight: '1px solid #000',
                                     borderBottom: rowBorderBottom,
                                   }}>
-                                    {item.senderName}
-                                  </td>
-                                  <td style={{
-                                    padding: '4px 6px',
-                                    fontWeight: 500,
-                                    fontSize: 14,
-                                    borderRight: '1px solid #000',
-                                    borderBottom: rowBorderBottom,
-                                  }}>
-                                    {item.supplierName}
+                                    {item.supplierName}{item.supplierNote ? ` (${item.supplierNote})` : ''}
                                   </td>
                                   <td style={{
                                     padding: '4px 6px',
@@ -661,8 +697,10 @@ const PrintVegetableOrdersPage: React.FC = () => {
                           })}
                           {Array.from({ length: fillerCount }).map((_, i) => (
                             <tr key={`filler-${i}`}>
-                              <td style={{ padding: '4px 6px', fontSize: 14, borderLeft: '2px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc', height: '22px' }}>&nbsp;</td>
-                              <td style={{ padding: '4px 6px', fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc', height: '22px' }}>&nbsp;</td>
+                              {!hideSender && (
+                                <td style={{ padding: '4px 6px', fontSize: 14, borderLeft: '2px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc', height: '22px' }}>&nbsp;</td>
+                              )}
+                              <td style={{ padding: '4px 6px', fontSize: 14, borderLeft: hideSender ? '2px solid #000' : 'none', borderRight: '1px solid #000', borderBottom: '1px solid #ccc', height: '22px' }}>&nbsp;</td>
                               <td style={{ padding: '4px 6px', fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc', height: '22px' }}>&nbsp;</td>
                               <td style={{ padding: '4px 6px', fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc', height: '22px' }}>&nbsp;</td>
                               <td style={{ padding: '4px 6px', fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc', height: '22px' }}>&nbsp;</td>
@@ -679,7 +717,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
                     {printMode === 'amount' && (
                       <>
                         <tr style={{ borderTop: '2px solid #000' }}>
-                          <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 14, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
+                          <td colSpan={hideSender ? 6 : 7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 14, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
                             Cộng Tiền Hàng
                           </td>
                           <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
@@ -687,7 +725,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
                           </td>
                         </tr>
                         <tr>
-                          <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 14, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
+                          <td colSpan={hideSender ? 6 : 7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 14, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
                             Thuế VAT (8%)
                           </td>
                           <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: '1px solid #ccc' }}>
@@ -697,7 +735,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
                       </>
                     )}
                     <tr style={{ borderTop: printMode === 'amount' ? '1px solid #ccc' : '2px solid #000' }}>
-                      <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 14, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: showGrandTotal ? '1px solid #ccc' : '2px solid #000' }}>
+                      <td colSpan={hideSender ? 6 : 7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 14, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: showGrandTotal ? '1px solid #ccc' : '2px solid #000' }}>
                         Tổng Cộng
                       </td>
                       <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 14, borderRight: '1px solid #000', borderBottom: showGrandTotal ? '1px solid #ccc' : '2px solid #000' }}>
@@ -706,7 +744,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
                     </tr>
                     {showGrandTotal && (
                       <tr style={{ borderTop: '2px solid #000' }}>
-                        <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 16, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>
+                        <td colSpan={hideSender ? 6 : 7} style={{ padding: '5px 6px', fontWeight: 900, textAlign: 'right', fontSize: 16, borderLeft: '1px solid #000', borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>
                           TỔNG TẤT CẢ CÁC TỜ ({sheets.length} tờ)
                         </td>
                         <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 900, fontSize: 16, borderRight: '1px solid #000', borderBottom: '2px solid #000' }}>

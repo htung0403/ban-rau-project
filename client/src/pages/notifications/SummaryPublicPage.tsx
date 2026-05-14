@@ -7,7 +7,6 @@ import {
   Calendar, 
   User, 
   Hash,
-  ArrowLeft,
   Truck,
   Building2,
   SendHorizontal

@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { format } from 'date-fns';
+import crypto from 'crypto';
+import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 import { DeliveryNoteGenerator } from '../../utils/deliveryNoteGenerator';
 import { normalizePersonName } from '../../utils/goodsScope';
@@ -64,6 +66,22 @@ export class ZaloService {
       selfListen: false,
     });
     this.enableSends = process.env.ZALO_ENABLE_SENDS === 'true';
+  }
+
+  /**
+   * Generates a secure HMAC token for public summary access
+   */
+  generatePublicToken(type: string, id: string, date: string): string {
+    const data = `${type}:${id}:${date}`;
+    return crypto.createHmac('sha256', env.JWT_SECRET).update(data).digest('hex');
+  }
+
+  /**
+   * Verifies a public summary token
+   */
+  verifyPublicToken(type: string, id: string, date: string, token: string): boolean {
+    const expected = this.generatePublicToken(type, id, date);
+    return expected === token;
   }
 
   async refreshAccessToken(): Promise<boolean> {
@@ -683,6 +701,11 @@ export class ZaloService {
             items: group.items,
           });
 
+          // Generate public link
+          const token = this.generatePublicToken('grocery', group.customerId, today);
+          const publicLink = `${env.CLIENT_URL}/public/summary/grocery/${group.customerId}/${today}/${token}`;
+          const finalCaption = `${caption}\n\nXem chi tiết tại: ${publicLink}`;
+
           const result = await this.sendImageMessage({
             recipientPhone: normalizedPhone,
             imageUrls: [],
@@ -691,7 +714,7 @@ export class ZaloService {
               filename: `phieu-tong-${today}-${Date.now()}.png`,
               metadata: { totalSize: noteBuffer.length },
             }],
-            caption,
+            caption: finalCaption,
           });
 
           if (result.success) {
@@ -829,6 +852,11 @@ export class ZaloService {
             items: summaryItems,
           });
 
+          // Generate public link
+          const token = this.generatePublicToken('supplier', group.supplierId, today);
+          const publicLink = `${env.CLIENT_URL}/public/summary/supplier/${group.supplierId}/${today}/${token}`;
+          const caption = `Phiếu tổng kết hàng đã nhận ngày ${format(new Date(), 'dd/MM/yyyy')}. Cảm ơn vựa.\n\nXem chi tiết tại: ${publicLink}`;
+
           const result = await this.sendImageMessage({
             recipientPhone: normalizedPhone,
             imageUrls: [],
@@ -837,7 +865,7 @@ export class ZaloService {
               filename: `phieu-tong-vua-${today}-${Date.now()}.png`,
               metadata: { totalSize: noteBuffer.length },
             }],
-            caption: `Phiếu tổng kết hàng đã nhận ngày ${format(new Date(), 'dd/MM/yyyy')}. Cảm ơn vựa.`,
+            caption,
           });
 
           if (result.success) {
@@ -980,6 +1008,11 @@ export class ZaloService {
             items: group.items,
           });
 
+          // Generate public link
+          const token = this.generatePublicToken('sender', group.senderId, today);
+          const publicLink = `${env.CLIENT_URL}/public/summary/sender/${group.senderId}/${today}/${token}`;
+          const caption = `Phiếu tổng kết hàng đã gửi ngày ${format(new Date(), 'dd/MM/yyyy')}. Cảm ơn bạn.\n\nXem chi tiết tại: ${publicLink}`;
+
           const result = await this.sendImageMessage({
             recipientPhone: normalizedPhone,
             imageUrls: [],
@@ -988,7 +1021,7 @@ export class ZaloService {
               filename: `phieu-tong-gui-${today}-${Date.now()}.png`,
               metadata: { totalSize: noteBuffer.length },
             }],
-            caption: `Phiếu tổng kết hàng đã gửi ngày ${format(new Date(), 'dd/MM/yyyy')}. Cảm ơn bạn.`,
+            caption,
           });
 
           if (result.success) {
@@ -1004,6 +1037,228 @@ export class ZaloService {
       logger.error(`[ZaloService] Exception in sendDailySenderSummaries:`, err);
     }
   }
+  async getGrocerySummaryData(supabaseService: any, customerId: string, date: string) {
+    // 1. Fetch shop name
+    const { data: shopNameSetting } = await supabaseService
+      .from('general_settings')
+      .select('setting_value')
+      .eq('setting_key', 'SHOP_NAME')
+      .maybeSingle();
+    const shopName = shopNameSetting?.setting_value || 'Năm Sự';
+
+    // 2. Fetch assignments and orders
+    const [assignmentsRes, ordersRes] = await Promise.all([
+      supabaseService
+        .from('delivery_vehicles')
+        .select(`
+          *,
+          delivery_orders (
+            id, product_name, delivery_date, unit_price, total_quantity, status,
+            import_orders (
+              customers:customers!import_orders_customer_id_fkey (id, name, phone)
+            ),
+            vegetable_orders (
+              customers:customers!vegetable_orders_customer_id_fkey (id, name, phone)
+            )
+          ),
+          profiles (full_name),
+          vehicles (license_plate)
+        `)
+        .eq('delivery_date', date)
+        .or(`delivery_orders.import_orders.customer_id.eq.${customerId},delivery_orders.vegetable_orders.customer_id.eq.${customerId}`),
+      supabaseService
+        .from('delivery_orders')
+        .select(`
+          id, product_name, delivery_date, unit_price, total_quantity, status,
+          import_orders (
+            customers:customers!import_orders_customer_id_fkey (id, name, phone)
+          ),
+          vegetable_orders (
+            customers:customers!vegetable_orders_customer_id_fkey (id, name, phone)
+          ),
+          delivery_vehicles ( assigned_quantity )
+        `)
+        .eq('delivery_date', date)
+        .or(`import_orders.customer_id.eq.${customerId},vegetable_orders.customer_id.eq.${customerId}`)
+        .neq('status', 'hang_o_sg')
+    ]);
+
+    const assignments = (assignmentsRes.data || []).filter((dv: any) => {
+      const order = dv.delivery_orders;
+      const cid = order?.import_orders?.customers?.id || order?.vegetable_orders?.customers?.id;
+      return cid === customerId;
+    });
+    
+    const ordersToday = (ordersRes.data || []).filter((order: any) => {
+      const cid = order?.import_orders?.customers?.id || order?.vegetable_orders?.customers?.id;
+      return cid === customerId;
+    });
+
+    if (assignments.length === 0 && ordersToday.length === 0) return null;
+
+    let customerName = 'Khách hàng';
+    if (ordersToday.length > 0) {
+      const order = ordersToday[0];
+      customerName = order.import_orders?.customers?.name || order.vegetable_orders?.customers?.name || 'Khách hàng';
+    } else if (assignments.length > 0) {
+      const order = assignments[0].delivery_orders;
+      customerName = order?.import_orders?.customers?.name || order?.vegetable_orders?.customers?.name || 'Khách hàng';
+    }
+
+    const items = assignments.map((dv: any) => ({
+      deliveryTime: dv.delivery_time || format(new Date(), 'HH:mm'),
+      licensePlate: dv.vehicles?.license_plate || '-',
+      staffName: dv.profiles?.full_name || 'NV Giao hàng',
+      quantity: dv.assigned_quantity || 0,
+      productName: dv.delivery_orders?.product_name || '-',
+      price: dv.unit_price || dv.delivery_orders?.unit_price || 0,
+      total: dv.expected_amount || 0,
+    }));
+
+    let undeliveredQuantity = 0;
+    const processedOrderIds = new Set<string>();
+    ordersToday.forEach((order: any) => {
+      if (processedOrderIds.has(order.id)) return;
+      const totalAssigned = (order.delivery_vehicles || []).reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
+      const undelivered = (order.total_quantity || 0) - totalAssigned;
+      if (undelivered > 0) {
+        undeliveredQuantity += undelivered;
+        processedOrderIds.add(order.id);
+      }
+    });
+
+    return {
+      shopName,
+      customerName,
+      date: format(new Date(date), 'dd/MM/yyyy'),
+      items,
+      undeliveredQuantity
+    };
+  }
+
+  async getSupplierSummaryData(supabaseService: any, supplierId: string, date: string) {
+    const { data: orders, error } = await supabaseService
+      .from('vegetable_orders')
+      .select(`
+        *,
+        customers:customers!vegetable_orders_customer_id_fkey(id, name, phone),
+        vegetable_order_items(*, products(*)),
+        delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles!driver_id(full_name)))
+      `)
+      .eq('order_date', date)
+      .eq('customer_id', supplierId)
+      .is('deleted_at', null);
+
+    if (error || !orders || orders.length === 0) return null;
+
+    const supplierName = orders[0].customers?.name || 'Vựa';
+
+    const sortedOrders = [...orders].sort((a, b) => {
+      const timeA = new Date(a.created_at || 0).getTime();
+      const timeB = new Date(b.created_at || 0).getTime();
+      if (timeA !== timeB) return timeA - timeB;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+    const resolveDriverId = (order: any): string => {
+      const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
+      if (dvDriverId) return `dvid:${dvDriverId}`;
+      if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
+      if (order.received_by) return `rb:${order.received_by}`;
+      return 'unknown';
+    };
+
+    const driverRankMap = new Map<string, number>();
+    let nextRank = 1;
+    const items: any[] = [];
+
+    sortedOrders.forEach((order) => {
+      const driverId = resolveDriverId(order);
+      if (!driverRankMap.has(driverId)) {
+        driverRankMap.set(driverId, nextRank);
+        nextRank += 1;
+      }
+      const taiRank = driverRankMap.get(driverId);
+
+      (order.vegetable_order_items || []).forEach((item: any) => {
+        items.push({
+          taiRank,
+          quantity: item.quantity || 0,
+          productName: item.products?.name || item.package_type || 'Hàng hóa',
+          senderName: order.sender_name || '-',
+        });
+      });
+    });
+
+    return {
+      supplierName,
+      date: format(new Date(date), 'dd/MM/yyyy'),
+      items
+    };
+  }
+
+  async getSenderSummaryData(supabaseService: any, senderId: string, date: string) {
+    const { data: orders, error } = await supabaseService
+      .from('vegetable_orders')
+      .select(`
+        *,
+        sender_customers:customers!vegetable_orders_sender_id_fkey(id, name, phone),
+        customers:customers!vegetable_orders_customer_id_fkey(id, name),
+        vegetable_order_items(*, products(*)),
+        delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles!driver_id(full_name)))
+      `)
+      .eq('order_date', date)
+      .eq('sender_id', senderId)
+      .is('deleted_at', null);
+
+    if (error || !orders || orders.length === 0) return null;
+
+    const senderName = orders[0].sender_customers?.name || 'Người gửi';
+
+    const sortedOrders = [...orders].sort((a, b) => {
+      const timeA = new Date(a.created_at || 0).getTime();
+      const timeB = new Date(b.created_at || 0).getTime();
+      if (timeA !== timeB) return timeA - timeB;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+    const resolveDriverId = (order: any): string => {
+      const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
+      if (dvDriverId) return `dvid:${dvDriverId}`;
+      if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
+      if (order.received_by) return `rb:${order.received_by}`;
+      return 'unknown';
+    };
+
+    const driverRankMap = new Map<string, number>();
+    let nextRank = 1;
+    const items: any[] = [];
+
+    sortedOrders.forEach((order) => {
+      const driverId = resolveDriverId(order);
+      if (!driverRankMap.has(driverId)) {
+        driverRankMap.set(driverId, nextRank);
+        nextRank += 1;
+      }
+      const taiRank = driverRankMap.get(driverId);
+
+      (order.vegetable_order_items || []).forEach((item: any) => {
+        items.push({
+          taiRank,
+          quantity: item.quantity || 0,
+          productName: item.products?.name || item.package_type || 'Hàng hóa',
+          supplierName: order.customers?.name || '-',
+        });
+      });
+    });
+
+    return {
+      senderName,
+      date: format(new Date(date), 'dd/MM/yyyy'),
+      items
+    };
+  }
+
 
   private buildRecipientPhoneForDelivery(delivery: any): string | null {
     if (delivery.import_orders?.receiver_phone) return delivery.import_orders.receiver_phone;

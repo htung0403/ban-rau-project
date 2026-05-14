@@ -53,6 +53,7 @@ import PrintVegetableOrdersPage from './pages/import-orders/PrintVegetableOrders
 import PrintDeliveryPage from './pages/delivery/PrintDeliveryPage';
 import PrintSgCashCollectionsPage from './pages/accounting/PrintSgCashCollectionsPage';
 import DeliveryPublicPage from './pages/delivery/DeliveryPublicPage';
+import SummaryPublicPage from './pages/notifications/SummaryPublicPage';
 import React from 'react';
 
 const queryClient = new QueryClient({
@@ -97,6 +98,7 @@ function AppRoutes() {
       {/* Public Routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/don-giao/:id" element={<DeliveryPublicPage />} />
+      <Route path="/public/summary/:type/:id/:date/:token" element={<SummaryPublicPage />} />
 
       {/* Protected Routes */}
       <Route

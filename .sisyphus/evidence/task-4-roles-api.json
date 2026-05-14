@@ -1,0 +1,21 @@
+{
+  "task": 4,
+  "title": "Verify app_roles API Structure",
+  "verified_at": "2026-05-13T02:20:00+07:00",
+  "endpoint": "GET /api/roles",
+  "frontend_hook": "useAppRoles() from client/src/hooks/queries/useRoles.ts",
+  "api_client": "rolesApi.getRoles() from client/src/api/rolesApi.ts",
+  "response_shape": {
+    "id": "string",
+    "role_key": "string",
+    "role_name": "string",
+    "description": "string | undefined",
+    "is_system": "boolean",
+    "is_active": "boolean",
+    "created_at": "string",
+    "updated_at": "string",
+    "page_paths": "string[] | undefined"
+  },
+  "permission_caveat": "Endpoint requires HR_PERMISSIONS_MANAGE policy; admin/manager users can access via all-routes behavior.",
+  "decision_for_task_5": "Use useAppRoles() directly and filter active roles by is_active. Do not create backend API routes."
+}

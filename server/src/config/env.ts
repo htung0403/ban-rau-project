@@ -15,6 +15,7 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
   ZALO_ENABLE_SENDS: z.string().optional().default('false'),
+  CLIENT_URL: z.string().url().optional().default('http://localhost:5173'),
 });
 
 const _env = envSchema.safeParse(process.env);

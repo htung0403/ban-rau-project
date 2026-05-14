@@ -55,6 +55,7 @@ app.use('/api', limiter);
 
 // 4. Public API Routes (no auth)
 app.use('/api/public/delivery', publicDeliveryRoutes);
+app.use('/api/public/summary', require('./modules/notifications/public.routes').default);
 
 // 5. API Routes
 app.use('/api/auth', authRoutes);

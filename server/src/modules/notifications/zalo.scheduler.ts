@@ -89,7 +89,7 @@ let cachedSettings: Record<string, string> = {
   zalo_summary_time_sender: '17:00',
 };
 let lastCacheUpdate = 0;
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 const updateSettingsCache = async () => {
   try {
@@ -131,6 +131,8 @@ export const initZaloScheduler = () => {
       minute: '2-digit',
       hour12: false
     }).format(new Date());
+
+    logger.info(`[ZaloScheduler] Minute check: ${nowVN} | Cached times: G:${cachedSettings.zalo_summary_time_grocery} V:${cachedSettings.zalo_summary_time_supplier} S:${cachedSettings.zalo_summary_time_sender}`);
 
     // Check Grocery Summary
     if (nowVN === cachedSettings.zalo_summary_time_grocery) {

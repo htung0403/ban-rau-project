@@ -346,7 +346,8 @@ export class DeliveryService {
     image_urls?: string[],
     clientDeliveredAtIso?: string | null,
     delivery_date?: string,
-    delivery_time?: string
+    delivery_time?: string,
+    appendOnly?: boolean
   ) {
     const updateData: any = {};
     if (image_url !== undefined) {
@@ -377,7 +378,7 @@ export class DeliveryService {
     // Fetch existing assigned vehicle IDs for this delivery order to handle un-assignments
     const { data: existingDvs } = await supabaseService
       .from('delivery_vehicles')
-      .select('vehicle_id, assigned_quantity, driver_id, delivery_time, delivery_date, expected_amount')
+      .select('id, vehicle_id, assigned_quantity, driver_id, delivery_time, delivery_date, expected_amount')
       .eq('delivery_order_id', deliveryId);
 
     const existingVids = (existingDvs || []).map((dv: any) => dv.vehicle_id).filter(Boolean);
@@ -388,6 +389,8 @@ export class DeliveryService {
     // Identify which assignments are truly new or modified
     const unconsumedExisting = [...(existingDvs || [])];
     const isNewOrModified = assignments.map(a => {
+      if (appendOnly) return true;
+
       const matchIdx = unconsumedExisting.findIndex(ed =>
         ed.vehicle_id === a.vehicle_id &&
         Number(ed.assigned_quantity) === Number(a.quantity) &&
@@ -398,21 +401,19 @@ export class DeliveryService {
       );
 
       if (matchIdx > -1) {
-        // This assignment already existed, "consume" it so we don't match it again
         unconsumedExisting.splice(matchIdx, 1);
         return false;
       }
       return true;
     });
 
-    if (allVidsToDelete.length > 0) {
+    if (!appendOnly && allVidsToDelete.length > 0) {
       await supabaseService
         .from('delivery_vehicles')
         .delete()
         .eq('delivery_order_id', deliveryId)
         .in('vehicle_id', allVidsToDelete);
 
-      // Delete old draft payment_collections to prevent duplicates on re-assign
       await supabaseService
         .from('payment_collections')
         .delete()
@@ -487,7 +488,7 @@ export class DeliveryService {
     // Trạng thái: chỉ da_giao khi đã phân đủ SL; còn hàng → can_giao (giữ hang_o_sg nếu chưa gán xe nào).
     const { data: allDvs } = await supabaseService
       .from('delivery_vehicles')
-      .select('assigned_quantity')
+      .select('assigned_quantity, expected_amount')
       .eq('delivery_order_id', deliveryId);
 
     const totalAssigned = (allDvs || []).reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
@@ -519,7 +520,7 @@ export class DeliveryService {
       totalAssigned,
       userId,
       exportPaymentStatus,
-      assignments
+      allDvs
     );
 
     // Trigger immediate Zalo send asynchronously (fire-and-forget).
@@ -559,7 +560,8 @@ export class DeliveryService {
     unit_price?: number,
     clientDeliveredAtIso?: string | null,
     delivery_date?: string,
-    delivery_time?: string
+    delivery_time?: string,
+    appendOnly?: boolean
   ) {
     const uniqueSourceIds = Array.from(new Set((sourceOrderIds || []).filter(Boolean)));
     if (uniqueSourceIds.length === 0) {
@@ -679,7 +681,8 @@ export class DeliveryService {
         undefined,
         clientDeliveredAtIso,
         delivery_date,
-        delivery_time
+        delivery_time,
+        appendOnly
       );
       result[sourceId] = saved;
     }
@@ -869,33 +872,72 @@ export class DeliveryService {
     return data;
   }
 
-  static async revertVehicle(deliveryId: string, vehicleId: string, deliveryDate?: string) {
-    let deleteQuery = supabaseService
-      .from('delivery_vehicles')
-      .delete()
-      .eq('delivery_order_id', deliveryId)
-      .eq('vehicle_id', vehicleId);
+  static async revertVehicle(deliveryId: string, vehicleId?: string, deliveryDate?: string, tripIds?: string[]) {
+    const normalizedTripIds = Array.from(new Set((tripIds || []).filter(Boolean)));
 
-    if (deliveryDate) {
-      deleteQuery = deleteQuery.eq('delivery_date', deliveryDate);
+    let revertedVehicleId = vehicleId;
+
+    if (normalizedTripIds.length > 0) {
+      const { data: targetTrips, error: targetTripsError } = await supabaseService
+        .from('delivery_vehicles')
+        .select('id, vehicle_id')
+        .eq('delivery_order_id', deliveryId)
+        .in('id', normalizedTripIds);
+
+      if (targetTripsError) throw targetTripsError;
+      if (!targetTrips || targetTrips.length === 0) {
+        throw new Error('Không tìm thấy chuyến để hoàn tác.');
+      }
+
+      const uniqueVehicleIds = Array.from(new Set(targetTrips.map((row: any) => row.vehicle_id).filter(Boolean)));
+      if (uniqueVehicleIds.length > 1) {
+        throw new Error('Chỉ được hoàn tác các chuyến thuộc cùng một xe trong một lần.');
+      }
+
+      revertedVehicleId = uniqueVehicleIds[0] || revertedVehicleId;
+
+      const { error: deleteError } = await supabaseService
+        .from('delivery_vehicles')
+        .delete()
+        .eq('delivery_order_id', deliveryId)
+        .in('id', normalizedTripIds);
+
+      if (deleteError) throw deleteError;
+
+      if (revertedVehicleId) {
+        await supabaseService
+          .from('payment_collections')
+          .delete()
+          .eq('delivery_order_id', deliveryId)
+          .eq('vehicle_id', revertedVehicleId)
+          .in('status', ['draft']);
+      }
+    } else {
+      if (!vehicleId) {
+        throw new Error('Thiếu vehicle_id để hoàn tác.');
+      }
+
+      let deleteQuery = supabaseService
+        .from('delivery_vehicles')
+        .delete()
+        .eq('delivery_order_id', deliveryId)
+        .eq('vehicle_id', vehicleId);
+
+      if (deliveryDate) {
+        deleteQuery = deleteQuery.eq('delivery_date', deliveryDate);
+      }
+
+      const { error: deleteError } = await deleteQuery;
+
+      if (deleteError) throw deleteError;
+
+      await supabaseService
+        .from('payment_collections')
+        .delete()
+        .eq('delivery_order_id', deliveryId)
+        .eq('vehicle_id', vehicleId)
+        .in('status', ['draft']);
     }
-
-    const { error: deleteError } = await deleteQuery;
-
-    if (deleteError) throw deleteError;
-
-    let paymentQuery = supabaseService
-      .from('payment_collections')
-      .delete()
-      .eq('delivery_order_id', deliveryId)
-      .eq('vehicle_id', vehicleId)
-      .in('status', ['draft']);
-
-    if (deliveryDate) {
-      paymentQuery = paymentQuery.eq('delivery_date', deliveryDate);
-    }
-
-    await paymentQuery;
 
     const { data: allDvs } = await supabaseService
       .from('delivery_vehicles')

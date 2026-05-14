@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, RotateCcw, Truck, AlertTriangle, Loader2, Calendar } from 'lucide-react';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { useRevertVehicle } from '../../../hooks/queries/useDelivery';
-import type { DeliveryOrder, DeliveryVehicle } from '../../../types';
+import type { DeliveryOrder } from '../../../types';
 
 interface Props {
   isOpen: boolean;
@@ -24,13 +24,12 @@ const RevertVehicleDialog: React.FC<Props> = ({
   onClose,
 }) => {
   const revertMutation = useRevertVehicle();
-  const [selectedBatchKey, setSelectedBatchKey] = useState<string | null>(null);
+  const [selectedTripIds, setSelectedTripIds] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
 
-  if (!isOpen && !isClosing) return null;
-  if (!order) return null;
+  const orderId = order?.id || '';
 
-  const assignedVehicles = (order.delivery_vehicles || []).filter(
+  const assignedVehicles = (order?.delivery_vehicles || []).filter(
     (dv) => (dv.assigned_quantity || 0) > 0
   );
 
@@ -38,66 +37,68 @@ const RevertVehicleDialog: React.FC<Props> = ({
     ? assignedVehicles
     : assignedVehicles.filter((dv) => dv.vehicle_id && myVehicleIds.includes(dv.vehicle_id));
 
-  const revertableTrips = Array.from(candidateTrips.reduce((map, dv) => {
-    const key = `${dv.delivery_order_id || order.id}|${dv.vehicle_id || ''}|${dv.driver_id || ''}|${dv.delivery_date || ''}|${(dv.delivery_time || '').slice(0, 5)}`;
-    const existing = map.get(key);
-    if (!existing) {
-      map.set(key, {
-        key,
-        delivery_order_id: dv.delivery_order_id || order.id,
-        vehicle_id: dv.vehicle_id,
-        delivery_date: dv.delivery_date,
-        delivery_time: dv.delivery_time,
-        assigned_quantity: Number(dv.assigned_quantity) || 0,
-        vehicles: dv.vehicles,
-        tripIds: dv.id ? [dv.id] : [],
-      });
-      return map;
-    }
+  const revertableTrips = useMemo(() => candidateTrips
+    .filter((dv) => !!dv.id)
+    .map((dv) => ({
+      id: dv.id,
+      delivery_order_id: dv.delivery_order_id || orderId,
+      vehicle_id: dv.vehicle_id,
+      delivery_date: dv.delivery_date,
+      delivery_time: dv.delivery_time,
+      assigned_quantity: Number(dv.assigned_quantity) || 0,
+      vehicles: dv.vehicles,
+    })), [candidateTrips, orderId]);
 
-    existing.assigned_quantity += Number(dv.assigned_quantity) || 0;
-    if (!existing.delivery_time && dv.delivery_time) existing.delivery_time = dv.delivery_time;
-    if (dv.id) existing.tripIds.push(dv.id);
-    return map;
-  }, new Map<string, {
-    key: string;
-    delivery_order_id: string;
-    vehicle_id?: string;
-    delivery_date?: string;
-    delivery_time?: string;
-    assigned_quantity: number;
-    vehicles?: DeliveryVehicle['vehicles'];
-    tripIds: string[];
-  }>()).values());
+  useEffect(() => {
+    setSelectedTripIds(new Set());
+  }, [orderId, isOpen]);
 
-  const handleRevert = async (trip: {
-    delivery_order_id: string;
-    vehicle_id?: string;
-    delivery_date?: string;
-  }) => {
-    if (!trip.vehicle_id) return;
+  const selectedTrips = useMemo(
+    () => revertableTrips.filter((trip) => selectedTripIds.has(trip.id)),
+    [revertableTrips, selectedTripIds]
+  );
+
+  const toggleTripSelection = (tripId: string, vehicleId?: string) => {
+    setSelectedTripIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(tripId)) {
+        next.delete(tripId);
+        return next;
+      }
+
+      const selectedVehicleIds = Array.from(next)
+        .map((id) => revertableTrips.find((trip) => trip.id === id)?.vehicle_id)
+        .filter((id): id is string => Boolean(id));
+
+      if (vehicleId && selectedVehicleIds.length > 0 && selectedVehicleIds.some((id) => id !== vehicleId)) {
+        return new Set([tripId]);
+      }
+
+      next.add(tripId);
+      return next;
+    });
+  };
+
+  const handleConfirm = async () => {
+    if (selectedTrips.length === 0) return;
+
+    const orderIds = Array.from(new Set(selectedTrips.map((trip) => trip.delivery_order_id || orderId)));
+    if (orderIds.length !== 1) return;
+
+    const vehicleIds = Array.from(new Set(selectedTrips.map((trip) => trip.vehicle_id).filter(Boolean)));
+    if (vehicleIds.length !== 1) return;
+
     setConfirming(true);
     try {
       await revertMutation.mutateAsync({
-        id: trip.delivery_order_id || order.id,
-        vehicleId: trip.vehicle_id,
-        deliveryDate: trip.delivery_date,
+        id: orderIds[0],
+        vehicleId: vehicleIds[0],
+        tripIds: selectedTrips.map((trip) => trip.id),
       });
       onClose();
     } finally {
       setConfirming(false);
     }
-  };
-
-  const handleAdminConfirm = async () => {
-    const selectedTrip = revertableTrips.find((dv) => dv.key === selectedBatchKey);
-    if (!selectedTrip) return;
-    await handleRevert(selectedTrip);
-  };
-
-  const handleDriverConfirm = async () => {
-    if (revertableTrips.length !== 1) return;
-    await handleRevert(revertableTrips[0]);
   };
 
   const formatNumber = (val?: number) => {
@@ -113,6 +114,9 @@ const RevertVehicleDialog: React.FC<Props> = ({
       return dateStr;
     }
   };
+
+  if (!isOpen && !isClosing) return null;
+  if (!order) return null;
 
   return createPortal(
     <div
@@ -161,79 +165,55 @@ const RevertVehicleDialog: React.FC<Props> = ({
             <p className="text-[13px] text-muted-foreground text-center py-2">
               Không có chuyến nào bạn có thể hoàn tác.
             </p>
-          ) : isAdmin ? (
-            <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Chọn chuyến muốn hoàn tác</span>
-              {revertableTrips.map((dv) => (
-                <button
-                  key={dv.key}
-                  onClick={() => setSelectedBatchKey(dv.key)}
-                  className={clsx(
-                    'flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left',
-                    selectedBatchKey === dv.key
-                      ? 'border-amber-500/50 bg-amber-500/10'
-                      : 'border-border bg-muted/20 hover:bg-muted/40'
-                  )}
-                >
-                  <div className={clsx(
-                    'w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0',
-                    selectedBatchKey === dv.key
-                      ? 'border-amber-500 bg-amber-500'
-                      : 'border-border'
-                  )}>
-                    {selectedBatchKey === dv.key && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                    )}
-                  </div>
-                  <Truck size={14} className="text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-bold text-foreground">
-                      {dv.vehicles?.license_plate || 'N/A'}
-                    </div>
-                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                      <span>SL: {formatNumber(dv.assigned_quantity)}</span>
-                      {dv.delivery_date && (
-                        <>
-                          <span>·</span>
-                          <span className="flex items-center gap-1">
-                            <Calendar size={10} />
-                            {formatDisplayDate(dv.delivery_date)}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
           ) : (
             <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Chuyến sẽ hoàn tác</span>
-              {revertableTrips.map((dv) => (
-                <div
-                  key={dv.key}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/5"
-                >
-                  <Truck size={14} className="text-amber-600 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-bold text-foreground">
-                      {dv.vehicles?.license_plate || 'N/A'}
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Chọn lần phân xe muốn hoàn tác</span>
+              {revertableTrips.map((dv) => {
+                const checked = selectedTripIds.has(dv.id);
+                return (
+                  <button
+                    key={dv.id}
+                    onClick={() => toggleTripSelection(dv.id, dv.vehicle_id)}
+                    className={clsx(
+                      'flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left',
+                      checked
+                        ? 'border-amber-500/50 bg-amber-500/10'
+                        : 'border-border bg-muted/20 hover:bg-muted/40'
+                    )}
+                  >
+                    <div className={clsx(
+                      'w-4 h-4 rounded border-2 flex items-center justify-center shrink-0',
+                      checked ? 'border-amber-500 bg-amber-500' : 'border-border'
+                    )}>
+                      {checked && <div className="w-1.5 h-1.5 rounded-sm bg-white" />}
                     </div>
-                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                      <span>SL: {formatNumber(dv.assigned_quantity)}</span>
-                      {dv.delivery_date && (
-                        <>
-                          <span>·</span>
-                          <span className="flex items-center gap-1">
-                            <Calendar size={10} />
-                            {formatDisplayDate(dv.delivery_date)}
-                          </span>
-                        </>
-                      )}
+                    <Truck size={14} className="text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-bold text-foreground">
+                        {dv.vehicles?.license_plate || 'N/A'}
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span>SL: {formatNumber(dv.assigned_quantity)}</span>
+                        {dv.delivery_date && (
+                          <>
+                            <span>·</span>
+                            <span className="flex items-center gap-1">
+                              <Calendar size={10} />
+                              {formatDisplayDate(dv.delivery_date)}
+                            </span>
+                          </>
+                        )}
+                        {dv.delivery_time && (
+                          <>
+                            <span>·</span>
+                            <span>{(dv.delivery_time || '').slice(0, 5)}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -246,12 +226,12 @@ const RevertVehicleDialog: React.FC<Props> = ({
             Hủy
           </button>
           <button
-            onClick={isAdmin ? handleAdminConfirm : handleDriverConfirm}
+            onClick={handleConfirm}
             disabled={
               revertMutation.isPending ||
               confirming ||
               revertableTrips.length === 0 ||
-              (isAdmin && !selectedBatchKey)
+              selectedTrips.length === 0
             }
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 text-white text-[13px] font-bold hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >

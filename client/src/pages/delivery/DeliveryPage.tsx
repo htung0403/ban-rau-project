@@ -1226,21 +1226,11 @@ const DeliveryPage: React.FC = () => {
                               const canEdit = isEditableByMe || isAdmin;
 
                               const isExportPaid = dvs.length > 0 && dvs.some(dv => dv.export_payment_status === 'paid');
-                              const dvBatches = dvs.reduce<Array<{ key: string; qty: number; exportPaid: boolean }>>((acc, dv) => {
-                                const batchKey = `${dv.vehicle_id || ''}|${dv.driver_id || ''}|${dv.delivery_date || ''}|${(dv.delivery_time || '').slice(0, 5)}`;
-                                const found = acc.find((item) => item.key === batchKey);
-                                if (found) {
-                                  found.qty += Number(dv.assigned_quantity || 0);
-                                  found.exportPaid = found.exportPaid || dv.export_payment_status === 'paid';
-                                } else {
-                                  acc.push({
-                                    key: batchKey,
-                                    qty: Number(dv.assigned_quantity || 0),
-                                    exportPaid: dv.export_payment_status === 'paid',
-                                  });
-                                }
-                                return acc;
-                              }, []);
+                              const dvEntries = dvs.map((dv, idx) => ({
+                                key: dv.id || `${dv.vehicle_id || 'vehicle'}-${idx}`,
+                                qty: Number(dv.assigned_quantity || 0),
+                                exportPaid: dv.export_payment_status === 'paid',
+                              }));
                               const isCollectionPaid = (o.payment_collections || []).some(
                                 (pc) => pc.vehicle_id === v.id && isPaidCollectionStatus(pc.status)
                               );
@@ -1270,16 +1260,16 @@ const DeliveryPage: React.FC = () => {
                                         }}
                                         className="cursor-pointer"
                                       >
-                                        {dvBatches.map((batch, idx) => (
-                                          <React.Fragment key={batch.key}>
+                                        {dvEntries.map((entry, idx) => (
+                                          <React.Fragment key={entry.key}>
                                             {idx > 0 && <span className="text-[10px] text-muted-foreground/50 mx-0.5">+</span>}
                                             <span
                                               className={clsx(
                                                 "underline decoration-dotted underline-offset-2",
-                                                batch.exportPaid ? "text-emerald-600 dark:text-emerald-500 hover:text-emerald-700 decoration-emerald-500/30" : "text-red-600 dark:text-red-500 hover:text-red-700 decoration-red-500/30"
+                                                entry.exportPaid ? "text-emerald-600 dark:text-emerald-500 hover:text-emerald-700 decoration-emerald-500/30" : "text-red-600 dark:text-red-500 hover:text-red-700 decoration-red-500/30"
                                               )}
                                             >
-                                              {formatNumber(batch.qty)}
+                                              {formatNumber(entry.qty)}
                                             </span>
                                           </React.Fragment>
                                         ))}

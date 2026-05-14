@@ -524,23 +524,7 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
 
       const finalAssignmentsToSubmit = [...normalizedAssignments];
 
-      if (mode === 'add-new') {
-        const existingAssignments = (order.delivery_vehicles || [])
-          .filter((dv) => (dv.assigned_quantity || 0) > 0)
-          .map((dv: any) => ({
-            vehicle_id: dv.vehicle_id,
-            driver_id: dv.driver_id || '',
-            loader_name: dv.loader_name || '',
-            unit_price: Number(dv.unit_price || order.unit_price || 0),
-            quantity: Number(dv.assigned_quantity) || 0,
-            expected_amount: Number(dv.expected_amount || 0),
-            image_urls: Array.isArray(dv.image_urls) ? dv.image_urls : [],
-            delivery_date: dv.delivery_date,
-            delivery_time: dv.delivery_time,
-            export_payment_status: dv.export_payment_status || 'unpaid',
-          }));
-        finalAssignmentsToSubmit.push(...existingAssignments);
-      } else if (initialVid) {
+      if (mode !== 'add-new' && initialVid) {
         const hiddenAssignments = (order.delivery_vehicles || []).filter(
           (dv) => dv.vehicle_id !== initialVid && (dv.assigned_quantity || 0) > 0
         ).map((dv: any) => ({
@@ -571,6 +555,9 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
       };
       if (order.source_order_ids && order.source_order_ids.length > 0) {
         payload.source_order_ids = order.source_order_ids;
+      }
+      if (mode === 'add-new') {
+        payload.append_only = true;
       }
       /** Chỉ gửi ảnh chung (global) ở cấp đơn. Ảnh từng xe được lưu riêng trong assignments → delivery_vehicles. */
       const globalImageUrls = data.image_urls || [];

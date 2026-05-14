@@ -94,6 +94,7 @@ export class DeliveryController {
       let delivery_date: string | undefined = undefined;
       let delivery_time: string | undefined = undefined;
       let source_order_ids: string[] | undefined = undefined;
+      let append_only: boolean | undefined = undefined;
 
       const extractExtras = (src: any) => {
         if (Object.prototype.hasOwnProperty.call(src, 'image_url')) {
@@ -122,6 +123,9 @@ export class DeliveryController {
         }
         if (Object.prototype.hasOwnProperty.call(src, 'source_order_ids')) {
           source_order_ids = z.array(z.string().uuid()).parse((src as any).source_order_ids);
+        }
+        if (Object.prototype.hasOwnProperty.call(src, 'append_only')) {
+          append_only = z.boolean().parse((src as any).append_only);
         }
       };
 
@@ -157,7 +161,8 @@ export class DeliveryController {
             unit_price,
             delivered_at,
             delivery_date,
-            delivery_time
+            delivery_time,
+            append_only
           )
         : await DeliveryService.assignVehicles(
             req.params.id as string,
@@ -169,7 +174,8 @@ export class DeliveryController {
             image_urls,
             delivered_at,
             delivery_date,
-            delivery_time
+            delivery_time,
+            append_only
           );
       return res.status(200).json(successResponse(data, 'Vehicles assigned'));
     } catch (err: any) {
@@ -210,8 +216,14 @@ export class DeliveryController {
 
   static async revertVehicle(req: Request, res: Response) {
     try {
-      const { vehicle_id, delivery_date } = z.object({ vehicle_id: z.string().uuid(), delivery_date: z.string().optional() }).parse(req.body);
-      const data = await DeliveryService.revertVehicle(req.params.id, vehicle_id, delivery_date);
+      const { vehicle_id, delivery_date, trip_ids } = z.object({
+        vehicle_id: z.string().uuid().optional(),
+        delivery_date: z.string().optional(),
+        trip_ids: z.array(z.string().uuid()).optional(),
+      }).refine((v) => (v.trip_ids && v.trip_ids.length > 0) || !!v.vehicle_id, {
+        message: 'Thiếu vehicle_id hoặc trip_ids để hoàn tác',
+      }).parse(req.body);
+      const data = await DeliveryService.revertVehicle(req.params.id, vehicle_id, delivery_date, trip_ids);
       return res.status(200).json(successResponse(data, 'Đã hoàn tác xe'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));

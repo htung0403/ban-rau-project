@@ -58,6 +58,7 @@ export const deliveryApi = {
       delivery_date?: string;
       delivery_time?: string;
       source_order_ids?: string[];
+      append_only?: boolean;
     }
   ) => {
     const { data } = await axiosClient.put(`/delivery/${id}/assign-vehicle`, payload);
@@ -84,8 +85,12 @@ export const deliveryApi = {
     return data;
   },
 
-  revertVehicle: async (id: string, vehicleId: string, deliveryDate?: string) => {
-    const { data } = await axiosClient.put(`/delivery/${id}/revert-vehicle`, { vehicle_id: vehicleId, delivery_date: deliveryDate });
+  revertVehicle: async (id: string, vehicleId?: string, deliveryDate?: string, tripIds?: string[]) => {
+    const payload: any = {};
+    if (vehicleId) payload.vehicle_id = vehicleId;
+    if (deliveryDate) payload.delivery_date = deliveryDate;
+    if (tripIds && tripIds.length > 0) payload.trip_ids = tripIds;
+    const { data } = await axiosClient.put(`/delivery/${id}/revert-vehicle`, payload);
     return data;
   },
 };

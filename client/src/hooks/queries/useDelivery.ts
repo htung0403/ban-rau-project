@@ -109,8 +109,8 @@ export function useDeleteDeliveryOrders() {
 export function useRevertVehicle() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, vehicleId, deliveryDate }: { id: string; vehicleId: string; deliveryDate?: string }) =>
-      deliveryApi.revertVehicle(id, vehicleId, deliveryDate),
+    mutationFn: ({ id, vehicleId, deliveryDate, tripIds }: { id: string; vehicleId?: string; deliveryDate?: string; tripIds?: string[] }) =>
+      deliveryApi.revertVehicle(id, vehicleId, deliveryDate, tripIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: deliveryKeys.all });
       queryClient.invalidateQueries({ queryKey: exportOrderKeys.all });

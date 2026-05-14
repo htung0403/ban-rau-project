@@ -76,14 +76,8 @@ const BulkAssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, orders, o
             expected_amount: remainingQty * uPrice * 1000
           };
 
-          // Combine assignments
-          const myExistingIndex = existingAssignments.findIndex((p) => p.vehicle_id === selectedVehicleId);
-          if (myExistingIndex >= 0) {
-            existingAssignments[myExistingIndex].quantity += remainingQty;
-            existingAssignments[myExistingIndex].expected_amount = existingAssignments[myExistingIndex].quantity * uPrice * 1000;
-          } else {
-            existingAssignments.push(newAssignment);
-          }
+          // Keep each bulk action as a new batch row, do not merge by vehicle
+          existingAssignments.push(newAssignment);
 
           await assignMutation.mutateAsync({
             id: order.id,

@@ -2,6 +2,7 @@ import React from 'react';
 import { Settings } from 'lucide-react';
 import PageHeader from '../../components/shared/PageHeader';
 import ZaloConfig from '../../components/shared/ZaloConfig';
+import ZaloSummarySchedulerConfig from '../../components/admin/settings/ZaloSummarySchedulerConfig';
 import LockTimeConfig from '../../components/admin/settings/LockTimeConfig';
 import GoodsConversionConfig from '../../components/admin/settings/GoodsConversionConfig';
 
@@ -33,6 +34,7 @@ const SystemSettingsPage: React.FC = () => {
       {/* Sections */}
       <div className="space-y-6">
         <ZaloConfig />
+        <ZaloSummarySchedulerConfig />
         <LockTimeConfig />
         <GoodsConversionConfig />
       </div>

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { format } from 'date-fns';
 import { logger } from '../../utils/logger';
 import { DeliveryNoteGenerator } from '../../utils/deliveryNoteGenerator';
+import { normalizePersonName } from '../../utils/goodsScope';
 
 // zca-js exports vary by module mode; require() keeps this service compatible in this codebase.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -704,6 +705,303 @@ export class ZaloService {
       }
     } catch (err) {
       logger.error(`[ZaloService] Exception in sendDailySummaries:`, err);
+    }
+  }
+
+  async sendDailySupplierSummaries(supabaseService: any, logger: any, normalizePhoneForAuth: (phone: string) => string | null): Promise<void> {
+    try {
+      if (process.env.ZALO_ENABLE_SENDS !== 'true') return;
+
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
+      // Distributed Lock: Check if already run today to avoid double sending
+      const { data: lastRun } = await supabaseService
+        .from('general_settings')
+        .select('setting_value')
+        .eq('setting_key', 'ZALO_LAST_SUPPLIER_SUMMARY_RUN')
+        .maybeSingle();
+
+      if (lastRun?.setting_value === today) {
+        logger.info(`[ZaloService] Daily supplier summary already processed for ${today}, skipping.`);
+        return;
+      }
+
+      // Mark as run immediately (best-effort lock)
+      await supabaseService.from('general_settings').upsert({
+        setting_key: 'ZALO_LAST_SUPPLIER_SUMMARY_RUN',
+        setting_value: today,
+        updated_at: new Date().toISOString(),
+      });
+
+      logger.info(`[ZaloService] Starting daily supplier summary generation for ${today}`);
+
+      // 1. Fetch all vegetable orders for today
+      const { data: orders, error } = await supabaseService
+        .from('vegetable_orders')
+        .select(`
+          *,
+          customers:customers!vegetable_orders_customer_id_fkey(id, name, phone),
+          vegetable_order_items(*, products(*)),
+          delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles!driver_id(full_name)))
+        `)
+        .eq('order_date', today)
+        .is('deleted_at', null);
+
+      if (error) throw error;
+      if (!orders || orders.length === 0) {
+        logger.info(`[ZaloService] No vegetable orders found for ${today}, skipping supplier summary.`);
+        return;
+      }
+
+      // 2. Group by Supplier (customer_id)
+      const supplierGroups: Record<string, { supplierId: string; supplierName: string; phone: string; orders: any[] }> = {};
+
+      orders.forEach((order: any) => {
+        const supplier = order.customers;
+        if (!supplier) return;
+
+        const phone = supplier.phone;
+        if (!phone) return;
+
+        if (!supplierGroups[supplier.id]) {
+          supplierGroups[supplier.id] = {
+            supplierId: supplier.id,
+            supplierName: supplier.name,
+            phone: phone,
+            orders: [],
+          };
+        }
+        supplierGroups[supplier.id].orders.push(order);
+      });
+
+      // 3. Process each supplier group
+      for (const supplierId of Object.keys(supplierGroups)) {
+        const group = supplierGroups[supplierId];
+        const normalizedPhone = normalizePhoneForAuth(group.phone);
+        if (!normalizedPhone) continue;
+
+        // Sort orders for tai_rank calculation
+        const sortedOrders = [...group.orders].sort((a, b) => {
+          const timeA = new Date(a.created_at || 0).getTime();
+          const timeB = new Date(b.created_at || 0).getTime();
+          if (timeA !== timeB) return timeA - timeB;
+          return String(a.id).localeCompare(String(b.id));
+        });
+
+        // Helper to resolve driver ID
+        const resolveDriverId = (order: any): string => {
+          const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
+          if (dvDriverId) return `dvid:${dvDriverId}`;
+          if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
+          if (order.received_by) return `rb:${order.received_by}`;
+          return 'unknown';
+        };
+
+        const driverRankMap = new Map<string, number>();
+        let nextRank = 1;
+
+        const summaryItems: any[] = [];
+
+        sortedOrders.forEach((order) => {
+          const driverId = resolveDriverId(order);
+          if (!driverRankMap.has(driverId)) {
+            driverRankMap.set(driverId, nextRank);
+            nextRank += 1;
+          }
+          const taiRank = driverRankMap.get(driverId);
+
+          (order.vegetable_order_items || []).forEach((item: any) => {
+            summaryItems.push({
+              taiRank,
+              quantity: item.quantity || 0,
+              productName: item.products?.name || item.package_type || 'Hàng hóa',
+              senderName: order.sender_name || '-',
+            });
+          });
+        });
+
+        if (summaryItems.length === 0) continue;
+
+        try {
+          const noteBuffer = await DeliveryNoteGenerator.generateSupplierSummaryPng({
+            supplierName: group.supplierName,
+            date: format(new Date(), 'dd/MM/yyyy'),
+            items: summaryItems,
+          });
+
+          const result = await this.sendImageMessage({
+            recipientPhone: normalizedPhone,
+            imageUrls: [],
+            attachments: [{
+              data: noteBuffer,
+              filename: `phieu-tong-vua-${today}-${Date.now()}.png`,
+              metadata: { totalSize: noteBuffer.length },
+            }],
+            caption: `Phiếu tổng kết hàng đã nhận ngày ${format(new Date(), 'dd/MM/yyyy')}. Cảm ơn vựa.`,
+          });
+
+          if (result.success) {
+            logger.info(`[ZaloService] Daily supplier summary sent to ${group.supplierName} (${normalizedPhone})`);
+          } else {
+            logger.error(`[ZaloService] Failed to send supplier summary to ${normalizedPhone}: ${result.error}`);
+          }
+        } catch (err) {
+          logger.error(`[ZaloService] Error processing supplier summary for ${group.supplierName}:`, err);
+        }
+      }
+    } catch (err) {
+      logger.error(`[ZaloService] Exception in sendDailySupplierSummaries:`, err);
+    }
+  }
+
+  async sendDailySenderSummaries(supabaseService: any, logger: any, normalizePhoneForAuth: (phone: string) => string | null): Promise<void> {
+    try {
+      if (process.env.ZALO_ENABLE_SENDS !== 'true') return;
+
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
+      // Distributed Lock: Check if already run today to avoid double sending
+      const { data: lastRun } = await supabaseService
+        .from('general_settings')
+        .select('setting_value')
+        .eq('setting_key', 'ZALO_LAST_SENDER_SUMMARY_RUN')
+        .maybeSingle();
+
+      if (lastRun?.setting_value === today) {
+        logger.info(`[ZaloService] Daily sender summary already processed for ${today}, skipping.`);
+        return;
+      }
+
+      // Mark as run immediately (best-effort lock)
+      await supabaseService.from('general_settings').upsert({
+        setting_key: 'ZALO_LAST_SENDER_SUMMARY_RUN',
+        setting_value: today,
+        updated_at: new Date().toISOString(),
+      });
+
+      logger.info(`[ZaloService] Starting daily sender summary generation for ${today}`);
+
+      // 1. Fetch all vegetable orders for today to calculate tai_ranks consistently
+      const { data: allOrders, error } = await supabaseService
+        .from('vegetable_orders')
+        .select(`
+          *,
+          sender_customers:customers!vegetable_orders_sender_id_fkey(id, name, phone),
+          customers:customers!vegetable_orders_customer_id_fkey(id, name),
+          vegetable_order_items(*, products(*)),
+          delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles!driver_id(full_name)))
+        `)
+        .eq('order_date', today)
+        .is('deleted_at', null);
+
+      if (error) throw error;
+      if (!allOrders || allOrders.length === 0) {
+        logger.info(`[ZaloService] No vegetable orders found for ${today}, skipping sender summary.`);
+        return;
+      }
+
+      // 2. Pre-calculate tai_ranks per supplier group (matching ImportOrderService logic)
+      const ordersBySupplier = new Map<string, any[]>();
+      allOrders.forEach((order: any) => {
+        const supplierName = order.customers?.name || order.sender_name || '';
+        const key = `${supplierName}`;
+        if (!ordersBySupplier.has(key)) ordersBySupplier.set(key, []);
+        ordersBySupplier.get(key)!.push(order);
+      });
+
+      const resolveDriverId = (order: any): string => {
+        const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
+        if (dvDriverId) return `dvid:${dvDriverId}`;
+        if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
+        if (order.received_by) return `rb:${order.received_by}`;
+        return 'unknown';
+      };
+
+      ordersBySupplier.forEach((supplierOrders) => {
+        const sorted = [...supplierOrders].sort((a, b) => {
+          const timeA = new Date(a.created_at || 0).getTime();
+          const timeB = new Date(b.created_at || 0).getTime();
+          if (timeA !== timeB) return timeA - timeB;
+          return String(a.id).localeCompare(String(b.id));
+        });
+
+        const driverRankMap = new Map<string, number>();
+        let nextRank = 1;
+
+        sorted.forEach((order) => {
+          const driverId = resolveDriverId(order);
+          if (!driverRankMap.has(driverId)) {
+            driverRankMap.set(driverId, nextRank);
+            nextRank += 1;
+          }
+          order.tai_rank = driverRankMap.get(driverId);
+        });
+      });
+
+      // 3. Group by Sender (sender_id)
+      const senderGroups: Record<string, { senderId: string; senderName: string; phone: string; items: any[] }> = {};
+
+      allOrders.forEach((order: any) => {
+        const sender = order.sender_customers;
+        if (!sender || !sender.id || !sender.phone) return;
+
+        if (!senderGroups[sender.id]) {
+          senderGroups[sender.id] = {
+            senderId: sender.id,
+            senderName: sender.name,
+            phone: sender.phone,
+            items: [],
+          };
+        }
+
+        const taiRank = order.tai_rank || 0;
+        const depotName = order.customers?.name || 'Vựa';
+
+        (order.vegetable_order_items || []).forEach((item: any) => {
+          senderGroups[sender.id].items.push({
+            taiRank,
+            quantity: item.quantity || 0,
+            productName: item.products?.name || item.package_type || 'Hàng hóa',
+            depotName,
+          });
+        });
+      });
+
+      // 4. Process each sender group
+      for (const senderId of Object.keys(senderGroups)) {
+        const group = senderGroups[senderId];
+        const normalizedPhone = normalizePhoneForAuth(group.phone);
+        if (!normalizedPhone || group.items.length === 0) continue;
+
+        try {
+          const noteBuffer = await DeliveryNoteGenerator.generateSenderSummaryPng({
+            senderName: group.senderName,
+            date: format(new Date(), 'dd/MM/yyyy'),
+            items: group.items,
+          });
+
+          const result = await this.sendImageMessage({
+            recipientPhone: normalizedPhone,
+            imageUrls: [],
+            attachments: [{
+              data: noteBuffer,
+              filename: `phieu-tong-gui-${today}-${Date.now()}.png`,
+              metadata: { totalSize: noteBuffer.length },
+            }],
+            caption: `Phiếu tổng kết hàng đã gửi ngày ${format(new Date(), 'dd/MM/yyyy')}. Cảm ơn bạn.`,
+          });
+
+          if (result.success) {
+            logger.info(`[ZaloService] Daily sender summary sent to ${group.senderName} (${normalizedPhone})`);
+          } else {
+            logger.error(`[ZaloService] Failed to send sender summary to ${normalizedPhone}: ${result.error}`);
+          }
+        } catch (err) {
+          logger.error(`[ZaloService] Error processing sender summary for ${group.senderName}:`, err);
+        }
+      }
+    } catch (err) {
+      logger.error(`[ZaloService] Exception in sendDailySenderSummaries:`, err);
     }
   }
 

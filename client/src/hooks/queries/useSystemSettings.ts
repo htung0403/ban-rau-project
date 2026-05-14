@@ -42,6 +42,28 @@ export function useInventoryTransferRule() {
   });
 }
 
+export function useZaloSummarySchedules() {
+  return useQuery({
+    queryKey: ['system-settings', 'zalo-summary'],
+    queryFn: async () => {
+      try {
+        const [grocery, supplier, sender] = await Promise.all([
+          settingsApi.getGeneralSettingByKey(SETTING_KEYS.ZALO_SUMMARY_TIME_GROCERY).catch(() => null),
+          settingsApi.getGeneralSettingByKey(SETTING_KEYS.ZALO_SUMMARY_TIME_SUPPLIER).catch(() => null),
+          settingsApi.getGeneralSettingByKey(SETTING_KEYS.ZALO_SUMMARY_TIME_SENDER).catch(() => null),
+        ]);
+        return {
+          grocery: grocery?.setting_value || '17:00',
+          supplier: supplier?.setting_value || '17:00',
+          sender: sender?.setting_value || '17:00',
+        };
+      } catch {
+        return { grocery: '17:00', supplier: '17:00', sender: '17:00' };
+      }
+    },
+  });
+}
+
 export function useUpsertSystemSetting() {
   const queryClient = useQueryClient();
   return useMutation({

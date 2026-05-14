@@ -81,24 +81,89 @@ const checkZaloConnection = async () => {
   }
 };
 
+// --- Dynamic Scheduling Logic ---
+
+let cachedSettings: Record<string, string> = {
+  zalo_summary_time_grocery: '17:00',
+  zalo_summary_time_supplier: '17:00',
+  zalo_summary_time_sender: '17:00',
+};
+let lastCacheUpdate = 0;
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+const updateSettingsCache = async () => {
+  try {
+    const { data } = await supabaseService
+      .from('general_settings')
+      .select('setting_key, setting_value')
+      .in('setting_key', [
+        'zalo_summary_time_grocery',
+        'zalo_summary_time_supplier',
+        'zalo_summary_time_sender'
+      ]);
+
+    if (data) {
+      data.forEach(s => {
+        cachedSettings[s.setting_key] = s.setting_value;
+      });
+      lastCacheUpdate = Date.now();
+      logger.info('[ZaloScheduler] Settings cache updated');
+    }
+  } catch (err) {
+    logger.error('[ZaloScheduler] Failed to update settings cache:', err);
+  }
+};
+
 export const initZaloScheduler = () => {
-  // Schedule daily summary at 17:00 VN time
-  cron.schedule('0 17 * * *', async () => {
-    logger.info('[ZaloScheduler] Running daily summary job at 17:00 VN');
-    try {
-      await zaloService.sendDailySummaries(supabaseService, logger, normalizePhoneForAuth);
-    } catch (err) {
-      logger.error('[ZaloScheduler] Daily summary job failed:', err);
+  // 1. Initial cache update
+  updateSettingsCache();
+
+  // 2. Check every minute if any summary should be sent
+  cron.schedule('* * * * *', async () => {
+    // Refresh cache if expired
+    if (Date.now() - lastCacheUpdate > CACHE_TTL) {
+      await updateSettingsCache();
+    }
+
+    const nowVN = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).format(new Date());
+
+    // Check Grocery Summary
+    if (nowVN === cachedSettings.zalo_summary_time_grocery) {
+      logger.info(`[ZaloScheduler] Triggering grocery summary at ${nowVN}`);
+      zaloService.sendDailySummaries(supabaseService, logger, normalizePhoneForAuth).catch(err => {
+        logger.error('[ZaloScheduler] Grocery summary job failed:', err);
+      });
+    }
+
+    // Check Supplier Summary
+    if (nowVN === cachedSettings.zalo_summary_time_supplier) {
+      logger.info(`[ZaloScheduler] Triggering supplier summary at ${nowVN}`);
+      zaloService.sendDailySupplierSummaries(supabaseService, logger, normalizePhoneForAuth).catch(err => {
+        logger.error('[ZaloScheduler] Supplier summary job failed:', err);
+      });
+    }
+
+    // Check Sender Summary
+    if (nowVN === cachedSettings.zalo_summary_time_sender) {
+      logger.info(`[ZaloScheduler] Triggering sender summary at ${nowVN}`);
+      zaloService.sendDailySenderSummaries(supabaseService, logger, normalizePhoneForAuth).catch(err => {
+        logger.error('[ZaloScheduler] Sender summary job failed:', err);
+      });
     }
   }, {
     timezone: "Asia/Ho_Chi_Minh"
   });
 
-  // Check Zalo connection every 30 minutes
+  // 3. Check Zalo connection every 30 minutes
   cron.schedule('*/30 * * * *', async () => {
     await checkZaloConnection();
   });
 
-  logger.info('[ZaloScheduler] Daily summary job scheduled for 17:00 Asia/Ho_Chi_Minh');
+  logger.info('[ZaloScheduler] Dynamic daily summary job initialized');
   logger.info('[ZaloScheduler] Zalo connection check scheduled every 30 minutes');
 };

@@ -30,6 +30,32 @@ export interface SummaryNoteData {
   items: SummaryNoteItem[];
 }
 
+export interface SupplierSummaryItem {
+  taiRank: number;
+  quantity: number;
+  productName: string;
+  senderName: string;
+}
+
+export interface SupplierSummaryData {
+  supplierName: string;
+  date: string;
+  items: SupplierSummaryItem[];
+}
+
+export interface SenderSummaryItem {
+  taiRank: number;
+  quantity: number;
+  productName: string;
+  depotName: string;
+}
+
+export interface SenderSummaryData {
+  senderName: string;
+  date: string;
+  items: SenderSummaryItem[];
+}
+
 export class DeliveryNoteGenerator {
   /**
    * Generates a PNG buffer of a delivery note based on SVG template.
@@ -236,6 +262,248 @@ export class DeliveryNoteGenerator {
         </g>
 
         ${rowsSvg}
+      </svg>
+    `;
+
+    return await sharp(Buffer.from(svg)).png().toBuffer();
+  }
+
+  /**
+   * Generates a supplier summary PNG matching the user-provided layout.
+   */
+  static async generateSupplierSummaryPng(data: SupplierSummaryData): Promise<Buffer> {
+    const width = 800;
+    const rowHeight = 40;
+    const headerHeight = 100; // Date + Supplier Name
+    const footerHeight = 40; // Total
+    const fontSize = 16;
+    const boldFontSize = 18;
+
+    const escapeXml = (unsafe: string) => {
+      return unsafe.replace(/[<>&"']/g, (c) => {
+        switch (c) {
+          case '<': return '&lt;'; case '>': return '&gt;'; case '&': return '&amp;';
+          case '"': return '&quot;'; case "'": return '&apos;'; default: return c;
+        }
+      });
+    };
+
+    // Grouping logic
+    const groups: Record<string, typeof data.items> = {};
+    data.items.forEach(item => {
+      if (!groups[item.productName]) groups[item.productName] = [];
+      groups[item.productName].push(item);
+    });
+
+    const totalRows = data.items.length + Object.keys(groups).length;
+    const height = headerHeight + (totalRows + 1) * rowHeight + footerHeight + 20;
+
+    const totalQuantity = data.items.reduce((sum, item) => sum + item.quantity, 0);
+
+    let currentRow = 0;
+    let rowsSvg = '';
+    
+    Object.keys(groups).forEach(productName => {
+      const items = groups[productName];
+      let productTotal = 0;
+      
+      items.forEach(item => {
+        currentRow++;
+        productTotal += item.quantity;
+        const y = headerHeight + currentRow * rowHeight;
+        rowsSvg += `
+          <g transform="translate(10, ${y})">
+            <rect x="0" y="0" width="80" height="${rowHeight}" fill="none" stroke="black" />
+            <text x="40" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${item.taiRank}</text>
+            
+            <rect x="80" y="0" width="100" height="${rowHeight}" fill="none" stroke="black" />
+            <text x="130" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${item.quantity}</text>
+            
+            <rect x="180" y="0" width="300" height="${rowHeight}" fill="none" stroke="black" />
+            <text x="190" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}">${escapeXml(item.productName)}</text>
+            
+            <rect x="480" y="0" width="${width - 20 - 480}" height="${rowHeight}" fill="none" stroke="black" />
+            <text x="490" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}">${escapeXml(item.senderName)}</text>
+          </g>
+        `;
+      });
+
+      // Sub-total row
+      currentRow++;
+      const subTotalY = headerHeight + currentRow * rowHeight;
+      rowsSvg += `
+        <g transform="translate(10, ${subTotalY})">
+          <rect x="0" y="0" width="80" height="${rowHeight}" fill="#f9f9f9" stroke="black" />
+          <text x="40" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tổng</text>
+          
+          <rect x="80" y="0" width="100" height="${rowHeight}" fill="#f9f9f9" stroke="black" />
+          <text x="130" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">${productTotal}</text>
+          
+          <rect x="180" y="0" width="${width - 20 - 180}" height="${rowHeight}" fill="#f9f9f9" stroke="black" />
+          <text x="190" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold">${escapeXml(productName)}</text>
+        </g>
+      `;
+    });
+
+    const svg = `
+      <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="${width}" height="${height}" fill="white" />
+        
+        <!-- Header -->
+        <rect x="10" y="10" width="${width - 20}" height="40" fill="none" stroke="black" />
+        <text x="${width / 2}" y="35" font-family="'DejaVu Sans', sans-serif" font-size="${boldFontSize}" font-weight="bold" text-anchor="middle">${escapeXml(data.date)}</text>
+        
+        <rect x="10" y="50" width="${width - 20}" height="40" fill="none" stroke="black" />
+        <text x="${width / 2}" y="75" font-family="'DejaVu Sans', sans-serif" font-size="${boldFontSize}" font-weight="bold" text-anchor="middle">${escapeXml(data.supplierName)}</text>
+        
+        <!-- Table Header -->
+        <g transform="translate(10, ${headerHeight})">
+          <rect x="0" y="0" width="80" height="${rowHeight}" fill="none" stroke="black" />
+          <text x="40" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tài</text>
+          
+          <rect x="80" y="0" width="100" height="${rowHeight}" fill="none" stroke="black" />
+          <text x="130" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">SL</text>
+          
+          <rect x="180" y="0" width="300" height="${rowHeight}" fill="none" stroke="black" />
+          <text x="330" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tên Hàng</text>
+          
+          <rect x="480" y="0" width="${width - 20 - 480}" height="${rowHeight}" fill="none" stroke="black" />
+          <text x="${480 + (width - 20 - 480) / 2}" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Người Gửi</text>
+        </g>
+
+        ${rowsSvg}
+
+        <!-- Footer -->
+        <g transform="translate(10, ${headerHeight + (totalRows + 1) * rowHeight})">
+          <rect x="0" y="0" width="80" height="${rowHeight}" fill="none" stroke="black" />
+          <text x="40" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tổng cộng</text>
+          
+          <rect x="80" y="0" width="100" height="${rowHeight}" fill="none" stroke="black" />
+          <text x="130" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">${totalQuantity}</text>
+          
+          <rect x="180" y="0" width="${width - 20 - 180}" height="${rowHeight}" fill="none" stroke="black" />
+        </g>
+      </svg>
+    `;
+
+    return await sharp(Buffer.from(svg)).png().toBuffer();
+  }
+
+  /**
+   * Generates a sender summary PNG.
+   */
+  static async generateSenderSummaryPng(data: SenderSummaryData): Promise<Buffer> {
+    const width = 800;
+    const rowHeight = 40;
+    const headerHeight = 100; // Date + Sender Name
+    const footerHeight = 40; // Total
+    const fontSize = 16;
+    const boldFontSize = 18;
+
+    const escapeXml = (unsafe: string) => {
+      return unsafe.replace(/[<>&"']/g, (c) => {
+        switch (c) {
+          case '<': return '&lt;'; case '>': return '&gt;'; case '&': return '&amp;';
+          case '"': return '&quot;'; case "'": return '&apos;'; default: return c;
+        }
+      });
+    };
+
+    // Grouping logic
+    const groups: Record<string, typeof data.items> = {};
+    data.items.forEach(item => {
+      if (!groups[item.productName]) groups[item.productName] = [];
+      groups[item.productName].push(item);
+    });
+
+    const totalRows = data.items.length + Object.keys(groups).length;
+    const height = headerHeight + (totalRows + 1) * rowHeight + footerHeight + 20;
+
+    const totalQuantity = data.items.reduce((sum, item) => sum + item.quantity, 0);
+
+    let currentRow = 0;
+    let rowsSvg = '';
+    
+    Object.keys(groups).forEach(productName => {
+      const items = groups[productName];
+      let productTotal = 0;
+      
+      items.forEach(item => {
+        currentRow++;
+        productTotal += item.quantity;
+        const y = headerHeight + currentRow * rowHeight;
+        rowsSvg += `
+          <g transform="translate(10, ${y})">
+            <rect x="0" y="0" width="80" height="${rowHeight}" fill="none" stroke="black" />
+            <text x="40" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${item.taiRank}</text>
+            
+            <rect x="80" y="0" width="100" height="${rowHeight}" fill="none" stroke="black" />
+            <text x="130" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${item.quantity}</text>
+            
+            <rect x="180" y="0" width="300" height="${rowHeight}" fill="none" stroke="black" />
+            <text x="190" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}">${escapeXml(item.productName)}</text>
+            
+            <rect x="480" y="0" width="${width - 20 - 480}" height="${rowHeight}" fill="none" stroke="black" />
+            <text x="490" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}">${escapeXml(item.depotName)}</text>
+          </g>
+        `;
+      });
+
+      // Sub-total row
+      currentRow++;
+      const subTotalY = headerHeight + currentRow * rowHeight;
+      rowsSvg += `
+        <g transform="translate(10, ${subTotalY})">
+          <rect x="0" y="0" width="80" height="${rowHeight}" fill="#f9f9f9" stroke="black" />
+          <text x="40" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tổng</text>
+          
+          <rect x="80" y="0" width="100" height="${rowHeight}" fill="#f9f9f9" stroke="black" />
+          <text x="130" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">${productTotal}</text>
+          
+          <rect x="180" y="0" width="${width - 20 - 180}" height="${rowHeight}" fill="#f9f9f9" stroke="black" />
+          <text x="190" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold">${escapeXml(productName)}</text>
+        </g>
+      `;
+    });
+
+    const svg = `
+      <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="${width}" height="${height}" fill="white" />
+        
+        <!-- Header -->
+        <rect x="10" y="10" width="${width - 20}" height="40" fill="none" stroke="black" />
+        <text x="${width / 2}" y="35" font-family="'DejaVu Sans', sans-serif" font-size="${boldFontSize}" font-weight="bold" text-anchor="middle">${escapeXml(data.date)}</text>
+        
+        <rect x="10" y="50" width="${width - 20}" height="40" fill="none" stroke="black" />
+        <text x="${width / 2}" y="75" font-family="'DejaVu Sans', sans-serif" font-size="${boldFontSize}" font-weight="bold" text-anchor="middle">${escapeXml(data.senderName)}</text>
+        
+        <!-- Table Header -->
+        <g transform="translate(10, ${headerHeight})">
+          <rect x="0" y="0" width="80" height="${rowHeight}" fill="none" stroke="black" />
+          <text x="40" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tài</text>
+          
+          <rect x="80" y="0" width="100" height="${rowHeight}" fill="none" stroke="black" />
+          <text x="130" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">SL</text>
+          
+          <rect x="180" y="0" width="300" height="${rowHeight}" fill="none" stroke="black" />
+          <text x="330" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tên Hàng</text>
+          
+          <rect x="480" y="0" width="${width - 20 - 480}" height="${rowHeight}" fill="none" stroke="black" />
+          <text x="${480 + (width - 20 - 480) / 2}" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Vựa</text>
+        </g>
+
+        ${rowsSvg}
+
+        <!-- Footer -->
+        <g transform="translate(10, ${headerHeight + (totalRows + 1) * rowHeight})">
+          <rect x="0" y="0" width="80" height="${rowHeight}" fill="none" stroke="black" />
+          <text x="40" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tổng cộng</text>
+          
+          <rect x="80" y="0" width="100" height="${rowHeight}" fill="none" stroke="black" />
+          <text x="130" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">${totalQuantity}</text>
+          
+          <rect x="180" y="0" width="${width - 20 - 180}" height="${rowHeight}" fill="none" stroke="black" />
+        </g>
       </svg>
     `;
 

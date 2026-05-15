@@ -629,7 +629,7 @@ export class DeliveryService {
     // Khi appendOnly = false (Sửa), ta cần gọi assignVehicles cho TẤT CẢ các đơn trong nhóm 
     // để đảm bảo các xe liên quan được dọn dẹp sạch sẽ ở những đơn không còn được phân bổ xe đó.
     // Khi appendOnly = true (Thêm mới), chỉ cần gọi cho những đơn thực sự nhận hàng mới.
-    const targetsToProcess = appendOnly 
+    const targetsToProcess = appendOnly
       ? orderedSources.filter(s => (perOrderAssignments.get(s.id) || []).length > 0)
       : orderedSources;
 

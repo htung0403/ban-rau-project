@@ -1137,7 +1137,49 @@ export class ZaloService {
   }
 
   async getSupplierSummaryData(supabaseService: any, supplierId: string, date: string) {
-    const { data: orders, error } = await supabaseService
+    // 1. Fetch ALL orders of the day to build the global driver rank map (matching UI)
+    const { data: allOrders, error: allOrdersError } = await supabaseService
+      .from('vegetable_orders')
+      .select(`
+        id,
+        created_at,
+        driver_name,
+        received_by,
+        sender_name,
+        delivery_orders(delivery_vehicles(driver_id))
+      `)
+      .eq('order_date', date)
+      .is('deleted_at', null);
+
+    if (allOrdersError || !allOrders) return null;
+
+    const resolveDriverId = (order: any): string => {
+      const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
+      if (dvDriverId) return `dvid:${dvDriverId}`;
+      if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
+      if (order.received_by) return `rb:${order.received_by}`;
+      return 'unknown';
+    };
+
+    // Sort by creation time to establish rank (Tài)
+    const sortedAllOrders = [...allOrders].sort((a, b) => {
+      const timeA = new Date(a.created_at || 0).getTime();
+      const timeB = new Date(b.created_at || 0).getTime();
+      if (timeA !== timeB) return timeA - timeB;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+    const dailyDriverRankMap = new Map<string, number>();
+    let rankCounter = 1;
+    sortedAllOrders.forEach(order => {
+      const dId = resolveDriverId(order);
+      if (!dailyDriverRankMap.has(dId)) {
+        dailyDriverRankMap.set(dId, rankCounter++);
+      }
+    });
+
+    // 2. Fetch specific orders for this supplier
+    const { data: supplierOrders, error: supplierError } = await supabaseService
       .from('vegetable_orders')
       .select(`
         *,
@@ -1149,49 +1191,46 @@ export class ZaloService {
       .eq('customer_id', supplierId)
       .is('deleted_at', null);
 
-    if (error || !orders || orders.length === 0) return null;
+    if (supplierError || !supplierOrders || supplierOrders.length === 0) return null;
 
-    const supplierName = orders[0].customers?.name || 'Vựa';
+    const supplierName = supplierOrders[0].customers?.name || 'Vựa';
+    const items: any[] = [];
 
-    const sortedOrders = [...orders].sort((a, b) => {
+    // Sort supplier orders by time
+    const sortedSupplierOrders = [...supplierOrders].sort((a, b) => {
       const timeA = new Date(a.created_at || 0).getTime();
       const timeB = new Date(b.created_at || 0).getTime();
       if (timeA !== timeB) return timeA - timeB;
       return String(a.id).localeCompare(String(b.id));
     });
 
-    const resolveDriverId = (order: any): string => {
-      const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
-      if (dvDriverId) return `dvid:${dvDriverId}`;
-      if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
-      if (order.received_by) return `rb:${order.received_by}`;
-      return 'unknown';
-    };
-
     const resolveLicensePlate = (order: any): string => {
       return order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.vehicles?.license_plate || '-';
     };
 
-    const driverRankMap = new Map<string, number>();
-    let nextRank = 1;
-    const items: any[] = [];
-
-    sortedOrders.forEach((order) => {
+    sortedSupplierOrders.forEach((order) => {
       const driverId = resolveDriverId(order);
-      if (!driverRankMap.has(driverId)) {
-        driverRankMap.set(driverId, nextRank);
-        nextRank += 1;
-      }
-      const taiRank = driverRankMap.get(driverId);
+      const taiRank = dailyDriverRankMap.get(driverId) || 0;
       const licensePlate = resolveLicensePlate(order);
 
       (order.vegetable_order_items || []).forEach((item: any) => {
+        const quantity = item.quantity || 0;
+        let unitPrice = item.unit_price || 0;
+        let total = item.total_amount || (quantity * unitPrice);
+
+        if (!total && order.is_custom_amount && order.vegetable_order_items?.length === 1) {
+          total = order.total_amount || 0;
+          unitPrice = quantity > 0 ? total / quantity : 0;
+        }
+
         items.push({
           taiRank,
           licensePlate,
-          quantity: item.quantity || 0,
+          quantity,
           productName: item.products?.name || item.package_type || 'Hàng hóa',
           senderName: order.sender_name || '-',
+          price: unitPrice,
+          total,
         });
       });
     });
@@ -1204,7 +1243,49 @@ export class ZaloService {
   }
 
   async getSenderSummaryData(supabaseService: any, senderId: string, date: string) {
-    const { data: orders, error } = await supabaseService
+    // 1. Fetch ALL orders of the day to build the global driver rank map (matching UI)
+    const { data: allOrders, error: allOrdersError } = await supabaseService
+      .from('vegetable_orders')
+      .select(`
+        id,
+        created_at,
+        driver_name,
+        received_by,
+        sender_name,
+        delivery_orders(delivery_vehicles(driver_id))
+      `)
+      .eq('order_date', date)
+      .is('deleted_at', null);
+
+    if (allOrdersError || !allOrders) return null;
+
+    const resolveDriverId = (order: any): string => {
+      const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
+      if (dvDriverId) return `dvid:${dvDriverId}`;
+      if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
+      if (order.received_by) return `rb:${order.received_by}`;
+      return 'unknown';
+    };
+
+    // Establish global rank (Tài)
+    const sortedAllOrders = [...allOrders].sort((a, b) => {
+      const timeA = new Date(a.created_at || 0).getTime();
+      const timeB = new Date(b.created_at || 0).getTime();
+      if (timeA !== timeB) return timeA - timeB;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+    const dailyDriverRankMap = new Map<string, number>();
+    let rankCounter = 1;
+    sortedAllOrders.forEach(order => {
+      const dId = resolveDriverId(order);
+      if (!dailyDriverRankMap.has(dId)) {
+        dailyDriverRankMap.set(dId, rankCounter++);
+      }
+    });
+
+    // 2. Fetch specific orders for this sender
+    const { data: senderOrders, error: senderError } = await supabaseService
       .from('vegetable_orders')
       .select(`
         *,
@@ -1217,40 +1298,26 @@ export class ZaloService {
       .eq('sender_id', senderId)
       .is('deleted_at', null);
 
-    if (error || !orders || orders.length === 0) return null;
+    if (senderError || !senderOrders || senderOrders.length === 0) return null;
 
-    const senderName = orders[0].sender_customers?.name || 'Người gửi';
+    const senderName = senderOrders[0].sender_customers?.name || 'Người gửi';
+    const items: any[] = [];
 
-    const sortedOrders = [...orders].sort((a, b) => {
+    // Sort sender orders by time
+    const sortedSenderOrders = [...senderOrders].sort((a, b) => {
       const timeA = new Date(a.created_at || 0).getTime();
       const timeB = new Date(b.created_at || 0).getTime();
       if (timeA !== timeB) return timeA - timeB;
       return String(a.id).localeCompare(String(b.id));
     });
 
-    const resolveDriverId = (order: any): string => {
-      const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
-      if (dvDriverId) return `dvid:${dvDriverId}`;
-      if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
-      if (order.received_by) return `rb:${order.received_by}`;
-      return 'unknown';
-    };
-
     const resolveLicensePlate = (order: any): string => {
       return order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.vehicles?.license_plate || '-';
     };
 
-    const driverRankMap = new Map<string, number>();
-    let nextRank = 1;
-    const items: any[] = [];
-
-    sortedOrders.forEach((order) => {
+    sortedSenderOrders.forEach((order) => {
       const driverId = resolveDriverId(order);
-      if (!driverRankMap.has(driverId)) {
-        driverRankMap.set(driverId, nextRank);
-        nextRank += 1;
-      }
-      const taiRank = driverRankMap.get(driverId);
+      const taiRank = dailyDriverRankMap.get(driverId) || 0;
       const licensePlate = resolveLicensePlate(order);
 
       (order.vegetable_order_items || []).forEach((item: any) => {

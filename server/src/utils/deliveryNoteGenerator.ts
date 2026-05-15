@@ -317,21 +317,21 @@ export class DeliveryNoteGenerator {
         const y = headerHeight + currentRow * rowHeight;
         rowsSvg += `
           <g transform="translate(10, ${y})">
-            <rect x="0" y="0" width="50" height="${rowHeight}" fill="none" stroke="black" />
-            <text x="25" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${item.taiRank}</text>
-            
-            <rect x="50" y="0" width="100" height="${rowHeight}" fill="none" stroke="black" />
-            <text x="100" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${escapeXml(item.licensePlate || '-')}</text>
-            
-            <rect x="150" y="0" width="60" height="${rowHeight}" fill="none" stroke="black" />
-            <text x="180" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${item.quantity}</text>
-            
-            <rect x="210" y="0" width="220" height="${rowHeight}" fill="none" stroke="black" />
-            <text x="220" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}">${escapeXml(item.productName)}</text>
-            
-            <rect x="430" y="0" width="180" height="${rowHeight}" fill="none" stroke="black" />
-            <text x="440" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}">${escapeXml(item.senderName)}</text>
+            <rect x="0" y="0" width="180" height="${rowHeight}" fill="none" stroke="black" />
+            <text x="10" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}">${escapeXml(item.senderName)}</text>
 
+            <rect x="180" y="0" width="50" height="${rowHeight}" fill="none" stroke="black" />
+            <text x="205" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${item.taiRank}</text>
+            
+            <rect x="230" y="0" width="100" height="${rowHeight}" fill="none" stroke="black" />
+            <text x="280" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${escapeXml(item.licensePlate || '-')}</text>
+            
+            <rect x="330" y="0" width="60" height="${rowHeight}" fill="none" stroke="black" />
+            <text x="360" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="middle">${item.quantity}</text>
+            
+            <rect x="390" y="0" width="220" height="${rowHeight}" fill="none" stroke="black" />
+            <text x="400" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}">${escapeXml(item.productName)}</text>
+            
             <rect x="610" y="0" width="150" height="${rowHeight}" fill="none" stroke="black" />
             <text x="750" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="end">${(item.price || 0).toLocaleString('vi-VN')}</text>
 
@@ -346,14 +346,14 @@ export class DeliveryNoteGenerator {
       const subTotalY = headerHeight + currentRow * rowHeight;
       rowsSvg += `
         <g transform="translate(10, ${subTotalY})">
-          <rect x="0" y="0" width="150" height="${rowHeight}" fill="#f9f9f9" stroke="black" />
-          <text x="75" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tổng</text>
+          <rect x="0" y="0" width="330" height="${rowHeight}" fill="#f9f9f9" stroke="black" />
+          <text x="165" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tổng</text>
           
-          <rect x="150" y="0" width="60" height="${rowHeight}" fill="#f9f9f9" stroke="black" />
-          <text x="180" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">${productTotal}</text>
+          <rect x="330" y="0" width="60" height="${rowHeight}" fill="#f9f9f9" stroke="black" />
+          <text x="360" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">${productTotal}</text>
           
-          <rect x="210" y="0" width="${width - 20 - 210}" height="${rowHeight}" fill="#f9f9f9" stroke="black" />
-          <text x="220" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold">${escapeXml(productName)}</text>
+          <rect x="390" y="0" width="${width - 20 - 390}" height="${rowHeight}" fill="#f9f9f9" stroke="black" />
+          <text x="400" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold">${escapeXml(productName)}</text>
         </g>
       `;
     });
@@ -371,20 +371,20 @@ export class DeliveryNoteGenerator {
         
         <!-- Table Header -->
         <g transform="translate(10, ${headerHeight})">
-          <rect x="0" y="0" width="50" height="${rowHeight}" fill="#f0f0f0" stroke="black" />
-          <text x="25" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tài</text>
+          <rect x="0" y="0" width="180" height="${rowHeight}" fill="#f0f0f0" stroke="black" />
+          <text x="90" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Người Gửi</text>
+
+          <rect x="180" y="0" width="50" height="${rowHeight}" fill="#f0f0f0" stroke="black" />
+          <text x="205" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tài</text>
           
-          <rect x="50" y="0" width="100" height="${rowHeight}" fill="#f0f0f0" stroke="black" />
-          <text x="100" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Số xe</text>
+          <rect x="230" y="0" width="100" height="${rowHeight}" fill="#f0f0f0" stroke="black" />
+          <text x="280" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Số xe</text>
           
-          <rect x="150" y="0" width="60" height="${rowHeight}" fill="#f0f0f0" stroke="black" />
-          <text x="180" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">SL</text>
+          <rect x="330" y="0" width="60" height="${rowHeight}" fill="#f0f0f0" stroke="black" />
+          <text x="360" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">SL</text>
           
-          <rect x="210" y="0" width="220" height="${rowHeight}" fill="#f0f0f0" stroke="black" />
-          <text x="320" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tên Hàng</text>
-          
-          <rect x="430" y="0" width="180" height="${rowHeight}" fill="#f0f0f0" stroke="black" />
-          <text x="520" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Người Gửi</text>
+          <rect x="390" y="0" width="220" height="${rowHeight}" fill="#f0f0f0" stroke="black" />
+          <text x="500" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tên Hàng</text>
 
           <rect x="610" y="0" width="150" height="${rowHeight}" fill="#f0f0f0" stroke="black" />
           <text x="685" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Đơn giá</text>
@@ -397,13 +397,13 @@ export class DeliveryNoteGenerator {
 
         <!-- Grand Total Footer -->
         <g transform="translate(10, ${headerHeight + (totalRows + 1) * rowHeight})">
-          <rect x="0" y="0" width="150" height="${rowHeight}" fill="#e0e0e0" stroke="black" />
-          <text x="75" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">TỔNG CỘNG</text>
+          <rect x="0" y="0" width="330" height="${rowHeight}" fill="#e0e0e0" stroke="black" />
+          <text x="165" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">TỔNG CỘNG</text>
           
-          <rect x="150" y="0" width="60" height="${rowHeight}" fill="#e0e0e0" stroke="black" />
-          <text x="180" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">${totalQuantity}</text>
+          <rect x="330" y="0" width="60" height="${rowHeight}" fill="#e0e0e0" stroke="black" />
+          <text x="360" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">${totalQuantity}</text>
           
-          <rect x="210" y="0" width="550" height="${rowHeight}" fill="#e0e0e0" stroke="black" />
+          <rect x="390" y="0" width="370" height="${rowHeight}" fill="#e0e0e0" stroke="black" />
           
           <rect x="760" y="0" width="${width - 20 - 760}" height="${rowHeight}" fill="#e0e0e0" stroke="black" />
           <text x="${width - 30}" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="end">${totalMoney.toLocaleString('vi-VN')}</text>

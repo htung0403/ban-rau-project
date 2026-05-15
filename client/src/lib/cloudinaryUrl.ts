@@ -15,8 +15,8 @@ const SIZE_MAP: Record<CloudinarySize, number> = {
   xs: 150,   // Thumbnails, avatars, icons
   sm: 320,   // Small cards, list previews
   md: 640,   // Medium cards, dialog thumbnails
-  lg: 1024,  // Hero images, detail views
-  xl: 1600,  // Full-screen / zoom view
+  lg: 1200,  // Consolidated large size for detail/hero views
+  xl: 1200,  // Map to 1200 to save transformation variants
   full: 0,   // No resize (original)
 };
 
@@ -45,36 +45,45 @@ export function optimizeCloudinaryUrl(
 ): string {
   if (!url || typeof url !== 'string') return url || '';
 
-  // If not a Cloudinary URL, return as-is (e.g., base64 data URIs, external URLs)
+  // If not a Cloudinary URL, return as-is
   if (!isCloudinaryUrl(url)) return url;
 
-  // Determine width
   const width = typeof size === 'number' ? size : SIZE_MAP[size] ?? 640;
+  if (size === 'full' || width === 0) return url;
 
-  // If 'full' size requested, return original URL
-  if (size === 'full') return url;
-
-  // Cloudinary URL format: .../image/upload/[transformations]/folder/public_id.ext
-  // We need to insert transformations after '/upload/' (or '/upload/v1234567890/' if version exists)
+  // Standardize quality and format
   const transformations = `w_${width},q_auto,f_auto,c_${crop},g_${gravity}`;
 
-  // Match /upload/ optionally followed by version number like /v1234567890/
-  const uploadPattern = /(\/image\/upload\/)(v\d+\/)?/;
-  const match = url.match(uploadPattern);
+  // IDEMPOTENCY FIX:
+  // We want to avoid adding multiple transformation segments like /upload/w_150/w_640/...
+  // We identify the part after '/upload/' and see if it looks like an existing transformation.
+  const uploadToken = '/upload/';
+  const uploadIndex = url.indexOf(uploadToken);
+  if (uploadIndex === -1) return url;
 
-  if (match) {
-    const insertPoint = match.index! + match[1].length;
-    return url.slice(0, insertPoint) + transformations + '/' + url.slice(insertPoint);
+  const prefix = url.substring(0, uploadIndex + uploadToken.length);
+  const remainder = url.substring(uploadIndex + uploadToken.length);
+  
+  // Split the remainder into path segments
+  const parts = remainder.split('/');
+  
+  // Cloudinary URL segments: [transformations]/[version/][folder/]public_id.ext
+  // Transformation segments typically contain '_' or ',' and don't start with 'v' + digits
+  const firstPart = parts[0];
+  const isTransformation = (firstPart.includes('_') || firstPart.includes(',')) && !(/^v\d+$/.test(firstPart));
+
+  if (isTransformation) {
+    // If we're already optimized with the SAME string, do nothing
+    if (firstPart === transformations) return url;
+    
+    // Otherwise, replace the existing transformation segment with the new one
+    parts[0] = transformations;
+  } else {
+    // No transformation segment found, insert the new one before everything else
+    parts.unshift(transformations);
   }
 
-  // Fallback: if pattern doesn't match, append before the last path segment
-  // This handles edge cases like custom CNAME domains
-  const lastSlash = url.lastIndexOf('/');
-  if (lastSlash > 0) {
-    return url.slice(0, lastSlash) + `/${transformations}/` + url.slice(lastSlash + 1);
-  }
-
-  return url;
+  return prefix + parts.join('/');
 }
 
 /**

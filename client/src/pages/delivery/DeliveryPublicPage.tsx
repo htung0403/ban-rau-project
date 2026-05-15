@@ -16,7 +16,7 @@ import {
   CreditCard,
   Hash
 } from 'lucide-react';
-import { cloudinaryMedium } from '../../lib/cloudinaryUrl';
+import { cloudinaryMedium, cloudinaryLarge } from '../../lib/cloudinaryUrl';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -295,7 +295,7 @@ const DeliveryPublicPage: React.FC = () => {
                   onClick={() => openLightbox(url)}
                 >
                   <img
-                    src={url}
+                    src={cloudinaryMedium(url)}
                     alt={`Ảnh ${i + 1}`}
                     style={styles.imageImg}
                     loading="lazy"
@@ -322,7 +322,7 @@ const DeliveryPublicPage: React.FC = () => {
               <X size={24} />
             </button>
             <img
-              src={allImages[lightboxIndex]}
+              src={cloudinaryLarge(allImages[lightboxIndex])}
               alt={`Ảnh ${lightboxIndex + 1}`}
               style={styles.lightboxImg}
             />

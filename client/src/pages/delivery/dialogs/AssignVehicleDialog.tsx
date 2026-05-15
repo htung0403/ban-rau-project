@@ -269,79 +269,28 @@ const AssignVehicleDialog: React.FC<Props> = ({ isOpen, isClosing, order, initia
         }
       } else {
         if (existingDvs.length > 0) {
-          const batchMap = new Map<string, any>();
-
           existingDvs.forEach((dv: any) => {
             if (initialVid && dv.vehicle_id !== initialVid) return;
 
-            const batchKey = [
-              dv.vehicle_id || '',
-              dv.driver_id || '',
-              dv.delivery_date || '',
-              dv.delivery_time || '',
-              dv.export_payment_status || 'unpaid',
-            ].join('|');
+            const assignmentImages = Array.isArray(dv.image_urls)
+              ? [...new Set(dv.image_urls.filter(Boolean))]
+              : [];
 
-            const existingBatch = batchMap.get(batchKey);
-            if (!existingBatch) {
-              batchMap.set(batchKey, {
-                vehicle_id: dv.vehicle_id,
-                driver_id: dv.driver_id || '',
-                loader_name: dv.loader_name || '',
-                unit_price: Number(dv.unit_price || defaultUnitPrice || 0),
-                quantity: Number(dv.assigned_quantity) || 0,
-                expected_amount: Number(dv.expected_amount || 0),
-                image_urls: Array.isArray(dv.image_urls) ? [...new Set(dv.image_urls.filter(Boolean))] : [],
-                delivery_date: dv.delivery_date || format(now, 'yyyy-MM-dd'),
-                delivery_time: dv.delivery_time || format(now, 'HH:mm'),
-                export_payment_status: dv.export_payment_status || 'unpaid',
-              });
-              return;
-            }
-
-            existingBatch.quantity += Number(dv.assigned_quantity) || 0;
-            existingBatch.expected_amount += Number(dv.expected_amount || 0);
-            if (!existingBatch.unit_price && dv.unit_price) {
-              existingBatch.unit_price = Number(dv.unit_price) || existingBatch.unit_price;
-            }
-            if (Array.isArray(dv.image_urls)) {
-              for (const u of dv.image_urls) {
-                if (u && typeof u === 'string' && !existingBatch.image_urls.includes(u)) {
-                  existingBatch.image_urls.push(u);
-                }
-              }
-            }
-          });
-
-          const paymentImagesByVehicle = new Map<string, string[]>();
-          for (const pc of order.payment_collections || []) {
-            if (!pc.vehicle_id || !pc.image_url) continue;
-            const cur = paymentImagesByVehicle.get(pc.vehicle_id) || [];
-            if (!cur.includes(pc.image_url)) cur.push(pc.image_url);
-            paymentImagesByVehicle.set(pc.vehicle_id, cur);
-          }
-
-          Array.from(batchMap.values()).forEach((batch) => {
             baselines.push(0);
-            const paymentImages = paymentImagesByVehicle.get(batch.vehicle_id) || [];
-            const mergedImages = [...batch.image_urls];
-            paymentImages.forEach((url) => {
-              if (!mergedImages.includes(url)) mergedImages.push(url);
-            });
-
             initialAssignments.push({
-              vehicle_id: batch.vehicle_id,
-              driver_id: batch.driver_id,
-              loader_name: batch.loader_name,
-              unit_price: Number(batch.unit_price || defaultUnitPrice || 0),
-              quantity: Number(batch.quantity) || 0,
+              vehicle_id: dv.vehicle_id,
+              driver_id: dv.driver_id || '',
+              loader_name: dv.loader_name || '',
+              unit_price: Number(dv.unit_price || defaultUnitPrice || 0),
+              quantity: Number(dv.assigned_quantity) || 0,
               expected_amount: importPaidReset
                 ? 0
-                : Number(batch.expected_amount || 0) || ((Number(batch.quantity) || 0) * defaultUnitPrice),
-              image_urls: mergedImages,
-              delivery_date: batch.delivery_date,
-              delivery_time: batch.delivery_time,
-              export_payment_status: batch.export_payment_status || 'unpaid',
+                : Number(dv.expected_amount || 0) ||
+                  (Number(dv.assigned_quantity) || 0) * (Number(dv.unit_price) || defaultUnitPrice),
+              image_urls: assignmentImages,
+              delivery_date: dv.delivery_date || format(now, 'yyyy-MM-dd'),
+              delivery_time: dv.delivery_time || format(now, 'HH:mm'),
+              export_payment_status: dv.export_payment_status || 'unpaid',
             });
           });
         }

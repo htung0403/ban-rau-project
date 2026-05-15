@@ -36,6 +36,10 @@ const getOrderPreviewImage = (order: any, localUrl?: string) => {
   const paymentImage = order.payment_collections?.find((pc: any) => pc.image_url)?.image_url;
   if (paymentImage) return paymentImage;
 
+  const vehicleImage = (order.delivery_vehicles || [])
+    .find((dv: any) => dv.image_urls && dv.image_urls.length > 0)?.image_urls[0];
+  if (vehicleImage) return vehicleImage;
+
   const linkedImport = pickRelation<any>(order.import_orders);
   const linkedVeg = pickRelation<any>(order.vegetable_orders);
 

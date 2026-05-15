@@ -17,6 +17,11 @@ export function collectDeliveryOrderImageUrlsForEdit(order: any): string[] {
   pushMany(order?.image_urls);
   push(order?.image_url);
 
+  (order?.delivery_vehicles || []).forEach((dv: any) => {
+    pushMany(dv.image_urls);
+    if (dv.image_url) push(dv.image_url);
+  });
+
   const linkedImport = pickRelation<any>(order?.import_orders);
   const linkedVeg = pickRelation<any>(order?.vegetable_orders);
   const linked = linkedImport || linkedVeg;

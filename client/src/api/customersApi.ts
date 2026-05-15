@@ -7,7 +7,7 @@ export const customersApi = {
     return data;
   },
 
-  create: async (payload: { name: string; phone?: string; address?: string; customer_type?: string; aliases?: string[] }) => {
+  create: async (payload: { name: string; phone?: string | null; address?: string | null; customer_type?: string; aliases?: string[] }) => {
     const { data } = await axiosClient.post<Customer>('/customers', payload);
     return data;
   },

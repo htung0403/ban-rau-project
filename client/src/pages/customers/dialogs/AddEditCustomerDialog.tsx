@@ -10,7 +10,7 @@ import type { Customer } from '../../../types';
 import toast from 'react-hot-toast';
 
 const customerSchema = z.object({
-  name: z.string().min(2, 'Tên khách hàng phải từ 2 ký tự'),
+  name: z.string().min(1, 'Vui lòng nhập tên khách hàng'),
   phone: z.string().optional(),
   address: z.string().optional(),
   customer_type: z.enum(['wholesale', 'grocery', 'retail', 'vegetable', 'grocery_sender', 'grocery_receiver', 'vegetable_sender', 'vegetable_receiver']).default('grocery'),
@@ -107,10 +107,10 @@ const AddEditCustomerDialog: React.FC<Props> = ({ isOpen, isClosing, onClose, de
     try {
       const payload = {
         name: data.name,
-        phone: data.phone || undefined,
-        address: data.address || undefined,
+        phone: data.phone || null,
+        address: data.address || null,
         customer_type: data.customer_type,
-        aliases: data.aliases?.filter(a => a.trim() !== '') || undefined,
+        aliases: data.aliases?.filter(a => a.trim() !== '') || [],
       };
       if (isEditMode && customer?.id) {
         await updateMutation.mutateAsync({ id: customer.id, payload });

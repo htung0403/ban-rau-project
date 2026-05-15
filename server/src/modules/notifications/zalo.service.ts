@@ -384,6 +384,12 @@ export class ZaloService {
         return;
       }
 
+      // Skip immediate notification for vegetable orders as they only get end-of-day summary
+      if (delivery.order_category === 'vegetable') {
+        logger.info(`[ZaloService] Skipping immediate notification for vegetable delivery ${deliveryId}`);
+        return;
+      }
+
       const deliveryNoteBuffers: Buffer[] = [];
       const customerName =
         delivery.import_orders?.customers?.name ||

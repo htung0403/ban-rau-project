@@ -29,6 +29,9 @@ import publicDeliveryRoutes from './modules/delivery/public.routes';
 
 const app = express();
 
+// Enable trust proxy for Fly.io/Proxies to fix rate-limit warnings
+app.set('trust proxy', 1);
+
 // 1. Security Middlewares
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }

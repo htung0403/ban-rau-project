@@ -782,7 +782,32 @@ export class ZaloService {
         return;
       }
 
-      // 2. Group by Supplier (customer_id)
+      // 2. Build the global daily driver rank map (matching UI logic)
+      const sortedAllOrders = [...orders].sort((a, b) => {
+        const timeA = new Date(a.created_at || 0).getTime();
+        const timeB = new Date(b.created_at || 0).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        return String(a.id).localeCompare(String(b.id));
+      });
+
+      const resolveDriverId = (order: any): string => {
+        const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
+        if (dvDriverId) return `dvid:${dvDriverId}`;
+        if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
+        if (order.received_by) return `rb:${order.received_by}`;
+        return 'unknown';
+      };
+
+      const dailyDriverRankMap = new Map<string, number>();
+      let rankCounter = 1;
+      sortedAllOrders.forEach(order => {
+        const dId = resolveDriverId(order);
+        if (!dailyDriverRankMap.has(dId)) {
+          dailyDriverRankMap.set(dId, rankCounter++);
+        }
+      });
+
+      // 3. Group by Supplier (customer_id)
       const supplierGroups: Record<string, { supplierId: string; supplierName: string; phone: string; orders: any[] }> = {};
 
       orders.forEach((order: any) => {
@@ -803,48 +828,44 @@ export class ZaloService {
         supplierGroups[supplier.id].orders.push(order);
       });
 
-      // 3. Process each supplier group
+      // 4. Process each supplier group
       for (const supplierId of Object.keys(supplierGroups)) {
         const group = supplierGroups[supplierId];
         const normalizedPhone = normalizePhoneForAuth(group.phone);
         if (!normalizedPhone) continue;
 
-        // Sort orders for tai_rank calculation
-        const sortedOrders = [...group.orders].sort((a, b) => {
+        // Sort orders for this supplier group by time
+        const sortedSupplierOrders = [...group.orders].sort((a, b) => {
           const timeA = new Date(a.created_at || 0).getTime();
           const timeB = new Date(b.created_at || 0).getTime();
           if (timeA !== timeB) return timeA - timeB;
           return String(a.id).localeCompare(String(b.id));
         });
 
-        // Helper to resolve driver ID
-        const resolveDriverId = (order: any): string => {
-          const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
-          if (dvDriverId) return `dvid:${dvDriverId}`;
-          if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
-          if (order.received_by) return `rb:${order.received_by}`;
-          return 'unknown';
-        };
-
-        const driverRankMap = new Map<string, number>();
-        let nextRank = 1;
-
         const summaryItems: any[] = [];
-
-        sortedOrders.forEach((order) => {
+        sortedSupplierOrders.forEach((order) => {
           const driverId = resolveDriverId(order);
-          if (!driverRankMap.has(driverId)) {
-            driverRankMap.set(driverId, nextRank);
-            nextRank += 1;
-          }
-          const taiRank = driverRankMap.get(driverId);
+          const taiRank = dailyDriverRankMap.get(driverId) || 0;
+          const licensePlate = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.vehicles?.license_plate || '-';
 
           (order.vegetable_order_items || []).forEach((item: any) => {
+            const quantity = item.quantity || 0;
+            let unitPrice = item.unit_price || 0;
+            let total = item.total_amount || (quantity * unitPrice);
+
+            if (!total && order.is_custom_amount && order.vegetable_order_items?.length === 1) {
+              total = order.total_amount || 0;
+              unitPrice = quantity > 0 ? total / quantity : 0;
+            }
+
             summaryItems.push({
               taiRank,
-              quantity: item.quantity || 0,
+              licensePlate,
+              quantity,
               productName: item.products?.name || item.package_type || 'Hàng hóa',
               senderName: order.sender_name || '-',
+              price: unitPrice,
+              total,
             });
           });
         });

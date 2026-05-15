@@ -1168,6 +1168,10 @@ export class ZaloService {
       return 'unknown';
     };
 
+    const resolveLicensePlate = (order: any): string => {
+      return order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.vehicles?.license_plate || '-';
+    };
+
     const driverRankMap = new Map<string, number>();
     let nextRank = 1;
     const items: any[] = [];
@@ -1179,10 +1183,12 @@ export class ZaloService {
         nextRank += 1;
       }
       const taiRank = driverRankMap.get(driverId);
+      const licensePlate = resolveLicensePlate(order);
 
       (order.vegetable_order_items || []).forEach((item: any) => {
         items.push({
           taiRank,
+          licensePlate,
           quantity: item.quantity || 0,
           productName: item.products?.name || item.package_type || 'Hàng hóa',
           senderName: order.sender_name || '-',
@@ -1230,6 +1236,10 @@ export class ZaloService {
       return 'unknown';
     };
 
+    const resolveLicensePlate = (order: any): string => {
+      return order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.vehicles?.license_plate || '-';
+    };
+
     const driverRankMap = new Map<string, number>();
     let nextRank = 1;
     const items: any[] = [];
@@ -1241,10 +1251,12 @@ export class ZaloService {
         nextRank += 1;
       }
       const taiRank = driverRankMap.get(driverId);
+      const licensePlate = resolveLicensePlate(order);
 
       (order.vegetable_order_items || []).forEach((item: any) => {
         items.push({
           taiRank,
+          licensePlate,
           quantity: item.quantity || 0,
           productName: item.products?.name || item.package_type || 'Hàng hóa',
           supplierName: order.customers?.name || '-',

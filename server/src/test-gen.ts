@@ -7,11 +7,11 @@ async function test() {
     supplierName: 'Dũng Hiển',
     date: '15/05/2026',
     items: [
-      { taiRank: 2, quantity: 60, productName: 'Két Cà Chua', senderName: 'Hằng Bên' },
-      { taiRank: 2, quantity: 65, productName: 'Két Cà Chua', senderName: 'Hằng Bên' },
-      { taiRank: 3, quantity: 20, productName: 'Két Cà Chua', senderName: 'Định' },
-      { taiRank: 1, quantity: 10, productName: 'Rau Muống', senderName: 'Lan' },
-      { taiRank: 1, quantity: 15, productName: 'Rau Muống', senderName: 'Huệ' },
+      { taiRank: 2, licensePlate: '49C-12345', quantity: 60, productName: 'Két Cà Chua', senderName: 'Hằng Bên' },
+      { taiRank: 2, licensePlate: '49C-12345', quantity: 65, productName: 'Két Cà Chua', senderName: 'Hằng Bên' },
+      { taiRank: 3, licensePlate: '49H-78901', quantity: 20, productName: 'Két Cà Chua', senderName: 'Định' },
+      { taiRank: 1, licensePlate: '49C-55555', quantity: 10, productName: 'Rau Muống', senderName: 'Lan' },
+      { taiRank: 1, licensePlate: '49C-55555', quantity: 15, productName: 'Rau Muống', senderName: 'Huệ' },
     ]
   };
 
@@ -19,9 +19,9 @@ async function test() {
     senderName: 'Hằng Bên',
     date: '15/05/2026',
     items: [
-      { taiRank: 2, quantity: 60, productName: 'Két Cà Chua', depotName: 'Dũng Hiển' },
-      { taiRank: 2, quantity: 65, productName: 'Két Cà Chua', depotName: 'Dũng Hiển' },
-      { taiRank: 4, quantity: 30, productName: 'Bầu', depotName: 'Chợ Mới' },
+      { taiRank: 2, licensePlate: '49C-12345', quantity: 60, productName: 'Két Cà Chua', depotName: 'Dũng Hiển' },
+      { taiRank: 2, licensePlate: '49C-12345', quantity: 65, productName: 'Két Cà Chua', depotName: 'Dũng Hiển' },
+      { taiRank: 4, licensePlate: '60A-11111', quantity: 30, productName: 'Bầu', depotName: 'Chợ Mới' },
     ]
   };
 

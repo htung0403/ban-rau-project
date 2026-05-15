@@ -5,8 +5,8 @@ import { z } from 'zod';
 
 const createCustomerSchema = z.object({
   name: z.string().min(1),
-  phone: z.string().optional(),
-  address: z.string().optional(),
+  phone: z.string().nullable().optional(),
+  address: z.string().nullable().optional(),
   customer_type: z.enum(['retail', 'wholesale', 'grocery', 'vegetable', 'grocery_sender', 'grocery_receiver', 'vegetable_sender', 'vegetable_receiver']).default('retail'),
   user_id: z.string().uuid().optional(),
   aliases: z.array(z.string()).optional(),

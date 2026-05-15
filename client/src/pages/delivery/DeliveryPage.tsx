@@ -34,6 +34,7 @@ import type { DeliveryOrder, Vehicle } from '../../types';
 import { isSoftDeletedSourceOrder } from '../../utils/softDeletedOrder';
 import { deliveryOrderVisibleToUser, hasFullGoodsModuleAccess } from '../../utils/goodsModuleScope';
 import { cloudinarySmall } from '../../lib/cloudinaryUrl';
+import { VehicleCellTooltip } from './components/VehicleCellTooltip';
 
 const formatNumber = (val?: number) => {
   if (val == null) return '0';
@@ -1234,6 +1235,7 @@ const DeliveryPage: React.FC = () => {
                                 key: dv.id || `${dv.vehicle_id || 'vehicle'}-${idx}`,
                                 qty: Number(dv.assigned_quantity || 0),
                                 exportPaid: dv.export_payment_status === 'paid',
+                                original: dv,
                               }));
                               const isCollectionPaid = (o.payment_collections || []).some(
                                 (pc) => pc.vehicle_id === v.id && isPaidCollectionStatus(pc.status)
@@ -1267,14 +1269,22 @@ const DeliveryPage: React.FC = () => {
                                         {dvEntries.map((entry, idx) => (
                                           <React.Fragment key={entry.key}>
                                             {idx > 0 && <span className="text-[10px] text-muted-foreground/50 mx-0.5">+</span>}
-                                            <span
-                                              className={clsx(
-                                                "underline decoration-dotted underline-offset-2",
-                                                entry.exportPaid ? "text-emerald-600 dark:text-emerald-500 hover:text-emerald-700 decoration-emerald-500/30" : "text-red-600 dark:text-red-500 hover:text-red-700 decoration-red-500/30"
-                                              )}
+                                            <VehicleCellTooltip
+                                              dv={entry.original}
+                                              vehicle={v}
+                                              qty={entry.qty}
+                                              isPaid={isCollectionPaid}
+                                              exportPaid={entry.exportPaid}
                                             >
-                                              {formatNumber(entry.qty)}
-                                            </span>
+                                              <span
+                                                className={clsx(
+                                                  "underline decoration-dotted underline-offset-2",
+                                                  entry.exportPaid ? "text-emerald-600 dark:text-emerald-500 hover:text-emerald-700 decoration-emerald-500/30" : "text-red-600 dark:text-red-500 hover:text-red-700 decoration-red-500/30"
+                                                )}
+                                              >
+                                                {formatNumber(entry.qty)}
+                                              </span>
+                                            </VehicleCellTooltip>
                                           </React.Fragment>
                                         ))}
                                       </div>

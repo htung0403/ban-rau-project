@@ -218,6 +218,7 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
       }
     };
 
+    const globalNhapSeen = new Set<string>();
     sourceOrders.forEach((currentOrder, sourceIndex) => {
       const linkedImportOrder = pickRelation(currentOrder?.import_orders);
       const linkedVegetableOrder = pickRelation(currentOrder?.vegetable_orders);
@@ -295,11 +296,10 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
       ];
       importImages.push(...sourceImportImages);
 
-      const sourceNhapSeen = new Set<string>();
       [...sourceReceiptImages, ...sourceImportImages].forEach((url) => {
         const normalizedUrl = typeof url === 'string' ? url.trim() : '';
-        if (!normalizedUrl || sourceNhapSeen.has(normalizedUrl)) return;
-        sourceNhapSeen.add(normalizedUrl);
+        if (!normalizedUrl || globalNhapSeen.has(normalizedUrl)) return;
+        globalNhapSeen.add(normalizedUrl);
         nhapHangImageMeta.push({
           url: normalizedUrl,
           displayDateTime: sourceDisplayDateTime,
@@ -395,14 +395,9 @@ const OrderImagesDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose 
     receiptImages = [...new Set(receiptImages)];
     importImages = [...new Set(importImages)];
     deliveryImageMeta = deliveryImageMeta.filter(
-      (item, idx, arr) => arr.findIndex((x) =>
-        x.url === item.url
-        && x.source === item.source
-        && x.vehicleLabel === item.vehicleLabel
-        && x.deliveryDate === item.deliveryDate
-        && x.deliveryTime === item.deliveryTime
-      ) === idx
+      (item, idx, arr) => arr.findIndex((x) => x.url === item.url) === idx
     );
+
     deliveryImages = deliveryImageMeta.map((item) => item.url);
 
     const firstImport = pickRelation(sourceOrders[0]?.import_orders);

@@ -586,13 +586,6 @@ export class DeliveryService {
       .filter(Boolean)
       .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-    const totalCapacity = orderedSources.reduce((sum: number, order: any) => sum + (Number(order.total_quantity) || 0), 0);
-    const totalRequested = assignments.reduce((sum: number, row: any) => sum + (Number(row.quantity) || 0), 0);
-
-    if (totalRequested > totalCapacity) {
-      logger.warn(`[assignVehiclesByGroup] Over-assignment allowed: requested=${totalRequested}, capacity=${totalCapacity}`);
-    }
-
     const perOrderAssignments = new Map<string, any[]>();
     orderedSources.forEach((order: any) => perOrderAssignments.set(order.id, []));
 
@@ -601,75 +594,48 @@ export class DeliveryService {
       return rows.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
     };
 
+    // Phân bổ: Không xé lẻ một dòng xe (assignment) ra nhiều đơn hàng.
+    // Ưu tiên điền vào các đơn hàng còn trống, nếu hết đơn hàng còn trống thì dồn vào đơn cuối.
     for (const row of assignments) {
       const rowQty = Number(row.quantity) || 0;
       if (rowQty <= 0) continue;
 
-      let remainingQty = rowQty;
       const rowExpectedAmount = Math.max(0, Number(row.expected_amount || 0));
-      let allocatedExpected = 0;
 
-      for (const source of orderedSources) {
-        if (remainingQty <= 0) break;
+      // Tìm đơn hàng nguồn đầu tiên còn "chỗ" (SL tổng > SL đã dùng trong đợt phân này)
+      let targetSource = orderedSources.find(source => {
+        const used = getUsedOfOrder(source.id);
+        return (Number(source.total_quantity) || 0) > used;
+      });
 
-        const sourceId = source.id as string;
-        const sourceTotal = Number(source.total_quantity) || 0;
-        const used = getUsedOfOrder(sourceId);
-        const available = Math.max(0, sourceTotal - used);
-        if (available <= 0) continue;
-
-        const allocatedQty = Math.min(available, remainingQty);
-        if (allocatedQty <= 0) continue;
-
-        let allocatedAmount = 0;
-        if (rowExpectedAmount > 0) {
-          if (remainingQty === allocatedQty) {
-            allocatedAmount = Math.max(0, rowExpectedAmount - allocatedExpected);
-          } else {
-            allocatedAmount = Math.round((rowExpectedAmount * allocatedQty) / rowQty);
-            allocatedExpected += allocatedAmount;
-          }
-        }
-
-        const sourceRows = perOrderAssignments.get(sourceId) || [];
-        sourceRows.push({
-          ...row,
-          quantity: allocatedQty,
-          expected_amount: allocatedAmount,
-        });
-        perOrderAssignments.set(sourceId, sourceRows);
-
-        remainingQty -= allocatedQty;
+      // Nếu tất cả đã đầy hoặc vượt, dồn vào đơn cuối cùng của nhóm (để đảm bảo không bị mất dòng xe)
+      if (!targetSource) {
+        targetSource = orderedSources[orderedSources.length - 1];
       }
 
-      if (remainingQty > 0) {
-        const fallbackSource = orderedSources[orderedSources.length - 1];
-        if (!fallbackSource) {
-          throw new Error('Không tìm thấy đơn nguồn để ghi nhận phần vượt số lượng.');
-        }
+      if (!targetSource) continue; // Safety
 
-        const fallbackSourceId = fallbackSource.id as string;
-        const overflowExpectedAmount = rowExpectedAmount > 0
-          ? Math.max(0, rowExpectedAmount - allocatedExpected)
-          : 0;
-
-        const sourceRows = perOrderAssignments.get(fallbackSourceId) || [];
-        sourceRows.push({
-          ...row,
-          quantity: remainingQty,
-          expected_amount: overflowExpectedAmount,
-        });
-        perOrderAssignments.set(fallbackSourceId, sourceRows);
-
-        logger.warn(`[assignVehiclesByGroup] Overflow quantity allocated to fallback source order: source=${fallbackSourceId}, overflow=${remainingQty}`);
-      }
+      const sourceId = targetSource.id as string;
+      const sourceRows = perOrderAssignments.get(sourceId) || [];
+      sourceRows.push({
+        ...row,
+        quantity: rowQty,
+        expected_amount: rowExpectedAmount,
+      });
+      perOrderAssignments.set(sourceId, sourceRows);
     }
 
     const result: Record<string, any> = {};
-    for (const source of orderedSources) {
+    // Khi appendOnly = false (Sửa), ta cần gọi assignVehicles cho TẤT CẢ các đơn trong nhóm 
+    // để đảm bảo các xe liên quan được dọn dẹp sạch sẽ ở những đơn không còn được phân bổ xe đó.
+    // Khi appendOnly = true (Thêm mới), chỉ cần gọi cho những đơn thực sự nhận hàng mới.
+    const targetsToProcess = appendOnly 
+      ? orderedSources.filter(s => (perOrderAssignments.get(s.id) || []).length > 0)
+      : orderedSources;
+
+    for (const source of targetsToProcess) {
       const sourceId = source.id as string;
       const sourceRows = perOrderAssignments.get(sourceId) || [];
-      if (sourceRows.length === 0) continue;
 
       const saved = await this.assignVehicles(
         sourceId,

@@ -117,9 +117,30 @@ export class ZaloService {
       const attachments = [...(providedAttachments || []), ...fetchedAttachments];
 
       if (attachments.length === 0) {
+        if (!caption || !caption.trim()) {
+          return {
+            success: false,
+            error: 'No image attachments provided and empty text message',
+            recipientPhone,
+            timestamp: new Date().toISOString(),
+          };
+        }
+
+        const response = await api.sendMessage(
+          { msg: caption.trim() },
+          threadId,
+          ThreadType.User,
+        );
+
+        const messageId = response?.message?.msgId
+          ? String(response.message.msgId)
+          : undefined;
+
+        logger.info(`[ZaloService] Text message sent to ${recipientPhone} (thread ${threadId})`);
+
         return {
-          success: false,
-          error: 'No image attachments provided or able to be fetched',
+          success: true,
+          messageId,
           recipientPhone,
           timestamp: new Date().toISOString(),
         };
@@ -559,15 +580,7 @@ export class ZaloService {
 
       logger.info(`[ZaloService] Starting daily summary generation for ${today}`);
 
-      // 1. Fetch shop name
-      const { data: shopNameSetting } = await supabaseService
-        .from('general_settings')
-        .select('setting_value')
-        .eq('setting_key', 'SHOP_NAME')
-        .maybeSingle();
-      const shopName = shopNameSetting?.setting_value || 'Năm Sự';
-
-      // 2. Fetch all assignments and orders for today
+      // 1. Fetch all assignments and orders for today
       const [assignmentsRes, ordersRes] = await Promise.all([
         supabaseService
           .from('delivery_vehicles')
@@ -610,7 +623,7 @@ export class ZaloService {
         return;
       }
 
-      // 3. Group by customer phone
+      // 2. Group by customer phone
       const customerGroups: Record<string, { customerId: string; customerName: string; phone: string; items: any[]; undeliveredOrderIds: Set<string>; undeliveredQuantity: number }> = {};
 
       const processOrderForUndelivered = (order: any, phone: string, customerName: string, customerId: string) => {
@@ -680,7 +693,7 @@ export class ZaloService {
         });
       }
 
-      // 4. Generate and send for each group
+      // 3. Send summary link for each group
       for (const phone of Object.keys(customerGroups)) {
         const group = customerGroups[phone];
 
@@ -700,13 +713,6 @@ export class ZaloService {
             caption += `\n\nQuý khách đã được giao đủ hàng. Cảm ơn quý khách đã sử dụng dịch vụ.`;
           }
 
-          const noteBuffer = await DeliveryNoteGenerator.generateSummaryPng({
-            shopName,
-            customerName: group.customerName,
-            deliveryDate: format(new Date(), 'dd/MM/yyyy'),
-            items: group.items,
-          });
-
           // Generate public link
           const token = this.generatePublicToken('grocery', group.customerId, today);
           const publicLink = `${env.CLIENT_URL}/public/summary/grocery/${group.customerId}/${today}/${token}`;
@@ -715,11 +721,6 @@ export class ZaloService {
           const result = await this.sendImageMessage({
             recipientPhone: normalizedPhone,
             imageUrls: [],
-            attachments: [{
-              data: noteBuffer,
-              filename: `phieu-tong-${today}-${Date.now()}.png`,
-              metadata: { totalSize: noteBuffer.length },
-            }],
             caption: finalCaption,
           });
 
@@ -873,12 +874,6 @@ export class ZaloService {
         if (summaryItems.length === 0) continue;
 
         try {
-          const noteBuffer = await DeliveryNoteGenerator.generateSupplierSummaryPng({
-            supplierName: group.supplierName,
-            date: format(new Date(), 'dd/MM/yyyy'),
-            items: summaryItems,
-          });
-
           // Generate public link
           const token = this.generatePublicToken('supplier', group.supplierId, today);
           const publicLink = `${env.CLIENT_URL}/public/vegetable-orders/supplier/${group.supplierId}/${today}/${token}`;
@@ -887,11 +882,6 @@ export class ZaloService {
           const result = await this.sendImageMessage({
             recipientPhone: normalizedPhone,
             imageUrls: [],
-            attachments: [{
-              data: noteBuffer,
-              filename: `phieu-tong-vua-${today}-${Date.now()}.png`,
-              metadata: { totalSize: noteBuffer.length },
-            }],
             caption,
           });
 
@@ -1029,12 +1019,6 @@ export class ZaloService {
         if (!normalizedPhone || group.items.length === 0) continue;
 
         try {
-          const noteBuffer = await DeliveryNoteGenerator.generateSenderSummaryPng({
-            senderName: group.senderName,
-            date: format(new Date(), 'dd/MM/yyyy'),
-            items: group.items,
-          });
-
           // Generate public link
           const token = this.generatePublicToken('sender', group.senderId, today);
           const publicLink = `${env.CLIENT_URL}/public/vegetable-orders/sender/${group.senderId}/${today}/${token}`;
@@ -1043,11 +1027,6 @@ export class ZaloService {
           const result = await this.sendImageMessage({
             recipientPhone: normalizedPhone,
             imageUrls: [],
-            attachments: [{
-              data: noteBuffer,
-              filename: `phieu-tong-gui-${today}-${Date.now()}.png`,
-              metadata: { totalSize: noteBuffer.length },
-            }],
             caption,
           });
 
@@ -1092,6 +1071,41 @@ export class ZaloService {
     });
 
     return dailyDriverRankMap;
+  }
+
+  private buildTaiRankBySupplierOrderId(orders: any[]): Map<string, number> {
+    const ordersBySupplier = new Map<string, any[]>();
+
+    orders.forEach((order) => {
+      const supplierKey = String(order.customer_id || 'unknown');
+      const current = ordersBySupplier.get(supplierKey) || [];
+      current.push(order);
+      ordersBySupplier.set(supplierKey, current);
+    });
+
+    const orderRankMap = new Map<string, number>();
+
+    ordersBySupplier.forEach((supplierOrders) => {
+      const sorted = [...supplierOrders].sort((a, b) => {
+        const timeA = new Date(a.created_at || 0).getTime();
+        const timeB = new Date(b.created_at || 0).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        return String(a.id).localeCompare(String(b.id));
+      });
+
+      const driverRankMap = new Map<string, number>();
+      let nextRank = 1;
+
+      sorted.forEach((order) => {
+        const driverKey = this.resolveVegetableOrderDriverKey(order);
+        if (!driverRankMap.has(driverKey)) {
+          driverRankMap.set(driverKey, nextRank++);
+        }
+        orderRankMap.set(String(order.id), driverRankMap.get(driverKey) || 0);
+      });
+    });
+
+    return orderRankMap;
   }
 
   async getGrocerySummaryData(supabaseService: any, customerId: string, date: string) {
@@ -1194,23 +1208,7 @@ export class ZaloService {
   }
 
   async getSupplierSummaryData(supabaseService: any, supplierId: string, date: string) {
-    // 1. Fetch minimal daily dataset to build global driver rank map (for correct tai rank)
-    const { data: allOrders, error: allOrdersError } = await supabaseService
-      .from('vegetable_orders')
-      .select(`
-        id,
-        created_at,
-        driver_name,
-        received_by,
-        delivery_orders(delivery_vehicles(driver_id))
-      `)
-      .eq('order_date', date)
-      .is('deleted_at', null);
-
-    if (allOrdersError || !allOrders || allOrders.length === 0) return null;
-    const dailyDriverRankMap = this.buildDailyDriverRankMap(allOrders);
-
-    // 2. Fetch only this supplier's orders and only required columns for public page
+    // Fetch only this supplier's orders and required columns for public page
     const { data: supplierOrders, error: supplierError } = await supabaseService
       .from('vegetable_orders')
       .select(`
@@ -1221,8 +1219,9 @@ export class ZaloService {
         sender_name,
         is_custom_amount,
         total_amount,
+        sender_customers:customers!vegetable_orders_sender_id_fkey(id, name),
         customers:customers!vegetable_orders_customer_id_fkey(id, name, phone),
-        vegetable_order_items(quantity, unit_price, total_amount, package_type, products(name)),
+        vegetable_order_items(quantity, unit_price, total_amount, package_type, products(name, base_price)),
         delivery_orders(delivery_vehicles(driver_id, vehicles(license_plate)))
       `)
       .eq('order_date', date)
@@ -1242,18 +1241,23 @@ export class ZaloService {
       return String(a.id).localeCompare(String(b.id));
     });
 
-    const resolveLicensePlate = (order: any): string => {
-      return order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.vehicles?.license_plate || '-';
-    };
+    const resolveLicensePlate = (order: any): string => order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.vehicles?.license_plate || '-';
+
+    const driverRankMap = new Map<string, number>();
+    let nextRank = 1;
 
     sortedSupplierOrders.forEach((order) => {
       const driverId = this.resolveVegetableOrderDriverKey(order);
-      const taiRank = dailyDriverRankMap.get(driverId) || 0;
+      if (!driverRankMap.has(driverId)) {
+        driverRankMap.set(driverId, nextRank++);
+      }
+      const taiRank = driverRankMap.get(driverId) || 0;
       const licensePlate = resolveLicensePlate(order);
 
       (order.vegetable_order_items || []).forEach((item: any) => {
         const quantity = item.quantity || 0;
-        let unitPrice = item.unit_price || 0;
+        const fallbackBasePrice = item.products?.base_price || 0;
+        let unitPrice = item.unit_price || fallbackBasePrice || 0;
         let total = item.total_amount || (quantity * unitPrice);
 
         if (!total && order.is_custom_amount && order.vegetable_order_items?.length === 1) {
@@ -1261,31 +1265,50 @@ export class ZaloService {
           unitPrice = quantity > 0 ? total / quantity : 0;
         }
 
+        if (!unitPrice && total > 0 && quantity > 0) {
+          unitPrice = total / quantity;
+        }
+
         items.push({
           taiRank,
           licensePlate,
           quantity,
           productName: item.products?.name || item.package_type || 'Hàng hóa',
-          senderName: order.sender_name || '-',
+          senderName: order.sender_customers?.name || order.sender_name || '-',
           price: unitPrice,
           total,
         });
       });
     });
 
+    const mergedMap = new Map<string, any>();
+    items.forEach((item) => {
+      const rowKey = `${item.senderName}||${item.taiRank}||${item.licensePlate}||${item.productName}||${item.price || 0}`;
+      const existing = mergedMap.get(rowKey);
+      if (!existing) {
+        mergedMap.set(rowKey, { ...item });
+        return;
+      }
+      existing.quantity += item.quantity || 0;
+      existing.total += item.total || 0;
+    });
+
+    const mergedItems = Array.from(mergedMap.values());
+
     return {
       supplierName,
       date: format(new Date(date), 'dd/MM/yyyy'),
-      items
+      items: mergedItems
     };
   }
 
   async getSenderSummaryData(supabaseService: any, senderId: string, date: string) {
-    // 1. Fetch minimal daily dataset to build global driver rank map (for correct tai rank)
+    // 1. Fetch minimal daily dataset to build tai rank per supplier (matching import-orders logic)
     const { data: allOrders, error: allOrdersError } = await supabaseService
       .from('vegetable_orders')
       .select(`
         id,
+        customer_id,
         created_at,
         driver_name,
         received_by,
@@ -1295,7 +1318,7 @@ export class ZaloService {
       .is('deleted_at', null);
 
     if (allOrdersError || !allOrders || allOrders.length === 0) return null;
-    const dailyDriverRankMap = this.buildDailyDriverRankMap(allOrders);
+    const orderRankMap = this.buildTaiRankBySupplierOrderId(allOrders);
 
     // 2. Fetch only this sender's orders and only required columns for public page
     const { data: senderOrders, error: senderError } = await supabaseService
@@ -1332,8 +1355,7 @@ export class ZaloService {
     };
 
     sortedSenderOrders.forEach((order) => {
-      const driverId = this.resolveVegetableOrderDriverKey(order);
-      const taiRank = dailyDriverRankMap.get(driverId) || 0;
+      const taiRank = orderRankMap.get(String(order.id)) || 0;
       const licensePlate = resolveLicensePlate(order);
 
       (order.vegetable_order_items || []).forEach((item: any) => {
@@ -1347,10 +1369,23 @@ export class ZaloService {
       });
     });
 
+    const mergedMap = new Map<string, any>();
+    items.forEach((item) => {
+      const rowKey = `${item.supplierName}||${item.taiRank}||${item.licensePlate}||${item.productName}`;
+      const existing = mergedMap.get(rowKey);
+      if (!existing) {
+        mergedMap.set(rowKey, { ...item });
+        return;
+      }
+      existing.quantity += item.quantity || 0;
+    });
+
+    const mergedItems = Array.from(mergedMap.values());
+
     return {
       senderName,
       date: format(new Date(date), 'dd/MM/yyyy'),
-      items
+      items: mergedItems
     };
   }
 

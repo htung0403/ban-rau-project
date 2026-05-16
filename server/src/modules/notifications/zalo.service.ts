@@ -549,6 +549,13 @@ export class ZaloService {
     }
 
     const result: any = await api.findUser(phone);
+    // Prefer direct uid fields from findUser response for deterministic resolution.
+    const directId = result?.uid || result?.userId || result?.data?.uid || result?.data?.userId || result?.data?.id;
+    if (directId) {
+      return String(directId);
+    }
+
+    // Fallback only when direct uid is unavailable.
     const changedProfiles = result?.changed_profiles as Record<string, unknown> | undefined;
     if (changedProfiles && typeof changedProfiles === 'object') {
       const keys = Object.keys(changedProfiles);
@@ -557,8 +564,7 @@ export class ZaloService {
       }
     }
 
-    const directId = result?.uid || result?.userId || result?.data?.uid || result?.data?.userId || result?.data?.id;
-    return directId ? String(directId) : null;
+    return null;
   }
 
   private async buildImageAttachments(imageUrls: string[]): Promise<ZcaAttachmentSource[]> {
@@ -850,7 +856,7 @@ export class ZaloService {
 
       // 3. Group by Supplier (customer_id)
       const supplierGroups: Record<string, { supplierId: string; supplierName: string; phone: string; orders: any[] }> = {};
-      const suppliersWithoutPhone: { supplierId: string; supplierName: string }[] = [];
+      const suppliersWithoutPhoneMap = new Map<string, { supplierId: string; supplierName: string; orderCount: number }>();
 
       orders.forEach((order: any) => {
         const supplier = order.customers;
@@ -858,10 +864,17 @@ export class ZaloService {
 
         const phone = supplier.phone;
         if (!phone) {
-          suppliersWithoutPhone.push({
-            supplierId: supplier.id,
-            supplierName: supplier.name || '-',
-          });
+          const key = String(supplier.id);
+          const current = suppliersWithoutPhoneMap.get(key);
+          if (current) {
+            current.orderCount += 1;
+          } else {
+            suppliersWithoutPhoneMap.set(key, {
+              supplierId: supplier.id,
+              supplierName: supplier.name || '-',
+              orderCount: 1,
+            });
+          }
           return;
         }
 
@@ -878,6 +891,7 @@ export class ZaloService {
 
       // 4. Process each supplier group
       const allSupplierIds = Object.keys(supplierGroups);
+      const suppliersWithoutPhone = Array.from(suppliersWithoutPhoneMap.values());
       let sentCount = 0;
       let failedCount = 0;
       const invalidPhoneSuppliers: { supplierId: string; supplierName: string; phone: string }[] = [];
@@ -984,16 +998,13 @@ export class ZaloService {
       if (suppliersWithoutPhone.length > 0) {
         logger.warn(`[ZaloService] Suppliers skipped (missing phone): ${JSON.stringify(suppliersWithoutPhone)}`);
 
-        const uniqueMissing = Array.from(
-          new Map(suppliersWithoutPhone.map((supplier) => [supplier.supplierId, supplier])).values()
-        );
-        const preview = uniqueMissing.slice(0, 12).map((supplier) => supplier.supplierName).join(', ');
-        const moreCount = Math.max(0, uniqueMissing.length - 12);
+        const preview = suppliersWithoutPhone.slice(0, 12).map((supplier) => supplier.supplierName).join(', ');
+        const moreCount = Math.max(0, suppliersWithoutPhone.length - 12);
         const suffix = moreCount > 0 ? ` (+${moreCount} vựa khác)` : '';
 
         await this.notifyAdmins(
           supabaseService,
-          `⚠️ ${uniqueMissing.length} vựa thiếu SĐT nhận tổng kết`,
+          `⚠️ ${suppliersWithoutPhone.length} vựa thiếu SĐT nhận tổng kết`,
           `Ngày ${today}: có vựa phát sinh đơn rau nhưng thiếu số điện thoại nên không gửi được tin nhắn tổng kết. Danh sách: ${preview}${suffix}. Vui lòng cập nhật SĐT khách hàng trước giờ gửi.`,
           'warning',
         );

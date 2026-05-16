@@ -68,6 +68,35 @@ export class ZaloService {
     this.enableSends = process.env.ZALO_ENABLE_SENDS === 'true';
   }
 
+  private async notifyAdmins(
+    supabaseService: any,
+    title: string,
+    description: string,
+    type: 'info' | 'warning' | 'success' = 'warning',
+  ): Promise<void> {
+    try {
+      const { data: admins } = await supabaseService
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin');
+
+      if (!admins || admins.length === 0) return;
+
+      const notifications = admins.map((admin: { id: string }) => ({
+        user_id: admin.id,
+        title,
+        description,
+        type,
+        is_read: false,
+        created_at: new Date().toISOString(),
+      }));
+
+      await supabaseService.from('notifications').insert(notifications);
+    } catch (err) {
+      logger.error('[ZaloService] Failed to notify admins:', err);
+    }
+  }
+
   private getPublicClientUrl(): string {
     const normalizeUrl = (value: string) => value.replace(/\/+$/, '');
     const configuredUrl = (process.env.CLIENT_URL || env.CLIENT_URL || '').trim();
@@ -774,13 +803,6 @@ export class ZaloService {
         return;
       }
 
-      // Mark as run immediately (best-effort lock)
-      await supabaseService.from('general_settings').upsert({
-        setting_key: 'ZALO_LAST_SUPPLIER_SUMMARY_RUN',
-        setting_value: today,
-        updated_at: new Date().toISOString(),
-      });
-
       logger.info(`[ZaloService] Starting daily supplier summary generation for ${today}`);
 
       // 1. Fetch all vegetable orders for today
@@ -828,13 +850,20 @@ export class ZaloService {
 
       // 3. Group by Supplier (customer_id)
       const supplierGroups: Record<string, { supplierId: string; supplierName: string; phone: string; orders: any[] }> = {};
+      const suppliersWithoutPhone: { supplierId: string; supplierName: string }[] = [];
 
       orders.forEach((order: any) => {
         const supplier = order.customers;
         if (!supplier) return;
 
         const phone = supplier.phone;
-        if (!phone) return;
+        if (!phone) {
+          suppliersWithoutPhone.push({
+            supplierId: supplier.id,
+            supplierName: supplier.name || '-',
+          });
+          return;
+        }
 
         if (!supplierGroups[supplier.id]) {
           supplierGroups[supplier.id] = {
@@ -848,10 +877,24 @@ export class ZaloService {
       });
 
       // 4. Process each supplier group
+      const allSupplierIds = Object.keys(supplierGroups);
+      let sentCount = 0;
+      let failedCount = 0;
+      const invalidPhoneSuppliers: { supplierId: string; supplierName: string; phone: string }[] = [];
+      const emptySummarySuppliers: { supplierId: string; supplierName: string }[] = [];
+      const failedSuppliers: { supplierId: string; supplierName: string; phone: string; reason: string }[] = [];
+
       for (const supplierId of Object.keys(supplierGroups)) {
         const group = supplierGroups[supplierId];
         const normalizedPhone = normalizePhoneForAuth(group.phone);
-        if (!normalizedPhone) continue;
+        if (!normalizedPhone) {
+          invalidPhoneSuppliers.push({
+            supplierId: group.supplierId,
+            supplierName: group.supplierName,
+            phone: group.phone,
+          });
+          continue;
+        }
 
         // Sort orders for this supplier group by time
         const sortedSupplierOrders = [...group.orders].sort((a, b) => {
@@ -889,7 +932,13 @@ export class ZaloService {
           });
         });
 
-        if (summaryItems.length === 0) continue;
+        if (summaryItems.length === 0) {
+          emptySummarySuppliers.push({
+            supplierId: group.supplierId,
+            supplierName: group.supplierName,
+          });
+          continue;
+        }
 
         try {
           // Generate public link
@@ -904,14 +953,64 @@ export class ZaloService {
           });
 
           if (result.success) {
+            sentCount += 1;
             logger.info(`[ZaloService] Daily supplier summary sent to ${group.supplierName} (${normalizedPhone})`);
           } else {
+            failedCount += 1;
+            failedSuppliers.push({
+              supplierId: group.supplierId,
+              supplierName: group.supplierName,
+              phone: normalizedPhone,
+              reason: result.error || 'unknown',
+            });
             logger.error(`[ZaloService] Failed to send supplier summary to ${normalizedPhone}: ${result.error}`);
           }
         } catch (err) {
+          failedCount += 1;
+          failedSuppliers.push({
+            supplierId: group.supplierId,
+            supplierName: group.supplierName,
+            phone: normalizedPhone,
+            reason: (err as any)?.message || 'exception',
+          });
           logger.error(`[ZaloService] Error processing supplier summary for ${group.supplierName}:`, err);
         }
       }
+
+      logger.info(
+        `[ZaloService] Supplier summary stats ${today}: totalOrders=${orders.length}, groupsWithPhone=${allSupplierIds.length}, sent=${sentCount}, failed=${failedCount}, missingPhone=${suppliersWithoutPhone.length}, invalidPhone=${invalidPhoneSuppliers.length}, emptySummary=${emptySummarySuppliers.length}`
+      );
+
+      if (suppliersWithoutPhone.length > 0) {
+        logger.warn(`[ZaloService] Suppliers skipped (missing phone): ${JSON.stringify(suppliersWithoutPhone)}`);
+
+        const uniqueMissing = Array.from(
+          new Map(suppliersWithoutPhone.map((supplier) => [supplier.supplierId, supplier])).values()
+        );
+        const preview = uniqueMissing.slice(0, 12).map((supplier) => supplier.supplierName).join(', ');
+        const moreCount = Math.max(0, uniqueMissing.length - 12);
+        const suffix = moreCount > 0 ? ` (+${moreCount} vựa khác)` : '';
+
+        await this.notifyAdmins(
+          supabaseService,
+          `⚠️ ${uniqueMissing.length} vựa thiếu SĐT nhận tổng kết`,
+          `Ngày ${today}: có vựa phát sinh đơn rau nhưng thiếu số điện thoại nên không gửi được tin nhắn tổng kết. Danh sách: ${preview}${suffix}. Vui lòng cập nhật SĐT khách hàng trước giờ gửi.`,
+          'warning',
+        );
+      }
+      if (invalidPhoneSuppliers.length > 0) {
+        logger.warn(`[ZaloService] Suppliers skipped (invalid normalized phone): ${JSON.stringify(invalidPhoneSuppliers)}`);
+      }
+      if (failedSuppliers.length > 0) {
+        logger.warn(`[ZaloService] Suppliers failed to send: ${JSON.stringify(failedSuppliers)}`);
+      }
+
+      // Mark as run at the end so partial failures can be diagnosed before lock is set
+      await supabaseService.from('general_settings').upsert({
+        setting_key: 'ZALO_LAST_SUPPLIER_SUMMARY_RUN',
+        setting_value: today,
+        updated_at: new Date().toISOString(),
+      });
     } catch (err) {
       logger.error(`[ZaloService] Exception in sendDailySupplierSummaries:`, err);
     }

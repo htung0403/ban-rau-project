@@ -273,7 +273,8 @@ export class DeliveryNoteGenerator {
   }
 
   /**
-   * Generates a supplier summary PNG matching the user-provided layout.
+   * Generates supplier summary PNG with a print-table layout
+   * aligned with the vegetable print page (shows đơn giá theo K).
    */
   static async generateSupplierSummaryPng(data: SupplierSummaryData): Promise<Buffer> {
     const width = 1000;
@@ -333,7 +334,7 @@ export class DeliveryNoteGenerator {
             <text x="400" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}">${escapeXml(item.productName)}</text>
             
             <rect x="610" y="0" width="150" height="${rowHeight}" fill="none" stroke="black" />
-            <text x="750" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="end">${(item.price || 0).toLocaleString('vi-VN')}</text>
+            <text x="750" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="end">${((item.price || 0) / 1000).toLocaleString('vi-VN')}</text>
 
             <rect x="760" y="0" width="${width - 20 - 760}" height="${rowHeight}" fill="none" stroke="black" />
             <text x="${width - 30}" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" text-anchor="end">${(item.total || 0).toLocaleString('vi-VN')}</text>
@@ -387,7 +388,7 @@ export class DeliveryNoteGenerator {
           <text x="500" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tên Hàng</text>
 
           <rect x="610" y="0" width="150" height="${rowHeight}" fill="#f0f0f0" stroke="black" />
-          <text x="685" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Đơn giá</text>
+          <text x="685" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Tiền(K)</text>
 
           <rect x="760" y="0" width="${width - 20 - 760}" height="${rowHeight}" fill="#f0f0f0" stroke="black" />
           <text x="${760 + (width - 20 - 760) / 2}" y="${rowHeight / 2 + 6}" font-family="'DejaVu Sans', sans-serif" font-size="${fontSize}" font-weight="bold" text-anchor="middle">Thành tiền</text>
@@ -421,8 +422,8 @@ export class DeliveryNoteGenerator {
     const width = 800;
     const rowHeight = 40;
     const headerHeight = 100; // Date + Sender Name
-    const fontSize = 16;
-    const boldFontSize = 18;
+    const fontSize = 14;
+    const boldFontSize = 16;
 
     const escapeXml = (unsafe: string) => {
       return unsafe.replace(/[<>&"']/g, (c) => {

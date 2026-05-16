@@ -881,7 +881,7 @@ export class ZaloService {
 
           // Generate public link
           const token = this.generatePublicToken('supplier', group.supplierId, today);
-          const publicLink = `${env.CLIENT_URL}/public/summary/supplier/${group.supplierId}/${today}/${token}`;
+          const publicLink = `${env.CLIENT_URL}/public/vegetable-orders/supplier/${group.supplierId}/${today}/${token}`;
           const caption = `Phiếu tổng kết hàng đã nhận ngày ${format(new Date(), 'dd/MM/yyyy')}. Cảm ơn vựa.\n\nXem chi tiết tại: ${publicLink}`;
 
           const result = await this.sendImageMessage({
@@ -1037,7 +1037,7 @@ export class ZaloService {
 
           // Generate public link
           const token = this.generatePublicToken('sender', group.senderId, today);
-          const publicLink = `${env.CLIENT_URL}/public/summary/sender/${group.senderId}/${today}/${token}`;
+          const publicLink = `${env.CLIENT_URL}/public/vegetable-orders/sender/${group.senderId}/${today}/${token}`;
           const caption = `Phiếu tổng kết hàng đã gửi ngày ${format(new Date(), 'dd/MM/yyyy')}. Cảm ơn bạn.\n\nXem chi tiết tại: ${publicLink}`;
 
           const result = await this.sendImageMessage({

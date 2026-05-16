@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import { 
   FileText, 
   Package, 
@@ -47,6 +47,10 @@ const SummaryPublicPage: React.FC = () => {
   const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  if ((type === 'supplier' || type === 'sender') && type && id && date && token) {
+    return <Navigate to={`/public/vegetable-orders/${type}/${id}/${date}/${token}`} replace />;
+  }
 
   useEffect(() => {
     if (!type || !id || !date || !token) return;

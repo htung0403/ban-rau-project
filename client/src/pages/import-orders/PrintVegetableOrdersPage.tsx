@@ -44,6 +44,14 @@ const MAX_AMOUNT_PER_SHEET = 4_500_000; // 4.5 triệu
 
 type PrintMode = 'a4' | 'amount';
 
+export const VEGETABLE_PRINT_TABLE_STYLE: React.CSSProperties = {
+  width: '100%',
+  borderCollapse: 'collapse',
+  fontSize: 12,
+  fontFamily: "'Times New Roman', serif",
+  border: '2px solid #000',
+};
+
 // ─── Types ────────────────────────────────────────────────
 interface FlatItem {
   senderName: string;
@@ -552,13 +560,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
                 {/* Table */}
                 <table
                   className="print-table"
-                  style={{
-                    width: '100%',
-                    borderCollapse: 'collapse',
-                    fontSize: 12,
-                    fontFamily: "'Times New Roman', serif",
-                    border: '2px solid #000',
-                  }}
+                  style={VEGETABLE_PRINT_TABLE_STYLE}
                 >
                   <thead>
                     <tr style={{ borderBottom: '2px solid #000' }}>

@@ -1064,6 +1064,36 @@ export class ZaloService {
       logger.error(`[ZaloService] Exception in sendDailySenderSummaries:`, err);
     }
   }
+
+  private resolveVegetableOrderDriverKey(order: any): string {
+    const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
+    if (dvDriverId) return `dvid:${dvDriverId}`;
+    if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
+    if (order.received_by) return `rb:${order.received_by}`;
+    return 'unknown';
+  }
+
+  private buildDailyDriverRankMap(orders: any[]): Map<string, number> {
+    const sortedOrders = [...orders].sort((a, b) => {
+      const timeA = new Date(a.created_at || 0).getTime();
+      const timeB = new Date(b.created_at || 0).getTime();
+      if (timeA !== timeB) return timeA - timeB;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+    const dailyDriverRankMap = new Map<string, number>();
+    let rankCounter = 1;
+
+    sortedOrders.forEach((order) => {
+      const driverKey = this.resolveVegetableOrderDriverKey(order);
+      if (!dailyDriverRankMap.has(driverKey)) {
+        dailyDriverRankMap.set(driverKey, rankCounter++);
+      }
+    });
+
+    return dailyDriverRankMap;
+  }
+
   async getGrocerySummaryData(supabaseService: any, customerId: string, date: string) {
     // 1. Fetch shop name
     const { data: shopNameSetting } = await supabaseService
@@ -1164,7 +1194,7 @@ export class ZaloService {
   }
 
   async getSupplierSummaryData(supabaseService: any, supplierId: string, date: string) {
-    // 1. Fetch ALL orders of the day to build the global driver rank map (matching UI)
+    // 1. Fetch minimal daily dataset to build global driver rank map (for correct tai rank)
     const { data: allOrders, error: allOrdersError } = await supabaseService
       .from('vegetable_orders')
       .select(`
@@ -1172,47 +1202,28 @@ export class ZaloService {
         created_at,
         driver_name,
         received_by,
-        sender_name,
         delivery_orders(delivery_vehicles(driver_id))
       `)
       .eq('order_date', date)
       .is('deleted_at', null);
 
-    if (allOrdersError || !allOrders) return null;
+    if (allOrdersError || !allOrders || allOrders.length === 0) return null;
+    const dailyDriverRankMap = this.buildDailyDriverRankMap(allOrders);
 
-    const resolveDriverId = (order: any): string => {
-      const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
-      if (dvDriverId) return `dvid:${dvDriverId}`;
-      if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
-      if (order.received_by) return `rb:${order.received_by}`;
-      return 'unknown';
-    };
-
-    // Sort by creation time to establish rank (Tài)
-    const sortedAllOrders = [...allOrders].sort((a, b) => {
-      const timeA = new Date(a.created_at || 0).getTime();
-      const timeB = new Date(b.created_at || 0).getTime();
-      if (timeA !== timeB) return timeA - timeB;
-      return String(a.id).localeCompare(String(b.id));
-    });
-
-    const dailyDriverRankMap = new Map<string, number>();
-    let rankCounter = 1;
-    sortedAllOrders.forEach(order => {
-      const dId = resolveDriverId(order);
-      if (!dailyDriverRankMap.has(dId)) {
-        dailyDriverRankMap.set(dId, rankCounter++);
-      }
-    });
-
-    // 2. Fetch specific orders for this supplier
+    // 2. Fetch only this supplier's orders and only required columns for public page
     const { data: supplierOrders, error: supplierError } = await supabaseService
       .from('vegetable_orders')
       .select(`
-        *,
+        id,
+        created_at,
+        driver_name,
+        received_by,
+        sender_name,
+        is_custom_amount,
+        total_amount,
         customers:customers!vegetable_orders_customer_id_fkey(id, name, phone),
-        vegetable_order_items(*, products(*)),
-        delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles!driver_id(full_name)))
+        vegetable_order_items(quantity, unit_price, total_amount, package_type, products(name)),
+        delivery_orders(delivery_vehicles(driver_id, vehicles(license_plate)))
       `)
       .eq('order_date', date)
       .eq('customer_id', supplierId)
@@ -1236,7 +1247,7 @@ export class ZaloService {
     };
 
     sortedSupplierOrders.forEach((order) => {
-      const driverId = resolveDriverId(order);
+      const driverId = this.resolveVegetableOrderDriverKey(order);
       const taiRank = dailyDriverRankMap.get(driverId) || 0;
       const licensePlate = resolveLicensePlate(order);
 
@@ -1270,7 +1281,7 @@ export class ZaloService {
   }
 
   async getSenderSummaryData(supabaseService: any, senderId: string, date: string) {
-    // 1. Fetch ALL orders of the day to build the global driver rank map (matching UI)
+    // 1. Fetch minimal daily dataset to build global driver rank map (for correct tai rank)
     const { data: allOrders, error: allOrdersError } = await supabaseService
       .from('vegetable_orders')
       .select(`
@@ -1278,48 +1289,26 @@ export class ZaloService {
         created_at,
         driver_name,
         received_by,
-        sender_name,
         delivery_orders(delivery_vehicles(driver_id))
       `)
       .eq('order_date', date)
       .is('deleted_at', null);
 
-    if (allOrdersError || !allOrders) return null;
+    if (allOrdersError || !allOrders || allOrders.length === 0) return null;
+    const dailyDriverRankMap = this.buildDailyDriverRankMap(allOrders);
 
-    const resolveDriverId = (order: any): string => {
-      const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
-      if (dvDriverId) return `dvid:${dvDriverId}`;
-      if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
-      if (order.received_by) return `rb:${order.received_by}`;
-      return 'unknown';
-    };
-
-    // Establish global rank (Tài)
-    const sortedAllOrders = [...allOrders].sort((a, b) => {
-      const timeA = new Date(a.created_at || 0).getTime();
-      const timeB = new Date(b.created_at || 0).getTime();
-      if (timeA !== timeB) return timeA - timeB;
-      return String(a.id).localeCompare(String(b.id));
-    });
-
-    const dailyDriverRankMap = new Map<string, number>();
-    let rankCounter = 1;
-    sortedAllOrders.forEach(order => {
-      const dId = resolveDriverId(order);
-      if (!dailyDriverRankMap.has(dId)) {
-        dailyDriverRankMap.set(dId, rankCounter++);
-      }
-    });
-
-    // 2. Fetch specific orders for this sender
+    // 2. Fetch only this sender's orders and only required columns for public page
     const { data: senderOrders, error: senderError } = await supabaseService
       .from('vegetable_orders')
       .select(`
-        *,
+        id,
+        created_at,
+        driver_name,
+        received_by,
         sender_customers:customers!vegetable_orders_sender_id_fkey(id, name, phone),
         customers:customers!vegetable_orders_customer_id_fkey(id, name),
-        vegetable_order_items(*, products(*)),
-        delivery_orders(*, delivery_vehicles(*, vehicles(license_plate), profiles!driver_id(full_name)))
+        vegetable_order_items(quantity, package_type, products(name)),
+        delivery_orders(delivery_vehicles(driver_id, vehicles(license_plate)))
       `)
       .eq('order_date', date)
       .eq('sender_id', senderId)
@@ -1343,7 +1332,7 @@ export class ZaloService {
     };
 
     sortedSenderOrders.forEach((order) => {
-      const driverId = resolveDriverId(order);
+      const driverId = this.resolveVegetableOrderDriverKey(order);
       const taiRank = dailyDriverRankMap.get(driverId) || 0;
       const licensePlate = resolveLicensePlate(order);
 

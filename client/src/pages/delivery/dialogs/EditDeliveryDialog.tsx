@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Loader2, Camera, ImagePlus } from 'lucide-react';
-import { useUpdateDeliveryOrder } from '../../../hooks/queries/useDelivery';
+import { useQueryClient } from '@tanstack/react-query';
+import { deliveryKeys } from '../../../hooks/queries/useDelivery';
 import { useProducts } from '../../../hooks/queries/useProducts';
 import { useCustomers } from '../../../hooks/queries/useCustomers';
 
 import { importOrdersApi } from '../../../api/importOrdersApi';
+import { deliveryApi } from '../../../api/deliveryApi';
 import { uploadApi } from '../../../api/uploadApi';
 import { CreatableSearchableSelect } from '../../../components/ui/CreatableSearchableSelect';
 
@@ -23,8 +25,20 @@ interface Props {
   onClose: () => void;
 }
 
+type DeliveryOrderEditPayload = Partial<DeliveryOrder> & {
+  product_id?: string;
+};
+
+type SourceOrderUpdatePayload = {
+  order_category: 'standard' | 'vegetable';
+  sender_id?: string | null;
+  sender_name?: string;
+  customer_id?: string | null;
+  receiver_name?: string;
+};
+
 const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose }) => {
-  const updateMutation = useUpdateDeliveryOrder();
+  const queryClient = useQueryClient();
   const isVeg = order?.order_category === 'vegetable' || !!order?.vegetable_order_id;
 
   const { data: products } = useProducts(isOpen, isVeg ? 'vegetable' : 'standard');
@@ -158,74 +172,131 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
     
     setIsSubmitting(true);
     try {
-      const payload: any = {};
-      
-      const oldDisplayProductName = order.product_name.includes(' - ') 
-        ? order.product_name.split(' - ').slice(1).join(' - ') 
-        : order.product_name;
+      const targetOrders = order.source_orders && order.source_orders.length > 0 ? order.source_orders : [order];
+      const isMergedEdit = targetOrders.length > 1;
+      const requestedTotalQuantity = Math.max(0, Math.round(Number(formData.total_quantity) || 0));
+      const groupedOriginalTotalQuantity = Math.max(0, Math.round(Number(order.total_quantity) || 0));
+      const shouldUpdateMergedQuantity = isMergedEdit && requestedTotalQuantity !== groupedOriginalTotalQuantity;
+      const quantityByOrderId = new Map<string, number>();
 
-      if (formData.product_name !== oldDisplayProductName) {
-         const prefix = order.product_name.includes(' - ') ? order.product_name.split(' - ')[0] + ' - ' : '';
-         payload.product_name = prefix + formData.product_name;
-         
-         if (!isVeg) {
-            const newProduct = products?.find((p: Product) => p.name === formData.product_name);
-            if (newProduct) {
-               payload.product_id = newProduct.id;
-            }
-         }
-      }
+      if (shouldUpdateMergedQuantity) {
+        const originalTotals = targetOrders.map((targetOrder) => Number(targetOrder.total_quantity) || 0);
+        const sumOriginalTotals = originalTotals.reduce((sum, value) => sum + value, 0);
+        const exactShares = sumOriginalTotals > 0
+          ? originalTotals.map((currentQty) => (requestedTotalQuantity * currentQty) / sumOriginalTotals)
+          : targetOrders.map(() => requestedTotalQuantity / targetOrders.length);
 
-      if (formData.total_quantity !== order.total_quantity) payload.total_quantity = Number(formData.total_quantity);
-      const rawPrice = Number(formData.unit_price) || 0;
-      const normalizedPrice = rawPrice;
-      if (normalizedPrice !== order.unit_price) payload.unit_price = normalizedPrice;
-      if (formData.delivery_date && formData.delivery_date !== order.delivery_date) payload.delivery_date = formData.delivery_date;
-      const prevTime = deliveryTimeToInputValue(order.delivery_time);
-      const nextTime = (formData.delivery_time || '').trim();
-      if (nextTime !== prevTime) {
-        payload.delivery_time = nextTime || null;
-      }
-      
-      const currentImageUrls = formData.image_urls || [];
-      const oldImageUrls = (order as any).image_urls || [];
-      
-      if (JSON.stringify(currentImageUrls) !== JSON.stringify(oldImageUrls)) {
-        payload.image_urls = currentImageUrls;
-        payload.image_url = currentImageUrls.length > 0 ? currentImageUrls[0] : null;
-      } else if (formData.image_url && formData.image_url !== (order as any).image_url) {
-        payload.image_url = formData.image_url;
-      }
+        const integerShares = exactShares.map((value) => Math.floor(value));
+        let remainder = requestedTotalQuantity - integerShares.reduce((sum, value) => sum + value, 0);
+        const fractionalRank = exactShares
+          .map((value, index) => ({ index, fraction: value - integerShares[index] }))
+          .sort((a, b) => b.fraction - a.fraction);
 
-      if (Object.keys(payload).length > 0) {
-        await updateMutation.mutateAsync({
-          id: order.id,
-          payload
+        let pickIndex = 0;
+        while (remainder > 0 && fractionalRank.length > 0) {
+          const targetIndex = fractionalRank[pickIndex % fractionalRank.length].index;
+          integerShares[targetIndex] += 1;
+          remainder -= 1;
+          pickIndex += 1;
+        }
+
+        targetOrders.forEach((targetOrder, index) => {
+          quantityByOrderId.set(targetOrder.id, integerShares[index] || 0);
         });
       }
 
-      // Handle source order updates (Sender/Receiver)
-      const sourceId = order.import_order_id || order.vegetable_order_id;
-      const orderData = order.import_orders || order.vegetable_orders;
-      
-      if (sourceId && orderData) {
-         const changedSender = formData.sender_id !== orderData.sender_id || formData.sender_name !== orderData.sender_name;
-         const changedReceiver = formData.customer_id !== orderData.customer_id || formData.receiver_name !== orderData.receiver_name;
-         
-         if (changedSender || changedReceiver) {
-            const sourcePayload: any = {
-               order_category: isVeg ? 'vegetable' : 'standard',
+      const sourceOrderUpdates: Record<string, SourceOrderUpdatePayload> = {};
+      let hasDeliveryUpdates = false;
+
+      await Promise.all(
+        targetOrders.map(async (targetOrder) => {
+          const payload: DeliveryOrderEditPayload = {};
+
+          const oldDisplayProductName = targetOrder.product_name.includes(' - ')
+            ? targetOrder.product_name.split(' - ').slice(1).join(' - ')
+            : targetOrder.product_name;
+
+          if (formData.product_name !== oldDisplayProductName) {
+            const prefix = targetOrder.product_name.includes(' - ') ? targetOrder.product_name.split(' - ')[0] + ' - ' : '';
+            payload.product_name = prefix + formData.product_name;
+
+            const isTargetVeg = targetOrder.order_category === 'vegetable' || !!targetOrder.vegetable_order_id;
+            if (!isTargetVeg) {
+              const newProduct = products?.find((p: Product) => p.name === formData.product_name);
+              if (newProduct) {
+                payload.product_id = newProduct.id;
+              }
+            }
+          }
+
+          if (isMergedEdit) {
+            if (shouldUpdateMergedQuantity) {
+              const distributedQuantity = quantityByOrderId.get(targetOrder.id);
+              if (distributedQuantity != null && distributedQuantity !== targetOrder.total_quantity) {
+                payload.total_quantity = distributedQuantity;
+              }
+            }
+          } else if (formData.total_quantity !== targetOrder.total_quantity) {
+            payload.total_quantity = requestedTotalQuantity;
+          }
+
+          const rawPrice = Number(formData.unit_price) || 0;
+          const normalizedPrice = rawPrice;
+          if (normalizedPrice !== targetOrder.unit_price) payload.unit_price = normalizedPrice;
+          if (formData.delivery_date && formData.delivery_date !== targetOrder.delivery_date) payload.delivery_date = formData.delivery_date;
+          const prevTime = deliveryTimeToInputValue(targetOrder.delivery_time);
+          const nextTime = (formData.delivery_time || '').trim();
+          if (nextTime !== prevTime) {
+            payload.delivery_time = nextTime || null;
+          }
+
+          const currentImageUrls = formData.image_urls || [];
+          const oldImageUrls = (targetOrder as any).image_urls || [];
+          if (JSON.stringify(currentImageUrls) !== JSON.stringify(oldImageUrls)) {
+            payload.image_urls = currentImageUrls;
+            payload.image_url = currentImageUrls.length > 0 ? currentImageUrls[0] : null;
+          } else if (formData.image_url && formData.image_url !== (targetOrder as any).image_url) {
+            payload.image_url = formData.image_url;
+          }
+
+          if (Object.keys(payload).length > 0) {
+            hasDeliveryUpdates = true;
+            await deliveryApi.update(targetOrder.id, payload);
+          }
+
+          const sourceId = targetOrder.import_order_id || targetOrder.vegetable_order_id;
+          const orderData = targetOrder.import_orders || targetOrder.vegetable_orders;
+          if (!sourceId || !orderData) return;
+
+          const changedSender = formData.sender_id !== orderData.sender_id || formData.sender_name !== orderData.sender_name;
+          const changedReceiver = formData.customer_id !== orderData.customer_id || formData.receiver_name !== orderData.receiver_name;
+          if (!changedSender && !changedReceiver) return;
+
+          if (!sourceOrderUpdates[sourceId]) {
+            sourceOrderUpdates[sourceId] = {
+              order_category: targetOrder.vegetable_order_id ? 'vegetable' : 'standard',
             };
-            if (changedSender) {
-               sourcePayload.sender_id = formData.sender_id || null;
-               sourcePayload.sender_name = formData.sender_name || '';
-            }
-            if (changedReceiver) {
-               sourcePayload.customer_id = formData.customer_id || null;
-               sourcePayload.receiver_name = formData.receiver_name || '';
-            }
-            await importOrdersApi.update(sourceId, sourcePayload);
-         }
+          }
+          if (changedSender) {
+            sourceOrderUpdates[sourceId].sender_id = formData.sender_id || null;
+            sourceOrderUpdates[sourceId].sender_name = formData.sender_name || '';
+          }
+          if (changedReceiver) {
+            sourceOrderUpdates[sourceId].customer_id = formData.customer_id || null;
+            sourceOrderUpdates[sourceId].receiver_name = formData.receiver_name || '';
+          }
+        })
+      );
+
+      const sourceUpdatePromises = Object.entries(sourceOrderUpdates).map(([sourceId, sourcePayload]) =>
+        importOrdersApi.update(sourceId, sourcePayload)
+      );
+      if (sourceUpdatePromises.length > 0) {
+        await Promise.all(sourceUpdatePromises);
+      }
+
+      if (hasDeliveryUpdates || sourceUpdatePromises.length > 0) {
+        await queryClient.invalidateQueries({ queryKey: deliveryKeys.all });
       }
 
       toast.success('Đã cập nhật đơn hàng');
@@ -361,11 +432,11 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
                 <input
                   type="number"
                   required
-                  min="0.1"
-                  step="0.1"
+                  min="0"
+                  step="1"
                   className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                   value={formData.total_quantity}
-                  onChange={e => setFormData({ ...formData, total_quantity: parseFloat(e.target.value) || 0 })}
+                  onChange={e => setFormData({ ...formData, total_quantity: Math.max(0, Number.parseInt(e.target.value, 10) || 0) })}
                   disabled={isSubmitting}
                 />
               </div>

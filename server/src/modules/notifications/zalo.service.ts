@@ -68,6 +68,24 @@ export class ZaloService {
     this.enableSends = process.env.ZALO_ENABLE_SENDS === 'true';
   }
 
+  private getPublicClientUrl(): string {
+    const normalizeUrl = (value: string) => value.replace(/\/+$/, '');
+    const configuredUrl = (process.env.CLIENT_URL || env.CLIENT_URL || '').trim();
+    const isLocalhostUrl = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredUrl);
+
+    if (configuredUrl && !(process.env.NODE_ENV === 'production' && isLocalhostUrl)) {
+      return normalizeUrl(configuredUrl);
+    }
+
+    const vercelHost = (process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || '').trim();
+    if (vercelHost) {
+      const host = vercelHost.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+      if (host) return `https://${host}`;
+    }
+
+    return 'https://nhaxenamsu.vercel.app';
+  }
+
   /**
    * Generates a secure HMAC token for public summary access
    */
@@ -471,7 +489,7 @@ export class ZaloService {
         return;
       }
 
-      const clientUrl = process.env.CLIENT_URL || 'https://nhaxenamsu.vercel.app';
+      const clientUrl = this.getPublicClientUrl();
 
       const result = await this.sendImageMessage({
         recipientPhone: normalizedPhone,
@@ -715,7 +733,7 @@ export class ZaloService {
 
           // Generate public link
           const token = this.generatePublicToken('grocery', group.customerId, today);
-          const publicLink = `${env.CLIENT_URL}/public/summary/grocery/${group.customerId}/${today}/${token}`;
+          const publicLink = `${this.getPublicClientUrl()}/public/summary/grocery/${group.customerId}/${today}/${token}`;
           const finalCaption = `${caption}\n\nXem chi tiết tại: ${publicLink}`;
 
           const result = await this.sendImageMessage({
@@ -876,7 +894,7 @@ export class ZaloService {
         try {
           // Generate public link
           const token = this.generatePublicToken('supplier', group.supplierId, today);
-          const publicLink = `${env.CLIENT_URL}/public/vegetable-orders/supplier/${group.supplierId}/${today}/${token}`;
+          const publicLink = `${this.getPublicClientUrl()}/public/vegetable-orders/supplier/${group.supplierId}/${today}/${token}`;
           const caption = `Phiếu tổng kết hàng đã nhận ngày ${format(new Date(), 'dd/MM/yyyy')}. Cảm ơn vựa.\n\nXem chi tiết tại: ${publicLink}`;
 
           const result = await this.sendImageMessage({
@@ -1021,7 +1039,7 @@ export class ZaloService {
         try {
           // Generate public link
           const token = this.generatePublicToken('sender', group.senderId, today);
-          const publicLink = `${env.CLIENT_URL}/public/vegetable-orders/sender/${group.senderId}/${today}/${token}`;
+          const publicLink = `${this.getPublicClientUrl()}/public/vegetable-orders/sender/${group.senderId}/${today}/${token}`;
           const caption = `Phiếu tổng kết hàng đã gửi ngày ${format(new Date(), 'dd/MM/yyyy')}. Cảm ơn bạn.\n\nXem chi tiết tại: ${publicLink}`;
 
           const result = await this.sendImageMessage({
@@ -1135,8 +1153,7 @@ export class ZaloService {
           profiles (full_name),
           vehicles (license_plate)
         `)
-        .eq('delivery_date', date)
-        .or(`delivery_orders.import_orders.customer_id.eq.${customerId},delivery_orders.vegetable_orders.customer_id.eq.${customerId}`),
+        .eq('delivery_date', date),
       supabaseService
         .from('delivery_orders')
         .select(`
@@ -1150,7 +1167,6 @@ export class ZaloService {
           delivery_vehicles ( assigned_quantity )
         `)
         .eq('delivery_date', date)
-        .or(`import_orders.customer_id.eq.${customerId},vegetable_orders.customer_id.eq.${customerId}`)
         .neq('status', 'hang_o_sg')
     ]);
 

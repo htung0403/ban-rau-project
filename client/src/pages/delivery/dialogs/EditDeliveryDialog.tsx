@@ -33,8 +33,15 @@ type SourceOrderUpdatePayload = {
   order_category: 'standard' | 'vegetable';
   sender_id?: string | null;
   sender_name?: string;
-  customer_id?: string | null;
+  customer_id?: string;
   receiver_name?: string;
+};
+
+type EditableCustomer = {
+  id: string;
+  name: string;
+  phone?: string | null;
+  customer_type?: string;
 };
 
 const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose }) => {
@@ -43,6 +50,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
 
   const { data: products } = useProducts(isOpen, isVeg ? 'vegetable' : 'standard');
   const { data: allCustomers } = useCustomers(undefined, isOpen);
+  const customers = useMemo<EditableCustomer[]>(() => (allCustomers || []) as EditableCustomer[], [allCustomers]);
 
   const productOptions = useMemo(() => {
     if (!products) return [];
@@ -54,30 +62,30 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
   }, [products]);
 
   const senderOptions = useMemo(() => {
-    if (!allCustomers) return [];
+    if (customers.length === 0) return [];
     const targetType = isVeg ? 'vegetable_sender' : 'grocery_sender';
-    const list = allCustomers
-      .filter((c: any) => c.customer_type === targetType)
-      .map((c: any) => ({
-        label: `${c.name} ${c.phone ? `(${c.phone})` : ''}`,
-        value: c.id,
-        matchKey: c.name,
+    const list = customers
+      .filter((customer) => customer.customer_type === targetType)
+      .map((customer) => ({
+        label: `${customer.name} ${customer.phone ? `(${customer.phone})` : ''}`,
+        value: customer.id,
+        matchKey: customer.name,
       }));
     return list;
-  }, [allCustomers, isVeg]);
+  }, [customers, isVeg]);
 
   const receiverOptions = useMemo(() => {
-    if (!allCustomers) return [];
+    if (customers.length === 0) return [];
     const targetType = isVeg ? 'vegetable_receiver' : 'grocery_receiver';
-    const list = allCustomers
-      .filter((c: any) => c.customer_type === targetType)
-      .map((c: any) => ({
-        label: `${c.name} ${c.phone ? `(${c.phone})` : ''}`,
-        value: c.id,
-        matchKey: c.name,
+    const list = customers
+      .filter((customer) => customer.customer_type === targetType)
+      .map((customer) => ({
+        label: `${customer.name} ${customer.phone ? `(${customer.phone})` : ''}`,
+        value: customer.id,
+        matchKey: customer.name,
       }));
     return list;
-  }, [allCustomers, isVeg]);
+  }, [customers, isVeg]);
 
   const [formData, setFormData] = useState({
     product_name: '',
@@ -112,7 +120,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
       }
 
       const initialImages = collectDeliveryOrderImageUrlsForEdit(order);
-      const legacyImage = initialImages[0] || (order as any).image_url || '';
+      const legacyImage = initialImages[0] || order.image_url || '';
 
       setFormData({
         product_name: displayProductName,
@@ -251,11 +259,11 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
           }
 
           const currentImageUrls = formData.image_urls || [];
-          const oldImageUrls = (targetOrder as any).image_urls || [];
+          const oldImageUrls = targetOrder.image_urls || [];
           if (JSON.stringify(currentImageUrls) !== JSON.stringify(oldImageUrls)) {
             payload.image_urls = currentImageUrls;
             payload.image_url = currentImageUrls.length > 0 ? currentImageUrls[0] : null;
-          } else if (formData.image_url && formData.image_url !== (targetOrder as any).image_url) {
+          } else if (formData.image_url && formData.image_url !== targetOrder.image_url) {
             payload.image_url = formData.image_url;
           }
 
@@ -282,7 +290,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
             sourceOrderUpdates[sourceId].sender_name = formData.sender_name || '';
           }
           if (changedReceiver) {
-            sourceOrderUpdates[sourceId].customer_id = formData.customer_id || null;
+            sourceOrderUpdates[sourceId].customer_id = formData.customer_id || undefined;
             sourceOrderUpdates[sourceId].receiver_name = formData.receiver_name || '';
           }
         })
@@ -322,7 +330,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
     if (isCreate) {
        setFormData(prev => ({ ...prev, sender_id: null, sender_name: val }));
     } else {
-       const found = allCustomers?.find((c: any) => c.id === val);
+       const found = customers.find((customer) => customer.id === val);
        setFormData(prev => ({ ...prev, sender_id: val, sender_name: found?.name || '' }));
     }
   };
@@ -331,7 +339,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
     if (isCreate) {
        setFormData(prev => ({ ...prev, customer_id: null, receiver_name: val }));
     } else {
-       const found = allCustomers?.find((c: any) => c.id === val);
+       const found = customers.find((customer) => customer.id === val);
        setFormData(prev => ({ ...prev, customer_id: val, receiver_name: found?.name || '' }));
     }
   };

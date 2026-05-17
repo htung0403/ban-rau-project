@@ -60,6 +60,7 @@ const ZaloSummaryDispatchPage: React.FC<Props> = ({ type, title, description, ba
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'success' | 'failed' | 'skipped'>('all');
   const [errorFilter, setErrorFilter] = useState<'all' | 'has_error' | 'no_error'>('all');
+  const [selectedTargetIds, setSelectedTargetIds] = useState<string[]>([]);
   const queryClient = useQueryClient();
 
   const {
@@ -90,6 +91,66 @@ const ZaloSummaryDispatchPage: React.FC<Props> = ({ type, title, description, ba
     },
     onError: () => {
       toast.error('Gửi tổng kết thất bại');
+    },
+  });
+
+  const bulkSendMutation = useMutation({
+    mutationFn: async (targetItems: ZaloSummaryStatusItem[]) => {
+      let successCount = 0;
+      let failedCount = 0;
+      let skippedCount = 0;
+      const failedTargets: string[] = [];
+
+      for (const item of targetItems) {
+        try {
+          const response = await zaloSummaryApi.sendSummary({
+            type,
+            targetId: item.targetId,
+            date,
+          });
+
+          if (response.success) {
+            successCount += 1;
+            continue;
+          }
+
+          if (response.status === 'skipped') {
+            skippedCount += 1;
+            continue;
+          }
+
+          failedCount += 1;
+          failedTargets.push(item.targetName || item.targetId);
+        } catch {
+          failedCount += 1;
+          failedTargets.push(item.targetName || item.targetId);
+        }
+      }
+
+      return { successCount, failedCount, skippedCount, failedTargets, total: targetItems.length };
+    },
+    onSuccess: (result) => {
+      const summary = `Thành công ${result.successCount}/${result.total}${
+        result.skippedCount > 0 ? ` • Bỏ qua ${result.skippedCount}` : ''
+      }${result.failedCount > 0 ? ` • Lỗi ${result.failedCount}` : ''}`;
+
+      if (result.failedCount > 0) {
+        toast.error(`Gửi hàng loạt xong: ${summary}`);
+      } else {
+        toast.success(`Gửi hàng loạt thành công: ${summary}`);
+      }
+
+      if (result.failedTargets.length > 0) {
+        const names = result.failedTargets.slice(0, 3).join(', ');
+        const suffix = result.failedTargets.length > 3 ? ` +${result.failedTargets.length - 3}` : '';
+        toast.error(`Không gửi được: ${names}${suffix}`);
+      }
+
+      void queryClient.invalidateQueries({ queryKey: ['zalo-summary-status', type, date] });
+      setSelectedTargetIds([]);
+    },
+    onError: () => {
+      toast.error('Gửi hàng loạt thất bại');
     },
   });
 
@@ -125,6 +186,49 @@ const ZaloSummaryDispatchPage: React.FC<Props> = ({ type, title, description, ba
       }),
     [filteredItems],
   );
+
+  const selectedIdSet = useMemo(() => {
+    const availableIds = new Set(items.map((item) => item.targetId));
+    return new Set(selectedTargetIds.filter((targetId) => availableIds.has(targetId)));
+  }, [items, selectedTargetIds]);
+  const selectedItems = useMemo(
+    () => sortedItems.filter((item) => selectedIdSet.has(item.targetId)),
+    [sortedItems, selectedIdSet],
+  );
+  const allVisibleSelected =
+    sortedItems.length > 0 && sortedItems.every((item) => selectedIdSet.has(item.targetId));
+  const isAnySending = sendMutation.isPending || bulkSendMutation.isPending;
+
+  const toggleSelectOne = (targetId: string, checked: boolean) => {
+    setSelectedTargetIds((prev) => {
+      if (checked) {
+        if (prev.includes(targetId)) return prev;
+        return [...prev, targetId];
+      }
+      return prev.filter((id) => id !== targetId);
+    });
+  };
+
+  const toggleSelectAllVisible = (checked: boolean) => {
+    setSelectedTargetIds((prev) => {
+      const visibleIds = sortedItems.map((item) => item.targetId);
+      if (checked) {
+        const merged = new Set(prev);
+        visibleIds.forEach((id) => merged.add(id));
+        return Array.from(merged);
+      }
+      const visibleSet = new Set(visibleIds);
+      return prev.filter((id) => !visibleSet.has(id));
+    });
+  };
+
+  const handleBulkSend = () => {
+    if (selectedItems.length === 0) {
+      toast.error('Vui lòng chọn ít nhất 1 khách để gửi');
+      return;
+    }
+    bulkSendMutation.mutate(selectedItems);
+  };
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full flex-1 flex flex-col -mt-2 min-h-0">
@@ -210,6 +314,29 @@ const ZaloSummaryDispatchPage: React.FC<Props> = ({ type, title, description, ba
             <SummaryStatCard label="Chưa gửi" value={stats.pending} colorClass="bg-slate-50/70" />
           </div>
 
+          <div className="mb-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <div className="text-sm text-muted-foreground">
+              Đã chọn <span className="font-black text-foreground">{selectedItems.length}</span> khách trong danh sách lọc.
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSelectedTargetIds([])}
+                disabled={selectedItems.length === 0 || isAnySending}
+                className="h-9 px-3 rounded-lg border border-border bg-background hover:bg-muted text-xs font-semibold disabled:opacity-60"
+              >
+                Bỏ chọn
+              </button>
+              <button
+                onClick={handleBulkSend}
+                disabled={selectedItems.length === 0 || isAnySending}
+                className="h-9 px-3 rounded-lg bg-primary text-white hover:bg-primary/90 text-xs font-semibold inline-flex items-center gap-1 disabled:opacity-60"
+              >
+                <SendHorizonal size={14} />
+                {bulkSendMutation.isPending ? 'Đang gửi hàng loạt' : 'Gửi đã chọn'}
+              </button>
+            </div>
+          </div>
+
           <div className="rounded-2xl border border-border/60 bg-card overflow-hidden min-h-0">
             <div
               className="overflow-auto max-h-[calc(100vh-320px)] md:max-h-[calc(100vh-340px)] custom-scrollbar pb-3"
@@ -218,6 +345,16 @@ const ZaloSummaryDispatchPage: React.FC<Props> = ({ type, title, description, ba
               <table className="w-full min-w-[980px] text-sm mb-2">
                 <thead className="bg-white border-b border-border/60 sticky top-0 z-10">
                   <tr>
+                    <th className="px-3 py-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        disabled={sortedItems.length === 0 || isAnySending}
+                        onChange={(e) => toggleSelectAllVisible(e.target.checked)}
+                        className="h-4 w-4 rounded border-border text-primary focus:ring-primary/40"
+                        aria-label="Chọn tất cả khách hàng đang hiển thị"
+                      />
+                    </th>
                     <th className="px-3 py-2 text-left text-xs font-bold text-muted-foreground">#</th>
                     <th className="px-3 py-2 text-left text-xs font-bold text-muted-foreground">Khách hàng</th>
                     <th className="px-3 py-2 text-left text-xs font-bold text-muted-foreground">SĐT</th>
@@ -232,7 +369,7 @@ const ZaloSummaryDispatchPage: React.FC<Props> = ({ type, title, description, ba
                 <tbody>
                   {sortedItems.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                      <td colSpan={10} className="px-3 py-10 text-center text-sm text-muted-foreground">
                         Không có dữ liệu {summaryTypeLabelMap[type]} trong ngày đã chọn.
                       </td>
                     </tr>
@@ -241,6 +378,16 @@ const ZaloSummaryDispatchPage: React.FC<Props> = ({ type, title, description, ba
                       const isSending = sendMutation.isPending && sendMutation.variables?.targetId === item.targetId;
                       return (
                         <tr key={item.targetId} className="border-b border-border/30 hover:bg-muted/20">
+                          <td className="px-3 py-2 text-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedIdSet.has(item.targetId)}
+                              disabled={isAnySending}
+                              onChange={(e) => toggleSelectOne(item.targetId, e.target.checked)}
+                              className="h-4 w-4 rounded border-border text-primary focus:ring-primary/40"
+                              aria-label={`Chọn ${item.targetName}`}
+                            />
+                          </td>
                           <td className="px-3 py-2 text-muted-foreground tabular-nums">{index + 1}</td>
                           <td className="px-3 py-2">
                             <div className="font-semibold text-foreground">{item.targetName || '-'}</div>
@@ -269,7 +416,7 @@ const ZaloSummaryDispatchPage: React.FC<Props> = ({ type, title, description, ba
                               </button>
                               <button
                                 onClick={() => sendMutation.mutate(item)}
-                                disabled={isSending}
+                                disabled={isSending || bulkSendMutation.isPending}
                                 className="h-8 px-2 rounded-lg bg-primary text-white hover:bg-primary/90 text-xs font-semibold inline-flex items-center gap-1 disabled:opacity-60"
                               >
                                 <SendHorizonal size={14} />

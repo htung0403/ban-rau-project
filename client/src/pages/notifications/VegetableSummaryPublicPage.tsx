@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import { Printer, FileText } from 'lucide-react';
-import { VEGETABLE_PRINT_TABLE_STYLE } from '../import-orders/PrintVegetableOrdersPage';
 import { useQuery } from '@tanstack/react-query';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -50,6 +49,14 @@ const isSupplierSummaryData = (value: VegetableSummaryData): value is SupplierSu
   return 'supplierName' in value;
 };
 
+type SupplierGroupedRow =
+  | { kind: 'item'; key: string; item: SupplierSummaryItem }
+  | { kind: 'subtotal'; key: string; productName: string; quantity: number };
+
+type SenderGroupedRow =
+  | { kind: 'item'; key: string; item: SenderSummaryItem }
+  | { kind: 'subtotal'; key: string; productName: string; quantity: number };
+
 const VegetableSummaryPublicPage: React.FC = () => {
   const { type, id, date, token } = useParams<{ type: VegetableSummaryType; id: string; date: string; token: string }>();
 
@@ -90,15 +97,78 @@ const VegetableSummaryPublicPage: React.FC = () => {
     return 'Không tìm thấy dữ liệu tổng kết';
   }, [hasRequiredParams, isValidType, queryError]);
 
-  const totalQuantity = useMemo(() => {
-    if (!data) return 0;
+  const supplierRows = useMemo<SupplierGroupedRow[]>(() => {
+    if (!data || !isSupplierSummaryData(data)) return [];
+    const groups = new Map<string, SupplierSummaryItem[]>();
+    data.items.forEach((item) => {
+      const key = item.productName || 'Hàng hóa';
+      const list = groups.get(key) || [];
+      list.push(item);
+      groups.set(key, list);
+    });
+
+    const rows: SupplierGroupedRow[] = [];
+    groups.forEach((items, productName) => {
+      items.forEach((item, index) => {
+        rows.push({
+          kind: 'item',
+          key: `supplier-item-${productName}-${index}-${item.senderName}-${item.taiRank}`,
+          item,
+        });
+      });
+      rows.push({
+        kind: 'subtotal',
+        key: `supplier-subtotal-${productName}`,
+        productName,
+        quantity: items.reduce((sum, item) => sum + (item.quantity || 0), 0),
+      });
+    });
+    return rows;
+  }, [data]);
+
+  const senderRows = useMemo<SenderGroupedRow[]>(() => {
+    if (!data || isSupplierSummaryData(data)) return [];
+    const groups = new Map<string, SenderSummaryItem[]>();
+    data.items.forEach((item) => {
+      const key = item.productName || 'Hàng hóa';
+      const list = groups.get(key) || [];
+      list.push(item);
+      groups.set(key, list);
+    });
+
+    const rows: SenderGroupedRow[] = [];
+    groups.forEach((items, productName) => {
+      items.forEach((item, index) => {
+        rows.push({
+          kind: 'item',
+          key: `sender-item-${productName}-${index}-${item.supplierName}-${item.taiRank}`,
+          item,
+        });
+      });
+      rows.push({
+        kind: 'subtotal',
+        key: `sender-subtotal-${productName}`,
+        productName,
+        quantity: items.reduce((sum, item) => sum + (item.quantity || 0), 0),
+      });
+    });
+    return rows;
+  }, [data]);
+
+  const supplierTotalQuantity = useMemo(() => {
+    if (!data || !isSupplierSummaryData(data)) return 0;
     return data.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
   }, [data]);
 
-  const totalAmount = useMemo(() => {
+  const supplierTotalAmount = useMemo(() => {
     if (!data || !isSupplierSummaryData(data)) return 0;
     return data.items.reduce((sum, item) => sum + (item.total || 0), 0);
-  }, [data, isSupplierView]);
+  }, [data]);
+
+  const senderTotalQuantity = useMemo(() => {
+    if (!data || isSupplierSummaryData(data)) return 0;
+    return data.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  }, [data]);
 
   const title = isSupplierView ? 'Phiếu Tổng Kết Hàng Đã Nhận' : 'Phiếu Tổng Kết Hàng Đã Gửi';
   const ownerName = data ? (isSupplierSummaryData(data) ? data.supplierName : data.senderName) : '';
@@ -132,7 +202,6 @@ const VegetableSummaryPublicPage: React.FC = () => {
           .no-print { display: none !important; }
           @page { size: A4 portrait; margin: 8mm 10mm; }
         }
-
         @media screen {
           .public-print-sheet {
             max-width: 210mm;
@@ -160,73 +229,93 @@ const VegetableSummaryPublicPage: React.FC = () => {
 
       <div className="public-print-area">
         <div className="public-print-sheet">
-          <div style={{ textAlign: 'center', marginBottom: 8 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0, fontFamily: 'serif' }}>Nhà Xe Năm Sự</h2>
-            <div style={{ marginTop: 4, fontSize: 14, fontWeight: 700 }}>{title}</div>
-          </div>
+          <div style={styles.legacyHeaderBox}>{data.date}</div>
+          <div style={styles.legacyHeaderBox}>{ownerName || '-'}</div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, fontSize: 13 }}>
-            <div>
-              <span style={{ fontWeight: 700 }}>{isSupplierView ? 'Tên Vựa: ' : 'Người Gửi: '}</span>
-              <span>{ownerName}</span>
-            </div>
-            <div>
-              <span style={{ fontWeight: 700 }}>Ngày: </span>
-              <span>{data.date}</span>
-            </div>
-          </div>
+          {isSupplierView && isSupplierSummaryData(data) && (
+            <table style={styles.legacyTable}>
+              <thead>
+                <tr>
+                  <th style={styles.legacyHeaderCell}>Người Gửi</th>
+                  <th style={styles.legacyHeaderCellCenter}>Tài</th>
+                  <th style={styles.legacyHeaderCellCenter}>Số xe</th>
+                  <th style={styles.legacyHeaderCellCenter}>SL</th>
+                  <th style={styles.legacyHeaderCell}>Tên Hàng</th>
+                  <th style={styles.legacyHeaderCellCenter}>Tiền(K)</th>
+                  <th style={styles.legacyHeaderCellRight}>Thành Tiền</th>
+                </tr>
+              </thead>
+              <tbody>
+                {supplierRows.map((row) =>
+                  row.kind === 'item' ? (
+                    <tr key={row.key}>
+                      <td style={styles.legacyBodyCell}>{row.item.senderName || '-'}</td>
+                      <td style={styles.legacyBodyCellCenter}>{row.item.taiRank || ''}</td>
+                      <td style={styles.legacyBodyCellCenter}>{row.item.licensePlate || '-'}</td>
+                      <td style={styles.legacyBodyCellCenter}>{row.item.quantity || 0}</td>
+                      <td style={styles.legacyBodyCell}>{row.item.productName || ''}</td>
+                      <td style={styles.legacyBodyCellRight}>{formatNumber((row.item.price || 0) / 1000)}</td>
+                      <td style={styles.legacyBodyCellRight}>{formatNumber(row.item.total || 0)}</td>
+                    </tr>
+                  ) : (
+                    <tr key={row.key}>
+                      <td colSpan={3} style={styles.subTotalLabelCell}>Tổng</td>
+                      <td style={styles.subTotalValueCell}>{formatNumber(row.quantity)}</td>
+                      <td colSpan={3} style={styles.subTotalProductCell}>{row.productName}</td>
+                    </tr>
+                  ),
+                )}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={3} style={styles.grandTotalLabelCell}>TỔNG CỘNG</td>
+                  <td style={styles.grandTotalValueCell}>{formatNumber(supplierTotalQuantity)}</td>
+                  <td colSpan={2} style={styles.grandTotalBlankCell} />
+                  <td style={styles.grandTotalValueRightCell}>{formatNumber(supplierTotalAmount)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          )}
 
-          <table className="print-table" style={VEGETABLE_PRINT_TABLE_STYLE}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid #000' }}>
-                <th style={styles.headerCell}>{isSupplierView ? 'Người Gửi' : 'Tên Vựa'}</th>
-                <th style={styles.headerCellCenter}>Tài</th>
-                <th style={styles.headerCellCenter}>Số Xe</th>
-                <th style={styles.headerCellCenter}>SL</th>
-                <th style={styles.headerCell}>Tên Hàng</th>
-                {isSupplierView && <th style={styles.headerCellCenter}>Tiền(K)</th>}
-                {isSupplierView && <th style={styles.headerCellRight}>Thành Tiền</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {isSupplierView &&
-                isSupplierSummaryData(data) &&
-                data.items.map((item, index) => (
-                  <tr key={`${item.productName}-${index}`}>
-                    <td style={styles.bodyCell}>{item.senderName || '-'}</td>
-                    <td style={styles.bodyCellCenter}>{item.taiRank || ''}</td>
-                    <td style={styles.bodyCellCenter}>{item.licensePlate || '-'}</td>
-                    <td style={styles.bodyCellCenter}>{item.quantity || ''}</td>
-                    <td style={styles.bodyCell}>{item.productName || ''}</td>
-                    <td style={styles.bodyCellCenter}>{item.price ? formatNumber((item.price || 0) / 1000) : ''}</td>
-                    <td style={styles.bodyCellRight}>{item.total ? formatNumber(item.total) : ''}</td>
-                  </tr>
-                ))}
-
-              {isSenderView &&
-                !isSupplierSummaryData(data) &&
-                data.items.map((item, index) => (
-                  <tr key={`${item.productName}-${index}`}>
-                    <td style={styles.bodyCell}>{item.supplierName || '-'}</td>
-                    <td style={styles.bodyCellCenter}>{item.taiRank || ''}</td>
-                    <td style={styles.bodyCellCenter}>{item.licensePlate || '-'}</td>
-                    <td style={styles.bodyCellCenter}>{item.quantity || ''}</td>
-                    <td style={styles.bodyCell}>{item.productName || ''}</td>
-                  </tr>
-                ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={isSupplierView ? 3 : 3} style={styles.footerLabelCell}>
-                  Tổng Số Lượng
-                </td>
-                <td style={styles.footerValueCellCenter}>{formatNumber(totalQuantity)}</td>
-                <td style={styles.footerBlankCell} />
-                {isSupplierView && <td style={styles.footerBlankCell} />}
-                {isSupplierView && <td style={styles.footerValueCellRight}>{formatNumber(totalAmount)}</td>}
-              </tr>
-            </tfoot>
-          </table>
+          {isSenderView && !isSupplierSummaryData(data) && (
+            <table style={styles.legacyTable}>
+              <thead>
+                <tr>
+                  <th style={styles.legacyHeaderCellCenter}>Tài</th>
+                  <th style={styles.legacyHeaderCellCenter}>Số xe</th>
+                  <th style={styles.legacyHeaderCellCenter}>SL</th>
+                  <th style={styles.legacyHeaderCell}>Tên Hàng</th>
+                  <th style={styles.legacyHeaderCell}>Vựa</th>
+                </tr>
+              </thead>
+              <tbody>
+                {senderRows.map((row) =>
+                  row.kind === 'item' ? (
+                    <tr key={row.key}>
+                      <td style={styles.legacyBodyCellCenter}>{row.item.taiRank || ''}</td>
+                      <td style={styles.legacyBodyCellCenter}>{row.item.licensePlate || '-'}</td>
+                      <td style={styles.legacyBodyCellCenter}>{row.item.quantity || 0}</td>
+                      <td style={styles.legacyBodyCell}>{row.item.productName || ''}</td>
+                      <td style={styles.legacyBodyCell}>{row.item.supplierName || '-'}</td>
+                    </tr>
+                  ) : (
+                    <tr key={row.key}>
+                      <td colSpan={2} style={styles.subTotalLabelCell}>Tổng</td>
+                      <td style={styles.subTotalValueCell}>{formatNumber(row.quantity)}</td>
+                      <td colSpan={2} style={styles.subTotalProductCell}>{row.productName}</td>
+                    </tr>
+                  ),
+                )}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={2} style={styles.grandTotalLabelCell}>TỔNG CỘNG</td>
+                  <td style={styles.grandTotalValueCell}>{formatNumber(senderTotalQuantity)}</td>
+                  <td colSpan={2} style={styles.grandTotalBlankCell} />
+                </tr>
+              </tfoot>
+            </table>
+          )}
         </div>
       </div>
     </>
@@ -278,67 +367,103 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontWeight: 700,
   },
-  headerCell: {
-    padding: '4px 6px',
+  legacyHeaderBox: {
+    border: '1px solid #000',
+    textAlign: 'center',
+    fontFamily: "'Times New Roman', serif",
+    fontWeight: 800,
+    fontSize: 18,
+    padding: '8px 10px',
+    marginBottom: 0,
+  },
+  legacyTable: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    border: '1px solid #000',
+    fontFamily: "'Times New Roman', serif",
+    fontSize: 15,
+  },
+  legacyHeaderCell: {
+    border: '1px solid #000',
+    background: '#f0f0f0',
+    fontWeight: 800,
     textAlign: 'left',
-    fontWeight: 700,
-    border: '1px solid #000',
-    fontSize: 14,
+    padding: '6px 8px',
   },
-  headerCellCenter: {
-    padding: '4px 6px',
-    textAlign: 'center',
-    fontWeight: 700,
+  legacyHeaderCellCenter: {
     border: '1px solid #000',
-    fontSize: 14,
-  },
-  headerCellRight: {
-    padding: '4px 6px',
-    textAlign: 'right',
-    fontWeight: 700,
-    border: '1px solid #000',
-    fontSize: 14,
-  },
-  bodyCell: {
-    padding: '4px 6px',
-    fontSize: 14,
-    border: '1px solid #000',
-  },
-  bodyCellCenter: {
-    padding: '4px 6px',
-    textAlign: 'center',
-    fontSize: 14,
-    border: '1px solid #000',
-  },
-  bodyCellRight: {
-    padding: '4px 6px',
-    textAlign: 'right',
-    fontSize: 14,
-    border: '1px solid #000',
-  },
-  footerLabelCell: {
-    padding: '6px',
-    textAlign: 'right',
+    background: '#f0f0f0',
     fontWeight: 800,
-    fontSize: 14,
-    border: '1px solid #000',
-  },
-  footerValueCellCenter: {
-    padding: '6px',
     textAlign: 'center',
-    fontWeight: 800,
-    fontSize: 14,
-    border: '1px solid #000',
+    padding: '6px 8px',
   },
-  footerValueCellRight: {
-    padding: '6px',
+  legacyHeaderCellRight: {
+    border: '1px solid #000',
+    background: '#f0f0f0',
+    fontWeight: 800,
     textAlign: 'right',
-    fontWeight: 800,
-    fontSize: 14,
-    border: '1px solid #000',
+    padding: '6px 8px',
   },
-  footerBlankCell: {
+  legacyBodyCell: {
     border: '1px solid #000',
+    padding: '6px 8px',
+    textAlign: 'left',
+  },
+  legacyBodyCellCenter: {
+    border: '1px solid #000',
+    padding: '6px 8px',
+    textAlign: 'center',
+  },
+  legacyBodyCellRight: {
+    border: '1px solid #000',
+    padding: '6px 8px',
+    textAlign: 'right',
+  },
+  subTotalLabelCell: {
+    border: '1px solid #000',
+    padding: '6px 8px',
+    textAlign: 'center',
+    background: '#f9f9f9',
+    fontWeight: 700,
+  },
+  subTotalValueCell: {
+    border: '1px solid #000',
+    padding: '6px 8px',
+    textAlign: 'center',
+    background: '#f9f9f9',
+    fontWeight: 700,
+  },
+  subTotalProductCell: {
+    border: '1px solid #000',
+    padding: '6px 8px',
+    background: '#f9f9f9',
+    fontWeight: 700,
+    textAlign: 'left',
+  },
+  grandTotalLabelCell: {
+    border: '1px solid #000',
+    padding: '6px 8px',
+    background: '#e0e0e0',
+    fontWeight: 900,
+    textAlign: 'center',
+  },
+  grandTotalValueCell: {
+    border: '1px solid #000',
+    padding: '6px 8px',
+    background: '#e0e0e0',
+    fontWeight: 900,
+    textAlign: 'center',
+  },
+  grandTotalValueRightCell: {
+    border: '1px solid #000',
+    padding: '6px 8px',
+    background: '#e0e0e0',
+    fontWeight: 900,
+    textAlign: 'right',
+  },
+  grandTotalBlankCell: {
+    border: '1px solid #000',
+    background: '#e0e0e0',
   },
 };
 
@@ -350,3 +475,4 @@ if (typeof document !== 'undefined' && !document.getElementById('public-veg-summ
 }
 
 export default VegetableSummaryPublicPage;
+

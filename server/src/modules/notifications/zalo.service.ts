@@ -1142,10 +1142,17 @@ export class ZaloService {
 
         try {
           const caption = `Phiếu tổng kết hàng đã nhận ngày ${this.formatDisplayDate(today)}. Cảm ơn vựa.\n\nXem chi tiết tại: ${publicLink}`;
+          const attachments = await this.buildVegetableSummaryAttachments('supplier', {
+            shopName: 'Nhà Xe Năm Sự',
+            supplierName: group.supplierName,
+            date: this.formatDisplayDate(today),
+            items: summaryItems,
+          });
 
           const result = await this.sendImageMessage({
             recipientPhone: normalizedPhone,
             imageUrls: [],
+            attachments,
             caption,
           });
 
@@ -1359,12 +1366,15 @@ export class ZaloService {
 
         const taiRank = order.tai_rank || 0;
         const depotName = order.customers?.name || 'Vựa';
+        const licensePlate = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.vehicles?.license_plate || '-';
 
         (order.vegetable_order_items || []).forEach((item: any) => {
           senderGroups[sender.id].items.push({
             taiRank,
+            licensePlate,
             quantity: item.quantity || 0,
             productName: item.products?.name || item.package_type || 'Hàng hóa',
+            supplierName: depotName,
             depotName,
           });
         });
@@ -1406,10 +1416,17 @@ export class ZaloService {
 
         try {
           const caption = `Phiếu tổng kết hàng đã gửi ngày ${this.formatDisplayDate(today)}. Cảm ơn bạn.\n\nXem chi tiết tại: ${publicLink}`;
+          const attachments = await this.buildVegetableSummaryAttachments('sender', {
+            shopName: 'Nhà Xe Năm Sự',
+            senderName: group.senderName,
+            date: this.formatDisplayDate(today),
+            items: group.items,
+          });
 
           const result = await this.sendImageMessage({
             recipientPhone: normalizedPhone,
             imageUrls: [],
+            attachments,
             caption,
           });
 
@@ -1551,6 +1568,62 @@ export class ZaloService {
     return `Phiếu tổng kết hàng đã gửi ngày ${displayDate}. Cảm ơn bạn.\n\nXem chi tiết tại: ${publicLink}`;
   }
 
+  private async buildVegetableSummaryAttachments(
+    type: SummaryDispatchType,
+    summaryData: any,
+  ): Promise<ZcaAttachmentSource[]> {
+    if ((type !== 'supplier' && type !== 'sender') || !summaryData) return [];
+    if (!Array.isArray(summaryData.items) || summaryData.items.length === 0) return [];
+
+    try {
+      if (type === 'supplier') {
+        const pngBuffer = await DeliveryNoteGenerator.generateSupplierSummaryPng({
+          shopName: summaryData.shopName || 'Nhà Xe Năm Sự',
+          supplierName: summaryData.supplierName || '-',
+          date: summaryData.date || '',
+          items: (summaryData.items || []).map((item: any) => ({
+            taiRank: Number(item.taiRank || 0),
+            licensePlate: item.licensePlate || '-',
+            quantity: Number(item.quantity || 0),
+            productName: item.productName || 'Hàng hóa',
+            senderName: item.senderName || '-',
+            price: Number(item.price || 0),
+            total: Number(item.total || 0),
+          })),
+        });
+
+        return [{
+          data: pngBuffer,
+          filename: `tong-ket-vua-${Date.now()}.png`,
+          metadata: { totalSize: pngBuffer.length },
+        }];
+      }
+
+      const pngBuffer = await DeliveryNoteGenerator.generateSenderSummaryPng({
+        shopName: summaryData.shopName || 'Nhà Xe Năm Sự',
+        senderName: summaryData.senderName || '-',
+        date: summaryData.date || '',
+        items: (summaryData.items || []).map((item: any) => ({
+          taiRank: Number(item.taiRank || 0),
+          licensePlate: item.licensePlate || '-',
+          quantity: Number(item.quantity || 0),
+          productName: item.productName || 'Hàng hóa',
+          supplierName: item.supplierName || item.depotName || 'Vựa',
+          depotName: item.depotName || item.supplierName || 'Vựa',
+        })),
+      });
+
+      return [{
+        data: pngBuffer,
+        filename: `tong-ket-nguoi-gui-${Date.now()}.png`,
+        metadata: { totalSize: pngBuffer.length },
+      }];
+    } catch (error) {
+      logger.error(`[ZaloService] Failed to build ${type} summary attachment:`, error);
+      return [];
+    }
+  }
+
   async sendSummaryForTarget(
     supabaseService: any,
     logger: any,
@@ -1635,9 +1708,11 @@ export class ZaloService {
     }
 
     const caption = this.buildSummaryCaption(type, date, targetId, summaryData);
+    const attachments = await this.buildVegetableSummaryAttachments(type, summaryData);
     const result = await this.sendImageMessage({
       recipientPhone: normalizedPhone,
       imageUrls: [],
+      attachments,
       caption,
     });
 

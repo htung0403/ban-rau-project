@@ -58,6 +58,8 @@ const SummaryStatCard: React.FC<{ label: string; value: number; colorClass?: str
 const ZaloSummaryDispatchPage: React.FC<Props> = ({ type, title, description, backPath = '/cai-dat-he-thong' }) => {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'success' | 'failed' | 'skipped'>('all');
+  const [errorFilter, setErrorFilter] = useState<'all' | 'has_error' | 'no_error'>('all');
   const queryClient = useQueryClient();
 
   const {
@@ -101,8 +103,17 @@ const ZaloSummaryDispatchPage: React.FC<Props> = ({ type, title, description, ba
         const byName = matchesSearch(item.targetName || '', searchQuery);
         const byPhone = matchesSearch(item.targetPhone || '', searchQuery);
         return byName || byPhone;
+      })
+      .filter((item) => {
+        if (statusFilter === 'all') return true;
+        return item.status === statusFilter;
+      })
+      .filter((item) => {
+        if (errorFilter === 'all') return true;
+        const hasError = Boolean(item.lastError && item.lastError.trim());
+        return errorFilter === 'has_error' ? hasError : !hasError;
       }),
-    [items, searchQuery],
+    [items, searchQuery, statusFilter, errorFilter],
   );
 
   const sortedItems = useMemo(
@@ -144,6 +155,32 @@ const ZaloSummaryDispatchPage: React.FC<Props> = ({ type, title, description, ba
               className="h-10 bg-white"
             />
           </div>
+          <label className="flex flex-col gap-1 w-full md:w-[170px]">
+            <span className="text-[12px] font-semibold text-muted-foreground">Trạng thái</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+              className="h-10 px-3 rounded-xl border border-border bg-white text-[13px] text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="all">Tất cả</option>
+              <option value="pending">Chưa gửi</option>
+              <option value="success">Đã gửi</option>
+              <option value="failed">Thất bại</option>
+              <option value="skipped">Bỏ qua</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 w-full md:w-[170px]">
+            <span className="text-[12px] font-semibold text-muted-foreground">Lỗi gửi</span>
+            <select
+              value={errorFilter}
+              onChange={(e) => setErrorFilter(e.target.value as typeof errorFilter)}
+              className="h-10 px-3 rounded-xl border border-border bg-white text-[13px] text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="all">Tất cả</option>
+              <option value="has_error">Có lỗi</option>
+              <option value="no_error">Không lỗi</option>
+            </select>
+          </label>
           <button
             onClick={() => void refetch()}
             disabled={isFetching}

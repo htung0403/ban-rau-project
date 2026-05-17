@@ -5,7 +5,9 @@ import { ExternalLink, RefreshCw, SendHorizonal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '../../components/shared/PageHeader';
 import { DatePicker } from '../../components/shared/DatePicker';
+import { SearchInput } from '../../components/ui/SearchInput';
 import { zaloSummaryApi, type ZaloSummaryStatusItem, type ZaloSummaryType } from '../../api/zaloSummaryApi';
+import { matchesSearch } from '../../lib/str-utils';
 
 type Props = {
   type: ZaloSummaryType;
@@ -55,6 +57,7 @@ const SummaryStatCard: React.FC<{ label: string; value: number; colorClass?: str
 
 const ZaloSummaryDispatchPage: React.FC<Props> = ({ type, title, description, backPath = '/cai-dat-he-thong' }) => {
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [searchQuery, setSearchQuery] = useState('');
   const queryClient = useQueryClient();
 
   const {
@@ -91,14 +94,25 @@ const ZaloSummaryDispatchPage: React.FC<Props> = ({ type, title, description, ba
   const items = data?.items || [];
   const stats = data?.summary || { total: 0, sent: 0, failed: 0, skipped: 0, pending: 0 };
 
+  const filteredItems = useMemo(
+    () =>
+      items.filter((item) => {
+        if (!searchQuery.trim()) return true;
+        const byName = matchesSearch(item.targetName || '', searchQuery);
+        const byPhone = matchesSearch(item.targetPhone || '', searchQuery);
+        return byName || byPhone;
+      }),
+    [items, searchQuery],
+  );
+
   const sortedItems = useMemo(
     () =>
-      [...items].sort((a, b) => {
+      [...filteredItems].sort((a, b) => {
         if (a.status === b.status) return a.targetName.localeCompare(b.targetName, 'vi');
         const order = ['failed', 'pending', 'skipped', 'success'];
         return order.indexOf(a.status) - order.indexOf(b.status);
       }),
-    [items],
+    [filteredItems],
   );
 
   return (
@@ -122,6 +136,14 @@ const ZaloSummaryDispatchPage: React.FC<Props> = ({ type, title, description, ba
               className="h-10 bg-white min-w-[160px]"
             />
           </label>
+          <div className="flex flex-col gap-1 w-full md:max-w-[320px]">
+            <span className="text-[12px] font-semibold text-muted-foreground">Tìm kiếm khách hàng</span>
+            <SearchInput
+              placeholder="Tên/SĐT (hỗ trợ không dấu)..."
+              onSearch={(query) => setSearchQuery(query)}
+              className="h-10 bg-white"
+            />
+          </div>
           <button
             onClick={() => void refetch()}
             disabled={isFetching}

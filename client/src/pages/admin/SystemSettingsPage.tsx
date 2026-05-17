@@ -1,5 +1,6 @@
 import React from 'react';
-import { Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ExternalLink, Settings } from 'lucide-react';
 import PageHeader from '../../components/shared/PageHeader';
 import ZaloConfig from '../../components/shared/ZaloConfig';
 import ZaloSummarySchedulerConfig from '../../components/admin/settings/ZaloSummarySchedulerConfig';
@@ -35,6 +36,37 @@ const SystemSettingsPage: React.FC = () => {
       <div className="space-y-6">
         <ZaloConfig />
         <ZaloSummarySchedulerConfig />
+        <div className="rounded-2xl border border-border/60 bg-card p-4 md:p-5">
+          <div className="mb-3">
+            <h2 className="text-[14px] font-bold text-foreground">Quản lý gửi tổng kết Zalo</h2>
+            <p className="text-[12px] text-muted-foreground mt-1">
+              Theo dõi khách trong ngày đã gửi thành công/chưa, mở link public summary và gửi lại thủ công.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Link
+              to="/cai-dat-he-thong/zalo-tong-ket-tap-hoa"
+              className="rounded-xl border border-border bg-background hover:bg-muted/40 transition p-3 flex items-center justify-between"
+            >
+              <span className="text-[13px] font-semibold text-foreground">Khách tạp hóa</span>
+              <ExternalLink size={15} className="text-muted-foreground" />
+            </Link>
+            <Link
+              to="/cai-dat-he-thong/zalo-tong-ket-vua-rau"
+              className="rounded-xl border border-border bg-background hover:bg-muted/40 transition p-3 flex items-center justify-between"
+            >
+              <span className="text-[13px] font-semibold text-foreground">Vựa rau</span>
+              <ExternalLink size={15} className="text-muted-foreground" />
+            </Link>
+            <Link
+              to="/cai-dat-he-thong/zalo-tong-ket-nguoi-gui-rau"
+              className="rounded-xl border border-border bg-background hover:bg-muted/40 transition p-3 flex items-center justify-between"
+            >
+              <span className="text-[13px] font-semibold text-foreground">Người gửi rau</span>
+              <ExternalLink size={15} className="text-muted-foreground" />
+            </Link>
+          </div>
+        </div>
         <LockTimeConfig />
         <GoodsConversionConfig />
       </div>

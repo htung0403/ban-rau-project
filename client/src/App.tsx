@@ -55,13 +55,22 @@ import PrintSgCashCollectionsPage from './pages/accounting/PrintSgCashCollection
 import DeliveryPublicPage from './pages/delivery/DeliveryPublicPage';
 import SummaryPublicPage from './pages/notifications/SummaryPublicPage';
 import VegetableSummaryPublicPage from './pages/notifications/VegetableSummaryPublicPage';
+import ZaloGrocerySummaryManagePage from './pages/notifications/ZaloGrocerySummaryManagePage';
+import ZaloSupplierSummaryManagePage from './pages/notifications/ZaloSupplierSummaryManagePage';
+import ZaloSenderSummaryManagePage from './pages/notifications/ZaloSenderSummaryManagePage';
 import React from 'react';
+
+const isRateLimitError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') return false;
+  const response = (error as { response?: { status?: number } }).response;
+  return response?.status === 429;
+};
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: (failureCount, error: any) => {
-        if (error?.response?.status === 429) return false;
+      retry: (failureCount, error: unknown) => {
+        if (isRateLimitError(error)) return false;
         return failureCount < 1;
       },
       refetchOnWindowFocus: false,
@@ -143,6 +152,9 @@ function AppRoutes() {
         <Route path="/hanh-chinh-nhan-su/duyet-don" element={<ApprovalsPage />} />
         <Route path="/hanh-chinh-nhan-su/phan-quyen" element={<RolePermissionsPage />} />
         <Route path="/cai-dat-he-thong" element={<SystemSettingsPage />} />
+        <Route path="/cai-dat-he-thong/zalo-tong-ket-tap-hoa" element={<ZaloGrocerySummaryManagePage />} />
+        <Route path="/cai-dat-he-thong/zalo-tong-ket-vua-rau" element={<ZaloSupplierSummaryManagePage />} />
+        <Route path="/cai-dat-he-thong/zalo-tong-ket-nguoi-gui-rau" element={<ZaloSenderSummaryManagePage />} />
         <Route path="/hanh-chinh-nhan-su/chi-phi" element={<Navigate to="/chi-phi/phieu" replace />} />
 
         <Route path="/chi-phi" element={<ModulePage />} />

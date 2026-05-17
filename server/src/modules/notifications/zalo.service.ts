@@ -47,6 +47,43 @@ export interface SendImageMessageResult {
   recipientPhone: string;
 }
 
+export type SummaryDispatchType = 'grocery' | 'supplier' | 'sender';
+type SummaryDispatchStatus = 'success' | 'failed' | 'skipped';
+type SummaryDispatchTrigger = 'scheduler' | 'manual';
+
+type SummaryDispatchLogPayload = {
+  summaryType: SummaryDispatchType;
+  summaryDate: string;
+  targetCustomerId: string;
+  targetName: string;
+  targetPhone: string | null;
+  publicLink: string;
+  status: SummaryDispatchStatus;
+  errorMessage?: string | null;
+  messageId?: string | null;
+  triggeredBy: SummaryDispatchTrigger;
+};
+
+type SummaryRecipient = {
+  id: string;
+  name: string;
+  phone: string | null;
+};
+
+type SummaryStatusListItem = {
+  targetId: string;
+  targetName: string;
+  targetPhone: string | null;
+  orderCount: number;
+  itemRowCount: number;
+  publicLink: string;
+  status: 'pending' | SummaryDispatchStatus;
+  lastError: string | null;
+  messageId: string | null;
+  lastSentAt: string | null;
+  triggeredBy: SummaryDispatchTrigger | null;
+};
+
 export class ZaloService {
   private zaloClient: any;
   private api: ZcaApi | null = null;
@@ -113,6 +150,55 @@ export class ZaloService {
     }
 
     return 'https://nhaxenamsu.vercel.app';
+  }
+
+  private formatDisplayDate(date: string): string {
+    const value = new Date(`${date}T00:00:00`);
+    if (Number.isNaN(value.getTime())) return date;
+    return format(value, 'dd/MM/yyyy');
+  }
+
+  private buildSummaryPublicLink(type: SummaryDispatchType, targetId: string, date: string): string {
+    const token = this.generatePublicToken(type, targetId, date);
+    const path = type === 'grocery' ? 'summary/grocery' : `vegetable-orders/${type}`;
+    return `${this.getPublicClientUrl()}/public/${path}/${targetId}/${date}/${token}`;
+  }
+
+  private async upsertSummaryDispatchLog(supabaseService: any, payload: SummaryDispatchLogPayload): Promise<void> {
+    const row = {
+      summary_type: payload.summaryType,
+      summary_date: payload.summaryDate,
+      target_customer_id: payload.targetCustomerId,
+      target_name: payload.targetName,
+      target_phone: payload.targetPhone,
+      public_link: payload.publicLink,
+      status: payload.status,
+      error_message: payload.errorMessage || null,
+      message_id: payload.messageId || null,
+      triggered_by: payload.triggeredBy,
+      sent_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabaseService
+      .from('zalo_summary_dispatch_logs')
+      .upsert(row, { onConflict: 'summary_type,summary_date,target_customer_id' });
+
+    if (error) {
+      logger.error('[ZaloService] Failed to upsert summary dispatch log:', error);
+    }
+  }
+
+  private normalizePhoneSafe(
+    normalizePhoneForAuth: (phone: string) => string | null,
+    phone: string | null | undefined,
+  ): string | null {
+    if (!phone) return null;
+    try {
+      return normalizePhoneForAuth(phone);
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -678,6 +764,7 @@ export class ZaloService {
 
       // 2. Group by customer phone
       const customerGroups: Record<string, { customerId: string; customerName: string; phone: string; items: any[]; undeliveredOrderIds: Set<string>; undeliveredQuantity: number }> = {};
+      const customersWithoutPhone = new Map<string, { customerId: string; customerName: string }>();
 
       const processOrderForUndelivered = (order: any, phone: string, customerName: string, customerId: string) => {
         if (!customerGroups[phone]) {
@@ -697,9 +784,6 @@ export class ZaloService {
       for (const order of ordersToday) {
         if (order.status === 'hang_o_sg') continue;
 
-        const phone = this.buildRecipientPhoneForDelivery(order);
-        if (!phone) continue;
-
         const customerName =
           order.import_orders?.customers?.name ||
           order.import_orders?.selected_alias ||
@@ -709,6 +793,11 @@ export class ZaloService {
 
         const customerId = order.import_orders?.customers?.id || order.vegetable_orders?.customers?.id;
         if (!customerId) continue;
+        const phone = this.buildRecipientPhoneForDelivery(order);
+        if (!phone) {
+          customersWithoutPhone.set(customerId, { customerId, customerName });
+          continue;
+        }
 
         processOrderForUndelivered(order, phone, customerName, customerId);
       }
@@ -718,9 +807,6 @@ export class ZaloService {
         const order = dv.delivery_orders;
         if (!order || order.status === 'hang_o_sg') continue;
 
-        const phone = this.buildRecipientPhoneForDelivery(order);
-        if (!phone) continue;
-
         const customerName =
           order.import_orders?.customers?.name ||
           order.import_orders?.selected_alias ||
@@ -730,6 +816,11 @@ export class ZaloService {
 
         const customerId = order.import_orders?.customers?.id || order.vegetable_orders?.customers?.id;
         if (!customerId) continue;
+        const phone = this.buildRecipientPhoneForDelivery(order);
+        if (!phone) {
+          customersWithoutPhone.set(customerId, { customerId, customerName });
+          continue;
+        }
 
         if (!customerGroups[phone]) {
           customerGroups[phone] = { customerId, customerName, phone, items: [], undeliveredOrderIds: new Set(), undeliveredQuantity: 0 };
@@ -753,22 +844,46 @@ export class ZaloService {
         // Filter by targetCustomerId if provided
         if (targetCustomerId && group.customerId !== targetCustomerId) continue;
 
-        const normalizedPhone = normalizePhoneForAuth(group.phone);
-        if (!normalizedPhone) continue;
+        const publicLink = this.buildSummaryPublicLink('grocery', group.customerId, today);
+        const normalizedPhone = this.normalizePhoneSafe(normalizePhoneForAuth, group.phone);
+        if (!normalizedPhone) {
+          await this.upsertSummaryDispatchLog(supabaseService, {
+            summaryType: 'grocery',
+            summaryDate: today,
+            targetCustomerId: group.customerId,
+            targetName: group.customerName,
+            targetPhone: group.phone,
+            publicLink,
+            status: 'failed',
+            errorMessage: 'Số điện thoại không hợp lệ',
+            triggeredBy: 'scheduler',
+          });
+          continue;
+        }
 
         try {
-          if (group.items.length === 0 && group.undeliveredQuantity === 0) continue;
+          if (group.items.length === 0 && group.undeliveredQuantity === 0) {
+            await this.upsertSummaryDispatchLog(supabaseService, {
+              summaryType: 'grocery',
+              summaryDate: today,
+              targetCustomerId: group.customerId,
+              targetName: group.customerName,
+              targetPhone: normalizedPhone,
+              publicLink,
+              status: 'skipped',
+              errorMessage: 'Không có dữ liệu tổng kết để gửi',
+              triggeredBy: 'scheduler',
+            });
+            continue;
+          }
 
-          let caption = `Phiếu tổng kết giao hàng ngày ${format(new Date(), 'dd/MM/yyyy')}`;
+          let caption = `Phiếu tổng kết giao hàng ngày ${this.formatDisplayDate(today)}`;
           if (group.undeliveredQuantity > 0) {
             caption += `\n\nXin lỗi quý khách, hiện số kiện chưa được giao là ${group.undeliveredQuantity}. Mong quý khách thông cảm. Hẹn gặp lại vào ngày mai.`;
           } else {
             caption += `\n\nQuý khách đã được giao đủ hàng. Cảm ơn quý khách đã sử dụng dịch vụ.`;
           }
 
-          // Generate public link
-          const token = this.generatePublicToken('grocery', group.customerId, today);
-          const publicLink = `${this.getPublicClientUrl()}/public/summary/grocery/${group.customerId}/${today}/${token}`;
           const finalCaption = `${caption}\n\nXem chi tiết tại: ${publicLink}`;
 
           const result = await this.sendImageMessage({
@@ -778,13 +893,61 @@ export class ZaloService {
           });
 
           if (result.success) {
+            await this.upsertSummaryDispatchLog(supabaseService, {
+              summaryType: 'grocery',
+              summaryDate: today,
+              targetCustomerId: group.customerId,
+              targetName: group.customerName,
+              targetPhone: normalizedPhone,
+              publicLink,
+              status: 'success',
+              messageId: result.messageId || null,
+              triggeredBy: 'scheduler',
+            });
             logger.info(`[ZaloService] Daily summary sent to ${group.customerName} (${normalizedPhone})`);
           } else {
+            await this.upsertSummaryDispatchLog(supabaseService, {
+              summaryType: 'grocery',
+              summaryDate: today,
+              targetCustomerId: group.customerId,
+              targetName: group.customerName,
+              targetPhone: normalizedPhone,
+              publicLink,
+              status: 'failed',
+              errorMessage: result.error || 'Gửi thất bại',
+              messageId: result.messageId || null,
+              triggeredBy: 'scheduler',
+            });
             logger.error(`[ZaloService] Failed to send summary to ${normalizedPhone}: ${result.error}`);
           }
         } catch (err) {
+          await this.upsertSummaryDispatchLog(supabaseService, {
+            summaryType: 'grocery',
+            summaryDate: today,
+            targetCustomerId: group.customerId,
+            targetName: group.customerName,
+            targetPhone: normalizedPhone,
+            publicLink,
+            status: 'failed',
+            errorMessage: (err as any)?.message || 'exception',
+            triggeredBy: 'scheduler',
+          });
           logger.error(`[ZaloService] Error processing summary for ${group.customerName}:`, err);
         }
+      }
+
+      for (const customer of Array.from(customersWithoutPhone.values())) {
+        await this.upsertSummaryDispatchLog(supabaseService, {
+          summaryType: 'grocery',
+          summaryDate: today,
+          targetCustomerId: customer.customerId,
+          targetName: customer.customerName,
+          targetPhone: null,
+          publicLink: this.buildSummaryPublicLink('grocery', customer.customerId, today),
+          status: 'skipped',
+          errorMessage: 'Thiếu số điện thoại',
+          triggeredBy: 'scheduler',
+        });
       }
     } catch (err) {
       logger.error(`[ZaloService] Exception in sendDailySummaries:`, err);
@@ -900,12 +1063,24 @@ export class ZaloService {
 
       for (const supplierId of Object.keys(supplierGroups)) {
         const group = supplierGroups[supplierId];
-        const normalizedPhone = normalizePhoneForAuth(group.phone);
+        const publicLink = this.buildSummaryPublicLink('supplier', group.supplierId, today);
+        const normalizedPhone = this.normalizePhoneSafe(normalizePhoneForAuth, group.phone);
         if (!normalizedPhone) {
           invalidPhoneSuppliers.push({
             supplierId: group.supplierId,
             supplierName: group.supplierName,
             phone: group.phone,
+          });
+          await this.upsertSummaryDispatchLog(supabaseService, {
+            summaryType: 'supplier',
+            summaryDate: today,
+            targetCustomerId: group.supplierId,
+            targetName: group.supplierName,
+            targetPhone: group.phone,
+            publicLink,
+            status: 'failed',
+            errorMessage: 'Số điện thoại không hợp lệ',
+            triggeredBy: 'scheduler',
           });
           continue;
         }
@@ -951,14 +1126,22 @@ export class ZaloService {
             supplierId: group.supplierId,
             supplierName: group.supplierName,
           });
+          await this.upsertSummaryDispatchLog(supabaseService, {
+            summaryType: 'supplier',
+            summaryDate: today,
+            targetCustomerId: group.supplierId,
+            targetName: group.supplierName,
+            targetPhone: normalizedPhone,
+            publicLink,
+            status: 'skipped',
+            errorMessage: 'Không có dữ liệu tổng kết để gửi',
+            triggeredBy: 'scheduler',
+          });
           continue;
         }
 
         try {
-          // Generate public link
-          const token = this.generatePublicToken('supplier', group.supplierId, today);
-          const publicLink = `${this.getPublicClientUrl()}/public/vegetable-orders/supplier/${group.supplierId}/${today}/${token}`;
-          const caption = `Phiếu tổng kết hàng đã nhận ngày ${format(new Date(), 'dd/MM/yyyy')}. Cảm ơn vựa.\n\nXem chi tiết tại: ${publicLink}`;
+          const caption = `Phiếu tổng kết hàng đã nhận ngày ${this.formatDisplayDate(today)}. Cảm ơn vựa.\n\nXem chi tiết tại: ${publicLink}`;
 
           const result = await this.sendImageMessage({
             recipientPhone: normalizedPhone,
@@ -968,6 +1151,17 @@ export class ZaloService {
 
           if (result.success) {
             sentCount += 1;
+            await this.upsertSummaryDispatchLog(supabaseService, {
+              summaryType: 'supplier',
+              summaryDate: today,
+              targetCustomerId: group.supplierId,
+              targetName: group.supplierName,
+              targetPhone: normalizedPhone,
+              publicLink,
+              status: 'success',
+              messageId: result.messageId || null,
+              triggeredBy: 'scheduler',
+            });
             logger.info(`[ZaloService] Daily supplier summary sent to ${group.supplierName} (${normalizedPhone})`);
           } else {
             failedCount += 1;
@@ -976,6 +1170,18 @@ export class ZaloService {
               supplierName: group.supplierName,
               phone: normalizedPhone,
               reason: result.error || 'unknown',
+            });
+            await this.upsertSummaryDispatchLog(supabaseService, {
+              summaryType: 'supplier',
+              summaryDate: today,
+              targetCustomerId: group.supplierId,
+              targetName: group.supplierName,
+              targetPhone: normalizedPhone,
+              publicLink,
+              status: 'failed',
+              errorMessage: result.error || 'Gửi thất bại',
+              messageId: result.messageId || null,
+              triggeredBy: 'scheduler',
             });
             logger.error(`[ZaloService] Failed to send supplier summary to ${normalizedPhone}: ${result.error}`);
           }
@@ -987,6 +1193,17 @@ export class ZaloService {
             phone: normalizedPhone,
             reason: (err as any)?.message || 'exception',
           });
+          await this.upsertSummaryDispatchLog(supabaseService, {
+            summaryType: 'supplier',
+            summaryDate: today,
+            targetCustomerId: group.supplierId,
+            targetName: group.supplierName,
+            targetPhone: normalizedPhone,
+            publicLink,
+            status: 'failed',
+            errorMessage: (err as any)?.message || 'exception',
+            triggeredBy: 'scheduler',
+          });
           logger.error(`[ZaloService] Error processing supplier summary for ${group.supplierName}:`, err);
         }
       }
@@ -997,6 +1214,19 @@ export class ZaloService {
 
       if (suppliersWithoutPhone.length > 0) {
         logger.warn(`[ZaloService] Suppliers skipped (missing phone): ${JSON.stringify(suppliersWithoutPhone)}`);
+        for (const supplier of suppliersWithoutPhone) {
+          await this.upsertSummaryDispatchLog(supabaseService, {
+            summaryType: 'supplier',
+            summaryDate: today,
+            targetCustomerId: supplier.supplierId,
+            targetName: supplier.supplierName,
+            targetPhone: null,
+            publicLink: this.buildSummaryPublicLink('supplier', supplier.supplierId, today),
+            status: 'skipped',
+            errorMessage: 'Thiếu số điện thoại',
+            triggeredBy: 'scheduler',
+          });
+        }
 
         const preview = suppliersWithoutPhone.slice(0, 12).map((supplier) => supplier.supplierName).join(', ');
         const moreCount = Math.max(0, suppliersWithoutPhone.length - 12);
@@ -1112,17 +1342,17 @@ export class ZaloService {
       });
 
       // 3. Group by Sender (sender_id)
-      const senderGroups: Record<string, { senderId: string; senderName: string; phone: string; items: any[] }> = {};
+      const senderGroups: Record<string, { senderId: string; senderName: string; phone: string | null; items: any[] }> = {};
 
       allOrders.forEach((order: any) => {
         const sender = order.sender_customers;
-        if (!sender || !sender.id || !sender.phone) return;
+        if (!sender || !sender.id) return;
 
         if (!senderGroups[sender.id]) {
           senderGroups[sender.id] = {
             senderId: sender.id,
             senderName: sender.name,
-            phone: sender.phone,
+            phone: sender.phone || null,
             items: [],
           };
         }
@@ -1143,14 +1373,39 @@ export class ZaloService {
       // 4. Process each sender group
       for (const senderId of Object.keys(senderGroups)) {
         const group = senderGroups[senderId];
-        const normalizedPhone = normalizePhoneForAuth(group.phone);
-        if (!normalizedPhone || group.items.length === 0) continue;
+        const publicLink = this.buildSummaryPublicLink('sender', group.senderId, today);
+        const normalizedPhone = this.normalizePhoneSafe(normalizePhoneForAuth, group.phone);
+        if (!normalizedPhone) {
+          await this.upsertSummaryDispatchLog(supabaseService, {
+            summaryType: 'sender',
+            summaryDate: today,
+            targetCustomerId: group.senderId,
+            targetName: group.senderName,
+            targetPhone: group.phone,
+            publicLink,
+            status: group.phone ? 'failed' : 'skipped',
+            errorMessage: group.phone ? 'Số điện thoại không hợp lệ' : 'Thiếu số điện thoại',
+            triggeredBy: 'scheduler',
+          });
+          continue;
+        }
+        if (group.items.length === 0) {
+          await this.upsertSummaryDispatchLog(supabaseService, {
+            summaryType: 'sender',
+            summaryDate: today,
+            targetCustomerId: group.senderId,
+            targetName: group.senderName,
+            targetPhone: normalizedPhone,
+            publicLink,
+            status: 'skipped',
+            errorMessage: 'Không có dữ liệu tổng kết để gửi',
+            triggeredBy: 'scheduler',
+          });
+          continue;
+        }
 
         try {
-          // Generate public link
-          const token = this.generatePublicToken('sender', group.senderId, today);
-          const publicLink = `${this.getPublicClientUrl()}/public/vegetable-orders/sender/${group.senderId}/${today}/${token}`;
-          const caption = `Phiếu tổng kết hàng đã gửi ngày ${format(new Date(), 'dd/MM/yyyy')}. Cảm ơn bạn.\n\nXem chi tiết tại: ${publicLink}`;
+          const caption = `Phiếu tổng kết hàng đã gửi ngày ${this.formatDisplayDate(today)}. Cảm ơn bạn.\n\nXem chi tiết tại: ${publicLink}`;
 
           const result = await this.sendImageMessage({
             recipientPhone: normalizedPhone,
@@ -1159,17 +1414,465 @@ export class ZaloService {
           });
 
           if (result.success) {
+            await this.upsertSummaryDispatchLog(supabaseService, {
+              summaryType: 'sender',
+              summaryDate: today,
+              targetCustomerId: group.senderId,
+              targetName: group.senderName,
+              targetPhone: normalizedPhone,
+              publicLink,
+              status: 'success',
+              messageId: result.messageId || null,
+              triggeredBy: 'scheduler',
+            });
             logger.info(`[ZaloService] Daily sender summary sent to ${group.senderName} (${normalizedPhone})`);
           } else {
+            await this.upsertSummaryDispatchLog(supabaseService, {
+              summaryType: 'sender',
+              summaryDate: today,
+              targetCustomerId: group.senderId,
+              targetName: group.senderName,
+              targetPhone: normalizedPhone,
+              publicLink,
+              status: 'failed',
+              errorMessage: result.error || 'Gửi thất bại',
+              messageId: result.messageId || null,
+              triggeredBy: 'scheduler',
+            });
             logger.error(`[ZaloService] Failed to send sender summary to ${normalizedPhone}: ${result.error}`);
           }
         } catch (err) {
+          await this.upsertSummaryDispatchLog(supabaseService, {
+            summaryType: 'sender',
+            summaryDate: today,
+            targetCustomerId: group.senderId,
+            targetName: group.senderName,
+            targetPhone: normalizedPhone,
+            publicLink,
+            status: 'failed',
+            errorMessage: (err as any)?.message || 'exception',
+            triggeredBy: 'scheduler',
+          });
           logger.error(`[ZaloService] Error processing sender summary for ${group.senderName}:`, err);
         }
       }
     } catch (err) {
       logger.error(`[ZaloService] Exception in sendDailySenderSummaries:`, err);
     }
+  }
+
+  private async resolveGroceryFallbackPhone(supabaseService: any, customerId: string, date: string): Promise<string | null> {
+    const { data, error } = await supabaseService
+      .from('delivery_orders')
+      .select(`
+        import_orders(receiver_phone, customers:customers!import_orders_customer_id_fkey(id, phone)),
+        vegetable_orders(receiver_phone, customers:customers!vegetable_orders_customer_id_fkey(id, phone))
+      `)
+      .eq('delivery_date', date)
+      .neq('status', 'hang_o_sg');
+
+    if (error || !data) return null;
+
+    for (const order of data as any[]) {
+      const importCustomerId = order.import_orders?.customers?.id;
+      const vegetableCustomerId = order.vegetable_orders?.customers?.id;
+      const isTarget = importCustomerId === customerId || vegetableCustomerId === customerId;
+      if (!isTarget) continue;
+
+      const fallbackPhone =
+        order.import_orders?.receiver_phone ||
+        order.import_orders?.customers?.phone ||
+        order.vegetable_orders?.receiver_phone ||
+        order.vegetable_orders?.customers?.phone ||
+        null;
+
+      if (fallbackPhone) return fallbackPhone;
+    }
+
+    return null;
+  }
+
+  private async resolveSummaryRecipient(
+    supabaseService: any,
+    type: SummaryDispatchType,
+    targetId: string,
+    date: string,
+  ): Promise<SummaryRecipient | null> {
+    const { data: customer, error } = await supabaseService
+      .from('customers')
+      .select('id, name, phone')
+      .eq('id', targetId)
+      .maybeSingle();
+
+    if (error || !customer) return null;
+
+    if (type !== 'grocery') {
+      return {
+        id: customer.id,
+        name: customer.name || '-',
+        phone: customer.phone || null,
+      };
+    }
+
+    const fallbackPhone = await this.resolveGroceryFallbackPhone(supabaseService, targetId, date);
+    return {
+      id: customer.id,
+      name: customer.name || '-',
+      phone: customer.phone || fallbackPhone || null,
+    };
+  }
+
+  private hasSummaryData(type: SummaryDispatchType, summaryData: any): boolean {
+    if (!summaryData) return false;
+    if (type === 'grocery') {
+      const itemCount = Array.isArray(summaryData.items) ? summaryData.items.length : 0;
+      const undelivered = Number(summaryData.undeliveredQuantity || 0);
+      return itemCount > 0 || undelivered > 0;
+    }
+
+    const itemCount = Array.isArray(summaryData.items) ? summaryData.items.length : 0;
+    return itemCount > 0;
+  }
+
+  private buildSummaryCaption(type: SummaryDispatchType, date: string, targetId: string, summaryData?: any): string {
+    const publicLink = this.buildSummaryPublicLink(type, targetId, date);
+    const displayDate = this.formatDisplayDate(date);
+
+    if (type === 'grocery') {
+      const undeliveredQuantity = Number(summaryData?.undeliveredQuantity || 0);
+      if (undeliveredQuantity > 0) {
+        return `Phiếu tổng kết giao hàng ngày ${displayDate}\n\nXin lỗi quý khách, hiện số kiện chưa được giao là ${undeliveredQuantity}. Mong quý khách thông cảm. Hẹn gặp lại vào ngày mai.\n\nXem chi tiết tại: ${publicLink}`;
+      }
+      return `Phiếu tổng kết giao hàng ngày ${displayDate}\n\nQuý khách đã được giao đủ hàng. Cảm ơn quý khách đã sử dụng dịch vụ.\n\nXem chi tiết tại: ${publicLink}`;
+    }
+    if (type === 'supplier') {
+      return `Phiếu tổng kết hàng đã nhận ngày ${displayDate}. Cảm ơn vựa.\n\nXem chi tiết tại: ${publicLink}`;
+    }
+    return `Phiếu tổng kết hàng đã gửi ngày ${displayDate}. Cảm ơn bạn.\n\nXem chi tiết tại: ${publicLink}`;
+  }
+
+  async sendSummaryForTarget(
+    supabaseService: any,
+    logger: any,
+    normalizePhoneForAuth: (phone: string) => string | null,
+    params: {
+      type: SummaryDispatchType;
+      targetId: string;
+      date: string;
+      triggeredBy: SummaryDispatchTrigger;
+    },
+  ) {
+    const { type, targetId, date, triggeredBy } = params;
+    const publicLink = this.buildSummaryPublicLink(type, targetId, date);
+
+    const recipient = await this.resolveSummaryRecipient(supabaseService, type, targetId, date);
+    if (!recipient) {
+      await this.upsertSummaryDispatchLog(supabaseService, {
+        summaryType: type,
+        summaryDate: date,
+        targetCustomerId: targetId,
+        targetName: targetId,
+        targetPhone: null,
+        publicLink,
+        status: 'skipped',
+        errorMessage: 'Không tìm thấy khách hàng',
+        triggeredBy,
+      });
+      return { success: false, status: 'skipped' as const, error: 'Không tìm thấy khách hàng', publicLink };
+    }
+
+    const summaryData =
+      type === 'grocery'
+        ? await this.getGrocerySummaryData(supabaseService, targetId, date)
+        : type === 'supplier'
+          ? await this.getSupplierSummaryData(supabaseService, targetId, date)
+          : await this.getSenderSummaryData(supabaseService, targetId, date);
+
+    if (!this.hasSummaryData(type, summaryData)) {
+      await this.upsertSummaryDispatchLog(supabaseService, {
+        summaryType: type,
+        summaryDate: date,
+        targetCustomerId: targetId,
+        targetName: recipient.name,
+        targetPhone: recipient.phone,
+        publicLink,
+        status: 'skipped',
+        errorMessage: 'Không có dữ liệu tổng kết để gửi',
+        triggeredBy,
+      });
+      return { success: false, status: 'skipped' as const, error: 'Không có dữ liệu tổng kết để gửi', publicLink };
+    }
+
+    if (!recipient.phone) {
+      await this.upsertSummaryDispatchLog(supabaseService, {
+        summaryType: type,
+        summaryDate: date,
+        targetCustomerId: targetId,
+        targetName: recipient.name,
+        targetPhone: null,
+        publicLink,
+        status: 'skipped',
+        errorMessage: 'Thiếu số điện thoại',
+        triggeredBy,
+      });
+      return { success: false, status: 'skipped' as const, error: 'Thiếu số điện thoại', publicLink };
+    }
+
+    const normalizedPhone = this.normalizePhoneSafe(normalizePhoneForAuth, recipient.phone);
+    if (!normalizedPhone) {
+      await this.upsertSummaryDispatchLog(supabaseService, {
+        summaryType: type,
+        summaryDate: date,
+        targetCustomerId: targetId,
+        targetName: recipient.name,
+        targetPhone: recipient.phone,
+        publicLink,
+        status: 'failed',
+        errorMessage: 'Số điện thoại không hợp lệ',
+        triggeredBy,
+      });
+      return { success: false, status: 'failed' as const, error: 'Số điện thoại không hợp lệ', publicLink };
+    }
+
+    const caption = this.buildSummaryCaption(type, date, targetId, summaryData);
+    const result = await this.sendImageMessage({
+      recipientPhone: normalizedPhone,
+      imageUrls: [],
+      caption,
+    });
+
+    if (result.success) {
+      await this.upsertSummaryDispatchLog(supabaseService, {
+        summaryType: type,
+        summaryDate: date,
+        targetCustomerId: targetId,
+        targetName: recipient.name,
+        targetPhone: normalizedPhone,
+        publicLink,
+        status: 'success',
+        messageId: result.messageId || null,
+        triggeredBy,
+      });
+      logger.info(`[ZaloService] Manual summary sent (${type}) to ${recipient.name} (${normalizedPhone})`);
+      return { success: true, status: 'success' as const, publicLink, messageId: result.messageId || null };
+    }
+
+    await this.upsertSummaryDispatchLog(supabaseService, {
+      summaryType: type,
+      summaryDate: date,
+      targetCustomerId: targetId,
+      targetName: recipient.name,
+      targetPhone: normalizedPhone,
+      publicLink,
+      status: 'failed',
+      errorMessage: result.error || 'Gửi thất bại',
+      messageId: result.messageId || null,
+      triggeredBy,
+    });
+    logger.error(`[ZaloService] Failed manual summary send (${type}) to ${normalizedPhone}: ${result.error}`);
+    return { success: false, status: 'failed' as const, error: result.error || 'Gửi thất bại', publicLink };
+  }
+
+  private async buildGrocerySummaryTargets(supabaseService: any, date: string) {
+    const { data: orders, error } = await supabaseService
+      .from('delivery_orders')
+      .select(`
+        id,
+        import_orders(receiver_phone, selected_alias, customers:customers!import_orders_customer_id_fkey(id, name, phone)),
+        vegetable_orders(receiver_phone, selected_alias, customers:customers!vegetable_orders_customer_id_fkey(id, name, phone))
+      `)
+      .eq('delivery_date', date)
+      .neq('status', 'hang_o_sg');
+
+    if (error || !orders) return [] as Array<Omit<SummaryStatusListItem, 'status' | 'lastError' | 'messageId' | 'lastSentAt' | 'triggeredBy'>>;
+
+    const targetMap = new Map<string, Omit<SummaryStatusListItem, 'status' | 'lastError' | 'messageId' | 'lastSentAt' | 'triggeredBy'>>();
+
+    (orders as any[]).forEach((order) => {
+      const importCustomer = order.import_orders?.customers;
+      const vegetableCustomer = order.vegetable_orders?.customers;
+      const customer = importCustomer || vegetableCustomer;
+      if (!customer?.id) return;
+
+      const phone =
+        order.import_orders?.receiver_phone ||
+        importCustomer?.phone ||
+        order.vegetable_orders?.receiver_phone ||
+        vegetableCustomer?.phone ||
+        null;
+
+      const existing = targetMap.get(customer.id);
+      if (existing) {
+        existing.orderCount += 1;
+        if (!existing.targetPhone && phone) existing.targetPhone = phone;
+        return;
+      }
+
+      targetMap.set(customer.id, {
+        targetId: customer.id,
+        targetName:
+          customer.name ||
+          order.import_orders?.selected_alias ||
+          order.vegetable_orders?.selected_alias ||
+          '-',
+        targetPhone: phone,
+        orderCount: 1,
+        itemRowCount: 0,
+        publicLink: this.buildSummaryPublicLink('grocery', customer.id, date),
+      });
+    });
+
+    return Array.from(targetMap.values());
+  }
+
+  private async buildSupplierSummaryTargets(supabaseService: any, date: string) {
+    const { data: orders, error } = await supabaseService
+      .from('vegetable_orders')
+      .select(`
+        id,
+        customer_id,
+        customers:customers!vegetable_orders_customer_id_fkey(id, name, phone),
+        vegetable_order_items(id)
+      `)
+      .eq('order_date', date)
+      .is('deleted_at', null);
+
+    if (error || !orders) return [] as Array<Omit<SummaryStatusListItem, 'status' | 'lastError' | 'messageId' | 'lastSentAt' | 'triggeredBy'>>;
+
+    const targetMap = new Map<string, Omit<SummaryStatusListItem, 'status' | 'lastError' | 'messageId' | 'lastSentAt' | 'triggeredBy'>>();
+
+    (orders as any[]).forEach((order) => {
+      const customer = order.customers;
+      if (!order.customer_id || !customer?.id) return;
+
+      const existing = targetMap.get(order.customer_id);
+      const itemCount = Array.isArray(order.vegetable_order_items) ? order.vegetable_order_items.length : 0;
+      if (existing) {
+        existing.orderCount += 1;
+        existing.itemRowCount += itemCount;
+        return;
+      }
+
+      targetMap.set(order.customer_id, {
+        targetId: order.customer_id,
+        targetName: customer.name || '-',
+        targetPhone: customer.phone || null,
+        orderCount: 1,
+        itemRowCount: itemCount,
+        publicLink: this.buildSummaryPublicLink('supplier', order.customer_id, date),
+      });
+    });
+
+    return Array.from(targetMap.values());
+  }
+
+  private async buildSenderSummaryTargets(supabaseService: any, date: string) {
+    const { data: orders, error } = await supabaseService
+      .from('vegetable_orders')
+      .select(`
+        id,
+        sender_id,
+        sender_customers:customers!vegetable_orders_sender_id_fkey(id, name, phone),
+        vegetable_order_items(id)
+      `)
+      .eq('order_date', date)
+      .is('deleted_at', null);
+
+    if (error || !orders) return [] as Array<Omit<SummaryStatusListItem, 'status' | 'lastError' | 'messageId' | 'lastSentAt' | 'triggeredBy'>>;
+
+    const targetMap = new Map<string, Omit<SummaryStatusListItem, 'status' | 'lastError' | 'messageId' | 'lastSentAt' | 'triggeredBy'>>();
+
+    (orders as any[]).forEach((order) => {
+      const sender = order.sender_customers;
+      if (!order.sender_id || !sender?.id) return;
+
+      const existing = targetMap.get(order.sender_id);
+      const itemCount = Array.isArray(order.vegetable_order_items) ? order.vegetable_order_items.length : 0;
+      if (existing) {
+        existing.orderCount += 1;
+        existing.itemRowCount += itemCount;
+        return;
+      }
+
+      targetMap.set(order.sender_id, {
+        targetId: order.sender_id,
+        targetName: sender.name || '-',
+        targetPhone: sender.phone || null,
+        orderCount: 1,
+        itemRowCount: itemCount,
+        publicLink: this.buildSummaryPublicLink('sender', order.sender_id, date),
+      });
+    });
+
+    return Array.from(targetMap.values());
+  }
+
+  async getSummaryDispatchStatusList(
+    supabaseService: any,
+    type: SummaryDispatchType,
+    date: string,
+  ): Promise<SummaryStatusListItem[]> {
+    const baseTargets =
+      type === 'grocery'
+        ? await this.buildGrocerySummaryTargets(supabaseService, date)
+        : type === 'supplier'
+          ? await this.buildSupplierSummaryTargets(supabaseService, date)
+          : await this.buildSenderSummaryTargets(supabaseService, date);
+
+    if (baseTargets.length === 0) return [];
+
+    const targetIds = baseTargets.map((target) => target.targetId);
+    const { data: logs, error } = await supabaseService
+      .from('zalo_summary_dispatch_logs')
+      .select(`
+        target_customer_id,
+        status,
+        error_message,
+        message_id,
+        triggered_by,
+        sent_at
+      `)
+      .eq('summary_type', type)
+      .eq('summary_date', date)
+      .in('target_customer_id', targetIds);
+
+    if (error || !logs) {
+      return baseTargets.map((target) => ({
+        ...target,
+        status: 'pending',
+        lastError: null,
+        messageId: null,
+        lastSentAt: null,
+        triggeredBy: null,
+      }));
+    }
+
+    const logMap = new Map<string, any>();
+    (logs as any[]).forEach((log) => {
+      logMap.set(String(log.target_customer_id), log);
+    });
+
+    return baseTargets.map((target) => {
+      const log = logMap.get(target.targetId);
+      if (!log) {
+        return {
+          ...target,
+          status: 'pending',
+          lastError: null,
+          messageId: null,
+          lastSentAt: null,
+          triggeredBy: null,
+        };
+      }
+      return {
+        ...target,
+        status: log.status || 'pending',
+        lastError: log.error_message || null,
+        messageId: log.message_id || null,
+        lastSentAt: log.sent_at || null,
+        triggeredBy: log.triggered_by || null,
+      };
+    });
   }
 
   private resolveVegetableOrderDriverKey(order: any): string {

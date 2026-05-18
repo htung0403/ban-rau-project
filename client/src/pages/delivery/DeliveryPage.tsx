@@ -162,7 +162,7 @@ const getOrderPreviewImage = (order: DeliveryOrder | null | undefined) => {
   if (paymentImage) return paymentImage;
 
   const vehicleImage = (order.delivery_vehicles || [])
-    .find((dv) => dv.image_urls && dv.image_urls.length > 0)?.image_urls[0];
+    .find((dv) => (dv.image_urls?.length || 0) > 0)?.image_urls?.[0];
   if (vehicleImage) return vehicleImage;
 
   const linkedImport = pickRelation<DeliverySourceRelation>(order.import_orders);

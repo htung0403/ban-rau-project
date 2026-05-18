@@ -50,6 +50,78 @@ const isSupplierSummaryData = (value: VegetableSummaryData): value is SupplierSu
   return 'supplierName' in value;
 };
 
+const buildSupplierPriceKey = (item: SupplierSummaryItem): string => {
+  const productName = (item.productName || 'Hàng hóa').trim();
+  const note = typeof item.note === 'string' ? item.note.trim() : '';
+  return `${productName}||${note}`;
+};
+
+const normalizeSupplierSummaryItems = (items: SupplierSummaryItem[]): SupplierSummaryItem[] => {
+  const normalized = items.map((item) => {
+    const quantity = Number(item.quantity || 0);
+    let price = Number(item.price || 0);
+    let total = Number(item.total || 0);
+
+    if (price > 0 && price < 1000) {
+      price *= 1000;
+    }
+
+    if (!(price > 0) && quantity > 0 && total > 0) {
+      price = total / quantity;
+    }
+
+    return {
+      ...item,
+      quantity,
+      price: Math.round(price || 0),
+      total: Math.round(total || 0),
+    };
+  });
+
+  const inferredPriceByProduct = new Map<string, number>();
+  const positivePriceSet = new Set<number>();
+
+  normalized.forEach((item) => {
+    const price = Number(item.price || 0);
+    if (!(price > 0)) return;
+    positivePriceSet.add(price);
+    const key = buildSupplierPriceKey(item);
+    if (!inferredPriceByProduct.has(key)) {
+      inferredPriceByProduct.set(key, price);
+    }
+  });
+
+  const fallbackGlobalPrice = positivePriceSet.size === 1
+    ? Array.from(positivePriceSet)[0]
+    : 0;
+
+  return normalized.map((item) => {
+    const quantity = Number(item.quantity || 0);
+    const key = buildSupplierPriceKey(item);
+    let price = Number(item.price || 0);
+
+    if (!(price > 0)) {
+      price = Number(inferredPriceByProduct.get(key) || 0);
+    }
+
+    if (!(price > 0) && fallbackGlobalPrice > 0) {
+      price = fallbackGlobalPrice;
+    }
+
+    let total = Number(item.total || 0);
+    if (!(total > 0) && quantity > 0 && price > 0) {
+      total = quantity * price;
+    }
+
+    return {
+      ...item,
+      quantity,
+      price: Math.round(price || 0),
+      total: Math.round(total || 0),
+    };
+  });
+};
+
 type SupplierGroupedRow =
   | { kind: 'item'; key: string; item: SupplierSummaryItem }
   | { kind: 'subtotal'; key: string; productName: string; note?: string; quantity: number };
@@ -100,8 +172,9 @@ const VegetableSummaryPublicPage: React.FC = () => {
 
   const supplierRows = useMemo<SupplierGroupedRow[]>(() => {
     if (!data || !isSupplierSummaryData(data)) return [];
+    const normalizedItems = normalizeSupplierSummaryItems(data.items || []);
     const groups = new Map<string, SupplierSummaryItem[]>();
-    data.items.forEach((item) => {
+    normalizedItems.forEach((item) => {
       const productName = item.productName || 'Hàng hóa';
       const note = typeof item.note === 'string' ? item.note.trim() : '';
       const key = `${productName}||${note}`;

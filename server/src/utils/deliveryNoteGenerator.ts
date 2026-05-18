@@ -64,6 +64,76 @@ export interface SenderSummaryData {
 }
 
 export class DeliveryNoteGenerator {
+  private static buildSupplierPriceKey(item: SupplierSummaryItem): string {
+    const productName = (item.productName || 'Hàng hóa').trim();
+    return `${productName}`;
+  }
+
+  private static normalizeSupplierSummaryItems(items: SupplierSummaryItem[]): SupplierSummaryItem[] {
+    const normalized = items.map((item) => {
+      const quantity = Number(item.quantity || 0);
+      let price = Number(item.price || 0);
+      let total = Number(item.total || 0);
+
+      if (price > 0 && price < 1000) {
+        price *= 1000;
+      }
+
+      if (!(price > 0) && quantity > 0 && total > 0) {
+        price = total / quantity;
+      }
+
+      return {
+        ...item,
+        quantity,
+        price: Math.round(price || 0),
+        total: Math.round(total || 0),
+      };
+    });
+
+    const inferredPriceByProduct = new Map<string, number>();
+    const positivePriceSet = new Set<number>();
+
+    normalized.forEach((item) => {
+      const price = Number(item.price || 0);
+      if (!(price > 0)) return;
+      positivePriceSet.add(price);
+      const key = this.buildSupplierPriceKey(item);
+      if (!inferredPriceByProduct.has(key)) {
+        inferredPriceByProduct.set(key, price);
+      }
+    });
+
+    const fallbackGlobalPrice = positivePriceSet.size === 1
+      ? Array.from(positivePriceSet)[0]
+      : 0;
+
+    return normalized.map((item) => {
+      const quantity = Number(item.quantity || 0);
+      let price = Number(item.price || 0);
+
+      if (!(price > 0)) {
+        price = Number(inferredPriceByProduct.get(this.buildSupplierPriceKey(item)) || 0);
+      }
+
+      if (!(price > 0) && fallbackGlobalPrice > 0) {
+        price = fallbackGlobalPrice;
+      }
+
+      let total = Number(item.total || 0);
+      if (!(total > 0) && quantity > 0 && price > 0) {
+        total = quantity * price;
+      }
+
+      return {
+        ...item,
+        quantity,
+        price: Math.round(price || 0),
+        total: Math.round(total || 0),
+      };
+    });
+  }
+
   /**
    * Generates a PNG buffer of a delivery note based on SVG template.
    * Matches the user-provided image layout.
@@ -279,6 +349,7 @@ export class DeliveryNoteGenerator {
    * Generates supplier summary PNG using the public summary layout.
    */
   static async generateSupplierSummaryPng(data: SupplierSummaryData): Promise<Buffer> {
+    const normalizedItems = this.normalizeSupplierSummaryItems(data.items || []);
     const width = 1100;
     const tableX = 25;
     const tableY = 190;
@@ -287,7 +358,7 @@ export class DeliveryNoteGenerator {
     const fontSize = 18;
     const boldFontSize = 20;
     const colWidths = [180, 70, 140, 70, 250, 130, 210];
-    const totalRows = data.items.length + 2;
+    const totalRows = normalizedItems.length + 2;
     const height = tableY + totalRows * rowHeight + 40;
 
     const escapeXml = (unsafe: string) => {
@@ -310,11 +381,11 @@ export class DeliveryNoteGenerator {
       return acc;
     }, []);
 
-    const totalQuantity = data.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-    const totalMoney = data.items.reduce((sum, item) => sum + (item.total || 0), 0);
+    const totalQuantity = normalizedItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    const totalMoney = normalizedItems.reduce((sum, item) => sum + (item.total || 0), 0);
 
     let rowsSvg = '';
-    data.items.forEach((item, index) => {
+    normalizedItems.forEach((item, index) => {
       const y = tableY + (index + 1) * rowHeight;
       const priceK = (item.price || 0) / 1000;
       rowsSvg += `
@@ -343,7 +414,7 @@ export class DeliveryNoteGenerator {
       `;
     });
 
-    const totalY = tableY + (data.items.length + 1) * rowHeight;
+    const totalY = tableY + (normalizedItems.length + 1) * rowHeight;
     const firstTotalWidth = colWidths[0] + colWidths[1] + colWidths[2];
     rowsSvg += `
       <g>

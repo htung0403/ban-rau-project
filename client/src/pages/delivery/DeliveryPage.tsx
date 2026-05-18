@@ -98,14 +98,33 @@ const getDeliveryGroupKey = (order: DeliveryOrder) => {
   return `${deliveryDate}|${category}|${receiver}|${product}|${paymentStatus}`;
 };
 
-const pickRelation = <T,>(relation: any): T | undefined => {
+const getDeliveryViewGroupKey = (order: DeliveryOrder) =>
+  order.status === 'hang_o_sg' ? `single:${order.id}` : getDeliveryGroupKey(order);
+
+type DeliverySourceRelation = {
+  profiles?: { full_name?: string | null } | null;
+  customers?: { name?: string | null; phone?: string | null } | null;
+  receiver_phone?: string | null;
+  receipt_image_url?: string | null;
+  receipt_image_urls?: string[] | null;
+  import_order_items?: DeliveryItemImageRef[] | null;
+  vegetable_order_items?: DeliveryItemImageRef[] | null;
+};
+
+type DeliveryItemImageRef = {
+  image_url?: string | null;
+  image_urls?: string[] | null;
+  products?: { name?: string | null } | null;
+};
+
+const pickRelation = <T,>(relation: T | T[] | null | undefined): T | undefined => {
   if (Array.isArray(relation)) return relation[0];
   return relation || undefined;
 };
 
 /** Nhân viên nhận hàng (phiếu nhập — received_by) */
 const getImportReceivedByStaffName = (order: DeliveryOrder) => {
-  const src = pickRelation<any>(order.import_orders) || pickRelation<any>(order.vegetable_orders);
+  const src = pickRelation<DeliverySourceRelation>(order.import_orders) || pickRelation<DeliverySourceRelation>(order.vegetable_orders);
   const name = src?.profiles?.full_name?.trim();
   return name || '—';
 };
@@ -120,7 +139,7 @@ const toWhatsappPhone = (digits: string) => {
 };
 
 const getCustomerPhone = (order: DeliveryOrder) => {
-  const src = pickRelation<any>(order.import_orders) || pickRelation<any>(order.vegetable_orders);
+  const src = pickRelation<DeliverySourceRelation>(order.import_orders) || pickRelation<DeliverySourceRelation>(order.vegetable_orders);
   return src?.customers?.phone || src?.receiver_phone || '';
 };
 
@@ -133,21 +152,21 @@ const isRevertAllowed = (order: DeliveryOrder) => {
   });
 };
 
-const getOrderPreviewImage = (order: any) => {
+const getOrderPreviewImage = (order: DeliveryOrder | null | undefined) => {
   if (!order) return null;
   const directImage = order.image_url;
   if (directImage) return directImage;
   if (order.image_urls && Array.isArray(order.image_urls) && order.image_urls.length > 0) return order.image_urls[0];
 
-  const paymentImage = order.payment_collections?.find((pc: any) => pc.image_url)?.image_url;
+  const paymentImage = order.payment_collections?.find((pc) => pc.image_url)?.image_url;
   if (paymentImage) return paymentImage;
 
   const vehicleImage = (order.delivery_vehicles || [])
-    .find((dv: any) => dv.image_urls && dv.image_urls.length > 0)?.image_urls[0];
+    .find((dv) => dv.image_urls && dv.image_urls.length > 0)?.image_urls[0];
   if (vehicleImage) return vehicleImage;
 
-  const linkedImport = pickRelation<any>(order.import_orders);
-  const linkedVeg = pickRelation<any>(order.vegetable_orders);
+  const linkedImport = pickRelation<DeliverySourceRelation>(order.import_orders);
+  const linkedVeg = pickRelation<DeliverySourceRelation>(order.vegetable_orders);
 
   if (linkedImport?.receipt_image_url) return linkedImport.receipt_image_url;
   if (linkedImport?.receipt_image_urls?.length) return linkedImport.receipt_image_urls[0];
@@ -160,8 +179,8 @@ const getOrderPreviewImage = (order: any) => {
       : order.product_name.trim().toLowerCase()
   ) : null;
 
-  const collectFirstImage = (refs: any): string | null => {
-    const list = Array.isArray(refs) ? refs : refs ? [refs] : [];
+  const collectFirstImage = (refs: DeliveryItemImageRef[] | DeliveryItemImageRef | null | undefined): string | null => {
+    const list: DeliveryItemImageRef[] = Array.isArray(refs) ? refs : refs ? [refs] : [];
 
     // First try to find an item that matches the product name
     if (targetProductName) {
@@ -251,6 +270,9 @@ const getOneWeekAgoString = () => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+const isAgeFilterValue = (value: string): value is 'all' | 'new' | 'old' =>
+  value === 'all' || value === 'new' || value === 'old';
+
 const DeliveryPage: React.FC = () => {
   const navigate = useNavigate();
   const today = getTodayString();
@@ -265,26 +287,21 @@ const DeliveryPage: React.FC = () => {
   const { user } = useAuth();
   const { data: ordersRaw, isLoading: ordersLoading, isError, refetch } = useDeliveryOrders(startDate || undefined, endDate || undefined, 'standard');
   const { data: vehicles } = useVehicles();
-  const orders = React.useMemo(() => {
-    let base = (ordersRaw || []).filter((o) => !isSoftDeletedSourceOrder(o));
-    if (user && !hasFullGoodsModuleAccess(user)) {
-      base = base.filter((o) =>
-        deliveryOrderVisibleToUser(o, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])
-      );
-    }
-    return base;
-  }, [ordersRaw, user, vehicles]);
+  const baseOrders = React.useMemo(
+    () => (ordersRaw || []).filter((o) => !isSoftDeletedSourceOrder(o)),
+    [ordersRaw]
+  );
 
   const groupedOrdersView = React.useMemo(() => {
     const map = new Map<string, DeliveryOrder[]>();
-    (orders || []).forEach((order) => {
-      const key = order.status === 'hang_o_sg' ? `single:${order.id}` : getDeliveryGroupKey(order);
+    (baseOrders || []).forEach((order) => {
+      const key = getDeliveryViewGroupKey(order);
       const list = map.get(key) || [];
       list.push(order);
       map.set(key, list);
     });
 
-    return Array.from(map.values()).map((group) => {
+    const grouped = Array.from(map.values()).map((group) => {
       const ordered = [...group].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       const first = ordered[0];
       const totalQuantity = ordered.reduce((sum, order) => sum + (Number(order.total_quantity) || 0), 0);
@@ -304,7 +321,51 @@ const DeliveryPage: React.FC = () => {
         status: allHangOsg ? 'hang_o_sg' : (hasDaGiao ? 'da_giao' : 'can_giao'),
       } as DeliveryOrder;
     });
-  }, [orders]);
+
+    if (!user || hasFullGoodsModuleAccess(user)) return grouped;
+
+    const actor = { id: user.id, role: user.role, full_name: user.full_name };
+    return grouped.filter((groupOrder) =>
+      Array.isArray(groupOrder.source_orders) &&
+      groupOrder.source_orders.some((sourceOrder) =>
+        deliveryOrderVisibleToUser(sourceOrder, actor, vehicles || [])
+      )
+    );
+  }, [baseOrders, user, vehicles]);
+
+  const adminCanGiaoGroupKeySet = React.useMemo(() => {
+    const grouped = new Map<string, DeliveryOrder[]>();
+
+    baseOrders.forEach((order) => {
+      const key = getDeliveryViewGroupKey(order);
+      const list = grouped.get(key) || [];
+      list.push(order);
+      grouped.set(key, list);
+    });
+
+    const keys = new Set<string>();
+    grouped.forEach((group, key) => {
+      const ordered = [...group].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      const first = ordered[0];
+      const totalQuantity = ordered.reduce((sum, order) => sum + (Number(order.total_quantity) || 0), 0);
+      const mergedDeliveryVehicles = ordered.flatMap((order) => order.delivery_vehicles || []);
+      const allHangOsg = ordered.every((order) => order.status === 'hang_o_sg');
+      const hasDaGiao = ordered.some((order) => order.status === 'da_giao');
+
+      const adminViewOrder = {
+        ...first,
+        total_quantity: totalQuantity,
+        delivery_vehicles: mergedDeliveryVehicles,
+        status: allHangOsg ? 'hang_o_sg' : (hasDaGiao ? 'da_giao' : 'can_giao'),
+      } as DeliveryOrder;
+
+      if (getEffectiveDeliveryStatus(adminViewOrder) === 'can_giao') {
+        keys.add(key);
+      }
+    });
+
+    return keys;
+  }, [baseOrders]);
 
   const groupToSourceIdsMap = React.useMemo(() => {
     const map = new Map<string, string[]>();
@@ -627,23 +688,46 @@ const DeliveryPage: React.FC = () => {
     return true;
   });
 
-  const statusCounts = React.useMemo(() => {
-    if (!filteredOrders) return { all: 0, hang_o_sg: 0, can_giao: 0, da_giao: 0 };
-    return {
-      all: filteredOrders.length,
-      hang_o_sg: filteredOrders.filter((o) => getEffectiveDeliveryStatus(o) === 'hang_o_sg').length,
-      can_giao: filteredOrders.filter((o) => {
-        const eff = getEffectiveDeliveryStatus(o);
-        return eff === 'can_giao';
-      }).length,
-      da_giao: filteredOrders.filter((o) => {
-        const eff = getEffectiveDeliveryStatus(o);
-        if (eff === 'da_giao') return true;
-        const totalAssigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
-        return totalAssigned > 0 && totalAssigned < o.total_quantity;
-      }).length,
-    };
-  }, [filteredOrders]);
+  const getTotalAssignedQuantity = (order: DeliveryOrder) =>
+    (order.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
+
+  const hasMyVehicleAssignment = (order: DeliveryOrder) =>
+    (order.delivery_vehicles || []).some((dv) =>
+      dv.vehicle_id && myVehicleIdSet.has(dv.vehicle_id) && (dv.assigned_quantity || 0) > 0
+    );
+
+  const hasDeliveredSourceStatus = (order: DeliveryOrder) => {
+    if (order.status === 'da_giao') return true;
+    if (!Array.isArray(order.source_orders)) return false;
+    return order.source_orders.some((sourceOrder) => sourceOrder?.status === 'da_giao');
+  };
+
+  const isDeliveredTabOrder = (order: DeliveryOrder) => {
+    if (hasDeliveredSourceStatus(order)) return true;
+    const eff = getEffectiveDeliveryStatus(order);
+    if (eff === 'da_giao') return true;
+    const totalAssigned = getTotalAssignedQuantity(order);
+    return totalAssigned > 0 && totalAssigned < order.total_quantity;
+  };
+
+  const isAdminCanGiaoOrder = (order: DeliveryOrder) =>
+    adminCanGiaoGroupKeySet.has(getDeliveryViewGroupKey(order));
+
+  const statusCounts = !filteredOrders ? { all: 0, hang_o_sg: 0, can_giao: 0, da_giao: 0 } : {
+    all: filteredOrders.length,
+    hang_o_sg: filteredOrders.filter((o) => getEffectiveDeliveryStatus(o) === 'hang_o_sg').length,
+    can_giao: filteredOrders.filter((o) => {
+      const eff = getEffectiveDeliveryStatus(o);
+      if (eff !== 'can_giao') return false;
+      if (isDriverOrLoader && !isAdminCanGiaoOrder(o)) return false;
+      return true;
+    }).length,
+    da_giao: filteredOrders.filter((o) => {
+      if (!isDeliveredTabOrder(o)) return false;
+      if (!isDriverOrLoader) return true;
+      return hasMyVehicleAssignment(o);
+    }).length,
+  };
 
   const { customerOptions, receiverOptions } = React.useMemo(() => {
     if (!groupedOrdersView) return { customerOptions: [], receiverOptions: [] };
@@ -678,22 +762,16 @@ const DeliveryPage: React.FC = () => {
     displayedOrders = displayedOrders.filter((o) => {
       const eff = getEffectiveDeliveryStatus(o);
       if (statusFilter === 'hang_o_sg') return eff === 'hang_o_sg';
-      if (statusFilter === 'can_giao') return eff === 'can_giao';
+      if (statusFilter === 'can_giao') {
+        if (eff !== 'can_giao') return false;
+        if (isDriverOrLoader && !isAdminCanGiaoOrder(o)) return false;
+        return true;
+      }
       if (statusFilter === 'da_giao') {
-        let isDaGiao = false;
-        if (eff === 'da_giao') isDaGiao = true;
-        else {
-          const totalAssigned = (o.delivery_vehicles || []).reduce((sum, dv) => sum + (dv.assigned_quantity || 0), 0);
-          isDaGiao = totalAssigned > 0 && totalAssigned < o.total_quantity;
-        }
-
-        if (!isDaGiao) return false;
+        if (!isDeliveredTabOrder(o)) return false;
 
         if (isDriverOrLoader) {
-          const hasMyAssignment = (o.delivery_vehicles || []).some(dv =>
-            dv.vehicle_id && myVehicleIdSet.has(dv.vehicle_id) && (dv.assigned_quantity || 0) > 0
-          );
-          return hasMyAssignment;
+          return hasMyVehicleAssignment(o);
         }
 
         return true;
@@ -739,8 +817,8 @@ const DeliveryPage: React.FC = () => {
   );
 
   const selectedSourceOrders = React.useMemo(
-    () => (orders || []).filter((o) => selectedSourceOrderIds.includes(o.id)),
-    [orders, selectedSourceOrderIds]
+    () => (baseOrders || []).filter((o) => selectedSourceOrderIds.includes(o.id)),
+    [baseOrders, selectedSourceOrderIds]
   );
 
   return (
@@ -792,7 +870,9 @@ const DeliveryPage: React.FC = () => {
                 { value: 'old', label: 'Hàng cũ' },
               ]}
               value={ageFilter}
-              onValueChange={(val) => setAgeFilter(val as any)}
+              onValueChange={(val) => {
+                if (isAgeFilterValue(val)) setAgeFilter(val);
+              }}
               placeholder="Phân loại..."
               className="h-9.5 bg-transparent"
               icon={<Package size={15} />}
@@ -1726,7 +1806,7 @@ const DeliveryPage: React.FC = () => {
         isClosing={isAssignClosing}
         order={selectedOrder}
         initialVehicleId={selectedVehicleId}
-        allOrders={orders || []}
+        allOrders={baseOrders || []}
         mode={assignMode}
         onClose={closeAssign}
       />
@@ -1843,7 +1923,9 @@ const DeliveryPage: React.FC = () => {
               { value: 'old', label: 'Hàng cũ' },
             ]}
             value={ageFilter}
-            onValueChange={(val) => setAgeFilter(val as any)}
+            onValueChange={(val) => {
+              if (isAgeFilterValue(val)) setAgeFilter(val);
+            }}
             placeholder="Chọn phân loại..."
             className="w-full bg-muted/10 h-10.5 border-border/80 rounded-xl"
             icon={<Package size={15} />}

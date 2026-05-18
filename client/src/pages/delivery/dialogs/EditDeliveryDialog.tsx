@@ -124,7 +124,7 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
 
       setFormData({
         product_name: displayProductName,
-        total_quantity: order.total_quantity || 0,
+        total_quantity: Math.max(1, Math.round(Number(order.total_quantity) || 0)),
         unit_price: uPrice || 0,
         delivery_date: order.delivery_date || '',
         delivery_time: deliveryTimeToInputValue(order.delivery_time),
@@ -182,12 +182,17 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
     try {
       const targetOrders = order.source_orders && order.source_orders.length > 0 ? order.source_orders : [order];
       const isMergedEdit = targetOrders.length > 1;
-      const requestedTotalQuantity = Math.max(0, Math.round(Number(formData.total_quantity) || 0));
+      const requestedTotalQuantity = Math.max(1, Math.round(Number(formData.total_quantity) || 0));
       const groupedOriginalTotalQuantity = Math.max(0, Math.round(Number(order.total_quantity) || 0));
       const shouldUpdateMergedQuantity = isMergedEdit && requestedTotalQuantity !== groupedOriginalTotalQuantity;
       const quantityByOrderId = new Map<string, number>();
 
       if (shouldUpdateMergedQuantity) {
+        if (requestedTotalQuantity < targetOrders.length) {
+          toast.error(`Tổng số lượng phải tối thiểu ${targetOrders.length} để mỗi đơn có ít nhất 1`);
+          return;
+        }
+
         const originalTotals = targetOrders.map((targetOrder) => Number(targetOrder.total_quantity) || 0);
         const sumOriginalTotals = originalTotals.reduce((sum, value) => sum + value, 0);
         const exactShares = sumOriginalTotals > 0
@@ -206,6 +211,18 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
           integerShares[targetIndex] += 1;
           remainder -= 1;
           pickIndex += 1;
+        }
+        
+        for (let index = 0; index < integerShares.length; index += 1) {
+          if (integerShares[index] > 0) continue;
+          const donorIndex = integerShares.findIndex((share) => share > 1);
+          if (donorIndex === -1) {
+            toast.error('Không thể chia số lượng hợp lệ cho tất cả đơn gộp');
+            return;
+          }
+
+          integerShares[donorIndex] -= 1;
+          integerShares[index] += 1;
         }
 
         targetOrders.forEach((targetOrder, index) => {
@@ -240,11 +257,12 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
           if (isMergedEdit) {
             if (shouldUpdateMergedQuantity) {
               const distributedQuantity = quantityByOrderId.get(targetOrder.id);
-              if (distributedQuantity != null && distributedQuantity !== targetOrder.total_quantity) {
+              const previousQuantity = Number(targetOrder.total_quantity) || 0;
+              if (distributedQuantity != null && distributedQuantity !== previousQuantity) {
                 payload.total_quantity = distributedQuantity;
               }
             }
-          } else if (formData.total_quantity !== targetOrder.total_quantity) {
+          } else if (requestedTotalQuantity !== (Number(targetOrder.total_quantity) || 0)) {
             payload.total_quantity = requestedTotalQuantity;
           }
 
@@ -440,11 +458,11 @@ const EditDeliveryDialog: React.FC<Props> = ({ isOpen, isClosing, order, onClose
                 <input
                   type="number"
                   required
-                  min="0"
+                  min="1"
                   step="1"
                   className="w-full h-11 px-3 border border-border rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:opacity-50"
                   value={formData.total_quantity}
-                  onChange={e => setFormData({ ...formData, total_quantity: Math.max(0, Number.parseInt(e.target.value, 10) || 0) })}
+                  onChange={e => setFormData({ ...formData, total_quantity: Math.max(1, Number.parseInt(e.target.value, 10) || 0) })}
                   disabled={isSubmitting}
                 />
               </div>

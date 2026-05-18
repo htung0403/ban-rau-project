@@ -231,6 +231,33 @@ export class DeliveryService {
     return Boolean(ioDel || voDel);
   }
 
+  private static pickDeliveryRelation(relation: any): any {
+    if (Array.isArray(relation)) return relation[0];
+    return relation || undefined;
+  }
+
+  private static getDeliveryReceiverForGroup(row: any): string {
+    const src = this.pickDeliveryRelation(row?.import_orders) || this.pickDeliveryRelation(row?.vegetable_orders);
+    if (!src) return '-';
+    if (row?.status === 'hang_o_sg' && src.selected_alias) return src.selected_alias;
+    return src.customers?.name || src.receiver_name?.trim() || src.profiles?.full_name || '-';
+  }
+
+  private static getDeliverySourcePaymentStatusForGroup(row: any): string {
+    const src = this.pickDeliveryRelation(row?.import_orders) || this.pickDeliveryRelation(row?.vegetable_orders);
+    return src?.payment_status || 'unpaid';
+  }
+
+  private static getDeliveryScopeGroupKey(row: any): string {
+    if (row?.status === 'hang_o_sg') return `single:${row?.id}`;
+    const deliveryDate = row?.delivery_date || 'N/A';
+    const category = row?.order_category || 'standard';
+    const receiver = this.getDeliveryReceiverForGroup(row);
+    const product = (row?.product_name || '').trim();
+    const paymentStatus = this.getDeliverySourcePaymentStatusForGroup(row);
+    return `${deliveryDate}|${category}|${receiver}|${product}|${paymentStatus}`;
+  }
+
   static async getAllToday(startDate?: string, endDate?: string, orderCategory?: string, actor?: UserPayload) {
     let driverScope: DriverScope | null = null;
     if (actor && goodsScopeIsDriverRole(actor.role) && !goodsScopeFullAccess(actor.role)) {
@@ -268,7 +295,11 @@ export class DeliveryService {
       const isStaff = goodsScopeIsStaffRole(actor.role);
       const isDriver = goodsScopeIsDriverRole(actor.role);
       if (isStaff || isDriver) {
-        data = data.filter((row: any) => deliveryOrderRowMatchesGoodsScope(row, actor, driverScope));
+        const visibleRows = data.filter((row: any) => deliveryOrderRowMatchesGoodsScope(row, actor, driverScope));
+        const visibleGroupKeys = new Set(
+          visibleRows.map((row: any) => this.getDeliveryScopeGroupKey(row))
+        );
+        data = data.filter((row: any) => visibleGroupKeys.has(this.getDeliveryScopeGroupKey(row)));
       }
     }
 

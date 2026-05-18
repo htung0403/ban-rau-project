@@ -162,7 +162,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
       const supplierName = getSupplierName(order);
       const senderName = order.sender_name || '';
       const supplierNote = order.notes || '';
-      const taiRank = dailyTaiRankMap.get(order.id) ?? order.tai_rank ?? 1;
+      const taiRank = order.tai_rank ?? dailyTaiRankMap.get(order.id) ?? 1;
 
       if (order.import_order_items && order.import_order_items.length > 0) {
         order.import_order_items.forEach((item) => {

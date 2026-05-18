@@ -178,25 +178,39 @@ export class ImportOrderService {
     });
 
     const resolveDriverId = (order: any): string => {
+      const driverNames = new Set<string>();
+
+      if (Array.isArray(order.delivery_orders)) {
+        order.delivery_orders.forEach((deliveryOrder: any) => {
+          if (!Array.isArray(deliveryOrder?.delivery_vehicles)) return;
+          deliveryOrder.delivery_vehicles.forEach((deliveryVehicle: any) => {
+            const fullName = deliveryVehicle?.profiles?.full_name;
+            if (fullName) driverNames.add(normalizePersonName(fullName));
+          });
+        });
+      }
+
+      if (driverNames.size > 0) {
+        return `dn:${Array.from(driverNames).sort().join('|')}`;
+      }
+      if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
+
       const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
       if (dvDriverId) return `dvid:${dvDriverId}`;
-      if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
       if (order.received_by) return `rb:${order.received_by}`;
       return 'unknown';
     };
 
-    const ordersBySupplierDate = new Map<string, any[]>();
+    const ordersByDate = new Map<string, any[]>();
     mapped.forEach((order: any) => {
-      const supplierName = order.customers?.name || order.sender_name || '';
       const orderDate = order.order_date || '';
-      const key = `${supplierName}||${orderDate}`;
-      const current = ordersBySupplierDate.get(key) || [];
+      const current = ordersByDate.get(orderDate) || [];
       current.push(order);
-      ordersBySupplierDate.set(key, current);
+      ordersByDate.set(orderDate, current);
     });
 
-    ordersBySupplierDate.forEach((supplierOrders) => {
-      const sorted = [...supplierOrders].sort((a, b) => {
+    ordersByDate.forEach((ordersOnDate) => {
+      const sorted = [...ordersOnDate].sort((a, b) => {
         const timeA = new Date(a.created_at || 0).getTime();
         const timeB = new Date(b.created_at || 0).getTime();
         if (timeA !== timeB) return timeA - timeB;

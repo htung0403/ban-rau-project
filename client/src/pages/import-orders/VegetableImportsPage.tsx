@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, X, ChevronLeft, ChevronRight, Edit, Trash2, Filter, Store, Truck, UserCircle, Image as ImageIcon, Eye, Calendar, Printer } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -161,13 +161,16 @@ const VegetableImportsPage: React.FC = () => {
 
   const { data: vehicles } = useVehicles();
   const { data: allApiResponse, isLoading, isError, refetch } = useImportOrders(allFilters);
+  const rankSourceOrders = useMemo<ImportOrderWithRelations[]>(
+    () => allApiResponse?.data || [],
+    [allApiResponse?.data]
+  );
   const allOrders = useMemo(() => {
-    const raw = allApiResponse?.data || [];
-    if (!user || hasFullGoodsModuleAccess(user)) return raw;
-    return raw.filter((o) =>
+    if (!user || hasFullGoodsModuleAccess(user)) return rankSourceOrders;
+    return rankSourceOrders.filter((o) =>
       importOrderVisibleToUser(o, { id: user.id, role: user.role, full_name: user.full_name }, vehicles || [])
     );
-  }, [allApiResponse?.data, user, vehicles]);
+  }, [rankSourceOrders, user, vehicles]);
   const deleteMutation = useDeleteImportOrder();
 
   const normalizedSearchText = useMemo(
@@ -185,7 +188,7 @@ const VegetableImportsPage: React.FC = () => {
   const dailyTaiRankMap = useMemo(() => {
     const map = new Map<string, number>();
     const byDate = new Map<string, ImportOrder[]>();
-    allOrders.forEach((order) => {
+    rankSourceOrders.forEach((order) => {
       const orderDate = order.order_date || '';
       const current = byDate.get(orderDate) || [];
       current.push(order);
@@ -226,7 +229,12 @@ const VegetableImportsPage: React.FC = () => {
       });
     });
     return map;
-  }, [allOrders]);
+  }, [rankSourceOrders]);
+
+  const getTaiRank = useCallback(
+    (order: ImportOrderWithRelations) => order.tai_rank ?? dailyTaiRankMap.get(order.id) ?? 1,
+    [dailyTaiRankMap]
+  );
 
   const { vuaOptions, taiOptions, nguoiNhapOptions } = useMemo(() => {
     if (!allOrders) return { vuaOptions: [], taiOptions: [], nguoiNhapOptions: [] };
@@ -287,8 +295,8 @@ const VegetableImportsPage: React.FC = () => {
       const customerGroups: [string, ImportOrder[]][] = [];
       byCustomer.forEach((customerOrders, customerName) => {
         const sorted = [...customerOrders].sort((a, b) => {
-          const rankA = dailyTaiRankMap.get(a.id) || 1;
-          const rankB = dailyTaiRankMap.get(b.id) || 1;
+          const rankA = getTaiRank(a);
+          const rankB = getTaiRank(b);
           if (rankA !== rankB) return rankA - rankB;
           const timeA = new Date(a.created_at || 0).getTime();
           const timeB = new Date(b.created_at || 0).getTime();
@@ -302,7 +310,7 @@ const VegetableImportsPage: React.FC = () => {
     });
 
     return result;
-  }, [orders, dailyTaiRankMap]);
+  }, [orders, getTaiRank]);
 
   const openAddDialog = () => {
     setEditingOrder(null);
@@ -564,7 +572,7 @@ const VegetableImportsPage: React.FC = () => {
                                   case 'tai_rank': return (
                                     <td key={col.id} className="px-4 py-3 text-center">
                                       <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/10 text-amber-700 text-[12px] font-black">
-                                        {dailyTaiRankMap.get(order.id) || 1}
+                                        {getTaiRank(order)}
                                       </span>
                                     </td>
                                   );
@@ -645,7 +653,7 @@ const VegetableImportsPage: React.FC = () => {
 
                       {ordersInSupplier.map((order) => {
                         const orderImage = order.receipt_image_url || order.import_order_items?.[0]?.image_url;
-                        const taiRank = dailyTaiRankMap.get(order.id) || 1;
+                        const taiRank = getTaiRank(order);
                         
                         const totalQuantity = order.import_order_items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
                         const itemNames = order.import_order_items?.map(item => item.products?.name).filter(Boolean).join(', ') || '';

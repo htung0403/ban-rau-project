@@ -19,6 +19,7 @@ interface SupplierSummaryItem {
   quantity: number;
   productName: string;
   senderName: string;
+  note?: string;
   price?: number;
   total?: number;
 }
@@ -51,7 +52,7 @@ const isSupplierSummaryData = (value: VegetableSummaryData): value is SupplierSu
 
 type SupplierGroupedRow =
   | { kind: 'item'; key: string; item: SupplierSummaryItem }
-  | { kind: 'subtotal'; key: string; productName: string; quantity: number };
+  | { kind: 'subtotal'; key: string; productName: string; note?: string; quantity: number };
 
 type SenderGroupedRow =
   | { kind: 'item'; key: string; item: SenderSummaryItem }
@@ -101,25 +102,29 @@ const VegetableSummaryPublicPage: React.FC = () => {
     if (!data || !isSupplierSummaryData(data)) return [];
     const groups = new Map<string, SupplierSummaryItem[]>();
     data.items.forEach((item) => {
-      const key = item.productName || 'Hàng hóa';
+      const productName = item.productName || 'Hàng hóa';
+      const note = typeof item.note === 'string' ? item.note.trim() : '';
+      const key = `${productName}||${note}`;
       const list = groups.get(key) || [];
       list.push(item);
       groups.set(key, list);
     });
 
     const rows: SupplierGroupedRow[] = [];
-    groups.forEach((items, productName) => {
+    groups.forEach((items, groupKey) => {
+      const [productName, note = ''] = groupKey.split('||');
       items.forEach((item, index) => {
         rows.push({
           kind: 'item',
-          key: `supplier-item-${productName}-${index}-${item.senderName}-${item.taiRank}`,
+          key: `supplier-item-${productName}-${note}-${index}-${item.senderName}-${item.taiRank}`,
           item,
         });
       });
       rows.push({
         kind: 'subtotal',
-        key: `supplier-subtotal-${productName}`,
+        key: `supplier-subtotal-${productName}-${note}`,
         productName,
+        note: note || undefined,
         quantity: items.reduce((sum, item) => sum + (item.quantity || 0), 0),
       });
     });
@@ -153,16 +158,6 @@ const VegetableSummaryPublicPage: React.FC = () => {
       });
     });
     return rows;
-  }, [data]);
-
-  const supplierTotalQuantity = useMemo(() => {
-    if (!data || !isSupplierSummaryData(data)) return 0;
-    return data.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-  }, [data]);
-
-  const supplierTotalAmount = useMemo(() => {
-    if (!data || !isSupplierSummaryData(data)) return 0;
-    return data.items.reduce((sum, item) => sum + (item.total || 0), 0);
   }, [data]);
 
   const senderTotalQuantity = useMemo(() => {
@@ -253,7 +248,10 @@ const VegetableSummaryPublicPage: React.FC = () => {
                       <td style={styles.legacyBodyCellCenter}>{row.item.taiRank || ''}</td>
                       <td style={styles.legacyBodyCellCenter}>{row.item.licensePlate || '-'}</td>
                       <td style={styles.legacyBodyCellCenter}>{row.item.quantity || 0}</td>
-                      <td style={styles.legacyBodyCell}>{row.item.productName || ''}</td>
+                      <td style={styles.legacyBodyCell}>
+                        {row.item.productName || ''}
+                        {row.item.note ? ` (${row.item.note})` : ''}
+                      </td>
                       <td style={styles.legacyBodyCellRight}>{formatNumber((row.item.price || 0) / 1000)}</td>
                       <td style={styles.legacyBodyCellRight}>{formatNumber(row.item.total || 0)}</td>
                     </tr>
@@ -261,19 +259,14 @@ const VegetableSummaryPublicPage: React.FC = () => {
                     <tr key={row.key}>
                       <td colSpan={3} style={styles.subTotalLabelCell}>Tổng</td>
                       <td style={styles.subTotalValueCell}>{formatNumber(row.quantity)}</td>
-                      <td colSpan={3} style={styles.subTotalProductCell}>{row.productName}</td>
+                      <td colSpan={3} style={styles.subTotalProductCell}>
+                        {row.productName}
+                        {row.note ? ` (${row.note})` : ''}
+                      </td>
                     </tr>
                   ),
                 )}
               </tbody>
-              <tfoot>
-                <tr>
-                  <td colSpan={3} style={styles.grandTotalLabelCell}>TỔNG CỘNG</td>
-                  <td style={styles.grandTotalValueCell}>{formatNumber(supplierTotalQuantity)}</td>
-                  <td colSpan={2} style={styles.grandTotalBlankCell} />
-                  <td style={styles.grandTotalValueRightCell}>{formatNumber(supplierTotalAmount)}</td>
-                </tr>
-              </tfoot>
             </table>
           )}
 
@@ -475,4 +468,3 @@ if (typeof document !== 'undefined' && !document.getElementById('public-veg-summ
 }
 
 export default VegetableSummaryPublicPage;
-

@@ -2535,11 +2535,12 @@ export class ZaloService {
         driver_name,
         received_by,
         sender_name,
+        notes,
         is_custom_amount,
         total_amount,
         sender_customers:customers!vegetable_orders_sender_id_fkey(id, name),
         customers:customers!vegetable_orders_customer_id_fkey(id, name, phone),
-        vegetable_order_items(quantity, unit_price, total_amount, package_type, products(name, base_price)),
+        vegetable_order_items(quantity, unit_price, total_amount, package_type, item_note, products(name, base_price)),
         delivery_orders(delivery_vehicles(driver_id, vehicles(license_plate)))
       `)
       .eq('order_date', date)
@@ -2565,6 +2566,10 @@ export class ZaloService {
     });
 
     const resolveLicensePlate = (order: any): string => order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.vehicles?.license_plate || '-';
+    const normalizeNote = (value: unknown): string => {
+      if (typeof value !== 'string') return '';
+      return value.trim();
+    };
 
     sortedSupplierOrders.forEach((order) => {
       const driverId = this.resolveVegetableOrderDriverKey(order);
@@ -2576,6 +2581,7 @@ export class ZaloService {
         const fallbackBasePrice = item.products?.base_price || 0;
         let unitPrice = item.unit_price || fallbackBasePrice || 0;
         let total = item.total_amount || (quantity * unitPrice);
+        const note = normalizeNote(item.item_note) || normalizeNote(order.notes);
 
         if (!total && order.is_custom_amount && order.vegetable_order_items?.length === 1) {
           total = order.total_amount || 0;
@@ -2592,6 +2598,7 @@ export class ZaloService {
           quantity,
           productName: item.products?.name || item.package_type || 'Hàng hóa',
           senderName: order.sender_customers?.name || order.sender_name || '-',
+          note,
           price: unitPrice,
           total,
         });
@@ -2600,7 +2607,7 @@ export class ZaloService {
 
     const mergedMap = new Map<string, any>();
     items.forEach((item) => {
-      const rowKey = `${item.senderName}||${item.taiRank}||${item.licensePlate}||${item.productName}||${item.price || 0}`;
+      const rowKey = `${item.senderName}||${item.taiRank}||${item.licensePlate}||${item.productName}||${item.note || ''}||${item.price || 0}`;
       const existing = mergedMap.get(rowKey);
       if (!existing) {
         mergedMap.set(rowKey, { ...item });

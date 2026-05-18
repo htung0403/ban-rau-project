@@ -4,7 +4,7 @@ import { DatePicker } from '../../components/shared/DatePicker';
 import { CreatableSearchableSelect } from '../../components/ui/CreatableSearchableSelect';
 import { useImportOrders } from '../../hooks/queries/useImportOrders';
 import { useVehicles } from '../../hooks/queries/useVehicles';
-import type { ImportOrderFilters } from '../../types';
+import type { DeliveryOrder, DeliveryVehicle, ImportOrder, ImportOrderFilters, Vehicle } from '../../types';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
@@ -20,14 +20,19 @@ const formatNumber = (value?: number | null) => {
   return new Intl.NumberFormat('vi-VN').format(value);
 };
 
-const getSupplierName = (order: any) =>
+type ImportOrderWithRelations = ImportOrder & {
+  delivery_orders?: DeliveryOrder[];
+  profiles?: { full_name?: string; role?: string };
+};
+
+const getSupplierName = (order: ImportOrderWithRelations) =>
   order.customers?.name || order.sender_name || '';
 
-const getOrderDriverName = (order: any) => {
+const getOrderDriverName = (order: ImportOrderWithRelations) => {
   const names = new Set<string>();
   if (order.delivery_orders) {
-    order.delivery_orders.forEach((d: any) => {
-      d.delivery_vehicles?.forEach((dv: any) => {
+    order.delivery_orders.forEach((d: DeliveryOrder) => {
+      d.delivery_vehicles?.forEach((dv: DeliveryVehicle) => {
         if (dv.profiles?.full_name) names.add(dv.profiles.full_name);
       });
     });
@@ -44,7 +49,7 @@ const MAX_AMOUNT_PER_SHEET = 4_500_000; // 4.5 triệu
 
 type PrintMode = 'a4' | 'amount';
 
-export const VEGETABLE_PRINT_TABLE_STYLE: React.CSSProperties = {
+const VEGETABLE_PRINT_TABLE_STYLE: React.CSSProperties = {
   width: '100%',
   borderCollapse: 'collapse',
   fontSize: 12,
@@ -86,21 +91,24 @@ const PrintVegetableOrdersPage: React.FC = () => {
   };
 
   const { data: ordersResponse, isLoading, isError, refetch } = useImportOrders(filters);
-  const orders = ordersResponse?.data || [];
+  const orders = useMemo<ImportOrderWithRelations[]>(
+    () => ordersResponse?.data ?? [],
+    [ordersResponse?.data]
+  );
 
   // Fetch vehicles for Số Xe selector
   const { data: vehicles } = useVehicles();
   const vehicleOptions = useMemo(() => {
     if (!vehicles) return [];
-    return vehicles.map((v: any) => ({
-      value: v.license_plate || v.name || v.id,
-      label: v.license_plate || v.name || v.id,
+    return vehicles.map((v: Vehicle) => ({
+      value: v.license_plate || v.id,
+      label: v.license_plate || v.id,
     }));
   }, [vehicles]);
 
   const dailyTaiRankMap = useMemo(() => {
     const map = new Map<string, number>();
-    const byDate = new Map<string, any[]>();
+    const byDate = new Map<string, ImportOrderWithRelations[]>();
     (orders || []).forEach((order) => {
       const orderDate = order.order_date || '';
       const current = byDate.get(orderDate) || [];
@@ -108,17 +116,17 @@ const PrintVegetableOrdersPage: React.FC = () => {
       byDate.set(orderDate, current);
     });
     byDate.forEach((ordersOnDate) => {
-      const byDriver = new Map<string, any[]>();
-      ordersOnDate.forEach((order: any) => {
+      const byDriver = new Map<string, ImportOrderWithRelations[]>();
+      ordersOnDate.forEach((order) => {
         const driverName = getOrderDriverName(order) || order.sender_name || '_';
         const current = byDriver.get(driverName) || [];
         current.push(order);
         byDriver.set(driverName, current);
       });
 
-      const driverFirstOrders: { driverName: string; firstOrder: any }[] = [];
+      const driverFirstOrders: { driverName: string; firstOrder: ImportOrderWithRelations }[] = [];
       byDriver.forEach((driverOrders, driverName) => {
-        const sorted = [...driverOrders].sort((a: any, b: any) => {
+        const sorted = [...driverOrders].sort((a, b) => {
           const timeA = new Date(a.created_at || 0).getTime();
           const timeB = new Date(b.created_at || 0).getTime();
           if (timeA !== timeB) return timeA - timeB;
@@ -136,7 +144,7 @@ const PrintVegetableOrdersPage: React.FC = () => {
 
       driverFirstOrders.forEach((item, idx) => {
         const driverOrders = byDriver.get(item.driverName) || [];
-        driverOrders.forEach((order: any) => {
+        driverOrders.forEach((order) => {
           map.set(order.id, idx + 1);
         });
       });
@@ -150,11 +158,11 @@ const PrintVegetableOrdersPage: React.FC = () => {
 
     const items: FlatItem[] = [];
     orders.forEach((order) => {
-      if ((order as any).deleted_at) return;
+      if (order.deleted_at) return;
       const supplierName = getSupplierName(order);
       const senderName = order.sender_name || '';
       const supplierNote = order.notes || '';
-      const taiRank = order.tai_rank || dailyTaiRankMap.get(order.id) || 1;
+      const taiRank = dailyTaiRankMap.get(order.id) ?? order.tai_rank ?? 1;
 
       if (order.import_order_items && order.import_order_items.length > 0) {
         order.import_order_items.forEach((item) => {

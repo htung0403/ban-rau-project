@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useVehicles } from '../../hooks/queries/useVehicles';
 import { hasFullGoodsModuleAccess, importOrderVisibleToUser } from '../../utils/goodsModuleScope';
+import type { DeliveryOrder, DeliveryVehicle } from '../../types';
 
 import { removeAccents } from '../../lib/str-utils';
 import { cloudinarySmall } from '../../lib/cloudinaryUrl';
@@ -41,6 +42,11 @@ const formatCurrency = (value?: number | null) => {
 
 const getSupplierName = (order: ImportOrder) => order.customers?.name || order.sender_name || 'Chưa rõ chủ vựa';
 
+type ImportOrderWithRelations = ImportOrder & {
+  delivery_orders?: DeliveryOrder[];
+  profiles?: { full_name?: string; role?: string };
+};
+
 const formatDateDMY = (dateStr?: string) => {
   if (!dateStr) return '';
   const parts = dateStr.split('-');
@@ -48,13 +54,13 @@ const formatDateDMY = (dateStr?: string) => {
   return dateStr;
 };
 
-const getOrderVehicles = (order: any) => {
+const getOrderVehicles = (order: ImportOrderWithRelations) => {
   const plates = new Set<string>();
   if (order.license_plate) plates.add(order.license_plate);
   if (order.delivery_orders) {
-    order.delivery_orders.forEach((d: any) => {
+    order.delivery_orders.forEach((d: DeliveryOrder) => {
       if (d.delivery_vehicles) {
-        d.delivery_vehicles.forEach((dv: any) => {
+        d.delivery_vehicles.forEach((dv: DeliveryVehicle) => {
           if (dv.vehicles?.license_plate) plates.add(dv.vehicles.license_plate);
         });
       }
@@ -63,12 +69,12 @@ const getOrderVehicles = (order: any) => {
   return plates.size > 0 ? Array.from(plates).join(', ') : '';
 };
 
-const getOrderDriverName = (order: any) => {
+const getOrderDriverName = (order: ImportOrderWithRelations) => {
   const names = new Set<string>();
 
   if (order.delivery_orders) {
-    order.delivery_orders.forEach((d: any) => {
-      d.delivery_vehicles?.forEach((dv: any) => {
+    order.delivery_orders.forEach((d: DeliveryOrder) => {
+      d.delivery_vehicles?.forEach((dv: DeliveryVehicle) => {
         if (dv.profiles?.full_name) names.add(dv.profiles.full_name);
       });
     });
@@ -80,7 +86,7 @@ const getOrderDriverName = (order: any) => {
   return '';
 };
 
-const getOrderReceiverName = (order: any) => {
+const getOrderReceiverName = (order: ImportOrderWithRelations) => {
   return order.selected_alias || order.receiver_name || order.profiles?.full_name || '-';
 };
 

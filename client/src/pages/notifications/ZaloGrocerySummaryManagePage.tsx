@@ -4,7 +4,7 @@ import ZaloSummaryDispatchPage from './ZaloSummaryDispatchPage';
 const ZaloGrocerySummaryManagePage: React.FC = () => {
   return (
     <ZaloSummaryDispatchPage
-      type="grocery"
+      type="grocery_receiver"
       title="Tổng kết Zalo khách tạp hóa"
       description="Theo dõi trạng thái gửi tổng kết cuối ngày cho khách hàng tạp hóa và gửi lại khi cần."
     />
@@ -12,4 +12,3 @@ const ZaloGrocerySummaryManagePage: React.FC = () => {
 };
 
 export default ZaloGrocerySummaryManagePage;
-

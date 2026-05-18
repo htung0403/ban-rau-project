@@ -763,20 +763,38 @@ export class ZaloService {
       }
 
       // 2. Group by customer phone
-      const customerGroups: Record<string, { customerId: string; customerName: string; phone: string; items: any[]; undeliveredOrderIds: Set<string>; undeliveredQuantity: number }> = {};
+      const customerGroups: Record<string, {
+        customerId: string;
+        customerName: string;
+        phone: string;
+        items: any[];
+        undeliveredOrderIds: Set<string>;
+        undeliveredQuantity: number;
+        groupedTotals: Map<string, { totalQuantity: number; assignedQuantity: number }>;
+      }> = {};
       const customersWithoutPhone = new Map<string, { customerId: string; customerName: string }>();
 
       const processOrderForUndelivered = (order: any, phone: string, customerName: string, customerId: string) => {
         if (!customerGroups[phone]) {
-          customerGroups[phone] = { customerId, customerName, phone, items: [], undeliveredOrderIds: new Set(), undeliveredQuantity: 0 };
+          customerGroups[phone] = {
+            customerId,
+            customerName,
+            phone,
+            items: [],
+            undeliveredOrderIds: new Set(),
+            undeliveredQuantity: 0,
+            groupedTotals: new Map(),
+          };
         }
+
         if (!customerGroups[phone].undeliveredOrderIds.has(order.id)) {
-           const totalAssigned = (order.delivery_vehicles || []).reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
-           const undelivered = (order.total_quantity || 0) - totalAssigned;
-           if (undelivered > 0) {
-             customerGroups[phone].undeliveredQuantity += undelivered;
-             customerGroups[phone].undeliveredOrderIds.add(order.id);
-           }
+          customerGroups[phone].undeliveredOrderIds.add(order.id);
+          const groupKey = this.buildGroceryDeliveryGroupKey(order);
+          const currentGroup = customerGroups[phone].groupedTotals.get(groupKey) || { totalQuantity: 0, assignedQuantity: 0 };
+          const totalAssigned = (order.delivery_vehicles || []).reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
+          currentGroup.totalQuantity += Number(order.total_quantity || 0);
+          currentGroup.assignedQuantity += totalAssigned;
+          customerGroups[phone].groupedTotals.set(groupKey, currentGroup);
         }
       };
 
@@ -823,7 +841,15 @@ export class ZaloService {
         }
 
         if (!customerGroups[phone]) {
-          customerGroups[phone] = { customerId, customerName, phone, items: [], undeliveredOrderIds: new Set(), undeliveredQuantity: 0 };
+          customerGroups[phone] = {
+            customerId,
+            customerName,
+            phone,
+            items: [],
+            undeliveredOrderIds: new Set(),
+            undeliveredQuantity: 0,
+            groupedTotals: new Map(),
+          };
         }
 
         customerGroups[phone].items.push({
@@ -840,6 +866,13 @@ export class ZaloService {
       // 3. Send summary link for each group
       for (const phone of Object.keys(customerGroups)) {
         const group = customerGroups[phone];
+        group.undeliveredQuantity = 0;
+        group.groupedTotals.forEach((totals) => {
+          const undelivered = totals.totalQuantity - totals.assignedQuantity;
+          if (undelivered > 0) {
+            group.undeliveredQuantity += undelivered;
+          }
+        });
 
         // Filter by targetCustomerId if provided
         if (targetCustomerId && group.customerId !== targetCustomerId) continue;
@@ -1479,34 +1512,173 @@ export class ZaloService {
   }
 
   private async resolveGroceryFallbackPhone(supabaseService: any, customerId: string, date: string): Promise<string | null> {
+    const { startAt, endAt, startMs, endMs } = this.buildUtcDayRange(date);
     const { data, error } = await supabaseService
       .from('delivery_orders')
       .select(`
-        import_orders(receiver_phone, customers:customers!import_orders_customer_id_fkey(id, phone)),
-        vegetable_orders(receiver_phone, customers:customers!vegetable_orders_customer_id_fkey(id, phone))
+        id,
+        status,
+        delivery_date,
+        import_orders(customer_id, receiver_name, receiver_phone, selected_alias, deleted_at, customers:customers!import_orders_customer_id_fkey(id, phone, name)),
+        vegetable_orders(customer_id, receiver_name, receiver_phone, selected_alias, deleted_at, customers:customers!vegetable_orders_customer_id_fkey(id, phone, name)),
+        delivery_vehicles(assigned_quantity, assigned_at, delivery_date)
       `)
-      .eq('delivery_date', date)
-      .neq('status', 'hang_o_sg');
+      .eq('order_category', 'standard')
+      .neq('status', 'hang_o_sg')
+      .or(`and(confirmed_at.gte.${startAt},confirmed_at.lte.${endAt}),and(created_at.gte.${startAt},created_at.lte.${endAt}),delivery_date.eq.${date}`);
 
     if (error || !data) return null;
 
     for (const order of data as any[]) {
-      const importCustomerId = order.import_orders?.customers?.id;
-      const vegetableCustomerId = order.vegetable_orders?.customers?.id;
-      const isTarget = importCustomerId === customerId || vegetableCustomerId === customerId;
+      if (!order) continue;
+      if (this.isGroceryDeliverySourceSoftDeleted(order)) continue;
+      const hasAssignedInDay = this.hasPositiveAssignmentOnDate(order, date, startMs, endMs);
+      if (!hasAssignedInDay) continue;
+
+      const context = this.extractGroceryOrderContext(order);
+      const isTarget = context.customerId === customerId;
       if (!isTarget) continue;
 
-      const fallbackPhone =
-        order.import_orders?.receiver_phone ||
-        order.import_orders?.customers?.phone ||
-        order.vegetable_orders?.receiver_phone ||
-        order.vegetable_orders?.customers?.phone ||
-        null;
+      const fallbackPhone = context.phone;
 
       if (fallbackPhone) return fallbackPhone;
     }
 
     return null;
+  }
+
+  private buildUtcDayRange(date: string): { startAt: string; endAt: string; startMs: number; endMs: number } {
+    const startAt = `${date}T00:00:00.000Z`;
+    const endAt = `${date}T23:59:59.999Z`;
+    return {
+      startAt,
+      endAt,
+      startMs: new Date(startAt).getTime(),
+      endMs: new Date(endAt).getTime(),
+    };
+  }
+
+  private hasPositiveAssignmentOnDate(order: any, date: string, startMs: number, endMs: number): boolean {
+    const rows = Array.isArray(order?.delivery_vehicles) ? order.delivery_vehicles : [];
+    return rows.some((dv: any) => {
+      const qty = Number(dv?.assigned_quantity || 0);
+      if (qty <= 0) return false;
+
+      const assignedAtMs = new Date(dv?.assigned_at || '').getTime();
+      if (Number.isFinite(assignedAtMs) && assignedAtMs >= startMs && assignedAtMs <= endMs) {
+        return true;
+      }
+
+      if (typeof dv?.delivery_date === 'string' && dv.delivery_date === date) {
+        return true;
+      }
+
+      if (typeof order?.delivery_date === 'string' && order.delivery_date === date) {
+        return true;
+      }
+
+      return true;
+    });
+  }
+
+  private isGroceryDeliverySourceSoftDeleted(order: any): boolean {
+    const context = this.extractGroceryOrderContext(order);
+    return Boolean(context.importOrder?.deleted_at || context.vegetableOrder?.deleted_at);
+  }
+
+  private normalizeLookupText(value: string | null | undefined): string {
+    if (!value) return '';
+    return String(value)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '')
+      .toLowerCase();
+  }
+
+  private normalizeLookupPhone(value: string | null | undefined): string {
+    if (!value) return '';
+    return String(value).replace(/\D/g, '');
+  }
+
+  private buildGroceryRecipientAliases(
+    orders: any[],
+    customerId: string,
+    fallbackName: string | null,
+    fallbackPhone: string | null,
+  ): { names: Set<string>; phones: Set<string>; displayName: string | null } {
+    const names = new Set<string>();
+    const phones = new Set<string>();
+    let displayName: string | null = null;
+
+    const addName = (value: string | null | undefined) => {
+      const normalized = this.normalizeLookupText(value);
+      if (normalized.length >= 3) names.add(normalized);
+      if (!displayName && value && String(value).trim()) displayName = String(value).trim();
+    };
+    const addPhone = (value: string | null | undefined) => {
+      const normalized = this.normalizeLookupPhone(value);
+      if (normalized.length >= 8) phones.add(normalized);
+    };
+
+    addName(fallbackName);
+    addPhone(fallbackPhone);
+
+    (orders || []).forEach((order) => {
+      const context = this.extractGroceryOrderContext(order);
+      if (context.customerId !== customerId) return;
+      addName(context.receiverName);
+      addName(context.customerName);
+      addPhone(context.phone);
+    });
+
+    return { names, phones, displayName };
+  }
+
+  private matchesGroceryRecipient(
+    order: any,
+    customerId: string,
+    aliases: { names: Set<string>; phones: Set<string> },
+  ): boolean {
+    const context = this.extractGroceryOrderContext(order);
+    if (context.customerId === customerId) return true;
+
+    const contextPhone = this.normalizeLookupPhone(context.phone);
+    if (contextPhone && aliases.phones.has(contextPhone)) return true;
+
+    const contextNameCandidates = [context.receiverName, context.customerName];
+    return contextNameCandidates.some((name) => {
+      const normalized = this.normalizeLookupText(name);
+      return normalized.length >= 3 && aliases.names.has(normalized);
+    });
+  }
+
+  private getGroceryGroupReceiver(order: any): string {
+    const context = this.extractGroceryOrderContext(order);
+    const sourceOrder = context.importOrder || context.vegetableOrder;
+    if (order?.status === 'hang_o_sg' && sourceOrder?.selected_alias) {
+      return String(sourceOrder.selected_alias);
+    }
+
+    const fromCustomer = context.importCustomer?.name || context.vegetableCustomer?.name;
+    if (fromCustomer && String(fromCustomer).trim()) return String(fromCustomer).trim();
+
+    if (context.receiverName && context.receiverName.trim()) return context.receiverName.trim();
+    return '-';
+  }
+
+  private getGroceryGroupPaymentStatus(order: any): string {
+    const context = this.extractGroceryOrderContext(order);
+    const sourceOrder = context.importOrder || context.vegetableOrder;
+    return sourceOrder?.payment_status || 'unpaid';
+  }
+
+  private buildGroceryDeliveryGroupKey(order: any): string {
+    const deliveryDate = order?.delivery_date || 'N/A';
+    const category = order?.order_category || 'standard';
+    const receiver = this.getGroceryGroupReceiver(order);
+    const product = String(order?.product_name || '').trim();
+    const paymentStatus = this.getGroceryGroupPaymentStatus(order);
+    return `${deliveryDate}|${category}|${receiver}|${product}|${paymentStatus}`;
   }
 
   private async resolveSummaryRecipient(
@@ -1749,55 +1921,172 @@ export class ZaloService {
   }
 
   private async buildGrocerySummaryTargets(supabaseService: any, date: string) {
+    const { startAt, endAt, startMs, endMs } = this.buildUtcDayRange(date);
     const { data: orders, error } = await supabaseService
       .from('delivery_orders')
       .select(`
         id,
-        import_orders(receiver_phone, selected_alias, customers:customers!import_orders_customer_id_fkey(id, name, phone)),
-        vegetable_orders(receiver_phone, selected_alias, customers:customers!vegetable_orders_customer_id_fkey(id, name, phone))
+        status,
+        delivery_date,
+        import_orders(
+          customer_id,
+          receiver_name,
+          receiver_phone,
+          selected_alias,
+          deleted_at,
+          customers:customers!import_orders_customer_id_fkey(id, name, phone)
+        ),
+        vegetable_orders(
+          customer_id,
+          receiver_name,
+          receiver_phone,
+          selected_alias,
+          deleted_at,
+          customers:customers!vegetable_orders_customer_id_fkey(id, name, phone)
+        ),
+        delivery_vehicles(
+          id,
+          assigned_quantity,
+          assigned_at,
+          delivery_date
+        )
       `)
-      .eq('delivery_date', date)
-      .neq('status', 'hang_o_sg');
+      .eq('order_category', 'standard')
+      .neq('status', 'hang_o_sg')
+      .or(`and(confirmed_at.gte.${startAt},confirmed_at.lte.${endAt}),and(created_at.gte.${startAt},created_at.lte.${endAt}),delivery_date.eq.${date}`);
 
     if (error || !orders) return [] as Array<Omit<SummaryStatusListItem, 'status' | 'lastError' | 'messageId' | 'lastSentAt' | 'triggeredBy'>>;
 
     const targetMap = new Map<string, Omit<SummaryStatusListItem, 'status' | 'lastError' | 'messageId' | 'lastSentAt' | 'triggeredBy'>>();
+    const countedOrderIdsByCustomer = new Map<string, Set<string>>();
 
     (orders as any[]).forEach((order) => {
-      const importCustomer = order.import_orders?.customers;
-      const vegetableCustomer = order.vegetable_orders?.customers;
-      const customer = importCustomer || vegetableCustomer;
-      if (!customer?.id) return;
+      if (!order?.id) return;
+      if (this.isGroceryDeliverySourceSoftDeleted(order)) return;
 
-      const phone =
-        order.import_orders?.receiver_phone ||
-        importCustomer?.phone ||
-        order.vegetable_orders?.receiver_phone ||
-        vegetableCustomer?.phone ||
-        null;
+      const hasAssignedInDay = this.hasPositiveAssignmentOnDate(order, date, startMs, endMs);
+      if (!hasAssignedInDay) return;
 
-      const existing = targetMap.get(customer.id);
+      const context = this.extractGroceryOrderContext(order);
+      const targetId = context.customerId;
+      if (!targetId) return;
+      const phone = context.phone;
+
+      const existing = targetMap.get(targetId);
       if (existing) {
-        existing.orderCount += 1;
+        const countedOrderIds = countedOrderIdsByCustomer.get(targetId) || new Set<string>();
+        if (!countedOrderIds.has(order.id)) {
+          existing.orderCount += 1;
+          countedOrderIds.add(order.id);
+          countedOrderIdsByCustomer.set(targetId, countedOrderIds);
+        }
         if (!existing.targetPhone && phone) existing.targetPhone = phone;
         return;
       }
 
-      targetMap.set(customer.id, {
-        targetId: customer.id,
-        targetName:
-          customer.name ||
-          order.import_orders?.selected_alias ||
-          order.vegetable_orders?.selected_alias ||
-          '-',
+      const countedOrderIds = new Set<string>();
+      countedOrderIds.add(order.id);
+      countedOrderIdsByCustomer.set(targetId, countedOrderIds);
+
+      targetMap.set(targetId, {
+        targetId,
+        targetName: context.customerName || '-',
         targetPhone: phone,
         orderCount: 1,
         itemRowCount: 0,
-        publicLink: this.buildSummaryPublicLink('grocery', customer.id, date),
+        publicLink: this.buildSummaryPublicLink('grocery', targetId, date),
       });
     });
 
     return Array.from(targetMap.values());
+  }
+
+  async getGrocerySummaryDiagnostics(supabaseService: any, date: string) {
+    const { startAt, endAt, startMs, endMs } = this.buildUtcDayRange(date);
+    const { data: orders, error } = await supabaseService
+      .from('delivery_orders')
+      .select(`
+        id,
+        status,
+        delivery_date,
+        import_orders(
+          customer_id,
+          receiver_name,
+          receiver_phone,
+          selected_alias,
+          deleted_at,
+          customers:customers!import_orders_customer_id_fkey(id, name, phone)
+        ),
+        vegetable_orders(
+          customer_id,
+          receiver_name,
+          receiver_phone,
+          selected_alias,
+          deleted_at,
+          customers:customers!vegetable_orders_customer_id_fkey(id, name, phone)
+        ),
+        delivery_vehicles(
+          id,
+          assigned_quantity,
+          assigned_at,
+          delivery_date
+        )
+      `)
+      .eq('order_category', 'standard')
+      .neq('status', 'hang_o_sg')
+      .or(`and(confirmed_at.gte.${startAt},confirmed_at.lte.${endAt}),and(created_at.gte.${startAt},created_at.lte.${endAt}),delivery_date.eq.${date}`);
+
+    if (error) {
+      return { error: error.message || String(error), date };
+    }
+
+    const rows = (orders || []) as any[];
+    let deletedCount = 0;
+    let missingAssignedCount = 0;
+    let missingCustomerCount = 0;
+    let matchedCount = 0;
+    const sampleMatched: string[] = [];
+    const sampleNoAssigned: string[] = [];
+    const sampleNoCustomer: string[] = [];
+
+    rows.forEach((order) => {
+      if (!order?.id) return;
+      if (this.isGroceryDeliverySourceSoftDeleted(order)) {
+        deletedCount += 1;
+        return;
+      }
+
+      const hasAssigned = this.hasPositiveAssignmentOnDate(order, date, startMs, endMs);
+      if (!hasAssigned) {
+        missingAssignedCount += 1;
+        if (sampleNoAssigned.length < 8) sampleNoAssigned.push(String(order.id));
+        return;
+      }
+
+      const context = this.extractGroceryOrderContext(order);
+      if (!context.customerId) {
+        missingCustomerCount += 1;
+        if (sampleNoCustomer.length < 8) sampleNoCustomer.push(String(order.id));
+        return;
+      }
+
+      matchedCount += 1;
+      if (sampleMatched.length < 8) {
+        sampleMatched.push(`${order.id}:${context.customerId}`);
+      }
+    });
+
+    return {
+      date,
+      totalFetched: rows.length,
+      deletedCount,
+      missingAssignedCount,
+      missingCustomerCount,
+      matchedCount,
+      sampleMatched,
+      sampleNoAssigned,
+      sampleNoCustomer,
+    };
   }
 
   private async buildSupplierSummaryTargets(supabaseService: any, date: string) {
@@ -2022,83 +2311,196 @@ export class ZaloService {
       .eq('setting_key', 'SHOP_NAME')
       .maybeSingle();
     const shopName = shopNameSetting?.setting_value || 'Năm Sự';
+    const { data: customerRecord } = await supabaseService
+      .from('customers')
+      .select('id, name, phone')
+      .eq('id', customerId)
+      .maybeSingle();
 
-    // 2. Fetch assignments and orders
-    const [assignmentsRes, ordersRes] = await Promise.all([
-      supabaseService
-        .from('delivery_vehicles')
-        .select(`
-          *,
-          delivery_orders (
-            id, product_name, delivery_date, unit_price, total_quantity, status,
-            import_orders (
-              customers:customers!import_orders_customer_id_fkey (id, name, phone)
-            ),
-            vegetable_orders (
-              customers:customers!vegetable_orders_customer_id_fkey (id, name, phone)
-            )
-          ),
-          profiles (full_name),
-          vehicles (license_plate)
-        `)
-        .eq('delivery_date', date),
-      supabaseService
-        .from('delivery_orders')
-        .select(`
-          id, product_name, delivery_date, unit_price, total_quantity, status,
+    const { data: assignmentRows, error } = await supabaseService
+      .from('delivery_vehicles')
+      .select(`
+        assigned_quantity,
+        assigned_at,
+        delivery_date,
+        delivery_time,
+        expected_amount,
+        profiles (full_name),
+        vehicles (license_plate),
+        delivery_orders!inner(
+          id,
+          order_category,
+          status,
+          product_name,
+          delivery_date,
+          unit_price,
+          total_quantity,
           import_orders (
+            customer_id,
+            receiver_name,
+            selected_alias,
+            receiver_phone,
+            payment_status,
+            deleted_at,
             customers:customers!import_orders_customer_id_fkey (id, name, phone)
           ),
           vegetable_orders (
+            customer_id,
+            receiver_name,
+            selected_alias,
+            receiver_phone,
+            payment_status,
+            deleted_at,
             customers:customers!vegetable_orders_customer_id_fkey (id, name, phone)
           ),
-          delivery_vehicles ( assigned_quantity )
-        `)
-        .eq('delivery_date', date)
-        .neq('status', 'hang_o_sg')
-    ]);
+          delivery_vehicles (
+            assigned_quantity,
+            assigned_at,
+            delivery_date
+          )
+        )
+      `)
+      .eq('delivery_date', date)
+      .gt('assigned_quantity', 0)
+      .eq('delivery_orders.order_category', 'standard')
+      .neq('delivery_orders.status', 'hang_o_sg');
 
-    const assignments = (assignmentsRes.data || []).filter((dv: any) => {
-      const order = dv.delivery_orders;
-      const cid = order?.import_orders?.customers?.id || order?.vegetable_orders?.customers?.id;
-      return cid === customerId;
+    if (error || !assignmentRows) return null;
+
+    const rows = (assignmentRows as any[]).filter((row) => {
+      const order = Array.isArray(row.delivery_orders) ? row.delivery_orders[0] : row.delivery_orders;
+      return !this.isGroceryDeliverySourceSoftDeleted(order);
     });
-    
-    const ordersToday = (ordersRes.data || []).filter((order: any) => {
-      const cid = order?.import_orders?.customers?.id || order?.vegetable_orders?.customers?.id;
-      return cid === customerId;
-    });
+
+    const candidateOrders = Array.from(new Map(
+      rows
+        .map((row) => {
+          const order = Array.isArray(row.delivery_orders) ? row.delivery_orders[0] : row.delivery_orders;
+          return order?.id ? [String(order.id), order] : null;
+        })
+        .filter(Boolean) as Array<[string, any]>
+    ).values());
+
+    const recipientAliases = this.buildGroceryRecipientAliases(
+      candidateOrders,
+      customerId,
+      customerRecord?.name || null,
+      customerRecord?.phone || null,
+    );
+
+    const seededOrders = candidateOrders.filter((order: any) => this.extractGroceryOrderContext(order).customerId === customerId);
+    const seededGroupKeys = new Set(seededOrders.map((order: any) => this.buildGroceryDeliveryGroupKey(order)));
+
+    const targetOrderIds = new Set(
+      candidateOrders
+        .filter((order: any) => {
+          if (seededGroupKeys.size > 0) {
+            return seededGroupKeys.has(this.buildGroceryDeliveryGroupKey(order));
+          }
+          return this.matchesGroceryRecipient(order, customerId, recipientAliases);
+        })
+        .map((order: any) => String(order.id))
+    );
+
+    const ordersToday = candidateOrders.filter((order: any) => targetOrderIds.has(String(order.id)));
+    const assignments = rows
+      .filter((row) => {
+        const order = Array.isArray(row.delivery_orders) ? row.delivery_orders[0] : row.delivery_orders;
+        return order?.id && targetOrderIds.has(String(order.id));
+      })
+      .map((row) => {
+        const order = Array.isArray(row.delivery_orders) ? row.delivery_orders[0] : row.delivery_orders;
+        return { ...row, delivery_orders: order };
+      });
 
     if (assignments.length === 0 && ordersToday.length === 0) return null;
+    if (assignments.length === 0) return null;
 
-    let customerName = 'Khách hàng';
+    let customerName = recipientAliases.displayName || 'Khách hàng';
     if (ordersToday.length > 0) {
       const order = ordersToday[0];
-      customerName = order.import_orders?.customers?.name || order.vegetable_orders?.customers?.name || 'Khách hàng';
+      customerName = this.extractGroceryOrderContext(order).customerName || customerName;
     } else if (assignments.length > 0) {
       const order = assignments[0].delivery_orders;
-      customerName = order?.import_orders?.customers?.name || order?.vegetable_orders?.customers?.name || 'Khách hàng';
+      customerName = this.extractGroceryOrderContext(order).customerName || customerName;
     }
 
-    const items = assignments.map((dv: any) => ({
-      deliveryTime: dv.delivery_time || format(new Date(), 'HH:mm'),
-      licensePlate: dv.vehicles?.license_plate || '-',
-      staffName: dv.profiles?.full_name || 'NV Giao hàng',
-      quantity: dv.assigned_quantity || 0,
-      productName: dv.delivery_orders?.product_name || '-',
-      price: dv.unit_price || dv.delivery_orders?.unit_price || 0,
-      total: dv.expected_amount || 0,
-    }));
+    const inferredUnitPriceByGroup = new Map<string, number>();
+
+    const trySeedUnitPrice = (groupKey: string, unitPrice: number) => {
+      if (!groupKey) return;
+      const normalized = Number(unitPrice || 0);
+      if (!(normalized > 0)) return;
+      if (!inferredUnitPriceByGroup.has(groupKey)) {
+        inferredUnitPriceByGroup.set(groupKey, normalized);
+      }
+    };
+
+    ordersToday.forEach((order: any) => {
+      const groupKey = this.buildGroceryDeliveryGroupKey(order);
+      trySeedUnitPrice(groupKey, Number(order?.unit_price || 0));
+    });
+
+    assignments.forEach((dv: any) => {
+      const order = dv.delivery_orders;
+      const groupKey = this.buildGroceryDeliveryGroupKey(order);
+      const quantity = Number(dv.assigned_quantity || 0);
+      const expectedAmount = Number(dv.expected_amount || 0);
+      if (quantity > 0 && expectedAmount > 0) {
+        trySeedUnitPrice(groupKey, expectedAmount / quantity);
+      }
+    });
+
+    const items = assignments.map((dv: any) => {
+      const order = dv.delivery_orders;
+      const quantity = Number(dv.assigned_quantity || 0);
+      const expectedAmount = Number(dv.expected_amount || 0);
+      const groupKey = this.buildGroceryDeliveryGroupKey(order);
+
+      let unitPrice = Number(order?.unit_price || 0);
+      if (!(unitPrice > 0) && quantity > 0 && expectedAmount > 0) {
+        unitPrice = expectedAmount / quantity;
+      }
+      if (!(unitPrice > 0)) {
+        unitPrice = Number(inferredUnitPriceByGroup.get(groupKey) || 0);
+      }
+
+      const derivedLineTotal = unitPrice > 0
+        ? (unitPrice >= 1000 ? unitPrice : unitPrice * 1000) * quantity
+        : 0;
+      const total = expectedAmount > 0 ? expectedAmount : derivedLineTotal;
+
+      return {
+        deliveryTime: dv.delivery_time || format(new Date(), 'HH:mm'),
+        licensePlate: dv.vehicles?.license_plate || '-',
+        staffName: dv.profiles?.full_name || 'NV Giao hàng',
+        quantity,
+        productName: order?.product_name || '-',
+        price: unitPrice,
+        total,
+      };
+    });
+
+    const groupedTotals = new Map<string, { totalQuantity: number; assignedQuantity: number }>();
+    ordersToday.forEach((order: any) => {
+      const groupKey = this.buildGroceryDeliveryGroupKey(order);
+      const current = groupedTotals.get(groupKey) || { totalQuantity: 0, assignedQuantity: 0 };
+
+      const assignedOnDate = (order.delivery_vehicles || []).reduce((sum: number, dv: any) => {
+        if (dv?.delivery_date !== date) return sum;
+        return sum + (Number(dv.assigned_quantity) || 0);
+      }, 0);
+
+      current.totalQuantity += Number(order.total_quantity || 0);
+      current.assignedQuantity += assignedOnDate;
+      groupedTotals.set(groupKey, current);
+    });
 
     let undeliveredQuantity = 0;
-    const processedOrderIds = new Set<string>();
-    ordersToday.forEach((order: any) => {
-      if (processedOrderIds.has(order.id)) return;
-      const totalAssigned = (order.delivery_vehicles || []).reduce((sum: number, dv: any) => sum + (dv.assigned_quantity || 0), 0);
-      const undelivered = (order.total_quantity || 0) - totalAssigned;
+    groupedTotals.forEach((group) => {
+      const undelivered = group.totalQuantity - group.assignedQuantity;
       if (undelivered > 0) {
         undeliveredQuantity += undelivered;
-        processedOrderIds.add(order.id);
       }
     });
 
@@ -2306,11 +2708,64 @@ export class ZaloService {
 
 
   private buildRecipientPhoneForDelivery(delivery: any): string | null {
-    if (delivery.import_orders?.receiver_phone) return delivery.import_orders.receiver_phone;
-    if (delivery.import_orders?.customers?.phone) return delivery.import_orders.customers.phone;
-    if (delivery.vegetable_orders?.receiver_phone) return delivery.vegetable_orders.receiver_phone;
-    if (delivery.vegetable_orders?.customers?.phone) return delivery.vegetable_orders.customers.phone;
-    return null;
+    return this.extractGroceryOrderContext(delivery).phone;
+  }
+
+  private pickFirstRecord<T = any>(value: any): T | null {
+    if (Array.isArray(value)) {
+      return (value[0] as T) || null;
+    }
+    return (value as T) || null;
+  }
+
+  private extractGroceryOrderContext(order: any): {
+    importOrder: any;
+    vegetableOrder: any;
+    importCustomer: any;
+    vegetableCustomer: any;
+    customer: any;
+    customerId: string | null;
+    receiverName: string | null;
+    customerName: string;
+    phone: string | null;
+  } {
+    const importOrder = this.pickFirstRecord(order?.import_orders);
+    const vegetableOrder = this.pickFirstRecord(order?.vegetable_orders);
+    const importCustomer = this.pickFirstRecord(importOrder?.customers);
+    const vegetableCustomer = this.pickFirstRecord(vegetableOrder?.customers);
+    const customer = importCustomer || vegetableCustomer || null;
+    const customerId =
+      (customer?.id ? String(customer.id) : null) ||
+      (importOrder?.customer_id ? String(importOrder.customer_id) : null) ||
+      (vegetableOrder?.customer_id ? String(vegetableOrder.customer_id) : null);
+    const receiverName =
+      (importOrder?.receiver_name && String(importOrder.receiver_name).trim()) ||
+      (vegetableOrder?.receiver_name && String(vegetableOrder.receiver_name).trim()) ||
+      null;
+    const customerName =
+      receiverName ||
+      customer?.name ||
+      importOrder?.selected_alias ||
+      vegetableOrder?.selected_alias ||
+      'Khách hàng';
+    const phone =
+      importOrder?.receiver_phone ||
+      importCustomer?.phone ||
+      vegetableOrder?.receiver_phone ||
+      vegetableCustomer?.phone ||
+      null;
+
+    return {
+      importOrder,
+      vegetableOrder,
+      importCustomer,
+      vegetableCustomer,
+      customer,
+      customerId,
+      receiverName,
+      customerName,
+      phone,
+    };
   }
 }
 

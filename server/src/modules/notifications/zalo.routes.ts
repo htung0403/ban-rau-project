@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { zaloService } from './zalo.service';
+import type { SummaryDispatchType } from './zalo.service';
 import { supabaseService } from '../../config/supabase';
 import { logger } from '../../utils/logger';
 import { authMiddleware } from '../../middlewares/auth';
@@ -17,11 +18,36 @@ const normalizePhoneForAuth = (phone: string): string | null => {
   return `+84${digits}`;
 };
 
-const isValidSummaryType = (type: string): type is 'grocery' | 'supplier' | 'sender' => {
-  return type === 'grocery' || type === 'supplier' || type === 'sender';
+type SummaryDispatchInputType = SummaryDispatchType | 'grocery_receiver';
+
+const isValidSummaryType = (type: string): type is SummaryDispatchInputType => {
+  return type === 'grocery' || type === 'grocery_receiver' || type === 'supplier' || type === 'sender';
 };
 
-const isValidDate = (date: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(date);
+const normalizeSummaryType = (type: SummaryDispatchInputType): SummaryDispatchType => {
+  return type === 'grocery_receiver' ? 'grocery' : type;
+};
+
+const normalizeSummaryDate = (rawDate: string): string | null => {
+  const value = String(rawDate || '').trim();
+  if (!value) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const slashMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (slashMatch) {
+    const [, dd, mm, yyyy] = slashMatch;
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  const dashMatch = value.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (dashMatch) {
+    const [, dd, mm, yyyy] = dashMatch;
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  return null;
+};
 
 // GET /api/notifications/zalo/qr
 router.get('/qr', async (req, res) => {
@@ -53,13 +79,16 @@ router.get('/status', async (req, res) => {
 
 router.get('/summary-status', async (req, res) => {
   try {
-    const type = String(req.query.type || '');
-    const date = String(req.query.date || '');
+    const inputType = String(req.query.type || '');
+    const dateInput = String(req.query.date || '');
 
-    if (!isValidSummaryType(type)) {
+    if (!isValidSummaryType(inputType)) {
       return res.status(400).json(errorResponse('Loại tổng kết không hợp lệ'));
     }
-    if (!isValidDate(date)) {
+    const type = normalizeSummaryType(inputType);
+    const date = normalizeSummaryDate(dateInput);
+    const withDebug = String(req.query.debug || '') === '1';
+    if (!date) {
       return res.status(400).json(errorResponse('Ngày không hợp lệ, định dạng đúng: YYYY-MM-DD'));
     }
 
@@ -72,7 +101,13 @@ router.get('/summary-status', async (req, res) => {
       pending: items.filter((item) => item.status === 'pending').length,
     };
 
-    return res.json(successResponse({ type, date, summary, items }));
+    const shouldAttachDebug = type === 'grocery' && (withDebug || items.length === 0);
+    const debug =
+      shouldAttachDebug
+        ? await zaloService.getGrocerySummaryDiagnostics(supabaseService, date)
+        : undefined;
+
+    return res.json(successResponse({ type, date, summary, items, ...(debug ? { debug } : {}) }));
   } catch (err: any) {
     logger.error('[ZaloRoutes] Failed to get summary status list:', err);
     return res.status(500).json(errorResponse(err?.message || 'Lỗi lấy trạng thái tổng kết'));
@@ -81,17 +116,19 @@ router.get('/summary-status', async (req, res) => {
 
 router.post('/send-summary', async (req, res) => {
   try {
-    const type = String(req.body?.type || '');
+    const inputType = String(req.body?.type || '');
     const targetId = String(req.body?.targetId || '');
-    const date = String(req.body?.date || '');
+    const dateInput = String(req.body?.date || '');
 
-    if (!isValidSummaryType(type)) {
+    if (!isValidSummaryType(inputType)) {
       return res.status(400).json(errorResponse('Loại tổng kết không hợp lệ'));
     }
+    const type = normalizeSummaryType(inputType);
     if (!targetId) {
       return res.status(400).json(errorResponse('Thiếu targetId'));
     }
-    if (!isValidDate(date)) {
+    const date = normalizeSummaryDate(dateInput);
+    if (!date) {
       return res.status(400).json(errorResponse('Ngày không hợp lệ, định dạng đúng: YYYY-MM-DD'));
     }
 

@@ -1,6 +1,6 @@
 import axiosClient from './axiosClient';
 
-export type ZaloSummaryType = 'grocery' | 'supplier' | 'sender';
+export type ZaloSummaryType = 'grocery' | 'grocery_receiver' | 'supplier' | 'sender';
 export type ZaloSummaryStatus = 'pending' | 'success' | 'failed' | 'skipped';
 
 export interface ZaloSummaryStatusItem {
@@ -57,4 +57,3 @@ export const zaloSummaryApi = {
     return response.data;
   },
 };
-

@@ -44,6 +44,7 @@ const formatDateTime = (value: string | null): string => {
 
 const summaryTypeLabelMap: Record<ZaloSummaryType, string> = {
   grocery: 'khách tạp hóa',
+  grocery_receiver: 'khách tạp hóa',
   supplier: 'vựa rau',
   sender: 'người gửi rau',
 };

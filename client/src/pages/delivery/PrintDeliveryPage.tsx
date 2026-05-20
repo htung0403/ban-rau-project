@@ -66,6 +66,44 @@ const getReceiverDisplayName = (order: DeliveryOrder) => {
   return orderObj.customers?.name || orderObj.receiver_name?.trim() || orderObj.profiles?.full_name || '-';
 };
 
+const normalizePrintMergeKeyPart = (value: string | undefined | null) =>
+  (value || '').trim().normalize('NFC').toLowerCase();
+
+const mergePrintOrders = (orders: DeliveryOrder[]): DeliveryOrder[] => {
+  const mergedByKey = new Map<string, DeliveryOrder>();
+
+  for (const order of orders) {
+    const date = order.delivery_date || 'N/A';
+    const receiverName = getReceiverDisplayName(order);
+    const productName = getDisplayProductName(order);
+    const key = [
+      normalizePrintMergeKeyPart(date),
+      normalizePrintMergeKeyPart(receiverName),
+      normalizePrintMergeKeyPart(productName),
+    ].join('|');
+
+    const existingOrder = mergedByKey.get(key);
+    if (!existingOrder) {
+      mergedByKey.set(key, {
+        ...order,
+        delivery_vehicles: [...(order.delivery_vehicles || [])],
+      });
+      continue;
+    }
+
+    existingOrder.id = `${existingOrder.id}-${order.id}`;
+    existingOrder.total_quantity += order.total_quantity || 0;
+    existingOrder.delivered_quantity += order.delivered_quantity || 0;
+    existingOrder.remaining_quantity += order.remaining_quantity || 0;
+    existingOrder.delivery_vehicles = [
+      ...(existingOrder.delivery_vehicles || []),
+      ...(order.delivery_vehicles || []),
+    ];
+  }
+
+  return Array.from(mergedByKey.values());
+};
+
 const ROW_HEIGHT_PX = 32;
 
 const estimateCharWidth = (char: string): number => {
@@ -129,11 +167,12 @@ const PrintDeliveryPage: React.FC = () => {
   const { data: ordersRaw, isLoading, isError, refetch } = useDeliveryOrders(startDate, endDate, 'standard');
 
   const orders = React.useMemo(() => {
-    return (ordersRaw || []).filter((o) => !isSoftDeletedSourceOrder(o));
+    return mergePrintOrders((ordersRaw || []).filter((o) => !isSoftDeletedSourceOrder(o)));
   }, [ordersRaw]);
 
-  let filteredOrders = orders || [];
-  filteredOrders.sort((a, b) => getReceiverDisplayName(a).localeCompare(getReceiverDisplayName(b), 'vi'));
+  const filteredOrders = [...(orders || [])].sort((a, b) =>
+    getReceiverDisplayName(a).localeCompare(getReceiverDisplayName(b), 'vi')
+  );
 
   const groupedOrders = (filteredOrders || []).reduce<Record<string, DeliveryOrder[]>>((acc, order) => {
     const date = order.delivery_date || 'N/A';

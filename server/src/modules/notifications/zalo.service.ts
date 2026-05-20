@@ -1026,29 +1026,7 @@ export class ZaloService {
       }
 
       // 2. Build the global daily driver rank map (matching UI logic)
-      const sortedAllOrders = [...orders].sort((a, b) => {
-        const timeA = new Date(a.created_at || 0).getTime();
-        const timeB = new Date(b.created_at || 0).getTime();
-        if (timeA !== timeB) return timeA - timeB;
-        return String(a.id).localeCompare(String(b.id));
-      });
-
-      const resolveDriverId = (order: any): string => {
-        const dvDriverId = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.driver_id;
-        if (dvDriverId) return `dvid:${dvDriverId}`;
-        if (order.driver_name) return `dn:${normalizePersonName(order.driver_name)}`;
-        if (order.received_by) return `rb:${order.received_by}`;
-        return 'unknown';
-      };
-
-      const dailyDriverRankMap = new Map<string, number>();
-      let rankCounter = 1;
-      sortedAllOrders.forEach(order => {
-        const dId = resolveDriverId(order);
-        if (!dailyDriverRankMap.has(dId)) {
-          dailyDriverRankMap.set(dId, rankCounter++);
-        }
-      });
+      const dailyDriverRankMap = this.buildDailyDriverRankMap(orders);
 
       // 3. Group by Supplier (customer_id)
       const supplierGroups: Record<string, { supplierId: string; supplierName: string; phone: string; orders: any[] }> = {};
@@ -1126,33 +1104,7 @@ export class ZaloService {
           return String(a.id).localeCompare(String(b.id));
         });
 
-        const summaryItems: any[] = [];
-        sortedSupplierOrders.forEach((order) => {
-          const driverId = resolveDriverId(order);
-          const taiRank = dailyDriverRankMap.get(driverId) || 0;
-          const licensePlate = order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.vehicles?.license_plate || '-';
-
-          (order.vegetable_order_items || []).forEach((item: any) => {
-            const quantity = item.quantity || 0;
-            let unitPrice = item.unit_price || 0;
-            let total = item.total_amount || (quantity * unitPrice);
-
-            if (!total && order.is_custom_amount && order.vegetable_order_items?.length === 1) {
-              total = order.total_amount || 0;
-              unitPrice = quantity > 0 ? total / quantity : 0;
-            }
-
-            summaryItems.push({
-              taiRank,
-              licensePlate,
-              quantity,
-              productName: item.products?.name || item.package_type || 'Hàng hóa',
-              senderName: order.sender_name || '-',
-              price: unitPrice,
-              total,
-            });
-          });
-        });
+        const summaryItems = this.buildSupplierSummaryItemsFromOrders(sortedSupplierOrders, dailyDriverRankMap);
 
         if (summaryItems.length === 0) {
           emptySummarySuppliers.push({
@@ -2303,6 +2255,111 @@ export class ZaloService {
     return orderRankMap;
   }
 
+  private buildSupplierSummaryItemsFromOrders(orders: any[], dailyDriverRankMap: Map<string, number>): any[] {
+    const resolveLicensePlate = (order: any): string =>
+      order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.vehicles?.license_plate || '-';
+    const normalizeNote = (value: unknown): string => {
+      if (typeof value !== 'string') return '';
+      return value.trim();
+    };
+    const buildPriceSeedKey = (item: any): string => {
+      const productName = normalizeNote(item.productName || 'Hàng hóa');
+      const note = normalizeNote(item.note || '');
+      return `${productName}||${note}`;
+    };
+
+    const rawItems: any[] = [];
+    const seedPriceByProduct = new Map<string, number>();
+    const globalPriceSet = new Set<number>();
+
+    orders.forEach((order) => {
+      const driverId = this.resolveVegetableOrderDriverKey(order);
+      const taiRank = dailyDriverRankMap.get(driverId) || 0;
+      const licensePlate = resolveLicensePlate(order);
+
+      (order.vegetable_order_items || []).forEach((item: any) => {
+        const quantity = Number(item.quantity || 0);
+        const fallbackBasePrice = Number(item.products?.base_price || 0);
+        let unitPrice = Number(item.unit_price || fallbackBasePrice || 0);
+        let total = Number(item.total_amount || (quantity * unitPrice));
+        const note = normalizeNote(item.item_note) || normalizeNote(order.notes);
+
+        if (!total && order.is_custom_amount && order.vegetable_order_items?.length === 1) {
+          total = Number(order.total_amount || 0);
+          unitPrice = quantity > 0 ? total / quantity : 0;
+        }
+
+        if (!(unitPrice > 0) && quantity > 0 && total > 0) {
+          unitPrice = total / quantity;
+        }
+
+        if (unitPrice > 0 && unitPrice < 1000) {
+          unitPrice *= 1000;
+        }
+
+        const summaryItem = {
+          taiRank,
+          licensePlate,
+          quantity,
+          productName: item.products?.name || item.package_type || 'Hàng hóa',
+          senderName: order.sender_customers?.name || order.sender_name || '-',
+          note,
+          price: Math.round(unitPrice || 0),
+          total: Math.round(total || 0),
+        };
+
+        if (summaryItem.price > 0) {
+          const seedKey = buildPriceSeedKey(summaryItem);
+          if (!seedPriceByProduct.has(seedKey)) {
+            seedPriceByProduct.set(seedKey, summaryItem.price);
+          }
+          globalPriceSet.add(summaryItem.price);
+        }
+
+        rawItems.push(summaryItem);
+      });
+    });
+
+    const globalFallbackPrice = globalPriceSet.size === 1 ? Array.from(globalPriceSet)[0] : 0;
+
+    const normalizedItems = rawItems.map((item) => {
+      const quantity = Number(item.quantity || 0);
+      let price = Number(item.price || 0);
+      if (!(price > 0)) {
+        price = Number(seedPriceByProduct.get(buildPriceSeedKey(item)) || 0);
+      }
+      if (!(price > 0) && globalFallbackPrice > 0) {
+        price = globalFallbackPrice;
+      }
+
+      let total = Number(item.total || 0);
+      if (!(total > 0) && quantity > 0 && price > 0) {
+        total = quantity * price;
+      }
+
+      return {
+        ...item,
+        quantity,
+        price: Math.round(price || 0),
+        total: Math.round(total || 0),
+      };
+    });
+
+    const mergedMap = new Map<string, any>();
+    normalizedItems.forEach((item) => {
+      const rowKey = `${item.senderName}||${item.taiRank}||${item.licensePlate}||${item.productName}||${item.note || ''}||${item.price || 0}`;
+      const existing = mergedMap.get(rowKey);
+      if (!existing) {
+        mergedMap.set(rowKey, { ...item });
+        return;
+      }
+      existing.quantity += item.quantity || 0;
+      existing.total += item.total || 0;
+    });
+
+    return Array.from(mergedMap.values());
+  }
+
   async getGrocerySummaryData(supabaseService: any, customerId: string, date: string) {
     // 1. Fetch shop name
     const { data: shopNameSetting } = await supabaseService
@@ -2555,7 +2612,6 @@ export class ZaloService {
     const dailyDriverRankMap = this.buildDailyDriverRankMap(rankSourceOrders);
 
     const supplierName = supplierOrders[0].customers?.name || 'Vựa';
-    const items: any[] = [];
 
     // Sort supplier orders by time
     const sortedSupplierOrders = [...supplierOrders].sort((a, b) => {
@@ -2565,59 +2621,7 @@ export class ZaloService {
       return String(a.id).localeCompare(String(b.id));
     });
 
-    const resolveLicensePlate = (order: any): string => order.delivery_orders?.[0]?.delivery_vehicles?.[0]?.vehicles?.license_plate || '-';
-    const normalizeNote = (value: unknown): string => {
-      if (typeof value !== 'string') return '';
-      return value.trim();
-    };
-
-    sortedSupplierOrders.forEach((order) => {
-      const driverId = this.resolveVegetableOrderDriverKey(order);
-      const taiRank = dailyDriverRankMap.get(driverId) || 0;
-      const licensePlate = resolveLicensePlate(order);
-
-      (order.vegetable_order_items || []).forEach((item: any) => {
-        const quantity = item.quantity || 0;
-        const fallbackBasePrice = item.products?.base_price || 0;
-        let unitPrice = item.unit_price || fallbackBasePrice || 0;
-        let total = item.total_amount || (quantity * unitPrice);
-        const note = normalizeNote(item.item_note) || normalizeNote(order.notes);
-
-        if (!total && order.is_custom_amount && order.vegetable_order_items?.length === 1) {
-          total = order.total_amount || 0;
-          unitPrice = quantity > 0 ? total / quantity : 0;
-        }
-
-        if (!unitPrice && total > 0 && quantity > 0) {
-          unitPrice = total / quantity;
-        }
-
-        items.push({
-          taiRank,
-          licensePlate,
-          quantity,
-          productName: item.products?.name || item.package_type || 'Hàng hóa',
-          senderName: order.sender_customers?.name || order.sender_name || '-',
-          note,
-          price: unitPrice,
-          total,
-        });
-      });
-    });
-
-    const mergedMap = new Map<string, any>();
-    items.forEach((item) => {
-      const rowKey = `${item.senderName}||${item.taiRank}||${item.licensePlate}||${item.productName}||${item.note || ''}||${item.price || 0}`;
-      const existing = mergedMap.get(rowKey);
-      if (!existing) {
-        mergedMap.set(rowKey, { ...item });
-        return;
-      }
-      existing.quantity += item.quantity || 0;
-      existing.total += item.total || 0;
-    });
-
-    const mergedItems = Array.from(mergedMap.values());
+    const mergedItems = this.buildSupplierSummaryItemsFromOrders(sortedSupplierOrders, dailyDriverRankMap);
 
     return {
       supplierName,

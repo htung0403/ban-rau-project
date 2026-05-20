@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ImagePlus, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Clock3, ImagePlus, Loader2, Package, Pencil, Plus, ShieldCheck, Trash2, Wallet, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '../../components/shared/PageHeader';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
@@ -72,6 +72,32 @@ const getCustomerOrderPolicy = (customerType?: Customer['customer_type']) => {
   return null;
 };
 
+const customerTypeLabel: Record<string, string> = {
+  grocery_sender: 'Khách gửi tạp hóa',
+  grocery_receiver: 'Khách nhận tạp hóa',
+  vegetable_sender: 'Khách gửi rau củ',
+  vegetable_receiver: 'Khách nhận rau củ',
+};
+
+const statusConfig: Record<string, { label: string; className: string }> = {
+  pending: {
+    label: 'Chờ xác nhận',
+    className: 'bg-amber-50 text-amber-700 border-amber-200',
+  },
+  admin_confirmed: {
+    label: 'Admin đã xác nhận',
+    className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  },
+  completed: {
+    label: 'Hoàn tất',
+    className: 'bg-blue-50 text-blue-700 border-blue-200',
+  },
+  cancelled: {
+    label: 'Đã hủy',
+    className: 'bg-red-50 text-red-700 border-red-200',
+  },
+};
+
 const toFormItem = (item?: ImportOrderItem): CustomerOrderItemForm => ({
   product_id: item?.product_id || '',
   package_type: item?.package_type || '',
@@ -125,6 +151,22 @@ const MyOrdersPage: React.FC = () => {
         new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime(),
     );
   }, [orders]);
+
+  const orderSummary = useMemo(() => {
+    return sortedOrders.reduce(
+      (summary, order) => {
+        summary.total += 1;
+        summary.amount += order.total_amount || 0;
+        if (order.admin_confirmed_at) summary.confirmed += 1;
+        else if (order.status === 'pending') summary.pending += 1;
+        return summary;
+      },
+      { total: 0, pending: 0, confirmed: 0, amount: 0 },
+    );
+  }, [sortedOrders]);
+
+  const latestOrder = sortedOrders[0];
+  const currentCustomerType = customer?.customer_type ? customerTypeLabel[customer.customer_type] || customer.customer_type : 'Chưa xác định';
 
   const openCreateModal = () => {
     setEditingOrder(null);
@@ -299,77 +341,136 @@ const MyOrdersPage: React.FC = () => {
         backPath="/"
       />
 
-      <div className="bg-white rounded-2xl border border-border shadow-sm p-4 md:p-5 space-y-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="text-[13px] text-muted-foreground">
-            Loại khách hàng: <span className="font-bold text-foreground">{customer?.customer_type || 'Chưa xác định'}</span>
+      <div className="space-y-4">
+        <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary/10 via-white to-emerald-50 shadow-sm">
+          <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary/10 blur-2xl" />
+          <div className="absolute -bottom-16 left-1/3 h-40 w-40 rounded-full bg-emerald-200/30 blur-3xl" />
+          <div className="relative p-5 md:p-6 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/80 px-3 py-1 text-[12px] font-bold text-primary shadow-sm">
+                <ShieldCheck size={14} />
+                {currentCustomerType}
+              </div>
+              <div>
+                <h2 className="text-xl md:text-2xl font-black tracking-tight text-foreground">Quản lý đơn hàng nhanh gọn</h2>
+                <p className="mt-1 max-w-2xl text-[13px] md:text-sm text-muted-foreground">
+                  Theo dõi trạng thái, tổng tiền và chỉnh sửa đơn khi còn chờ admin xác nhận.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              {latestOrder && (
+                <div className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 shadow-sm">
+                  <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Đơn mới nhất</div>
+                  <div className="mt-1 text-sm font-black text-foreground">{latestOrder.order_code || 'Chưa có mã'}</div>
+                  <div className="text-[12px] text-muted-foreground">{latestOrder.order_date || '-'}</div>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={openCreateModal}
+                disabled={!canSelfCreate}
+                className="h-12 px-5 rounded-2xl bg-primary text-white text-[13px] font-black hover:bg-primary/90 disabled:opacity-60 inline-flex items-center justify-center gap-2 shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5"
+                title={canSelfCreate ? 'Tạo đơn hàng mới' : 'Admin chưa cấp quyền tạo đơn hàng'}
+              >
+                <Plus size={16} />
+                Tạo đơn hàng
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={openCreateModal}
-            disabled={!canSelfCreate}
-            className="px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 disabled:opacity-60 inline-flex items-center gap-2"
-            title={canSelfCreate ? 'Tạo đơn hàng mới' : 'Admin chưa cấp quyền tạo đơn hàng'}
-          >
-            <Plus size={15} />
-            Tạo đơn hàng
-          </button>
         </div>
 
-        <div className="overflow-auto rounded-xl border border-border">
-          <table className="w-full text-[13px]">
-            <thead className="bg-muted/30">
-              <tr>
-                <th className="px-3 py-2 text-left font-bold">Mã đơn</th>
-                <th className="px-3 py-2 text-left font-bold">Ngày</th>
-                <th className="px-3 py-2 text-left font-bold">{isSenderCustomer ? 'Người nhận' : 'Người gửi'}</th>
-                <th className="px-3 py-2 text-right font-bold">Tổng tiền</th>
-                <th className="px-3 py-2 text-left font-bold">Trạng thái</th>
-                <th className="px-3 py-2 text-right font-bold">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedOrders.length === 0 ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <SummaryCard icon={Package} label="Tổng đơn" value={orderSummary.total.toLocaleString('vi-VN')} tone="text-primary bg-primary/10" />
+          <SummaryCard icon={Clock3} label="Chờ xác nhận" value={orderSummary.pending.toLocaleString('vi-VN')} tone="text-amber-600 bg-amber-50" />
+          <SummaryCard icon={CheckCircle2} label="Đã xác nhận" value={orderSummary.confirmed.toLocaleString('vi-VN')} tone="text-emerald-600 bg-emerald-50" />
+          <SummaryCard icon={Wallet} label="Tổng tiền" value={formatCurrency(orderSummary.amount)} tone="text-blue-600 bg-blue-50" />
+        </div>
+
+        <div className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden">
+          <div className="p-4 md:p-5 border-b border-border/70 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-base font-black text-foreground">Danh sách đơn hàng</h3>
+              <p className="text-[13px] text-muted-foreground">Ưu tiên đơn mới nhất để bạn thao tác nhanh hơn.</p>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-xl bg-muted/40 px-3 py-2 text-[12px] font-bold text-muted-foreground">
+              <CalendarDays size={14} />
+              {sortedOrders.length} đơn hàng
+            </div>
+          </div>
+
+          <div className="hidden md:block overflow-auto">
+            <table className="w-full text-[13px]">
+              <thead className="bg-muted/30 text-muted-foreground">
                 <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
-                    Chưa có đơn hàng nào
-                  </td>
+                  <th className="px-4 py-3 text-left font-bold">Mã đơn</th>
+                  <th className="px-4 py-3 text-left font-bold">Ngày</th>
+                  <th className="px-4 py-3 text-left font-bold">{isSenderCustomer ? 'Người nhận' : 'Người gửi'}</th>
+                  <th className="px-4 py-3 text-right font-bold">Tổng tiền</th>
+                  <th className="px-4 py-3 text-left font-bold">Trạng thái</th>
+                  <th className="px-4 py-3 text-right font-bold">Thao tác</th>
                 </tr>
-              ) : (
-                sortedOrders.map((order) => {
-                  const editable = order.status === 'pending' && !order.admin_confirmed_at;
-                  const statusLabel = order.admin_confirmed_at ? 'admin_confirmed' : order.status;
-                  return (
-                    <tr key={order.id} className="border-t border-border/70">
-                      <td className="px-3 py-2 font-semibold">{order.order_code || '-'}</td>
-                      <td className="px-3 py-2">{order.order_date || '-'}</td>
-                      <td className="px-3 py-2">{isSenderCustomer ? (order.receiver_name || '-') : (order.sender_name || '-')}</td>
-                      <td className="px-3 py-2 text-right">
-                        {(order.total_amount || 0).toLocaleString('vi-VN')}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold bg-muted text-foreground">
-                          {statusLabel}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <button
-                          type="button"
-                          disabled={!editable}
-                          onClick={() => openEditModal(order)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border text-[12px] font-semibold hover:bg-muted disabled:opacity-40"
-                          title={editable ? 'Sửa đơn hàng' : 'Chỉ sửa khi đơn đang pending'}
-                        >
-                          <Pencil size={13} />
-                          Sửa
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sortedOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center">
+                      <EmptyOrdersState canSelfCreate={canSelfCreate} onCreate={openCreateModal} />
+                    </td>
+                  </tr>
+                ) : (
+                  sortedOrders.map((order) => {
+                    const editable = order.status === 'pending' && !order.admin_confirmed_at;
+                    const statusLabel = order.admin_confirmed_at ? 'admin_confirmed' : order.status;
+                    return (
+                      <tr key={order.id} className="border-t border-border/70 transition-colors hover:bg-muted/20">
+                        <td className="px-4 py-3 font-black text-foreground">{order.order_code || '-'}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{order.order_date || '-'}</td>
+                        <td className="px-4 py-3">{isSenderCustomer ? (order.receiver_name || '-') : (order.sender_name || '-')}</td>
+                        <td className="px-4 py-3 text-right font-bold">{formatCurrency(order.total_amount || 0)}</td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={statusLabel} />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <EditOrderButton editable={editable} onClick={() => openEditModal(order)} />
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="md:hidden p-3 space-y-3">
+            {sortedOrders.length === 0 ? (
+              <EmptyOrdersState canSelfCreate={canSelfCreate} onCreate={openCreateModal} />
+            ) : (
+              sortedOrders.map((order) => {
+                const editable = order.status === 'pending' && !order.admin_confirmed_at;
+                const statusLabel = order.admin_confirmed_at ? 'admin_confirmed' : order.status;
+                return (
+                  <div key={order.id} className="rounded-2xl border border-border bg-gradient-to-br from-white to-muted/20 p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[12px] text-muted-foreground">Mã đơn</div>
+                        <div className="font-black text-foreground">{order.order_code || '-'}</div>
+                      </div>
+                      <StatusBadge status={statusLabel} />
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-[13px]">
+                      <InfoBlock label="Ngày" value={order.order_date || '-'} />
+                      <InfoBlock label={isSenderCustomer ? 'Người nhận' : 'Người gửi'} value={isSenderCustomer ? (order.receiver_name || '-') : (order.sender_name || '-')} />
+                      <InfoBlock label="Tổng tiền" value={formatCurrency(order.total_amount || 0)} strong />
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <EditOrderButton editable={editable} onClick={() => openEditModal(order)} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 
@@ -623,6 +724,73 @@ const Input: React.FC<{
       min={min}
       className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm"
     />
+  </div>
+);
+
+const SummaryCard: React.FC<{
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  label: string;
+  value: string;
+  tone: string;
+}> = ({ icon: Icon, label, value, tone }) => (
+  <div className="rounded-2xl border border-border bg-white p-4 shadow-sm">
+    <div className={`mb-3 inline-flex h-10 w-10 items-center justify-center rounded-2xl ${tone}`}>
+      <Icon size={18} />
+    </div>
+    <div className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground">{label}</div>
+    <div className="mt-1 text-lg font-black text-foreground">{value}</div>
+  </div>
+);
+
+const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const config = statusConfig[status] || {
+    label: status || 'Chưa xác định',
+    className: 'bg-muted text-foreground border-border',
+  };
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-black ${config.className}`}>
+      {config.label}
+    </span>
+  );
+};
+
+const EditOrderButton: React.FC<{ editable: boolean; onClick: () => void }> = ({ editable, onClick }) => (
+  <button
+    type="button"
+    disabled={!editable}
+    onClick={onClick}
+    className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-2 text-[12px] font-bold text-foreground shadow-sm transition-colors hover:bg-muted disabled:opacity-40"
+    title={editable ? 'Sửa đơn hàng' : 'Chỉ sửa khi đơn đang pending'}
+  >
+    <Pencil size={13} />
+    Sửa
+  </button>
+);
+
+const InfoBlock: React.FC<{ label: string; value: string; strong?: boolean }> = ({ label, value, strong = false }) => (
+  <div>
+    <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{label}</div>
+    <div className={strong ? 'mt-0.5 font-black text-foreground' : 'mt-0.5 font-semibold text-foreground'}>{value}</div>
+  </div>
+);
+
+const EmptyOrdersState: React.FC<{ canSelfCreate: boolean; onCreate: () => void }> = ({ canSelfCreate, onCreate }) => (
+  <div className="mx-auto flex max-w-sm flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 px-5 py-8 text-center">
+    <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+      <Package size={22} />
+    </div>
+    <div className="font-black text-foreground">Chưa có đơn hàng nào</div>
+    <p className="mt-1 text-[13px] text-muted-foreground">Tạo đơn đầu tiên để theo dõi trạng thái xử lý tại đây.</p>
+    <button
+      type="button"
+      onClick={onCreate}
+      disabled={!canSelfCreate}
+      className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-[13px] font-bold text-white hover:bg-primary/90 disabled:opacity-50"
+    >
+      <Plus size={14} />
+      Tạo đơn hàng
+    </button>
   </div>
 );
 

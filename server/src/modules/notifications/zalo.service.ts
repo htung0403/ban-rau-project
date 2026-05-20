@@ -918,10 +918,17 @@ export class ZaloService {
           }
 
           const finalCaption = `${caption}\n\nXem chi tiết tại: ${publicLink}`;
+          const attachments = await this.buildSummaryAttachments('grocery', {
+            shopName: 'Năm Sự',
+            customerName: group.customerName,
+            date: this.formatDisplayDate(today),
+            items: group.items,
+          });
 
           const result = await this.sendImageMessage({
             recipientPhone: normalizedPhone,
             imageUrls: [],
+            attachments,
             caption: finalCaption,
           });
 
@@ -1127,7 +1134,7 @@ export class ZaloService {
 
         try {
           const caption = `Phiếu tổng kết hàng đã nhận ngày ${this.formatDisplayDate(today)}. Cảm ơn vựa.\n\nXem chi tiết tại: ${publicLink}`;
-          const attachments = await this.buildVegetableSummaryAttachments('supplier', {
+          const attachments = await this.buildSummaryAttachments('supplier', {
             shopName: 'Nhà Xe Năm Sự',
             supplierName: group.supplierName,
             date: this.formatDisplayDate(today),
@@ -1401,7 +1408,7 @@ export class ZaloService {
 
         try {
           const caption = `Phiếu tổng kết hàng đã gửi ngày ${this.formatDisplayDate(today)}. Cảm ơn bạn.\n\nXem chi tiết tại: ${publicLink}`;
-          const attachments = await this.buildVegetableSummaryAttachments('sender', {
+          const attachments = await this.buildSummaryAttachments('sender', {
             shopName: 'Nhà Xe Năm Sự',
             senderName: group.senderName,
             date: this.formatDisplayDate(today),
@@ -1692,14 +1699,37 @@ export class ZaloService {
     return `Phiếu tổng kết hàng đã gửi ngày ${displayDate}. Cảm ơn bạn.\n\nXem chi tiết tại: ${publicLink}`;
   }
 
-  private async buildVegetableSummaryAttachments(
+  private async buildSummaryAttachments(
     type: SummaryDispatchType,
     summaryData: any,
   ): Promise<ZcaAttachmentSource[]> {
-    if ((type !== 'supplier' && type !== 'sender') || !summaryData) return [];
+    if (!summaryData) return [];
     if (!Array.isArray(summaryData.items) || summaryData.items.length === 0) return [];
 
     try {
+      if (type === 'grocery') {
+        const pngBuffer = await DeliveryNoteGenerator.generateSummaryPng({
+          shopName: summaryData.shopName || 'Năm Sự',
+          customerName: summaryData.customerName || '-',
+          deliveryDate: summaryData.date || summaryData.deliveryDate || '',
+          items: (summaryData.items || []).map((item: any) => ({
+            deliveryTime: item.deliveryTime || item.delivery_time || '',
+            licensePlate: item.licensePlate || item.license_plate || '-',
+            staffName: item.staffName || item.staff_name || 'NV Giao hàng',
+            quantity: Number(item.quantity || 0),
+            productName: item.productName || item.product_name || '-',
+            price: Number(item.price || 0),
+            total: Number(item.total || 0),
+          })),
+        });
+
+        return [{
+          data: pngBuffer,
+          filename: `phieu-tong-${Date.now()}.png`,
+          metadata: { totalSize: pngBuffer.length },
+        }];
+      }
+
       if (type === 'supplier') {
         const pngBuffer = await DeliveryNoteGenerator.generateSupplierSummaryPng({
           shopName: summaryData.shopName || 'Nhà Xe Năm Sự',
@@ -1746,6 +1776,13 @@ export class ZaloService {
       logger.error(`[ZaloService] Failed to build ${type} summary attachment:`, error);
       return [];
     }
+  }
+
+  private async buildVegetableSummaryAttachments(
+    type: SummaryDispatchType,
+    summaryData: any,
+  ): Promise<ZcaAttachmentSource[]> {
+    return this.buildSummaryAttachments(type, summaryData);
   }
 
   async sendSummaryForTarget(
@@ -1832,7 +1869,7 @@ export class ZaloService {
     }
 
     const caption = this.buildSummaryCaption(type, date, targetId, summaryData);
-    const attachments = await this.buildVegetableSummaryAttachments(type, summaryData);
+    const attachments = await this.buildSummaryAttachments(type, summaryData);
     const result = await this.sendImageMessage({
       recipientPhone: normalizedPhone,
       imageUrls: [],

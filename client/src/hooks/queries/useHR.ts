@@ -130,11 +130,11 @@ export function useReviewLeaveRequest() {
   });
 }
 
-export function useAttendance(date: string, startDate?: string, endDate?: string) {
+export function useAttendance(date: string, startDate?: string, endDate?: string, enabled = true) {
   return useQuery({
     queryKey: startDate && endDate ? [...hrKeys.attendance(date), startDate, endDate] : hrKeys.attendance(date),
     queryFn: () => hrApi.getAttendanceByDate(date, startDate, endDate),
-    enabled: !!date,
+    enabled: enabled && !!date,
     staleTime: 60 * 1000,
   });
 }

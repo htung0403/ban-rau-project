@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef } from 'react';
-import { Plus, X, ChevronLeft, ChevronRight, Edit, Trash2, Filter, Store, Truck, UserCircle, Image as ImageIcon, Eye } from 'lucide-react';
+import { Plus, X, ChevronLeft, ChevronRight, Edit, Trash2, Filter, Store, Truck, UserCircle, Image as ImageIcon, Eye, CheckCircle2 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useImportOrders, useDeleteImportOrder } from '../../hooks/queries/useImportOrders';
+import { useImportOrders, useDeleteImportOrder, useConfirmImportOrderByAdmin } from '../../hooks/queries/useImportOrders';
 import type { ImportOrder, ImportOrderFilters, OrderStatus } from '../../types';
 import StatusBadge from '../../components/shared/StatusBadge';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
@@ -95,6 +95,7 @@ const ImportOrdersPage: React.FC = () => {
   const [editingOrder, setEditingOrder] = useState<ImportOrder | null>(null);
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [confirmingOrder, setConfirmingOrder] = useState<ImportOrder | null>(null);
 
   const [viewingImageOrder, setViewingImageOrder] = useState<any>(null);
   const [isViewingClosing, setIsViewingClosing] = useState(false);
@@ -132,6 +133,7 @@ const ImportOrdersPage: React.FC = () => {
     );
   }, [apiResponse?.data, user, vehicles]);
   const deleteMutation = useDeleteImportOrder();
+  const confirmMutation = useConfirmImportOrderByAdmin();
 
   const { vuaOptions, taiOptions, nguoiNhapOptions } = useMemo(() => {
     if (!orders) return { vuaOptions: [], taiOptions: [], nguoiNhapOptions: [] };
@@ -197,6 +199,35 @@ const ImportOrdersPage: React.FC = () => {
     if (!deleteId) return;
     await deleteMutation.mutateAsync(deleteId);
     setDeleteId(null);
+  };
+
+  const handleConfirmOrder = async () => {
+    if (!confirmingOrder) return;
+    await confirmMutation.mutateAsync({ id: confirmingOrder.id, orderCategory: 'standard' });
+    setConfirmingOrder(null);
+  };
+
+  const renderConfirmButton = (order: ImportOrder, size: number) => {
+    const isCustomerSubmittedOrder = order.profiles?.role === 'customer';
+    if (!isCustomerSubmittedOrder) return null;
+
+    const confirmed = Boolean(order.admin_confirmed_at);
+    return (
+      <button
+        onClick={(e) => { e.stopPropagation(); if (!confirmed) setConfirmingOrder(order); }}
+        disabled={confirmed || confirmMutation.isPending}
+        className={clsx(
+          'rounded-lg transition-colors disabled:opacity-40',
+          size >= 14 ? 'p-1.5' : 'p-1',
+          confirmed
+            ? 'text-emerald-600 bg-emerald-500/10'
+            : 'text-emerald-500 hover:bg-emerald-500/10',
+        )}
+        title={confirmed ? 'Admin đã xác nhận' : 'Admin xác nhận đơn'}
+      >
+        <CheckCircle2 size={size} />
+      </button>
+    );
   };
 
   const clearFilters = () => {
@@ -480,11 +511,18 @@ const ImportOrdersPage: React.FC = () => {
                           );
                           case 'status': return (
                             <td key={col.id} className="px-4 py-3 text-center">
-                              <StatusBadge status={order.status} label={statusLabels[order.status]} />
+                              {order.admin_confirmed_at ? (
+                                <span className="inline-flex px-2 py-1 rounded-md text-[11px] font-bold text-emerald-700 bg-emerald-500/10">
+                                  Đã xác nhận
+                                </span>
+                              ) : (
+                                <StatusBadge status={order.status} label={statusLabels[order.status]} />
+                              )}
                             </td>
                           );
                           case 'actions': return (
                             <td key={col.id} className="px-4 py-3 flex items-center justify-center gap-1">
+                                {renderConfirmButton(order, 14)}
                                 <button
                                   onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
                                   className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors"
@@ -603,6 +641,7 @@ const ImportOrdersPage: React.FC = () => {
                             >
                               <Edit size={13} />
                             </button>
+                            {renderConfirmButton(order, 13)}
                             <button
                               onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
                               className="p-1 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
@@ -674,6 +713,17 @@ const ImportOrdersPage: React.FC = () => {
         isLoading={deleteMutation.isPending}
         onConfirm={handleDelete}
         onCancel={() => setDeleteId(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!confirmingOrder}
+        title="Xác nhận đơn hàng"
+        message={`Xác nhận đơn ${confirmingOrder?.order_code || ''}? Sau khi xác nhận, khách hàng sẽ không thể tự sửa đơn này.`}
+        confirmLabel="Xác nhận"
+        variant="primary"
+        isLoading={confirmMutation.isPending}
+        onConfirm={handleConfirmOrder}
+        onCancel={() => setConfirmingOrder(null)}
       />
 
       <OrderImagesDialog

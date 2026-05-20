@@ -15,7 +15,7 @@ const importOrderItemSchema = z.object({
   payment_status: z.enum(['paid', 'unpaid']).default('unpaid'),
 });
 
-  const importOrderSchema = z.object({
+const importOrderSchema = z.object({
     order_date: z.string().optional(),
     order_time: z.string().optional(),
     sender_name: z.string().optional(),
@@ -41,6 +41,10 @@ const importOrderItemSchema = z.object({
     status: z.enum(['pending', 'processing', 'delivered', 'returned']).optional(),
     selected_alias: z.string().optional().nullable(),
   });
+
+const confirmOrderSchema = z.object({
+  order_category: z.enum(['standard', 'vegetable']).optional(),
+});
 
 export class ImportOrderController {
   static async getAll(req: Request, res: Response) {
@@ -95,6 +99,20 @@ export class ImportOrderController {
       const date = (req.query.date as string) || new Date().toISOString().split('T')[0];
       const nextCode = await ImportOrderService.generateOrderCode(date, false);
       return res.status(200).json(successResponse({ next_code: nextCode }));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async confirmByAdmin(req: Request, res: Response) {
+    try {
+      const validated = confirmOrderSchema.parse(req.body || {});
+      const data = await ImportOrderService.confirmByAdmin(
+        req.params.id as string,
+        req.user!.id,
+        validated.order_category,
+      );
+      return res.status(200).json(successResponse(data, 'Đã xác nhận đơn hàng'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
     }

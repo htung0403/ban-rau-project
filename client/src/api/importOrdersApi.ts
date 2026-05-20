@@ -34,6 +34,11 @@ export const importOrdersApi = {
     return data;
   },
 
+  confirmByAdmin: async (id: string, payload?: { order_category?: 'standard' | 'vegetable' }) => {
+    const { data } = await axiosClient.patch<ImportOrder>(`/import-orders/${id}/admin-confirm`, payload || {});
+    return data;
+  },
+
   delete: async (id: string) => {
     const { data } = await axiosClient.delete(`/import-orders/${id}`);
     return data;

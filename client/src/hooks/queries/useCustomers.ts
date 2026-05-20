@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { customersApi } from '../../api/customersApi';
+import type { CustomerSelfOrderPayload } from '../../api/customersApi';
 import toast from 'react-hot-toast';
 
 export const customerKeys = {
@@ -8,6 +9,8 @@ export const customerKeys = {
   loyalList: () => [...customerKeys.all, 'loyalList'] as const,
   detail: (id: string) => [...customerKeys.all, 'detail', id] as const,
   orders: (id: string) => [...customerKeys.all, 'orders', id] as const,
+  myOrders: () => [...customerKeys.all, 'my-orders'] as const,
+  myOrderProducts: () => [...customerKeys.all, 'my-order-products'] as const,
   deliveryOrders: (id: string) => [...customerKeys.all, 'deliveryOrders', id] as const,
   exportOrders: (id: string) => [...customerKeys.all, 'export-orders', id] as const,
   receipts: (id: string) => [...customerKeys.all, 'receipts', id] as const,
@@ -42,6 +45,22 @@ export function useCustomerOrders(id: string) {
     queryKey: customerKeys.orders(id),
     queryFn: () => customersApi.getOrders(id),
     enabled: !!id,
+  });
+}
+
+export function useMyOrders(enabled = true) {
+  return useQuery({
+    queryKey: customerKeys.myOrders(),
+    queryFn: customersApi.getMyOrders,
+    enabled,
+  });
+}
+
+export function useMyOrderProducts(enabled = true) {
+  return useQuery({
+    queryKey: customerKeys.myOrderProducts(),
+    queryFn: customersApi.getMyOrderProducts,
+    enabled,
   });
 }
 
@@ -92,6 +111,31 @@ export function useUpdateCustomer() {
   });
 }
 
+export function useCreateMyOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CustomerSelfOrderPayload) => customersApi.createMyOrder(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: customerKeys.myOrders() });
+      toast.success('Đã tạo đơn hàng');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Không thể tạo đơn hàng'),
+  });
+}
+
+export function useUpdateMyOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ orderId, payload }: { orderId: string; payload: Partial<CustomerSelfOrderPayload> }) =>
+      customersApi.updateMyOrder(orderId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: customerKeys.myOrders() });
+      toast.success('Đã cập nhật đơn hàng');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Không thể cập nhật đơn hàng'),
+  });
+}
+
 export function useDeleteCustomer() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -101,6 +145,25 @@ export function useDeleteCustomer() {
       toast.success('Đã xóa khách hàng');
     },
     onError: () => toast.error('Lỗi khi xóa khách hàng'),
+  });
+}
+
+export function useCreateCustomerAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      customer_id: string;
+      phone?: string;
+      email?: string | null;
+      password?: string;
+      full_name?: string;
+    }) => customersApi.createAccount(payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: customerKeys.detail(variables.customer_id) });
+      queryClient.invalidateQueries({ queryKey: customerKeys.all });
+      toast.success('Đã tạo tài khoản khách hàng');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Không thể tạo tài khoản khách hàng'),
   });
 }
 

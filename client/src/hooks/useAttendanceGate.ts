@@ -99,15 +99,17 @@ export function useAttendanceGate() {
   const todayStr = getVietnamTodayStr();
   const currentHour = getVietnamCurrentHour();
   const isAdmin = user?.role === 'admin';
+  const isCustomer = user?.role === 'customer';
   const isNhanVienNhanHang = user?.role === 'nhan_vien_nhan_hang';
 
-  const { data: attendanceData, isLoading } = useAttendance(todayStr, todayStr, todayStr);
+  const { data: attendanceData, isLoading } = useAttendance(todayStr, todayStr, todayStr, !isCustomer);
   const { data: lockSchedule, isLoading: isLockScheduleLoading } = useLockSchedule();
 
   const hasCheckedIn = useMemo(() => {
+    if (isCustomer) return true;
     if (!user || !attendanceData) return false;
     return attendanceData.some((a) => a.employee_id === user.id && a.is_present);
-  }, [user, attendanceData]);
+  }, [user, attendanceData, isCustomer]);
 
   const roleSchedule = useMemo(() => {
     if (!user || !lockSchedule?.schedules?.length) return null;
@@ -117,15 +119,15 @@ export function useAttendanceGate() {
   const forcedTimeLocked = typeof window !== 'undefined' && localStorage.getItem('time_locked') === '1';
 
   const lockedByRoleSchedule = useMemo(() => {
-    if (!user || isAdmin || !roleSchedule) return false;
+    if (!user || isAdmin || isCustomer || !roleSchedule) return false;
     return !isWithinRoleSchedule(roleSchedule);
-  }, [user, isAdmin, roleSchedule]);
+  }, [user, isAdmin, isCustomer, roleSchedule]);
 
   const isAfterHours = currentHour >= 19;
-  const lockedByLegacyRule = !!user && !isAdmin && !isNhanVienNhanHang && !roleSchedule && isAfterHours;
-  const isLocked = forcedTimeLocked || lockedByRoleSchedule || lockedByLegacyRule;
-  const gateLoading = isLoading || isLockScheduleLoading;
-  const mustCheckIn = !!user && !isAdmin && !gateLoading && !hasCheckedIn && !isLocked;
+  const lockedByLegacyRule = !!user && !isAdmin && !isCustomer && !isNhanVienNhanHang && !roleSchedule && isAfterHours;
+  const isLocked = !isCustomer && (forcedTimeLocked || lockedByRoleSchedule || lockedByLegacyRule);
+  const gateLoading = !isCustomer && (isLoading || isLockScheduleLoading);
+  const mustCheckIn = !!user && !isAdmin && !isCustomer && !gateLoading && !hasCheckedIn && !isLocked;
 
   return { mustCheckIn, isLoading: gateLoading, hasCheckedIn, isLocked };
 }

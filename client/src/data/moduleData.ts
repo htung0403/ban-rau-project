@@ -3,6 +3,7 @@ import {
   Warehouse, Download, Upload, Truck as DeliveryIcon,
   Banknote, Car, CalendarDays, ClipboardList, ClipboardCheck, DollarSign, FileText, Settings, Settings2, MapPin,
   Send, Store, Receipt, History, Heart,
+  CirclePlus,
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
 
@@ -132,5 +133,26 @@ export const moduleData: Record<string, { section: string; items: ModuleCardWith
         // { icon: MapPin, title: 'Điểm danh tài xế', description: 'Tài xế điểm danh Geolocation.', colorScheme: 'orange', path: '/quan-ly-xe/check-in' },
       ]
     }
+  ],
+  '/tai-khoan': [
+    {
+      section: 'Tài khoản khách hàng',
+      items: [
+        {
+          icon: ClipboardList,
+          title: 'Đơn hàng của tôi',
+          description: 'Khách hàng xem và quản lý đơn hàng của chính mình.',
+          colorScheme: 'blue',
+          path: '/tai-khoan/don-hang',
+        },
+        {
+          icon: CirclePlus,
+          title: 'Quyền tự tạo đơn',
+          description: 'Cho phép khách hàng tự tạo đơn từ trang tài khoản.',
+          colorScheme: 'green',
+          path: '/tai-khoan/don-hang/tao-don',
+        },
+      ],
+    },
   ],
 };

@@ -343,6 +343,8 @@ export class ImportOrderService {
         sender_name: mainData.sender_name,
         sender_id: mainData.sender_id || null,
         receiver_name: mainData.receiver_name,
+        receiver_phone: mainData.receiver_phone,
+        receiver_address: mainData.receiver_address,
         selected_alias: mainData.selected_alias || null,
         sheet_number: mainData.sheet_number,
         customer_id: mainData.customer_id,
@@ -424,6 +426,8 @@ export class ImportOrderService {
       sender_name: mainData.sender_name,
       sender_id: mainData.sender_id !== undefined ? (mainData.sender_id || null) : undefined,
       receiver_name: mainData.receiver_name,
+      receiver_phone: mainData.receiver_phone,
+      receiver_address: mainData.receiver_address,
       selected_alias: mainData.selected_alias !== undefined ? (mainData.selected_alias || null) : undefined,
       sheet_number: mainData.sheet_number,
       customer_id: mainData.customer_id,
@@ -512,6 +516,83 @@ export class ImportOrderService {
     }
 
     return order;
+  }
+
+  static async confirmByAdmin(id: string, confirmedBy: string, orderCategory?: 'standard' | 'vegetable') {
+    const tryConfirm = async (tableName: 'import_orders' | 'vegetable_orders') => {
+      const { data: targetOrder, error: targetError } = await supabaseService
+        .from(tableName)
+        .select('id, profiles:profiles!received_by(role)')
+        .eq('id', id)
+        .is('deleted_at', null)
+        .is('admin_confirmed_at', null)
+        .maybeSingle();
+
+      if (targetError) throw targetError;
+      if (!targetOrder) return null;
+
+      const receivedByProfile = Array.isArray((targetOrder as any).profiles)
+        ? (targetOrder as any).profiles[0]
+        : (targetOrder as any).profiles;
+      if (receivedByProfile?.role !== 'customer') {
+        throw new Error('Chỉ đơn do khách hàng tự tạo mới cần admin xác nhận');
+      }
+
+      if (tableName === 'vegetable_orders') {
+        const { data: deliveryRows, error: deliveryError } = await supabaseService
+          .from('delivery_orders')
+          .select('id, delivery_vehicles(id)')
+          .eq('vegetable_order_id', id);
+
+        if (deliveryError) throw deliveryError;
+
+        const hasUnassignedDelivery = !deliveryRows?.length
+          || deliveryRows.some((row: any) => !Array.isArray(row.delivery_vehicles) || row.delivery_vehicles.length === 0);
+
+        if (hasUnassignedDelivery) {
+          throw new Error('Vui lòng chọn xe lớn và tài xế trước khi xác nhận đơn rau');
+        }
+      }
+
+      const { data, error } = await supabaseService
+        .from(tableName)
+        .update({
+          admin_confirmed_at: new Date().toISOString(),
+          admin_confirmed_by: confirmedBy,
+        })
+        .eq('id', id)
+        .is('deleted_at', null)
+        .is('admin_confirmed_at', null)
+        .select('id, order_code, status, admin_confirmed_at, admin_confirmed_by')
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    };
+
+    if (orderCategory === 'standard') {
+      const data = await tryConfirm('import_orders');
+      if (!data) throw new Error('Đơn không tồn tại hoặc đã được xác nhận');
+      return { ...data, order_category: 'standard' as const };
+    }
+
+    if (orderCategory === 'vegetable') {
+      const data = await tryConfirm('vegetable_orders');
+      if (!data) throw new Error('Đơn không tồn tại hoặc đã được xác nhận');
+      return { ...data, order_category: 'vegetable' as const };
+    }
+
+    const standardOrder = await tryConfirm('import_orders');
+    if (standardOrder) {
+      return { ...standardOrder, order_category: 'standard' as const };
+    }
+
+    const vegetableOrder = await tryConfirm('vegetable_orders');
+    if (vegetableOrder) {
+      return { ...vegetableOrder, order_category: 'vegetable' as const };
+    }
+
+    throw new Error('Đơn không tồn tại hoặc đã được xác nhận');
   }
 
   static async delete(id: string) {

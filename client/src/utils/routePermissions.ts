@@ -83,6 +83,12 @@ const LEGACY_ALLOWED_PATHS_BY_ROLE: Record<string, string[]> = {
   customer: ['/ho-so'],
 };
 
+const hasBaselineRoleAccess = (path: string, role: UserRole): boolean => {
+  const roleKey = role || '';
+  const baselinePaths = LEGACY_ALLOWED_PATHS_BY_ROLE[roleKey];
+  return Boolean(baselinePaths?.includes(path));
+};
+
 export const isAllRoutesAllowed = (role: UserRole): boolean => role === 'admin' || role === 'manager';
 
 export const isDriverLikeRoleKey = (role: string): boolean => {
@@ -105,6 +111,7 @@ export const buildAllowedRouteSet = (role: UserRole): Set<string> => {
 export const canAccessRoute = (path: string | undefined, role: UserRole, allowedSet: Set<string>): boolean => {
   if (!path) return true;
   if (isAllRoutesAllowed(role)) return true;
+  if (hasBaselineRoleAccess(path, role)) return true;
   return allowedSet.has(path);
 };
 

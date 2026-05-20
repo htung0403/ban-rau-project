@@ -9,6 +9,34 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get(
+	'/me/orders',
+	requireRolesOnly('customer'),
+	requirePolicy('CUSTOMER_ORDERS_MANAGE'),
+	CustomerController.getMyOrders
+);
+
+router.get(
+	'/me/order-products',
+	requireRolesOnly('customer'),
+	requirePolicy('CUSTOMER_ORDERS_MANAGE'),
+	CustomerController.getMyOrderProducts
+);
+
+router.post(
+	'/me/orders',
+	requireRolesOnly('customer'),
+	requirePolicy('CUSTOMER_ORDERS_SELF_CREATE'),
+	CustomerController.createMyOrder
+);
+
+router.put(
+	'/me/orders/:orderId',
+	requireRolesOnly('customer'),
+	requirePolicy('CUSTOMER_ORDERS_MANAGE'),
+	CustomerController.updateMyOrder
+);
+
+router.get(
 	'/',
 	requirePolicy('CUSTOMERS_SHARED_LOOKUP'),
 	CustomerController.getAll

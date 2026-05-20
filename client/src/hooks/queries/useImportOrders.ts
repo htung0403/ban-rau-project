@@ -68,3 +68,18 @@ export function useDeleteImportOrder() {
     },
   });
 }
+
+export function useConfirmImportOrderByAdmin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, orderCategory }: { id: string; orderCategory?: 'standard' | 'vegetable' }) =>
+      importOrdersApi.confirmByAdmin(id, { order_category: orderCategory }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: importOrderKeys.all });
+      toast.success('Đã xác nhận đơn hàng');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || 'Không thể xác nhận đơn hàng');
+    },
+  });
+}

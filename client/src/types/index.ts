@@ -79,7 +79,7 @@ export interface PriceSetting {
   value: number;
   description?: string;
   updated_by?: string;
-  profiles?: { full_name: string };
+  profiles?: { full_name: string; role?: string };
 }
 
 // --- Role Salaries ---
@@ -162,7 +162,15 @@ export interface Customer {
   name: string;
   phone?: string;
   address?: string;
-  customer_type?: 'retail' | 'wholesale' | 'grocery' | 'vegetable';
+  customer_type?:
+    | 'retail'
+    | 'wholesale'
+    | 'grocery'
+    | 'vegetable'
+    | 'grocery_sender'
+    | 'grocery_receiver'
+    | 'vegetable_sender'
+    | 'vegetable_receiver';
   total_orders: number;
   total_revenue: number;
   debt: number;
@@ -201,6 +209,8 @@ export interface ImportOrder {
   product_id?: string;
   order_category?: 'standard' | 'vegetable';
   status: OrderStatus;
+  admin_confirmed_at?: string | null;
+  admin_confirmed_by?: string | null;
   customer_id?: string;
   notes?: string;
   receipt_image_url?: string;
@@ -216,7 +226,7 @@ export interface ImportOrder {
   invoice_exported_by?: string | null;
   // Nested relations from API
   import_order_items?: ImportOrderItem[];
-  profiles?: { full_name: string };
+  profiles?: { full_name: string; role?: string };
   warehouses?: { name: string };
   customers?: { id: string; name: string; phone?: string; address?: string; aliases?: string[] };
   sender_customers?: { id: string; name: string; phone?: string };
@@ -321,11 +331,12 @@ export interface DeliveryOrder {
       license_plate?: string;
       driver_name?: string | null;
       received_by?: string | null;
+      admin_confirmed_at?: string | null;
       customers?: { name: string; phone?: string };
       sender_customers?: { name: string; phone?: string };
       total_amount?: number;
       payment_status?: 'paid' | 'unpaid' | 'partial';
-      profiles?: { full_name: string };
+      profiles?: { full_name: string; role?: string };
       selected_alias?: string | null;
       receipt_image_url?: string | null;
       receipt_image_urls?: string[];

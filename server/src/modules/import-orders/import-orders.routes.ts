@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ImportOrderController } from './import-orders.controller';
 import { authMiddleware } from '../../middlewares/auth';
 import { requirePolicy } from '../../middlewares/role';
+import { requireRolesOnly } from '../../middlewares/role';
 
 const router = Router();
 
@@ -13,6 +14,7 @@ router.get('/daily-sequence', ImportOrderController.getNextSequence);
 router.get('/:id', ImportOrderController.getById);
 router.post('/', ImportOrderController.create);
 router.put('/:id', ImportOrderController.update);
+router.patch('/:id/admin-confirm', requireRolesOnly('admin'), ImportOrderController.confirmByAdmin);
 router.delete('/:id', ImportOrderController.delete);
 
 export default router;

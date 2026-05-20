@@ -2,8 +2,103 @@ import { randomUUID } from 'crypto';
 import { supabaseService } from '../../config/supabase';
 import { hashPassword } from '../../utils/password';
 import { normalizeEntityNameKey } from '../../utils/normalizeEntityName';
+import { ImportOrderService } from '../import-orders/import-orders.service';
+import { ProductService } from '../products/products.service';
+import {
+  applyCustomerBinding,
+  isCustomerOrderEditable,
+  resolveCustomerOrderPolicy,
+} from './customer-order-policy';
 
 export class CustomerService {
+  private static sanitizeCustomerOrderPayload(payload: Record<string, unknown>) {
+    const items = Array.isArray(payload.items)
+      ? payload.items.map((rawItem) => {
+          const item = rawItem && typeof rawItem === 'object' ? rawItem as Record<string, unknown> : {};
+          return {
+            product_id: item.product_id,
+            package_type: item.package_type,
+            item_note: item.item_note,
+            weight_kg: item.weight_kg,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            image_url: item.image_url,
+            image_urls: item.image_urls,
+            payment_status: 'unpaid',
+          };
+        })
+      : undefined;
+
+    return {
+      order_date: payload.order_date,
+      order_time: payload.order_time,
+      sender_name: payload.sender_name,
+      receiver_name: payload.receiver_name,
+      receiver_phone: payload.receiver_phone,
+      receiver_address: payload.receiver_address,
+      total_amount: payload.total_amount,
+      is_custom_amount: payload.is_custom_amount,
+      notes: payload.notes,
+      receipt_image_url: payload.receipt_image_url,
+      receipt_image_urls: payload.receipt_image_urls,
+      selected_alias: payload.selected_alias,
+      order_category: payload.order_category,
+      ...(items ? { items } : {}),
+    };
+  }
+
+  private static assertCustomerOrderItems(payload: Record<string, unknown>) {
+    if (!Array.isArray(payload.items) || payload.items.length === 0) {
+      throw new Error('Vui lòng thêm ít nhất 1 mặt hàng');
+    }
+
+    const hasInvalidItem = payload.items.some((rawItem) => {
+      if (!rawItem || typeof rawItem !== 'object') return true;
+      const item = rawItem as Record<string, unknown>;
+      const quantity = Number(item.quantity);
+      return typeof item.product_id !== 'string' || !item.product_id || !Number.isFinite(quantity) || quantity <= 0;
+    });
+
+    if (hasInvalidItem) {
+      throw new Error('Mỗi dòng hàng cần có mặt hàng và số lượng lớn hơn 0');
+    }
+  }
+
+  private static async getCustomerByUserIdOrThrow(userId: string) {
+    const customer = await this.getByUserId(userId);
+    if (!customer?.id) {
+      throw new Error('Không tìm thấy khách hàng gắn với tài khoản hiện tại');
+    }
+
+    const policy = resolveCustomerOrderPolicy(customer.customer_type);
+    if (!policy) {
+      throw new Error('Loại khách hàng hiện tại chưa được phép tự tạo đơn');
+    }
+
+    return { customer, policy };
+  }
+
+  private static async findOwnedOrderById(orderId: string, customerId: string) {
+    const loadOrder = async (tableName: 'import_orders' | 'vegetable_orders', orderCategory: 'standard' | 'vegetable') => {
+      const { data, error } = await supabaseService
+        .from(tableName)
+        .select('id, status, admin_confirmed_at, customer_id, sender_id, deleted_at')
+        .eq('id', orderId)
+        .is('deleted_at', null)
+        .or(`customer_id.eq.${customerId},sender_id.eq.${customerId}`)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      if (!data) return null;
+
+      return { ...data, order_category: orderCategory };
+    };
+
+    const importOrder = await loadOrder('import_orders', 'standard');
+    if (importOrder) return importOrder;
+    return loadOrder('vegetable_orders', 'vegetable');
+  }
+
   static async getAll(type?: string, isLoyal?: boolean) {
     let query = supabaseService.from('customers').select('*').is('deleted_at', null);
     if (type) {
@@ -122,6 +217,98 @@ export class CustomerService {
     return allData;
   }
 
+  static async getMyOrders(userId: string) {
+    const { customer } = await this.getCustomerByUserIdOrThrow(userId);
+    const customerId = customer.id;
+
+    const { data: stdOrders, error: stdError } = await supabaseService
+      .from('import_orders')
+      .select('*, import_order_items(*, products(*))')
+      .is('deleted_at', null)
+      .or(`customer_id.eq.${customerId},sender_id.eq.${customerId}`);
+    if (stdError) throw stdError;
+
+    const { data: vegOrders, error: vegError } = await supabaseService
+      .from('vegetable_orders')
+      .select('*, vegetable_order_items(*, products(*))')
+      .is('deleted_at', null)
+      .or(`customer_id.eq.${customerId},sender_id.eq.${customerId}`);
+    if (vegError) throw vegError;
+
+    const allData = [
+      ...(stdOrders || []).map((order) => ({ ...order, order_category: 'standard' as const })),
+      ...(vegOrders || []).map((order) => {
+        const mapped = { ...order, order_category: 'vegetable' as const };
+        if (mapped.vegetable_order_items) {
+          mapped.import_order_items = mapped.vegetable_order_items;
+          delete mapped.vegetable_order_items;
+        }
+        return mapped;
+      }),
+    ];
+
+    allData.sort(
+      (a, b) =>
+        new Date(b.order_date).getTime() - new Date(a.order_date).getTime() ||
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+
+    return allData;
+  }
+
+  static async getMyOrderProducts(userId: string) {
+    const { policy } = await this.getCustomerByUserIdOrThrow(userId);
+    const products = await ProductService.getAll();
+    return (products || []).filter((product: any) => {
+      if (policy.orderCategory === 'vegetable') return product.category === 'vegetable';
+      return product.category !== 'vegetable';
+    });
+  }
+
+  static async createMyOrder(userId: string, payload: Record<string, unknown>) {
+    const { customer, policy } = await this.getCustomerByUserIdOrThrow(userId);
+    const sanitizedPayload = this.sanitizeCustomerOrderPayload(payload);
+    this.assertCustomerOrderItems(sanitizedPayload);
+    const requestedCategory = typeof sanitizedPayload.order_category === 'string' ? sanitizedPayload.order_category : undefined;
+
+    if (requestedCategory && requestedCategory !== policy.orderCategory) {
+      throw new Error('Bạn không thể tạo loại đơn hàng này');
+    }
+
+    const normalizedPayload = applyCustomerBinding(sanitizedPayload, customer, policy);
+    const createdOrder = await ImportOrderService.create(normalizedPayload, userId);
+    return { ...createdOrder, order_category: policy.orderCategory };
+  }
+
+  static async updateMyOrder(userId: string, orderId: string, payload: Record<string, unknown>) {
+    const { customer, policy } = await this.getCustomerByUserIdOrThrow(userId);
+
+    const ownedOrder = await this.findOwnedOrderById(orderId, customer.id);
+    if (!ownedOrder) {
+      throw new Error('Không tìm thấy đơn hàng của bạn');
+    }
+
+    if (!isCustomerOrderEditable(ownedOrder)) {
+      throw new Error('Chỉ được sửa đơn trước khi admin xác nhận');
+    }
+
+    const sanitizedPayload = this.sanitizeCustomerOrderPayload(payload);
+    this.assertCustomerOrderItems(sanitizedPayload);
+
+    const requestedCategory = typeof sanitizedPayload.order_category === 'string' ? sanitizedPayload.order_category : undefined;
+    if (requestedCategory && requestedCategory !== ownedOrder.order_category) {
+      throw new Error('Không thể thay đổi loại đơn hàng');
+    }
+
+    const normalizedPayload = applyCustomerBinding(
+      { ...sanitizedPayload, order_category: ownedOrder.order_category },
+      customer,
+      policy,
+    );
+
+    return ImportOrderService.update(orderId, normalizedPayload);
+  }
+
   static async getExportOrders(id: string) {
     const { data, error } = await supabaseService
       .from('export_orders')
@@ -219,15 +406,33 @@ export class CustomerService {
     return { success: true, data };
   }
 
-  static async createCustomerAccount(email: string, fullName: string, customerId: string) {
+  static async createCustomerAccount(
+    customerId: string,
+    payload: { email?: string; phone?: string; password?: string; fullName?: string },
+  ) {
+    const { data: customer, error: customerError } = await supabaseService
+      .from('customers')
+      .select('id, name, phone, user_id, deleted_at')
+      .eq('id', customerId)
+      .is('deleted_at', null)
+      .single();
+
+    if (customerError) throw customerError;
+    if (!customer) throw new Error('Không tìm thấy khách hàng');
+    if (customer.user_id) throw new Error('Khách hàng này đã có tài khoản');
+
+    const phone = (payload.phone || customer.phone || '').trim();
+    if (!phone) throw new Error('Vui lòng nhập số điện thoại đăng nhập');
+
     const id = randomUUID();
-    const emailLower = email.trim().toLowerCase();
-    const password_hash = await hashPassword('ResetPassword123');
+    const emailLower = payload.email?.trim().toLowerCase() || null;
+    const password_hash = await hashPassword(payload.password || 'ResetPassword123');
 
     const { error: profileError } = await supabaseService.from('profiles').insert({
       id,
-      full_name: fullName,
+      full_name: payload.fullName?.trim() || customer.name,
       role: 'customer',
+      phone,
       email: emailLower,
       personal_email: emailLower,
       password_hash,
@@ -238,6 +443,21 @@ export class CustomerService {
     const { error: linkError } = await supabaseService.from('customers').update({ user_id: id }).eq('id', customerId);
 
     if (linkError) throw linkError;
+
+    const { data: customerRole } = await supabaseService
+      .from('app_roles')
+      .select('id')
+      .eq('role_key', 'customer')
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (customerRole?.id) {
+      const { error: roleError } = await supabaseService
+        .from('app_user_roles')
+        .insert({ user_id: id, role_id: customerRole.id });
+      if (roleError) throw roleError;
+    }
 
     return { id };
   }

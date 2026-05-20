@@ -42,8 +42,10 @@ const debtPaymentSchema = z.object({
 });
 
 const createAccountSchema = z.object({
-  email: z.string().email(),
-  full_name: z.string().min(1),
+  email: z.string().email().optional().nullable(),
+  phone: z.string().min(1).optional(),
+  password: z.string().min(6).optional(),
+  full_name: z.string().min(1).optional(),
   customer_id: z.string().uuid(),
 });
 
@@ -55,6 +57,40 @@ const mergeCustomerSchema = z.object({
 const undoMergeSchema = z.object({
   mergeId: z.string().uuid(),
 });
+
+const customerSelfOrderItemSchema = z.object({
+  product_id: z.string().uuid().optional().nullable(),
+  package_type: z.string().optional().nullable(),
+  item_note: z.string().optional().nullable(),
+  weight_kg: z.number().optional().nullable(),
+  quantity: z.number().int().positive(),
+  unit_price: z.number().optional().nullable(),
+  image_url: z.string().optional().nullable(),
+  image_urls: z.array(z.string()).optional().nullable(),
+  payment_status: z.enum(['paid', 'unpaid']).optional(),
+});
+
+const createMyOrderSchema = z.object({
+  order_date: z.string().optional(),
+  order_time: z.string().optional(),
+  sender_name: z.string().optional(),
+  sender_id: z.string().uuid().optional().nullable(),
+  receiver_name: z.string().optional(),
+  receiver_phone: z.string().optional(),
+  receiver_address: z.string().optional(),
+  warehouse_id: z.string().uuid().optional().nullable(),
+  customer_id: z.string().uuid().optional().nullable(),
+  order_category: z.enum(['standard', 'vegetable']).optional(),
+  total_amount: z.number().optional().nullable(),
+  is_custom_amount: z.boolean().optional(),
+  notes: z.string().optional().nullable(),
+  receipt_image_url: z.string().optional().nullable(),
+  receipt_image_urls: z.array(z.string()).optional().nullable(),
+  items: z.array(customerSelfOrderItemSchema).optional(),
+  selected_alias: z.string().optional().nullable(),
+});
+
+const updateMyOrderSchema = createMyOrderSchema.partial();
 
 export class CustomerController {
   static async getAll(req: Request, res: Response) {
@@ -113,6 +149,48 @@ export class CustomerController {
     try {
       const data = await CustomerService.getByUserId(req.params.userId as string);
       return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async getMyOrders(req: Request, res: Response) {
+    try {
+      const data = await CustomerService.getMyOrders(req.user!.id);
+      return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async getMyOrderProducts(req: Request, res: Response) {
+    try {
+      const data = await CustomerService.getMyOrderProducts(req.user!.id);
+      return res.status(200).json(successResponse(data));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async createMyOrder(req: Request, res: Response) {
+    try {
+      const validated = createMyOrderSchema.parse(req.body);
+      const data = await CustomerService.createMyOrder(req.user!.id, validated as Record<string, unknown>);
+      return res.status(201).json(successResponse(data, 'Đã tạo đơn hàng của bạn'));
+    } catch (err: any) {
+      return res.status(400).json(errorResponse(err.message));
+    }
+  }
+
+  static async updateMyOrder(req: Request, res: Response) {
+    try {
+      const validated = updateMyOrderSchema.parse(req.body);
+      const data = await CustomerService.updateMyOrder(
+        req.user!.id,
+        req.params.orderId as string,
+        validated as Record<string, unknown>,
+      );
+      return res.status(200).json(successResponse(data, 'Đã cập nhật đơn hàng của bạn'));
     } catch (err: any) {
       return res.status(400).json(errorResponse(err.message));
     }
@@ -198,9 +276,13 @@ export class CustomerController {
     try {
       const validated = createAccountSchema.parse(req.body);
       const data = await CustomerService.createCustomerAccount(
-        validated.email,
-        validated.full_name,
-        validated.customer_id
+        validated.customer_id,
+        {
+          email: validated.email || undefined,
+          phone: validated.phone,
+          password: validated.password,
+          fullName: validated.full_name,
+        }
       );
       return res.status(201).json(successResponse(data, 'Account created'));
     } catch (err: any) {

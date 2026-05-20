@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X, ChevronLeft, ChevronRight, Edit, Trash2, Filter, Store, Truck, UserCircle, Image as ImageIcon, Eye, Calendar, Printer } from 'lucide-react';
+import { Plus, X, ChevronLeft, ChevronRight, Edit, Trash2, Filter, Store, Truck, UserCircle, Image as ImageIcon, Eye, Calendar, Printer, CheckCircle2 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useImportOrders, useDeleteImportOrder } from '../../hooks/queries/useImportOrders';
+import toast from 'react-hot-toast';
+import { useImportOrders, useDeleteImportOrder, useConfirmImportOrderByAdmin } from '../../hooks/queries/useImportOrders';
 import type { ImportOrder, ImportOrderFilters, OrderStatus } from '../../types';
 import StatusBadge from '../../components/shared/StatusBadge';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
@@ -12,6 +13,7 @@ import PageHeader from '../../components/shared/PageHeader';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { DatePicker } from '../../components/shared/DatePicker';
 import { MultiSearchableSelect } from '../../components/ui/MultiSearchableSelect';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { ColumnSettings, type ColumnOption } from '../../components/shared/ColumnSettings';
 import AddEditVegetableImportOrderDialog from './dialogs/AddEditVegetableImportOrderDialog';
@@ -20,8 +22,9 @@ import DraggableFAB from '../../components/shared/DraggableFAB';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useVehicles } from '../../hooks/queries/useVehicles';
+import { useAssignVehicle } from '../../hooks/queries/useDelivery';
 import { hasFullGoodsModuleAccess, importOrderVisibleToUser } from '../../utils/goodsModuleScope';
-import type { DeliveryOrder, DeliveryVehicle } from '../../types';
+import type { DeliveryOrder, DeliveryVehicle, Vehicle } from '../../types';
 
 import { removeAccents } from '../../lib/str-utils';
 import { cloudinarySmall } from '../../lib/cloudinaryUrl';
@@ -102,6 +105,25 @@ const isDriverRole = (role?: string | null) => {
   return normalized === 'driver' || normalized.includes('tai_xe') || normalized.includes('driver');
 };
 
+const isCustomerSubmittedOrder = (order: ImportOrder) => order.profiles?.role === 'customer';
+
+const isUnconfirmedCustomerOrder = (order: ImportOrder) =>
+  isCustomerSubmittedOrder(order) && !order.admin_confirmed_at;
+
+const vehicleSupportsVegetable = (vehicle: Vehicle) =>
+  !vehicle.goods_categories || vehicle.goods_categories.length === 0 || vehicle.goods_categories.includes('vegetable');
+
+const isLargeVehicle = (vehicle: Vehicle) => {
+  const normalizedType = normalizeRoleText(vehicle.vehicle_type).replace(/\s+/g, '_');
+  return (
+    Number(vehicle.load_capacity_ton || 0) >= 1 ||
+    normalizedType.includes('xe_lon') ||
+    normalizedType.includes('tai_lon') ||
+    normalizedType.includes('truck') ||
+    normalizedType.includes('tai')
+  );
+};
+
 const defaultColumns: ColumnOption[] = [
   { id: 'order_datetime', label: 'Ngày giờ', isVisible: true },
   { id: 'driver_received', label: 'Tài xế nhận', isVisible: true },
@@ -172,6 +194,37 @@ const VegetableImportsPage: React.FC = () => {
     );
   }, [rankSourceOrders, user, vehicles]);
   const deleteMutation = useDeleteImportOrder();
+  const confirmMutation = useConfirmImportOrderByAdmin();
+  const assignVehicleMutation = useAssignVehicle();
+  const [confirmingOrder, setConfirmingOrder] = useState<ImportOrder | null>(null);
+  const [selectedConfirmVehicleId, setSelectedConfirmVehicleId] = useState('');
+
+  const vegetableDeliveryVehicles = useMemo(() => {
+    const supportedVehicles = (vehicles || []).filter((vehicle) => vehicleSupportsVegetable(vehicle) && vehicle.driver_id);
+    const largeVehicles = supportedVehicles.filter(isLargeVehicle);
+    return largeVehicles.length > 0 ? largeVehicles : supportedVehicles;
+  }, [vehicles]);
+  const vegetableDeliveryVehicleOptions = useMemo(
+    () =>
+      vegetableDeliveryVehicles.map((vehicle) => {
+        const label = [
+          vehicle.license_plate,
+          vehicle.profiles?.full_name ? `- ${vehicle.profiles.full_name}` : '',
+          vehicle.vehicle_type ? `(${vehicle.vehicle_type})` : '',
+        ].filter(Boolean).join(' ');
+
+        return {
+          value: vehicle.id,
+          label,
+          searchText: [
+            vehicle.license_plate,
+            vehicle.profiles?.full_name,
+            vehicle.vehicle_type,
+          ].filter(Boolean).join(' '),
+        };
+      }),
+    [vegetableDeliveryVehicles],
+  );
 
   const normalizedSearchText = useMemo(
     () => removeAccents(searchText || '').toLowerCase().trim(),
@@ -189,6 +242,7 @@ const VegetableImportsPage: React.FC = () => {
     const map = new Map<string, number>();
     const byDate = new Map<string, ImportOrder[]>();
     rankSourceOrders.forEach((order) => {
+      if (isUnconfirmedCustomerOrder(order)) return;
       const orderDate = order.order_date || '';
       const current = byDate.get(orderDate) || [];
       current.push(order);
@@ -232,7 +286,10 @@ const VegetableImportsPage: React.FC = () => {
   }, [rankSourceOrders]);
 
   const getTaiRank = useCallback(
-    (order: ImportOrderWithRelations) => order.tai_rank ?? dailyTaiRankMap.get(order.id) ?? 1,
+    (order: ImportOrderWithRelations) => {
+      if (isUnconfirmedCustomerOrder(order)) return null;
+      return order.tai_rank ?? dailyTaiRankMap.get(order.id) ?? 1;
+    },
     [dailyTaiRankMap]
   );
 
@@ -295,8 +352,8 @@ const VegetableImportsPage: React.FC = () => {
       const customerGroups: [string, ImportOrder[]][] = [];
       byCustomer.forEach((customerOrders, customerName) => {
         const sorted = [...customerOrders].sort((a, b) => {
-          const rankA = getTaiRank(a);
-          const rankB = getTaiRank(b);
+          const rankA = getTaiRank(a) ?? Number.MAX_SAFE_INTEGER;
+          const rankB = getTaiRank(b) ?? Number.MAX_SAFE_INTEGER;
           if (rankA !== rankB) return rankA - rankB;
           const timeA = new Date(a.created_at || 0).getTime();
           const timeB = new Date(b.created_at || 0).getTime();
@@ -347,6 +404,73 @@ const VegetableImportsPage: React.FC = () => {
     if (!deleteId) return;
     await deleteMutation.mutateAsync(deleteId);
     setDeleteId(null);
+  };
+
+  const handleConfirmOrder = async () => {
+    if (!confirmingOrder) return;
+    const selectedVehicle = vegetableDeliveryVehicles.find((vehicle) => vehicle.id === selectedConfirmVehicleId);
+    if (!selectedVehicle?.driver_id) {
+      toast.error('Vui lòng chọn xe lớn có tài xế');
+      return;
+    }
+
+    const deliveryRows = (confirmingOrder as ImportOrderWithRelations).delivery_orders || [];
+    if (deliveryRows.length === 0) {
+      toast.error('Đơn chưa có dòng giao hàng để gán xe');
+      return;
+    }
+
+    await Promise.all(
+      deliveryRows.map((row) =>
+        assignVehicleMutation.mutateAsync({
+          id: row.id,
+          payload: {
+            assignments: [
+              {
+                vehicle_id: selectedVehicle.id,
+                driver_id: selectedVehicle.driver_id,
+                loader_name: '',
+                quantity: row.total_quantity || 1,
+              },
+            ],
+            delivery_date: confirmingOrder.order_date,
+            append_only: false,
+          },
+        })
+      )
+    );
+
+    await confirmMutation.mutateAsync({ id: confirmingOrder.id, orderCategory: 'vegetable' });
+    setConfirmingOrder(null);
+    setSelectedConfirmVehicleId('');
+  };
+
+  const renderConfirmButton = (order: ImportOrder, size: number) => {
+    if (!isCustomerSubmittedOrder(order)) return null;
+
+    const confirmed = Boolean(order.admin_confirmed_at);
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!confirmed) {
+            setConfirmingOrder(order);
+            setSelectedConfirmVehicleId('');
+          }
+        }}
+        disabled={confirmed || confirmMutation.isPending || assignVehicleMutation.isPending}
+        className={clsx(
+          'rounded-lg transition-colors disabled:opacity-40',
+          size >= 14 ? 'p-1.5' : 'p-1',
+          confirmed
+            ? 'text-emerald-600 bg-emerald-500/10'
+            : 'text-emerald-500 hover:bg-emerald-500/10',
+        )}
+        title={confirmed ? 'Admin đã xác nhận' : 'Admin xác nhận đơn'}
+      >
+        <CheckCircle2 size={size} />
+      </button>
+    );
   };
 
   const clearFilters = () => {
@@ -571,9 +695,13 @@ const VegetableImportsPage: React.FC = () => {
                                   );
                                   case 'tai_rank': return (
                                     <td key={col.id} className="px-4 py-3 text-center">
-                                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/10 text-amber-700 text-[12px] font-black">
-                                        {getTaiRank(order)}
-                                      </span>
+                                      {getTaiRank(order) == null ? (
+                                        <span className="text-[12px] text-muted-foreground">-</span>
+                                      ) : (
+                                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/10 text-amber-700 text-[12px] font-black">
+                                          {getTaiRank(order)}
+                                        </span>
+                                      )}
                                     </td>
                                   );
                                   case 'nguoi_gui': return (
@@ -604,11 +732,18 @@ const VegetableImportsPage: React.FC = () => {
                                   );
                                   case 'status': return (
                                     <td key={col.id} className="px-4 py-3 text-center">
-                                      <StatusBadge status={order.status} label={statusLabels[order.status]} />
+                                      {order.admin_confirmed_at ? (
+                                        <span className="inline-flex px-2 py-1 rounded-md text-[11px] font-bold text-emerald-700 bg-emerald-500/10">
+                                          Đã xác nhận
+                                        </span>
+                                      ) : (
+                                        <StatusBadge status={order.status} label={statusLabels[order.status]} />
+                                      )}
                                     </td>
                                   );
                                   case 'actions': return (
                                     <td key={col.id} className="px-4 py-3 flex items-center justify-center gap-1">
+                                        {renderConfirmButton(order, 14)}
                                         <button
                                           onClick={(e) => { e.stopPropagation(); openEditDialog(order); }}
                                           className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors"
@@ -678,7 +813,11 @@ const VegetableImportsPage: React.FC = () => {
                               <div className="flex items-center justify-between mb-0.5 gap-2">
                                 <span className="text-[13px] font-bold text-foreground truncate">{getSupplierName(order)}</span>
                                   <div className="flex items-center gap-1.5 shrink-0">
-                                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/10 text-amber-700 text-[11px] font-black">{taiRank}</span>
+                                    {taiRank == null ? (
+                                      <span className="text-[11px] text-muted-foreground">Tài -</span>
+                                    ) : (
+                                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/10 text-amber-700 text-[11px] font-black">{taiRank}</span>
+                                    )}
                                     <StatusBadge status={order.status} label={statusLabels[order.status]} />
                                   </div>
                               </div>
@@ -739,6 +878,7 @@ const VegetableImportsPage: React.FC = () => {
                                       >
                                         <Edit size={13} />
                                       </button>
+                                      {renderConfirmButton(order, 13)}
                                       <button
                                         onClick={(e) => { e.stopPropagation(); setDeleteId(order.id); }}
                                         className="p-1 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
@@ -813,6 +953,42 @@ const VegetableImportsPage: React.FC = () => {
         isLoading={deleteMutation.isPending}
         onConfirm={handleDelete}
         onCancel={() => setDeleteId(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!confirmingOrder}
+        title="Xác nhận đơn hàng rau"
+        message={
+          <span className="block space-y-3">
+            <span className="block">
+              Chọn tài xế xe lớn để giao đơn {confirmingOrder?.order_code || ''}. Sau khi xác nhận, khách hàng sẽ không thể tự sửa đơn này.
+            </span>
+            <label className="block space-y-1.5">
+              <span className="block text-[12px] font-bold text-foreground">Xe lớn / tài xế</span>
+              <SearchableSelect
+                options={vegetableDeliveryVehicleOptions}
+                value={selectedConfirmVehicleId}
+                onValueChange={setSelectedConfirmVehicleId}
+                placeholder="Chọn xe để tạo tài"
+                searchPlaceholder="Tìm xe hoặc tài xế..."
+                emptyMessage="Không có xe phù hợp."
+              />
+            </label>
+            {vegetableDeliveryVehicles.length === 0 && (
+              <span className="block text-[12px] font-semibold text-red-500">
+                Chưa có xe rau có tài xế. Vui lòng cấu hình xe/tài xế trước.
+              </span>
+            )}
+          </span>
+        }
+        confirmLabel="Gán xe & xác nhận"
+        variant="primary"
+        isLoading={confirmMutation.isPending || assignVehicleMutation.isPending}
+        onConfirm={handleConfirmOrder}
+        onCancel={() => {
+          setConfirmingOrder(null);
+          setSelectedConfirmVehicleId('');
+        }}
       />
 
       {viewingImages.length > 0 && createPortal(

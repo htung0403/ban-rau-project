@@ -5,9 +5,10 @@ import { useLoyalCustomers, useDeleteCustomer } from '../../hooks/queries/useCus
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import EmptyState from '../../components/shared/EmptyState';
 import ErrorState from '../../components/shared/ErrorState';
-import { Plus, Pencil, Trash2, GitMerge } from 'lucide-react';
+import { Plus, Pencil, Trash2, GitMerge, UserPlus } from 'lucide-react';
 import AddEditCustomerDialog from './dialogs/AddEditCustomerDialog';
 import MergeCustomerDialog from './dialogs/MergeCustomerDialog';
+import CreateCustomerAccountDialog from './dialogs/CreateCustomerAccountDialog';
 import DraggableFAB from '../../components/shared/DraggableFAB';
 import ConfirmDialog from '../../components/shared/ConfirmDialog';
 import { SearchInput } from '../../components/ui/SearchInput';
@@ -42,6 +43,7 @@ const LoyalCustomersPage: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [customerForAccount, setCustomerForAccount] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -225,6 +227,7 @@ const LoyalCustomersPage: React.FC = () => {
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Số đơn</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Doanh thu</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-right">Công nợ</th>
+                    <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center">Tài khoản</th>
                     <th className="px-4 py-3 text-[11px] font-bold text-muted-foreground/80 uppercase tracking-tight text-center w-28">Thao tác</th>
                   </tr>
                 </thead>
@@ -269,8 +272,26 @@ const LoyalCustomersPage: React.FC = () => {
                       <td className="px-4 py-3 text-[13px] font-bold text-foreground text-right tabular-nums">{c.total_orders}</td>
                       <td className="px-4 py-3 text-[13px] font-bold text-emerald-600 text-right tabular-nums">{formatCurrency(c.total_revenue)}</td>
                       <td className="px-4 py-3 text-[13px] font-bold text-red-600 text-right tabular-nums">{formatCurrency(c.debt)}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-flex items-center justify-center px-2 py-1 rounded-md text-[11px] font-semibold border ${c.user_id ? 'bg-emerald-100/50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                          {c.user_id ? 'Đã có' : 'Chưa có'}
+                        </span>
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
+                          {!c.user_id && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCustomerForAccount(c);
+                              }}
+                              className="p-2 rounded-lg border border-border text-muted-foreground hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-colors"
+                              title="Tạo tài khoản"
+                            >
+                              <UserPlus size={14} />
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={(e) => {
@@ -347,6 +368,25 @@ const LoyalCustomersPage: React.FC = () => {
                     </div>
                   </div>
 
+                  <div className="flex items-center justify-between pt-1">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[12px] font-semibold ${c.user_id ? 'bg-emerald-100/50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                      {c.user_id ? 'Đã có tài khoản' : 'Chưa có tài khoản'}
+                    </span>
+                    {!c.user_id && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCustomerForAccount(c);
+                        }}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[12px] font-semibold text-muted-foreground hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-colors"
+                      >
+                        <UserPlus size={13} />
+                        Tạo TK
+                      </button>
+                    )}
+                  </div>
+
                   <div className="flex items-center justify-end gap-2 pt-1">
                     <button
                       type="button"
@@ -414,6 +454,11 @@ const LoyalCustomersPage: React.FC = () => {
           sourceCustomer={sourceCustomerForMerge}
         />
       )}
+
+      <CreateCustomerAccountDialog
+        customer={customerForAccount}
+        onClose={() => setCustomerForAccount(null)}
+      />
     </div>
   );
 };

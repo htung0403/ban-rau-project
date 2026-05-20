@@ -267,7 +267,7 @@ export class DeliveryService {
     let query = supabaseService
       .from('delivery_orders')
       .select(
-        '*, import_orders(order_code, sender_name, sender_id, receiver_name, receiver_phone, customer_id, selected_alias, license_plate, driver_name, received_by, customers:customers!import_orders_customer_id_fkey(name, phone), sender_customers:customers!import_orders_sender_id_fkey(name, phone), total_amount, payment_status, profiles:profiles!received_by(full_name), receipt_image_url, receipt_image_urls, import_order_items(id, image_url, image_urls, products(name)), deleted_at), vegetable_orders(order_code, sender_name, sender_id, receiver_name, receiver_phone, customer_id, selected_alias, license_plate, driver_name, received_by, customers:customers!vegetable_orders_customer_id_fkey(name, phone), sender_customers:customers!vegetable_orders_sender_id_fkey(name, phone), total_amount, payment_status, profiles:profiles!received_by(full_name), receipt_image_url, receipt_image_urls, vegetable_order_items(id, image_url, image_urls, products(name)), deleted_at), delivery_vehicles(*, vehicles(license_plate, in_charge_id)), payment_collections(id, status, vehicle_id, image_url)'
+        '*, import_orders(order_code, sender_name, sender_id, receiver_name, receiver_phone, customer_id, selected_alias, license_plate, driver_name, received_by, admin_confirmed_at, customers:customers!import_orders_customer_id_fkey(name, phone), sender_customers:customers!import_orders_sender_id_fkey(name, phone), total_amount, payment_status, profiles:profiles!received_by(full_name, role), receipt_image_url, receipt_image_urls, import_order_items(id, image_url, image_urls, products(name)), deleted_at), vegetable_orders(order_code, sender_name, sender_id, receiver_name, receiver_phone, customer_id, selected_alias, license_plate, driver_name, received_by, customers:customers!vegetable_orders_customer_id_fkey(name, phone), sender_customers:customers!vegetable_orders_sender_id_fkey(name, phone), total_amount, payment_status, profiles:profiles!received_by(full_name), receipt_image_url, receipt_image_urls, vegetable_order_items(id, image_url, image_urls, products(name)), deleted_at), delivery_vehicles(*, vehicles(license_plate, in_charge_id)), payment_collections(id, status, vehicle_id, image_url)'
       )
       .order('delivery_date', { ascending: false });
 
@@ -290,6 +290,12 @@ export class DeliveryService {
     const { data: rawData, error } = await query;
     if (error) throw error;
     let data = (rawData || []).filter((row: any) => !this.deliverySourceIsSoftDeleted(row));
+    data = data.filter((row: any) => {
+      if ((row.order_category || 'standard') !== 'standard') return true;
+      const sourceOrder = Array.isArray(row.import_orders) ? row.import_orders[0] : row.import_orders;
+      if (sourceOrder?.profiles?.role !== 'customer') return true;
+      return Boolean(sourceOrder.admin_confirmed_at);
+    });
 
     if (actor && !goodsScopeFullAccess(actor.role)) {
       const isStaff = goodsScopeIsStaffRole(actor.role);

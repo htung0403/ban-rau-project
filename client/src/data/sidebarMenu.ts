@@ -7,6 +7,7 @@ import {
   Car,
   Copyright,
   Receipt,
+  ClipboardList,
 } from 'lucide-react';
 import React from 'react';
 
@@ -18,6 +19,7 @@ export type SidebarItem = {
 
 export const sidebarMenu: SidebarItem[] = [
   { icon: Home, label: 'Trang chủ', path: '/' },
+  { icon: ClipboardList, label: 'Đơn của tôi', path: '/tai-khoan/don-hang' },
   { icon: Box, label: 'Hàng hóa', path: '/hang-hoa' },
   { icon: Contact, label: 'Khách hàng', path: '/khach-hang' },
   { icon: Receipt, label: 'Chi phí', path: '/chi-phi' },

@@ -1,5 +1,35 @@
 import axiosClient from './axiosClient';
-import type { Customer, DeliveryOrder } from '../types';
+import type { Customer, DeliveryOrder, ImportOrder, Product } from '../types';
+
+export interface CustomerSelfOrderPayload {
+  order_date?: string;
+  order_time?: string;
+  sender_name?: string;
+  sender_id?: string | null;
+  receiver_name?: string;
+  receiver_phone?: string;
+  receiver_address?: string;
+  warehouse_id?: string | null;
+  customer_id?: string | null;
+  order_category?: 'standard' | 'vegetable';
+  total_amount?: number | null;
+  is_custom_amount?: boolean;
+  notes?: string | null;
+  receipt_image_url?: string | null;
+  receipt_image_urls?: string[] | null;
+  selected_alias?: string | null;
+  items?: Array<{
+    product_id?: string | null;
+    package_type?: string | null;
+    item_note?: string | null;
+    weight_kg?: number | null;
+    quantity: number;
+    unit_price?: number | null;
+    image_url?: string | null;
+    image_urls?: string[] | null;
+    payment_status?: 'paid' | 'unpaid';
+  }>;
+}
 
 export const customersApi = {
   getAll: async (type?: string) => {
@@ -36,6 +66,26 @@ export const customersApi = {
     const { data } = await axiosClient.get(`/customers/${id}/orders`);
     return data;
   },
+  
+  getMyOrders: async () => {
+    const { data } = await axiosClient.get<ImportOrder[]>('/customers/me/orders');
+    return data;
+  },
+
+  getMyOrderProducts: async () => {
+    const { data } = await axiosClient.get<Product[]>('/customers/me/order-products');
+    return data;
+  },
+
+  createMyOrder: async (payload: CustomerSelfOrderPayload) => {
+    const { data } = await axiosClient.post<ImportOrder>('/customers/me/orders', payload);
+    return data;
+  },
+
+  updateMyOrder: async (orderId: string, payload: Partial<CustomerSelfOrderPayload>) => {
+    const { data } = await axiosClient.put<ImportOrder>(`/customers/me/orders/${orderId}`, payload);
+    return data;
+  },
 
   getExportOrders: async (id: string) => {
     const { data } = await axiosClient.get(`/customers/${id}/export-orders`);
@@ -57,7 +107,13 @@ export const customersApi = {
     return data;
   },
 
-  createAccount: async (payload: { customer_id: string; email: string; password: string }) => {
+  createAccount: async (payload: {
+    customer_id: string;
+    phone?: string;
+    email?: string | null;
+    password?: string;
+    full_name?: string;
+  }) => {
     const { data } = await axiosClient.post('/customers/create-account', payload);
     return data;
   },

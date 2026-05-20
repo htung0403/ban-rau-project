@@ -1,5 +1,7 @@
 export const PAGE_POLICIES = {
   PROFILE_VIEW: ['/ho-so'],
+  CUSTOMER_ORDERS_MANAGE: ['/tai-khoan/don-hang'],
+  CUSTOMER_ORDERS_SELF_CREATE: ['/tai-khoan/don-hang/tao-don'],
 
   PRODUCTS_IMPORT_ACCESS: ['/hang-hoa/nhap-hang', '/hang-hoa/nhap-hang-rau'],
   PRODUCTS_EXPORT_ACCESS: ['/hang-hoa/xuat-hang'],

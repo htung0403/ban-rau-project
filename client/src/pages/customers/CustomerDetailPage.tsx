@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import PageHeader from '../../components/shared/PageHeader';
-import { useCustomer, useCustomerOrders, useCustomerExportOrders, useCustomerReceipts, useCustomerDeliveryOrders, useUpdateDeliveryOrderPrices } from '../../hooks/queries/useCustomers';
+import { useCustomer, useCustomerOrders, useCustomerExportOrders, useCustomerReceipts, useCustomerDeliveryOrders, useUpdateDeliveryOrderPrices, useCreateCustomerAccount } from '../../hooks/queries/useCustomers';
 import LoadingSkeleton from '../../components/shared/LoadingSkeleton';
 import ErrorState from '../../components/shared/ErrorState';
 import EmptyState from '../../components/shared/EmptyState';
-import { Phone, MapPin, Building2, PackageCheck, FileSpreadsheet, Receipt, Clock, Wallet, Printer, ShoppingBag, Save, GitMerge } from 'lucide-react';
+import { Phone, MapPin, Building2, PackageCheck, FileSpreadsheet, Receipt, Clock, Wallet, Printer, ShoppingBag, Save, GitMerge, UserPlus, Loader2 } from 'lucide-react';
 import StatusBadge from '../../components/shared/StatusBadge';
 import CollectDebtDialog from './dialogs/CollectDebtDialog';
 import MergeCustomerDialog from './dialogs/MergeCustomerDialog';
@@ -48,6 +48,8 @@ const CustomerDetailPage: React.FC = () => {
   const [isCollectDebtClosing, setIsCollectDebtClosing] = useState(false);
   const [isMergeOpen, setIsMergeOpen] = useState(false);
   const [isMergeClosing, setIsMergeClosing] = useState(false);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [accountForm, setAccountForm] = useState({ phone: '', email: '', password: 'ResetPassword123' });
 
   const { data: customer, isLoading: isLoadingCustomer, isError: isErrorCustomer } = useCustomer(id!);
   const { data: importOrders, isLoading: isLoadingImports } = useCustomerOrders(id!);
@@ -57,6 +59,7 @@ const CustomerDetailPage: React.FC = () => {
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [editingPrices, setEditingPrices] = useState<Record<string, number>>({});
   const updatePrices = useUpdateDeliveryOrderPrices();
+  const createAccountMutation = useCreateCustomerAccount();
 
   const TABS = React.useMemo(() => {
     const baseTabs: { id: TabId; label: string; mobileLabel: string; icon: any }[] = [
@@ -86,6 +89,16 @@ const CustomerDetailPage: React.FC = () => {
     }
   }, [customer?.name, location.pathname, setDynamicLabel]);
 
+  React.useEffect(() => {
+    if (isAccountOpen && customer) {
+      setAccountForm({
+        phone: customer.phone || '',
+        email: '',
+        password: 'ResetPassword123',
+      });
+    }
+  }, [isAccountOpen, customer]);
+
   const closeCollectDebtDialog = () => {
     setIsCollectDebtClosing(true);
     setTimeout(() => {
@@ -106,6 +119,20 @@ const CustomerDetailPage: React.FC = () => {
     closeMergeDialog();
     // Refresh page after successful merge
     window.location.reload();
+  };
+
+  const handleCreateAccount = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!customer?.id) return;
+
+    await createAccountMutation.mutateAsync({
+      customer_id: customer.id,
+      phone: accountForm.phone.trim(),
+      email: accountForm.email.trim() || null,
+      password: accountForm.password,
+      full_name: customer.name,
+    });
+    setIsAccountOpen(false);
   };
 
   const handleSavePrices = async () => {
@@ -161,6 +188,15 @@ const CustomerDetailPage: React.FC = () => {
           backPath={backPath}
           actions={
             <div className="flex items-center gap-2">
+              {!customer.user_id && !customer.deleted_at && (
+                <button
+                  onClick={() => setIsAccountOpen(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-[13px] font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all font-inter"
+                >
+                  <UserPlus size={16} />
+                  Tạo tài khoản
+                </button>
+              )}
               {!customer.deleted_at && (
                 <button
                   onClick={() => setIsMergeOpen(true)}
@@ -715,6 +751,71 @@ const CustomerDetailPage: React.FC = () => {
         onClose={handleMergeSuccess}
         sourceCustomer={customer}
       />
+
+      {isAccountOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <form
+            onSubmit={handleCreateAccount}
+            className="w-full max-w-md bg-white rounded-2xl border border-border shadow-xl overflow-hidden"
+          >
+            <div className="px-5 py-4 border-b border-border bg-muted/20">
+              <h3 className="text-[15px] font-bold text-foreground">Tạo tài khoản khách hàng</h3>
+              <p className="text-[12px] text-muted-foreground mt-1">{customer.name}</p>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[12px] font-semibold text-muted-foreground">Số điện thoại đăng nhập</label>
+                <input
+                  value={accountForm.phone}
+                  onChange={(event) => setAccountForm((prev) => ({ ...prev, phone: event.target.value }))}
+                  required
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[12px] font-semibold text-muted-foreground">Email (tuỳ chọn)</label>
+                <input
+                  type="email"
+                  value={accountForm.email}
+                  onChange={(event) => setAccountForm((prev) => ({ ...prev, email: event.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[12px] font-semibold text-muted-foreground">Mật khẩu tạm</label>
+                <input
+                  type="text"
+                  value={accountForm.password}
+                  onChange={(event) => setAccountForm((prev) => ({ ...prev, password: event.target.value }))}
+                  minLength={6}
+                  required
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-border bg-muted/20 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAccountOpen(false)}
+                disabled={createAccountMutation.isPending}
+                className="px-4 py-2 rounded-xl border border-border text-[13px] font-semibold hover:bg-muted disabled:opacity-60"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={createAccountMutation.isPending}
+                className="px-4 py-2 rounded-xl bg-blue-600 text-white text-[13px] font-bold hover:bg-blue-700 disabled:opacity-60 inline-flex items-center gap-2"
+              >
+                {createAccountMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
+                Tạo tài khoản
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };
